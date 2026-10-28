@@ -52,7 +52,7 @@ REMORA::init_analytic(int lev)
 void
 REMORA::init_biology_ic (int lev)
 {
-    if (!REMORABiology::has_biology(biology_model)) {
+    if (nbio == 0) {
         return;
     }
 
@@ -62,11 +62,11 @@ REMORA::init_biology_ic (int lev)
          solverChoice.ic_type != IC_Type::netcdf);
 
     if (use_analytic) {
-        // The base-class hook in REMORA_prob_common.H is an amrex::Error, so a
-        // problem that enables biology without providing an analytic biology
-        // IC fails loudly rather than starting from uninitialized tracers.
-        prob->init_analytic_biology(lev, geom[lev], solverChoice, fennel_params,
-                                    *this, *cons_new[lev]);
+        // The common application hook delegates to the selected model's profile
+        // by default. A model without a matching profile must fail explicitly.
+        REMORABiology::BiologyInitContext context{
+            lev, geom[lev], solverChoice, *cons_new[lev], Bio_comp};
+        prob->init_analytic_biology(*m_biology, context);
     } else {
 #ifdef REMORA_USE_NETCDF
         init_biology_from_netcdf(lev);
@@ -89,7 +89,7 @@ REMORA::init_biology_ic (int lev)
 void
 REMORA::init_biology_ic_full_domain ()
 {
-    if (!REMORABiology::has_biology(biology_model)) {
+    if (nbio == 0) {
         return;
     }
 
@@ -99,9 +99,10 @@ REMORA::init_biology_ic_full_domain ()
          solverChoice.ic_type != IC_Type::netcdf);
 
     if (use_analytic) {
-        prob->init_analytic_biology(hires_init_level, geom[hires_init_level],
-                                    solverChoice, fennel_params, *this,
-                                    *vec_cons_full_domain[hires_init_level]);
+        REMORABiology::BiologyInitContext context{
+            hires_init_level, geom[hires_init_level], solverChoice,
+            *vec_cons_full_domain[hires_init_level], Bio_comp};
+        prob->init_analytic_biology(*m_biology, context);
     } else {
 #ifdef REMORA_USE_NETCDF
         init_biology_full_domain_from_netcdf();

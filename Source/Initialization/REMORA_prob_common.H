@@ -130,14 +130,12 @@ public:
           amrex::Error("Doing analytic masks, but not defined in prob.cpp");
     }
 
+    /** \brief Override to provide a custom profile without depending on a concrete model. */
     virtual void
     init_analytic_biology (
-        int /*lev*/, const amrex::Geometry& /*geom*/,
-        SolverChoice const& /*m_solverChoice*/,
-        REMORABiology::FennelParameters const& /*m_fennel_params*/,
-        REMORA const& /*remora*/,
-        amrex::MultiFab& /*mf_cons*/) {
-          amrex::Error("Doing analytic biology but not defined in prob.cpp");
+        REMORABiology::Biology const& biology,
+        REMORABiology::BiologyInitContext& context) {
+        biology.initialize_analytic(context);
     }
 };
 

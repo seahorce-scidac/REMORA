@@ -12,6 +12,36 @@ state and applies biological source and sink terms during the three-dimensional
 time step. The biology update is called after the GLS corrector when a biology
 model is enabled.
 
+Common Biology Interface
+========================
+
+REMORA owns one ``REMORABiology::Biology`` object. The factory in
+``Source/Biology/REMORA_Biology.cpp`` selects ``FennelBiology`` or the no-op
+implementation for ``none``/``off``. The solver uses the same interface for
+configuration, tracer declarations, analytic initialization, and advancement;
+Fennel parameters and kernels belong to ``REMORA_FennelBiology.H/.cpp``.
+
+The lifecycle is ``configure`` followed by ``declaration`` before scalar
+allocation, then ``initialize_analytic`` and ``advance`` when needed. The
+declaration fixes tracer order and output aliases for the run. Initialization
+receives geometry, solver options, the state, and the biology component offset.
+The advance context supplies immutable old concentrations, the existing mutable
+new state, geometry/forcing views, the step duration, and model time. The model
+adds its concentration change multiplied by layer thickness to the new state;
+it must preserve incoming increments from the physical solver. Virtual dispatch
+occurs on the host; device kernels capture ordinary views and parameters.
+
+Adding an ecosystem requires its concrete implementation, build entries, and
+one factory registration. Shared solver call sites do not select model names
+or downcast. The current implementation supports Fennel only. A second
+ecosystem and optional module composition are later stages of the extension
+plan, to be designed and validated against actual scientific implementations.
+This refactor does not add an oyster or harmful-algal-bloom model.
+
+The plot-variable group ``biology`` expands to the selected model's biological
+tracers, excluding passive dye. The existing ``fennel`` group remains available
+as a Fennel-declared alias.
+
 Turning Fennel On
 =================
 
@@ -317,13 +347,21 @@ an error. For analytic biology initialization, the problem must
 provide an analytic biology routine; problems that enable biology without one
 abort during initialization rather than starting from uninitialized tracers.
 
-``BioToy`` and ``Upwelling`` ship with such a routine, both using the profile from
+``BioToy`` and ``Upwelling`` use Fennel's default profile from
 ROMS ``ana_biology.h``: nitrate follows a cubic in a temperature-derived silicate
-proxy, and the remaining tracers start uniform. To add one for another problem, write
-a ``Source/Prob/REMORA_InitAnalyticBiology_<Problem>.H`` and give it a branch in
-``Problem::init_analytic_biology`` in ``Exec/REMORA_Prob.cpp``. Because that profile
-is a function of temperature alone, it carries over unchanged to any problem that
-stratifies temperature.
+proxy, and the remaining tracers start uniform. The profile is dispatched by
+``FennelBiology::initialize_analytic`` and retains the existing
+``Source/Prob/REMORA_InitAnalyticBiology_BioToy.H`` calculation.
+
+Applications can override ``ProblemBase::init_analytic_biology`` with arguments
+``const REMORABiology::Biology&`` and ``REMORABiology::BiologyInitContext&``.
+The default hook delegates to the selected model's profile. A custom hook can
+use ``biology.declaration().tracer_names`` and ``context.component_start`` to
+locate its fields without receiving Fennel parameters or the whole solver.
+Write only the biology components; physical fields and dyes are already
+initialized. Existing application overrides taking ``FennelParameters`` and
+``REMORA`` must migrate to this signature. An unsupported default profile
+fails explicitly; NetCDF initialization does not call the analytic hook.
 
 When initial data is specified on a high-resolution level and averaged down
 (``remora.hires_init_level``), biology is initialized on that level before the

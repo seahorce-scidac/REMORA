@@ -258,11 +258,8 @@ REMORA::init_scalar_metadata ()
         }
     }
 
-    if (REMORABiology::has_biology(biology_model)) {
-        const auto bio_names = REMORABiology::tracer_names(biology_model, fennel_params);
-        for (const auto& name : bio_names) {
-            cons_names.emplace_back(name);
-        }
+    for (const auto& name : m_biology->declaration().tracer_names) {
+        cons_names.emplace_back(name);
     }
 
     AMREX_ALWAYS_ASSERT(static_cast<int>(cons_names.size()) == ncons);
@@ -2226,51 +2223,19 @@ REMORA::ReadParameters ()
     ParmParse pp(pp_prefix);
 
     // Common physics and simulation parameters
-    std::string biology_model_string = REMORABiology::biology_model_name(biology_model);
+    std::string biology_model_string = m_biology->name();
     pp.queryAdd("biology_model", biology_model_string);
-    biology_model = REMORABiology::parse_biology_model(biology_model_string);
+    m_biology = REMORABiology::make_biology(biology_model_string);
+    m_biology->configure(pp_prefix);
+    nbio = static_cast<int>(m_biology->declaration().tracer_names.size());
 
-    if (REMORABiology::has_biology(biology_model)) {
-        fennel_params.init_params(pp_prefix);
-
+    if (nbio > 0) {
         // Source of the biology initial condition, independent of ic_type.
         // Default "follow" takes the biology IC from NetCDF when ic_type is
         // netcdf, else analytic.
         std::string biology_ic_string = REMORABiology::biology_ic_type_name(biology_ic_type);
         pp.queryAdd("biology_ic_type", biology_ic_string);
         biology_ic_type = REMORABiology::parse_biology_ic_type(biology_ic_string);
-
-        // Bridge-vs-native selection and diagnostic verbosity are runtime
-        // controls so a parity comparison never requires a rebuild. Both
-        // parse unconditionally; without USE_FENNEL_FORT there is no bridge
-        // to select, so asking for it is an error rather than a silent
-        // fallback to the path being validated.
-        pp.queryAdd("use_biology_cpp_answer", use_biology_cpp_answer);
-        pp.queryAdd("biology_debug", biology_debug);
-        pp.queryAdd("biology_debug_i", biology_debug_i);
-        pp.queryAdd("biology_debug_j", biology_debug_j);
-#ifndef REMORA_USE_FENNEL_FORT
-        if (use_biology_cpp_answer == 0) {
-            amrex::Abort("remora.use_biology_cpp_answer = 0 selects the ROMS "
-                         "Fennel Fortran bridge, which is not compiled in. "
-                         "Rebuild with USE_FENNEL_FORT=TRUE (GNUmake) or "
-                         "-DREMORA_ENABLE_FENNEL_FORT=ON (CMake).");
-        }
-#endif
-#ifndef REMORA_USE_BIOLOGY_DIAG
-        if (biology_debug > 0) {
-            amrex::Abort("remora.biology_debug > 0 requests the Fennel parity "
-                         "diagnostics, which are not compiled in. Rebuild with "
-                         "USE_BIOLOGY_DIAG=TRUE (GNUmake) or "
-                         "-DREMORA_ENABLE_BIOLOGY_DIAG=ON (CMake).");
-        }
-#endif
-
-        // Biology tracers are counted separately from the passive scalars, so a run can
-        // carry dye and biology at once.
-        nbio = static_cast<int>(REMORABiology::tracer_names(biology_model, fennel_params).size());
-    } else {
-        nbio = 0;
     }
     // Dye is opt-in, biology or not: a component nothing asked for is one more thing to
     // advect, diffuse, and explain in every plotfile and boundary file.
@@ -2622,7 +2587,7 @@ REMORA::ReadParameters ()
     // mixed combinations works: NetCDF physics with analytic biology. The reverse has no
     // file to read from -- nc_init_file is only populated on the netcdf path -- so catch
     // it here instead of failing inside PnetCDF on an empty file name.
-    if (REMORABiology::has_biology(biology_model) and
+    if (nbio > 0 and
         biology_ic_type == REMORABiology::BiologyICType::netcdf and
         solverChoice.ic_type != IC_Type::netcdf) {
         amrex::Abort("remora.biology_ic_type = netcdf requires remora.ic_type = netcdf: the biology "
@@ -3425,4 +3390,20 @@ REMORA::average_down_with_grow_cells (int crse_lev, Vector<std::unique_ptr<Multi
 amrex::Real REMORA::get_t_old(int lev) const
 {
     return t_old[lev];
+}
+
+void
+REMORA::advance_biology (int lev, amrex::MultiFab const& old_state,
+                        amrex::MultiFab& new_state, int N, amrex::Real dt_lev)
+{
+    if (nbio == 0) {
+        return;
+    }
+    const REMORABiology::BiologyAdvanceContext context{
+        old_state, new_state, solverChoice, Bio_comp, N, dt_lev,
+        model_time(t_old[lev]), vec_Hz[lev].get(), vec_z_r[lev].get(),
+        vec_z_w[lev].get(), vec_mskr[lev].get(), vec_srflx[lev].get(),
+        vec_sustr[lev].get(), vec_svstr[lev].get(),
+        vec_uwind[lev].get(), vec_vwind[lev].get()};
+    m_biology->advance(context);
 }

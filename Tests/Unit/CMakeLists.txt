@@ -26,3 +26,19 @@ set_tests_properties(DateClock PROPERTIES
   TIMEOUT 60
   LABELS "unit"
 )
+
+# Build the native biology interface independently of the optional Fortran
+# oracle. Linking all remora_srclib objects would also bring in main.cpp.
+add_executable(remora_biology_tests
+  REMORA_Biology_test.cpp
+  ${PROJECT_SOURCE_DIR}/Source/Biology/REMORA_Biology.cpp
+  ${PROJECT_SOURCE_DIR}/Source/Biology/REMORA_FennelBiology.cpp
+)
+get_target_property(remora_biology_include_dirs remora_srclib INCLUDE_DIRECTORIES)
+target_include_directories(remora_biology_tests PRIVATE ${remora_biology_include_dirs})
+target_link_libraries(remora_biology_tests PRIVATE ${REMORA_AMREX_TARGET})
+if (REMORA_ENABLE_CUDA)
+  setup_target_for_cuda_compilation(remora_biology_tests)
+endif ()
+add_test(NAME BiologyInterface COMMAND remora_biology_tests)
+set_tests_properties(BiologyInterface PROPERTIES TIMEOUT 60 LABELS "unit")

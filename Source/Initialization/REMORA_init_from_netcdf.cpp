@@ -260,7 +260,7 @@ REMORA::init_scalars_from_netcdf (int lev)
 void
 REMORA::init_biology_from_netcdf (int lev)
 {
-    if (!REMORABiology::has_biology(biology_model)) {
+    if (nbio == 0) {
         return;
     }
 
@@ -398,7 +398,7 @@ REMORA::init_scalars_full_domain_from_netcdf ()
 void
 REMORA::init_biology_full_domain_from_netcdf ()
 {
-    if (!REMORABiology::has_biology(biology_model)) {
+    if (nbio == 0) {
         return;
     }
 

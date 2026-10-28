@@ -16,8 +16,8 @@
 
 #include <AMReX_MultiFab.H>
 
-#include <REMORA.H>
-#include <REMORA_Biology.H>
+#include <REMORA_FennelBiology.H>
+#include <REMORA_DataStruct.H>
 #include <REMORA_Constants.H>
 
 #include "REMORA_Fennel_Fortran_Interface.H"
@@ -38,29 +38,33 @@ int fidx (int i, int j, int k, int n,
 } // namespace
 
 void
-REMORA::advance_biology_fortran (int lev, MultiFab const& mf_cons_old,
-                                 MultiFab& mf_cons_new,
-                                 int N, Real dt_lev)
+REMORABiology::FennelBiology::advance_fortran (const BiologyAdvanceContext& context) const
 {
 #ifdef AMREX_USE_GPU
-    amrex::ignore_unused(lev, mf_cons_old, mf_cons_new, N, dt_lev);
+    amrex::ignore_unused(context);
     amrex::Abort("Fennel Fortran bridge is host-only. Serial-first acceptance "
                  "is the default validation scope; GPU parity is a separate "
                  "lane and is not opened by this campaign.");
 #else
 
-    const auto parms = fennel_params;
+    auto const& mf_cons_old = context.old_state;
+    auto& mf_cons_new = context.new_state;
+    auto const& solverChoice = context.solver_choice;
+    const int N = context.top_layer;
+    const int Bio_comp = context.component_start;
+    const Real dt_lev = context.dt;
+    const auto parms = m_parameters;
 
     const bool need_gas = parms.oxygen || parms.carbon;
     const bool do_bulk_flux = solverChoice.bulk_fluxes;
 
-    if (vec_Hz[lev] == nullptr || vec_z_w[lev] == nullptr ||
-        vec_z_r[lev] == nullptr || vec_mskr[lev] == nullptr ||
-        vec_srflx[lev] == nullptr ||
+    if (context.hz == nullptr || context.z_w == nullptr ||
+        context.z_r == nullptr || context.mask == nullptr ||
+        context.shortwave == nullptr ||
         (need_gas && do_bulk_flux &&
-         (vec_uwind[lev] == nullptr || vec_vwind[lev] == nullptr)) ||
+         (context.wind_u == nullptr || context.wind_v == nullptr)) ||
         (need_gas && !do_bulk_flux &&
-         (vec_sustr[lev] == nullptr || vec_svstr[lev] == nullptr))) {
+         (context.stress_u == nullptr || context.stress_v == nullptr))) {
         amrex::Abort("Fennel Fortran bridge requires Hz, z_r, z_w, rmask, "
                      "srflx, and, when carbon or oxygen is active, either "
                      "uwind/vwind (bulk_fluxes) or sustr/svstr");
@@ -71,7 +75,7 @@ REMORA::advance_biology_fortran (int lev, MultiFab const& mf_cons_old,
     // REMORA may carry passive (dye) scalars between salinity and the biology block, so
     // the buffer slot maps to a REMORA component through cons_comp_for_slot below rather
     // than being the component itself. The Fennel ordering in
-    // REMORA_Biology.H::components() matches fennel_mod.h:527-561 exactly, so one rule
+    // REMORA_FennelBiology.H::Fennel::components() matches fennel_mod.h:527-561 exactly, so one rule
     // covers every biology tracer.
     const int nbt  = REMORABiology::Fennel::num_tracers(parms);
     const int ntrc = nbt + 2;
@@ -108,11 +112,11 @@ REMORA::advance_biology_fortran (int lev, MultiFab const& mf_cons_old,
         Array4<Real const> const& state_old = mf_cons_old.const_array(mfi);
         Array4<Real const> const& state_new = mf_cons_new.const_array(mfi);
         Array4<Real>       const& state_out = mf_cons_new.array(mfi);
-        Array4<Real const> const& Hz_a    = vec_Hz[lev]->const_array(mfi);
-        Array4<Real const> const& z_r_a   = vec_z_r[lev]->const_array(mfi);
-        Array4<Real const> const& z_w_a   = vec_z_w[lev]->const_array(mfi);
-        Array4<Real const> const& srflx_a = vec_srflx[lev]->const_array(mfi);
-        Array4<Real const> const& mskr_a  = vec_mskr[lev]->const_array(mfi);
+        Array4<Real const> const& Hz_a    = context.hz->const_array(mfi);
+        Array4<Real const> const& z_r_a   = context.z_r->const_array(mfi);
+        Array4<Real const> const& z_w_a   = context.z_w->const_array(mfi);
+        Array4<Real const> const& srflx_a = context.shortwave->const_array(mfi);
+        Array4<Real const> const& mskr_a  = context.mask->const_array(mfi);
 
         Array4<Real const> sustr_a;
         Array4<Real const> svstr_a;
@@ -120,11 +124,11 @@ REMORA::advance_biology_fortran (int lev, MultiFab const& mf_cons_old,
         Array4<Real const> vwind_a;
         if (need_gas) {
             if (do_bulk_flux) {
-                uwind_a = vec_uwind[lev]->const_array(mfi);
-                vwind_a = vec_vwind[lev]->const_array(mfi);
+                uwind_a = context.wind_u->const_array(mfi);
+                vwind_a = context.wind_v->const_array(mfi);
             } else {
-                sustr_a = vec_sustr[lev]->const_array(mfi);
-                svstr_a = vec_svstr[lev]->const_array(mfi);
+                sustr_a = context.stress_u->const_array(mfi);
+                svstr_a = context.stress_v->const_array(mfi);
             }
         }
 
@@ -246,7 +250,7 @@ REMORA::advance_biology_fortran (int lev, MultiFab const& mf_cons_old,
             b_srflx.data(), b_sustr.data(), b_svstr.data(),
             b_uwind.data(), b_vwind.data(), b_pH.data(),
             b_told.data(), b_tnew.data(),
-            biology_debug, biology_debug_i, biology_debug_j);
+            m_debug, m_debug_i, m_debug_j);
 
         // ---- unpack -----------------------------------------------------
         // biology_tile updates only the biology tracers, so only those are
