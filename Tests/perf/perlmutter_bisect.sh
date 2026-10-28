@@ -53,7 +53,20 @@ else
     MGX=128; MGY=128
 fi
 
+# Put the AMReX submodule at the commit the tree pins. git bisect moves HEAD without touching
+# submodules, and a pinned commit is not always reachable from a branch, so fetch it by SHA.
+init_amrex () {   # init_amrex <src dir>
+    local sha
+    sha=$(git -C "$1" ls-tree HEAD Submodules/AMReX | awk '{print $3}') || return 1
+    [ -n "$sha" ] || return 1
+    if [ "$(git -C "$1/Submodules/AMReX" rev-parse HEAD 2>/dev/null)" = "$sha" ]; then return 0; fi
+    git -C "$1" submodule update --init Submodules/AMReX > /dev/null 2>&1 && return 0
+    git -C "$1" submodule init Submodules/AMReX > /dev/null 2>&1
+    git -C "$1/Submodules/AMReX" fetch -q origin "$sha" && git -C "$1/Submodules/AMReX" checkout -q "$sha"
+}
+
 build () {   # build <src dir> <out binary>
+    init_amrex "$1" || { echo "bisect: could not check out the AMReX submodule in $1"; return 1; }
     (cd "$1/Exec" && make -j "$JOBS" COMP=gnu USE_MPI=TRUE USE_PNETCDF=TRUE TINY_PROFILE=TRUE \
         USE_PARTICLES=FALSE $MAKEFLAGS_ARCH > "$2.build.log" 2>&1) \
         || { echo "bisect: build failed, last lines of $2.build.log:"; tail -15 "$2.build.log"; return 1; }
@@ -146,8 +159,6 @@ if [ ! -d "$REF/run" ] || ! ls -d "$REF"/run/plt[0-9]* > /dev/null 2>&1; then
     echo "bisect: building and running the baseline $BASE"
     [ -d "$REF/src/.git" ] || [ -f "$REF/src/.git" ] \
         || git worktree add --detach "$REF/src" "$BASE" || exit 125
-    # Idempotent, and needed if an earlier attempt stopped between the two commands
-    git -C "$REF/src" submodule update --init Submodules/AMReX || exit 125
     build "$REF/src" "$REF/remora_exec" || { echo "bisect: baseline build failed"; exit 125; }
     (cd "$REF/src/Submodules/AMReX/Tools/Plotfile" && make -j "$JOBS" programs=fcompare > /dev/null 2>&1) || exit 125
     cp "$REF"/src/Submodules/AMReX/Tools/Plotfile/fcompare*.ex "$WORK/fcompare"
