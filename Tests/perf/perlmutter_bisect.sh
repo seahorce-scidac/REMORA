@@ -34,8 +34,6 @@ done
 mkdir -p "$WORK"
 REPO=$(git rev-parse --show-toplevel) || exit 125
 SHA=$(git rev-parse --short HEAD)
-PERF=$REPO/Tests/perf
-[ -f "$PERF/inputs/upwelling_perf.in" ] || PERF=$(dirname "$(readlink -f "$0")")   # old commit: use the copy's dir
 
 if [ -f "$REPO/Build/saul-env.sh" ] && command -v module > /dev/null; then
     source "$REPO/Build/saul-env.sh"
@@ -65,9 +63,44 @@ build () {   # build <src dir> <out binary>
 read -r NX NY NZ <<< "$SIZE"
 INP=$WORK/upwelling_$ARCH.in
 if [ ! -f "$INP" ]; then
+    # Self-contained copy of Tests/perf/inputs/upwelling_perf.in: the commits bisect checks
+    # out may predate that file.
     DT=$(python3 -c "import math; dx=41000.0/$NX; print(round(min(50.0, 30*0.35*dx/math.sqrt(9.81*150)), 2))")
-    sed -e "s/@NSTEP@/$NSTEP/g" -e "s/@NX@/$NX/g" -e "s/@NY@/$NY/g" -e "s/@NZ@/$NZ/g" \
-        -e "s/@MGX@/$MGX/g" -e "s/@MGY@/$MGY/g" -e "s/@DT@/$DT/g" "$PERF/inputs/upwelling_perf.in" > "$INP"
+    cat > "$INP" <<EOF
+remora.prob_name = Upwelling
+remora.max_step  = $NSTEP
+remora.prob_lo   =     0.     0.   -150.
+remora.prob_hi   = 41000. 80000.      0.
+remora.n_cell    = $NX $NY $NZ
+amr.max_grid_size_x = $MGX
+amr.max_grid_size_y = $MGY
+amr.max_grid_size_z = 1024
+amr.blocking_factor = 8
+remora.is_periodic = 1 0 0
+remora.bc.ylo.type = "SlipWall"
+remora.bc.yhi.type = "SlipWall"
+remora.fixed_dt = $DT
+remora.ndtfast  = 30
+remora.sum_interval = -1
+remora.v            = 0
+remora.check_int    = -1
+remora.plot_file    = plt
+remora.plot_int     = $NSTEP
+remora.plot_vars_3d = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+remora.tracer_horizontal_advection_scheme = "upstream3"
+remora.R0    = 1027.0
+remora.S0    = 35.0
+remora.T0    = 14.0
+remora.Tcoef = 1.7e-4
+remora.Scoef = 0.0
+remora.rho0  = 1025.0
+remora.tcline = 25.0
+remora.use_coriolis  = true
+remora.coriolis_type = beta_plane
+remora.coriolis_f0   = -8.26e-5
+remora.coriolis_beta = 0.0
+EOF
 fi
 
 # ---------------------------------------------------------------- one run as a job
