@@ -22,8 +22,8 @@ def evolve_time(log):
             for line in f:
                 if "Incl. Min" in line:          # TinyProfiler prints the exclusive table first
                     incl = True
-                elif incl and line.startswith("REMORA::Evolve()"):
-                    t = float(line.split()[-2])
+                elif incl and t is None and line.startswith("REMORA::Evolve()"):
+                    t = float(line.split()[-2])  # first row only: GPU builds add a memory table after
                 elif "TinyProfiler total time" in line:
                     total = float(line.split()[-1])
     except (OSError, ValueError):

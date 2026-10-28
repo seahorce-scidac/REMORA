@@ -124,7 +124,7 @@ run_pair () {
         \$srun_prefix \$bin \$inp remora.plot_file=\$out/plt \$extra "\$@" > \$out/log 2>&1 \\
             || echo "RUN FAILED: \$out"
         grep -m1 "TinyProfiler total time" \$out/log | sed "s/^/   /"
-        awk '/Incl\\. Min/ {incl=1} incl && /^REMORA::Evolve\\(\\)/ {v=\$(NF-1)}
+        awk '/Incl\\. Min/ {incl=1} incl && v == "" && /^REMORA::Evolve\\(\\)/ {v=\$(NF-1)}
              /TinyProfiler total time/ {t=\$NF}
              END {if (v != "") print "   Evolve " v " s"; else print "   Evolve n/a (no inclusive table); TinyProfiler total " t " s"}' \$out/log
     done
