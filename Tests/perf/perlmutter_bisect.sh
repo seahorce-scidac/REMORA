@@ -55,7 +55,8 @@ fi
 
 build () {   # build <src dir> <out binary>
     (cd "$1/Exec" && make -j "$JOBS" COMP=gnu USE_MPI=TRUE USE_PNETCDF=TRUE TINY_PROFILE=TRUE \
-        USE_PARTICLES=FALSE $MAKEFLAGS_ARCH > "$2.build.log" 2>&1) || return 1
+        USE_PARTICLES=FALSE $MAKEFLAGS_ARCH > "$2.build.log" 2>&1) \
+        || { echo "bisect: build failed, last lines of $2.build.log:"; tail -15 "$2.build.log"; return 1; }
     cp "$(ls -t "$1"/Exec/REMORA3d.gnu.*.ex | head -1)" "$2"
 }
 
@@ -143,8 +144,10 @@ EOF
 REF=$WORK/ref_$ARCH
 if [ ! -d "$REF/run" ] || ! ls -d "$REF"/run/plt[0-9]* > /dev/null 2>&1; then
     echo "bisect: building and running the baseline $BASE"
-    [ -d "$REF/src" ] || { git worktree add --detach "$REF/src" "$BASE" > /dev/null 2>&1 &&
-                           git -C "$REF/src" submodule update --init Submodules/AMReX > /dev/null 2>&1; } || exit 125
+    [ -d "$REF/src/.git" ] || [ -f "$REF/src/.git" ] \
+        || git worktree add --detach "$REF/src" "$BASE" || exit 125
+    # Idempotent, and needed if an earlier attempt stopped between the two commands
+    git -C "$REF/src" submodule update --init Submodules/AMReX || exit 125
     build "$REF/src" "$REF/remora_exec" || { echo "bisect: baseline build failed"; exit 125; }
     (cd "$REF/src/Submodules/AMReX/Tools/Plotfile" && make -j "$JOBS" programs=fcompare > /dev/null 2>&1) || exit 125
     cp "$REF"/src/Submodules/AMReX/Tools/Plotfile/fcompare*.ex "$WORK/fcompare"
