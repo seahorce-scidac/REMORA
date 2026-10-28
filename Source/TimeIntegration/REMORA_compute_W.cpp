@@ -59,11 +59,16 @@ REMORA::compute_W (const Box& bx2d,
  * W converted from a volume flux to a velocity, as ROMS scale_omega. It is zero at the bed
  * and the free surface.
  *
+ * If both mf_omega and the fluxes have ghost cells, the first ghost column is computed
+ * directly from the fluxes there, as advance_3d computes W, so it is right at domain and
+ * coarse/fine boundaries too. The rest of the ghost cells are then filled across grids and
+ * periodic boundaries, and are zero elsewhere outside the domain.
+ *
  * @param[in ] lev       level
- * @param[out] mf_omega  z-nodal omega (m/s); ghost cells are filled across grids and
- *                       periodic boundaries, and zero outside the domain
- * @param[in ] mf_Huon   u-volume flux on at least the valid faces
- * @param[in ] mf_Hvom   v-volume flux on at least the valid faces
+ * @param[out] mf_omega  z-nodal omega (m/s)
+ * @param[in ] mf_Huon   u-volume flux on the valid faces, and on the first ghost faces for
+ *                       the directly computed ghost column
+ * @param[in ] mf_Hvom   v-volume flux, likewise
  */
 void
 REMORA::compute_omega (int lev, MultiFab& mf_omega,
@@ -71,11 +76,14 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
 {
     const int N = Geom(lev).Domain().size()[2]-1;
 
-    // Up to one ghost column is computed directly, as advance_3d computes W, so that it is
-    // right at domain and coarse/fine boundaries too, where FillBoundary does not reach. This
-    // needs the fluxes in the same ghost cells, which update_massflux_3d keeps on grown boxes.
-    const IntVect ng(amrex::min(mf_omega.nGrowVect()[0], 1), amrex::min(mf_omega.nGrowVect()[1], 1), 0);
-    AMREX_ALWAYS_ASSERT(mf_Huon.nGrowVect().allGE(ng) && mf_Hvom.nGrowVect().allGE(ng));
+    // The first ghost column is computed only where both the output and the fluxes have it:
+    // the particles' omega has it from the fluxes update_massflux_3d keeps on grown boxes,
+    // while the diagnostic omega builds its fluxes on the valid faces only.
+    IntVect ng(0);
+    for (int d = 0; d < 2; ++d) {
+        ng[d] = amrex::min(amrex::min(mf_omega.nGrowVect()[d], 1),
+                           amrex::min(mf_Huon.nGrowVect()[d], mf_Hvom.nGrowVect()[d]));
+    }
 
     mf_omega.setVal(zero);
 
