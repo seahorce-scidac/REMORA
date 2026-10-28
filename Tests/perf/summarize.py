@@ -14,11 +14,14 @@ import sys
 
 def evolve_time(log):
     t = None
+    incl = False
     try:
         with open(log) as f:
             for line in f:
-                if line.startswith("REMORA::Evolve()"):
-                    t = float(line.split()[-2])   # last table seen is the inclusive one
+                if "Incl. Min" in line:          # TinyProfiler prints the exclusive table first
+                    incl = True
+                elif incl and line.startswith("REMORA::Evolve()"):
+                    t = float(line.split()[-2])
     except OSError:
         pass
     return t

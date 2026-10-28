@@ -87,8 +87,10 @@ build_fcompare
 
 # ---------------------------------------------------------------- inputs
 read -r NX NY NZ <<< "$SIZE"
-# Upwelling's domain is 41 km wide: keep dtfast = dt/30 below dx / sqrt(g*150 m)
-DT=$(python3 -c "import math; dx=41000.0/$NX; print(round(min(50.0, 0.9*30*dx/math.sqrt(9.81*150)), 2))")
+# Upwelling's domain is 41 km wide and 150 m deep. The barotropic step dtfast = dt/30 is
+# limited by the fast wave c = sqrt(g*150 m) across the cell diagonal: keep its Courant
+# number dtfast*c*sqrt(2)/dx near 0.5 (ROMS blows up above about 0.8), so dtfast = 0.35 dx/c.
+DT=$(python3 -c "import math; dx=41000.0/$NX; print(round(min(50.0, 30*0.35*dx/math.sqrt(9.81*150)), 2))")
 fill () {   # fill <template> <out> MGX MGY
     sed -e "s/@NSTEP@/$NSTEP/g" -e "s/@NX@/$NX/g" -e "s/@NY@/$NY/g" -e "s/@NZ@/$NZ/g" \
         -e "s/@MGX@/$3/g" -e "s/@MGY@/$4/g" -e "s/@DT@/$DT/g" "$1" > "$2"
@@ -117,7 +119,7 @@ run_pair () {
         \$srun_prefix \$bin \$inp remora.plot_file=\$out/plt \$extra "\$@" > \$out/log 2>&1 \\
             || echo "RUN FAILED: \$out"
         grep -m1 "TinyProfiler total time" \$out/log | sed "s/^/   /"
-        awk '/^REMORA::Evolve\\(\\)/ {v=\$(NF-1)} END {print "   Evolve " v " s"}' \$out/log
+        awk '/Incl\\. Min/ {incl=1} incl && /^REMORA::Evolve\\(\\)/ {v=\$(NF-1)} END {print "   Evolve " v " s"}' \$out/log
     done
     local a=\$(ls -d $WORK/runs/\${arch}_\${case}_\${cfg}_base/plt* 2>/dev/null | tail -1)
     local b=\$(ls -d $WORK/runs/\${arch}_\${case}_\${cfg}_new/plt*  2>/dev/null | tail -1)

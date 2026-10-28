@@ -17,7 +17,7 @@ Cases:
 
 - `upwelling`: `inputs/upwelling_perf.in`, the Upwelling problem at `-s "NX NY NZ"`
   (default 1024 x 2048 x 40, 84 M cells) with 128x128 boxes on CPU and 256x256 on GPU and a
-  time step that keeps the barotropic CFL. CPU jobs sweep 128x1, 64x2, 32x4, 16x8 and 8x16
+  time step that keeps the barotropic Courant number near 0.5. CPU jobs sweep 128x1, 64x2, 32x4, 16x8 and 8x16
   ranks x threads on one node; the GPU job uses four GPUs.
 - `gulf` (with `-g`): `inputs/gulf_perf.in`, the nested Gulf Stream toy case of
   `Exec/GulfRefinementTest` with level 1 active, two-way coupling and NetCDF grid and
