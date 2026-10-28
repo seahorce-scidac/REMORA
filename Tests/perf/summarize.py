@@ -13,7 +13,9 @@ import sys
 
 
 def evolve_time(log):
+    """Evolve time from the inclusive TinyProfiler table; failing that, the run's total."""
     t = None
+    total = None
     incl = False
     try:
         with open(log) as f:
@@ -22,8 +24,13 @@ def evolve_time(log):
                     incl = True
                 elif incl and line.startswith("REMORA::Evolve()"):
                     t = float(line.split()[-2])
-    except OSError:
+                elif "TinyProfiler total time" in line:
+                    total = float(line.split()[-1])
+    except (OSError, ValueError):
         pass
+    if t is None and total is not None:
+        print(f"note: {log}: no inclusive Evolve line, using the TinyProfiler total")
+        t = total
     return t
 
 

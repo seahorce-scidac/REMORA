@@ -42,6 +42,11 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(git -C "$HERE" rev-parse --show-toplevel)
 [ -n "$BASE" ] || BASE=$(git -C "$REPO" merge-base HEAD upstream/development 2>/dev/null \
                         || git -C "$REPO" merge-base HEAD origin/development)
+if [ -n "$GULF" ]; then
+    GULF=$(cd "$GULF" 2>/dev/null && pwd) || { echo "-g: no such directory"; exit 1; }
+    ls "$GULF"/GS_toyGrd_lev0_v1.3.nc "$GULF"/GS_toyIni_lev0_v1.3.nc > /dev/null \
+        || { echo "-g: $GULF has no GS_toy*.nc files"; exit 1; }
+fi
 [ -n "$WORK" ] || WORK=${SCRATCH:-$HOME}/remora_perf/$(date +%Y%m%d_%H%M)
 mkdir -p "$WORK/bin" "$WORK/runs"
 echo "baseline $BASE  new $NEW  work $WORK"
@@ -119,7 +124,9 @@ run_pair () {
         \$srun_prefix \$bin \$inp remora.plot_file=\$out/plt \$extra "\$@" > \$out/log 2>&1 \\
             || echo "RUN FAILED: \$out"
         grep -m1 "TinyProfiler total time" \$out/log | sed "s/^/   /"
-        awk '/Incl\\. Min/ {incl=1} incl && /^REMORA::Evolve\\(\\)/ {v=\$(NF-1)} END {print "   Evolve " v " s"}' \$out/log
+        awk '/Incl\\. Min/ {incl=1} incl && /^REMORA::Evolve\\(\\)/ {v=\$(NF-1)}
+             /TinyProfiler total time/ {t=\$NF}
+             END {if (v != "") print "   Evolve " v " s"; else print "   Evolve n/a (no inclusive table); TinyProfiler total " t " s"}' \$out/log
     done
     local a=\$(ls -d $WORK/runs/\${arch}_\${case}_\${cfg}_base/plt* 2>/dev/null | tail -1)
     local b=\$(ls -d $WORK/runs/\${arch}_\${case}_\${cfg}_new/plt*  2>/dev/null | tail -1)
