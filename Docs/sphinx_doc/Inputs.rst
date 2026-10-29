@@ -238,6 +238,24 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   |                                   |                 | momentum stress                 |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_regrid**             | interpolate forcing given on a    | ``auto`` or     | ``auto``                        |
+|                                   |                                   |                 |                                 |
+|                                   | lat-lon grid onto the model grid  | ``off``         |                                 |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_lon_varname**        | longitude variable of lat-lon     | string          | from the variable's             |
+|                                   |                                   |                 |                                 |
+|                                   | forcing                           |                 | ``coordinates`` attribute       |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_lat_varname**        | latitude variable of lat-lon      | string          | from the variable's             |
+|                                   |                                   |                 |                                 |
+|                                   | forcing                           |                 | ``coordinates`` attribute       |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_fill_max_rings**     | how many source cells out to look | integer >= 0    | 3                               |
+|                                   |                                   |                 |                                 |
+|                                   | for a valid value where lat-lon   |                 |                                 |
+|                                   |                                   |                 |                                 |
+|                                   | forcing is missing                |                 |                                 |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 
 Notes
 -----
@@ -1703,14 +1721,52 @@ read from **remora.nc_frc_file** using variable names ``Uwind``, ``Vwind``,
 ``Tair``, ``qair``, ``Pair``, ``swrad``, ``rain``, ``cloud``, ``EminusP``,
 and the configured longwave variable name. Multiple files may be specified,
 in which case REMORA concatenates their time axes in the
-order listed in the inputs file. Forcing variables must have the same dimensions
-as the level 0 (coarsest) model grid, including the ROMS boundary ring: a rho-point
-field is ``(time, eta_rho, xi_rho)`` with ``xi_rho = n_cell_x + 2``. A variable on any
-other grid, such as a lat-lon reanalysis grid, is rejected at startup with a message
-giving both shapes, since REMORA does not yet interpolate forcing between grids
-(the same check applies to climatology fields). Time interpolation is performed
-automatically based on the simulation time at level 0, and fields are interpolated
-to finer AMR levels as needed.
+order listed in the inputs file. A forcing variable is either on the level 0
+(coarsest) model grid, including the ROMS boundary ring -- a rho-point field is
+``(time, eta_rho, xi_rho)`` with ``xi_rho = n_cell_x + 2`` -- or on a rectilinear
+lat-lon grid, such as a reanalysis product's, in which case it is interpolated onto
+the model grid as described below. Time interpolation is performed automatically
+based on the simulation time at level 0, and fields are interpolated to finer AMR
+levels as needed.
+
+Forcing on a lat-lon grid
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A forcing variable whose horizontal shape is not the model grid's is taken to be on a
+lat-lon grid and interpolated bilinearly onto the model's ``lon_rho`` and ``lat_rho``,
+as ROMS's ``regrid`` does. This needs a spherical grid file: ``lon_rho`` and ``lat_rho``
+come from ``remora.nc_grid_file_0`` (or ``remora.nc_grid_file_hires``). The rules are:
+
+-  The variable is dimensioned ``(time, lat, lon)``. Its longitude and latitude are 1D
+   variables named by **remora.frc_lon_varname** and **remora.frc_lat_varname**, or by
+   its CF ``coordinates`` attribute (``"lon lat"``), or else the coordinate variables of
+   its last two dimensions (``longitude(longitude)``, as ERA5 writes them); each runs
+   along the matching dimension of the variable. 2D (curvilinear) source coordinates
+   are not supported.
+-  A variable whose last two dimensions carry longitude and latitude coordinate
+   variables (in degrees east and north) is interpolated even when its shape happens
+   to be the model grid's.
+-  Packed variables are unpacked with their ``scale_factor`` and ``add_offset``.
+-  Either axis may be increasing or decreasing. Longitude may be in [-180, 180) or
+   [0, 360), may cross the branch cut, and may cover the globe, in which case the grid
+   is treated as periodic in longitude.
+-  The lat-lon grid must contain every rho point of level 0 and its boundary ring;
+   otherwise the run stops at startup and prints both extents.
+-  Source values exactly equal to the variable's ``_FillValue`` or ``missing_value``
+   (compared before unpacking, as CF defines them), or not finite, are left out and the remaining interpolation weights renormalized. A point
+   whose four surrounding source values are all missing takes the nearest valid one
+   within **remora.frc_fill_max_rings** source cells; if there is none the run stops.
+-  Every file of one variable's series must be on the same lat-lon grid. Different
+   variables may be on different grids.
+-  Only 2D rho-point forcing is interpolated: the bulk-flux fields above. Surface stress
+   (``sustr``, ``svstr``) and climatology must still be on the model grid.
+-  Winds are interpolated as given, as east and north components; they are not yet
+   rotated onto a rotated model grid's xi and eta axes, and a warning says so when the
+   grid's ``angle`` is not zero.
+
+Each interpolated variable is reported at startup with its source grid. Setting
+**remora.frc_regrid** to ``off`` turns the interpolation off, so that a variable not on
+the model grid is an error.
 
 The legacy boolean inputs **Tair_from_netcdf**, **qair_from_netcdf**,
 **Pair_from_netcdf**, **srflx_from_netcdf**, **longwave_down_from_netcdf**,
