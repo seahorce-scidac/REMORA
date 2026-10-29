@@ -80,12 +80,27 @@ void REMORA::evolveTracers (int a_lev, Real a_dt_lev)
         any_advect = any_advect || particleData[REMORAParticleNames::hydro]->advectsWithFlow();
     }
     MultiFab mf_omega;
+    MultiFab mf_u, mf_v;
     if (any_advect) {
         mf_omega.define(convert(grids[a_lev],IntVect(0,0,1)), dmap[a_lev], 1, IntVect(NGROW,NGROW,0));
         compute_omega(a_lev, mf_omega, *vec_Huon[a_lev], *vec_Hvom[a_lev]);
+
+        // A particle within half a cell of a wall or a coarse/fine boundary interpolates u and
+        // v from ghost cells, which so far this step have only been filled across grids and
+        // periodic boundaries. Fill copies with the physical and coarse/fine boundary
+        // conditions at the end of the step. The model's own velocity ghosts are left alone:
+        // refilling them with the physical boundary conditions here changes the answer on
+        // open boundaries (see timeStepML).
+        mf_u.define(xvel_new[a_lev]->boxArray(), dmap[a_lev], 1, xvel_new[a_lev]->nGrowVect());
+        mf_v.define(yvel_new[a_lev]->boxArray(), dmap[a_lev], 1, yvel_new[a_lev]->nGrowVect());
+        FillPatch(a_lev, t_new[a_lev], mf_u, xvel_new, xvel_bc(), BdyVars::u, 0, true, false,
+                  0, 0, zero, amrex::MultiFab(), xvel_old, xvel_new);
+        FillPatch(a_lev, t_new[a_lev], mf_v, yvel_new, yvel_bc(), BdyVars::v, 0, true, false,
+                  0, 0, zero, amrex::MultiFab(), yvel_old, yvel_new);
     }
 
-    Vector<MultiFab const*> flowvel = {xvel_new[a_lev], yvel_new[a_lev], &mf_omega};
+    Vector<MultiFab const*> flowvel = {any_advect ? &mf_u : xvel_new[a_lev],
+                                       any_advect ? &mf_v : yvel_new[a_lev], &mf_omega};
 
     if (m_use_tracer_particles) {
       particleData[REMORAParticleNames::tracers]->EvolveParticles( a_lev,
