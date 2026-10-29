@@ -58,6 +58,21 @@ tile_string () {   # tile_string <spec>  -> the remora.omp_tile_size value, spac
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(git -C "$HERE" rev-parse --show-toplevel)
+resolve_ref () {   # resolve_ref <ref> -> commit SHA. A SHA, tag or local branch as given; then a
+    local ref=$1 sha remote   # remote-tracking branch; then a fetch of that branch from the remotes.
+    sha=$(git -C "$REPO" rev-parse --verify -q "$ref^{commit}") && { echo "$sha"; return; }
+    for remote in upstream origin; do
+        git -C "$REPO" remote get-url $remote > /dev/null 2>&1 || continue
+        sha=$(git -C "$REPO" rev-parse --verify -q "$remote/$ref^{commit}") && { echo "$sha"; return; }
+    done
+    for remote in upstream origin; do
+        git -C "$REPO" remote get-url $remote > /dev/null 2>&1 || continue
+        git -C "$REPO" fetch -q $remote "$ref" 2>/dev/null || continue
+        git -C "$REPO" rev-parse --verify -q 'FETCH_HEAD^{commit}' && return
+    done
+    echo "cannot resolve revision '$ref': not a commit, tag, local or remote branch here" >&2
+    return 1
+}
 if [ -z "$REVS" ]; then
     if [ -z "$BASE" ]; then
         # The merge base with development, from a fresh fetch: a stale remote-tracking
@@ -89,7 +104,10 @@ if [ -n "$GULF" ]; then
 fi
 [ -n "$WORK" ] || WORK=${SCRATCH:-$HOME}/remora_perf/$(date +%Y%m%d_%H%M)
 mkdir -p "$WORK/bin" "$WORK/runs"
-echo "baseline is $(git -C "$REPO" log -1 --format='%h %ad %s' --date=short ${BASE:-${REFS[0]}})"
+for i in "${!LABELS[@]}"; do
+    sha=$(resolve_ref "${REFS[$i]}") || exit 1
+    printf '%-8s %s\n' "${LABELS[$i]}" "$(git -C "$REPO" log -1 --format='%h %ad %s' --date=short "$sha")"
+done
 echo "revisions: $REVS  (baseline $BASE_LABEL)  work $WORK"
 
 # ---------------------------------------------------------------- environment and builds
@@ -97,11 +115,15 @@ if [ -f "$REPO/Build/saul-env.sh" ] && command -v module > /dev/null; then
     source "$REPO/Build/saul-env.sh"
 fi
 build_one () {   # build_one <label> <ref> <cpu|gpu>
-    local tag=$1 ref=$2 arch=$3 src=$WORK/src_$1 flags
+    local tag=$1 ref=$2 arch=$3 src=$WORK/src_$1 flags sha
+    sha=$(resolve_ref "$ref") || exit 1
     if [ ! -d "$src" ]; then
-        git -C "$REPO" worktree add --detach "$src" "$ref"
-        git -C "$src" submodule update --init Submodules/AMReX
+        git -C "$REPO" worktree add --detach "$src" "$sha"
+    elif [ "$(git -C "$src" rev-parse HEAD)" != "$sha" ]; then
+        echo "$src is at $(git -C "$src" rev-parse --short HEAD); moving it to $(git -C "$REPO" rev-parse --short "$sha")"
+        git -C "$src" checkout -q --detach "$sha"
     fi
+    git -C "$src" submodule update --init Submodules/AMReX
     if [ $arch = gpu ]; then
         module load cudatoolkit 2>/dev/null || true
         flags="USE_OMP=FALSE USE_CUDA=TRUE"
