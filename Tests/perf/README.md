@@ -24,20 +24,11 @@ Cases:
   initial data; it needs the `GS_toy*.nc` files from the REMORA-data repository.
 
 The CPU job also runs the baseline with `remora.omp_tile_size=1024000 16 1024000`
-(`base_j16`), so the effect of the tile default and of the threading can be told apart.
-Baseline defaults to the merge base with `upstream/development`; `-b` and `-n` choose other
-refs. `-S` builds without submitting; the job scripts are left in the work directory.
-
-## Bisecting a difference
-
-`perlmutter_bisect.sh` is a `git bisect run` test: for each commit git checks out it builds
-the tree with GNU make (incremental), runs a short job with `sbatch --wait` (CPU: 128 ranks on
-one node; GPU: four GPUs) and compares the last plotfile with the baseline's using `fcompare`
-(exit 0 identical, 1 different, 125 build or run failure). Copy it out of the repository
-first, since bisect checks out commits that may not have it:
-
-```
-cp Tests/perf/perlmutter_bisect.sh $SCRATCH/bisect.sh
-git bisect start <bad> <good>
-git bisect run $SCRATCH/bisect.sh -A m1234 -a cpu -b <good> -t 3
-```
+(`<baseline>_j16`), so the effect of the tile default and of the threading can be told
+apart, and `-T "8x8 16x16 j8 none"` adds runs of the last revision at those tile sizes
+(`AxB` columns, `jN` rows, `iN` columns, `none` untiled) for a tile-size scan.
+Any number of revisions can be compared: `-r "base:c8bc0b8 p1:perf-phase1-omp p2:perf-phase2"`
+builds each (the first is the baseline the others are compared with) and
+runs them back to back in every configuration; `-b`/`-n` are the two-revision shorthand,
+defaulting to the merge base with `upstream/development` and `HEAD`. `-S` builds without
+submitting; the job scripts are left in the work directory.
