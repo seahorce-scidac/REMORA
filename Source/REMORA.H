@@ -655,6 +655,13 @@ public:
      *         positive counterclockwise: ROMS's `angle`); only filled when the
      *         grid NetCDF file carries angle */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_angler;
+    /** \brief lon_rho on the whole domain, levels up to hires_grid_level; only filled when
+     *         remora.nc_grid_file_hires carries it */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lonr_full_domain;
+    /** \brief lat_rho on the whole domain, as vec_lonr_full_domain */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_latr_full_domain;
+    /** \brief angle on the whole domain, as vec_lonr_full_domain */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_angler_full_domain;
 
     /** \brief d(1/n)/d(xi) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_dndx;

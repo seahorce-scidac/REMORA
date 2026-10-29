@@ -450,6 +450,7 @@ read_grid_vars_from_netcdf (int /*lev*/,
  * @param names           variables to read, each 2D on (eta, xi) with no time axis
  * @param fabs            one container per name
  * @param what            what the variables are, for the log line
+ * @param ngrow           grow cells the file carries, if not the usual one-cell ring
  * @returns whether the file carried every variable and they were read
  *
  * ROMS grid files carry some variables only for some grids: lon_psi/lat_psi
@@ -467,7 +468,8 @@ read_optional_grid_vars_from_netcdf (const Box& domain,
                                      const std::string& fname,
                                      const Vector<std::string>& names,
                                      const Vector<FArrayBox*>& fabs,
-                                     const std::string& what)
+                                     const std::string& what,
+                                     IntVect ngrow)
 {
     AMREX_ALWAYS_ASSERT(names.size() == fabs.size());
 
@@ -484,7 +486,8 @@ read_optional_grid_vars_from_netcdf (const Box& domain,
     amrex::Print() << "Loading " << what << " from NetCDF file " << fname << std::endl;
 
     Vector<enum NC_Data_Dims_Type> NC_dim_types(names.size(), NC_Data_Dims_Type::SN_WE);
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, names, NC_dim_types, fabs);
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, names, NC_dim_types, fabs,
+                                            false, 0, ngrow);
     return true;
 }
 

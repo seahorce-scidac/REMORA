@@ -520,6 +520,9 @@ void REMORA::resize_stuff(int lev)
     vec_lonr.resize(lev+1);
     vec_latr.resize(lev+1);
     vec_angler.resize(lev+1);
+    vec_lonr_full_domain.resize(hires_grid_level+1);
+    vec_latr_full_domain.resize(hires_grid_level+1);
+    vec_angler_full_domain.resize(hires_grid_level+1);
 
     vec_dndx.resize(lev+1);
     vec_dmde.resize(lev+1);

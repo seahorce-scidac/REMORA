@@ -839,6 +839,28 @@ REMORA::set_grid_vars_averaged_down (int lev) {
         mf->EnforcePeriodicity(geom[lev].periodicity());
         extrapolate_metric_to_physical_boundaries(*mf, geom[lev]);
     }
+
+    // Spherical rho coordinates and grid angle, when the high-resolution file carried them.
+    // The ghost rows beyond the domain's ring continue the coordinates, as on a level read
+    // directly from a grid file; the angle is copied outward like a metric.
+    struct Coord { Vector<std::unique_ptr<MultiFab>>* vec; Vector<std::unique_ptr<MultiFab>>* full;
+                   bool linear; Real wrap; };
+    for (const Coord& c : { Coord{&vec_lonr,   &vec_lonr_full_domain,   true,  Real(360.0)},
+                            Coord{&vec_latr,   &vec_latr_full_domain,   true,  Real(0.0)},
+                            Coord{&vec_angler, &vec_angler_full_domain, false, Real(0.0)} })
+    {
+        if (lev >= static_cast<int>(c.full->size()) || (*c.full)[lev] == nullptr) {
+            (*c.vec)[lev].reset();
+            continue;
+        }
+        const MultiFab& full = *(*c.full)[lev];
+        (*c.vec)[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
+                                         1, vec_xr[lev]->nGrowVect()));
+        MultiFab& mf = *(*c.vec)[lev];
+        mf.ParallelCopy(full, 0, 0, 1, full.nGrowVect(), mf.nGrowVect());
+        mf.FillBoundary(geom[lev].periodicity());
+        extrapolate_metric_to_physical_boundaries(mf, geom[lev], c.linear, c.wrap);
+    }
 }
 
 namespace {

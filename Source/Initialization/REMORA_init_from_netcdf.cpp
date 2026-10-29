@@ -101,7 +101,35 @@ bool
 read_optional_grid_vars_from_netcdf (const Box& domain, const std::string& fname,
                                      const Vector<std::string>& names,
                                      const Vector<FArrayBox*>& fabs,
-                                     const std::string& what);
+                                     const std::string& what,
+                                     IntVect ngrow = IntVect(1,1,0));
+
+namespace {
+
+/**
+ * Make a periodic quantity (a longitude, period 360, or an angle, period 2 pi) continuous
+ * over a FAB that holds a whole domain, by bringing every value within half a period of
+ * the value in the FAB's first cell. A regional grid that crosses the branch cut then
+ * averages across it correctly: 179.5 and -179.5 average to 180, not to 0. The result may
+ * lie outside [-180, 180); that is the same longitude, and users of it normalize.
+ *
+ * @param[inout] fab     the field, on the whole domain
+ * @param[in   ] period  the period
+ */
+void
+unwrap_to_first_cell (FArrayBox& fab, Real period)
+{
+    Real ref = Real(0.0);
+    Gpu::copy(Gpu::deviceToHost, fab.dataPtr(), fab.dataPtr() + 1, &ref);
+    auto arr = fab.array();
+    ParallelFor(fab.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        arr(i,j,k) -= period * std::round((arr(i,j,k) - ref) / period);
+    });
+    Gpu::streamSynchronize();
+}
+
+} // namespace
 
 /** \brief helper function to read full-domain high resolution bathymetry from netcdf */
 void
@@ -1282,6 +1310,48 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
     for (int lev=0; lev<=hires_grid_level; lev++) {
         extrapolate_metric_to_physical_boundaries(*vec_pm_full_domain[lev], geom[lev]);
         extrapolate_metric_to_physical_boundaries(*vec_pn_full_domain[lev], geom[lev]);
+    }
+
+    // Spherical rho coordinates and grid angle, when the file carries them, take the same
+    // route as pm and pn: read at hires_grid_level and averaged down. The mean of the fine
+    // cell centers under a coarse cell is its center, exactly on a uniform grid and to
+    // second order on a curvilinear one. Longitude and angle are first made continuous so
+    // that cells either side of a branch cut average to a value between them.
+    Vector<FArrayBox> NC_lonr_fab(1), NC_latr_fab(1), NC_angler_fab(1);
+    const bool have_rho = read_optional_grid_vars_from_netcdf(
+        nc_hires_grid_box, nc_grid_file_hires, {"lon_rho", "lat_rho"},
+        {&NC_lonr_fab[0], &NC_latr_fab[0]}, "high-resolution spherical rho coordinates",
+        cum_ref_ratios[hires_grid_level]);
+    const bool have_angle = read_optional_grid_vars_from_netcdf(
+        nc_hires_grid_box, nc_grid_file_hires, {"angle"}, {&NC_angler_fab[0]},
+        "high-resolution grid rotation angle", cum_ref_ratios[hires_grid_level]);
+
+    if (have_rho) {
+        unwrap_to_first_cell(NC_lonr_fab[0], Real(360.0));
+    }
+    if (have_angle) {
+        unwrap_to_first_cell(NC_angler_fab[0], Real(2.0) * PI);
+    }
+
+    for (auto [vec, fab, have] : { std::make_tuple(&vec_lonr_full_domain,   &NC_lonr_fab[0],   have_rho),
+                                   std::make_tuple(&vec_latr_full_domain,   &NC_latr_fab[0],   have_rho),
+                                   std::make_tuple(&vec_angler_full_domain, &NC_angler_fab[0], have_angle) })
+    {
+        for (int lev = 0; lev <= hires_grid_level; ++lev) {
+            if (!have) { (*vec)[lev].reset(); continue; }
+            // Laid out like pm: one box per level and the same grow cells.
+            const MultiFab& like = *vec_pm_full_domain[lev];
+            (*vec)[lev].reset(new MultiFab(like.boxArray(), like.DistributionMap(), 1, like.nGrowVect()));
+            (*vec)[lev]->setVal(0.0);
+        }
+        if (!have) { continue; }
+
+        for (MFIter mfi(*(*vec)[hires_grid_level], false); mfi.isValid(); ++mfi) {
+            (*(*vec)[hires_grid_level])[mfi].template copy<RunOn::Device>(*fab);
+        }
+        for (int lev = hires_grid_level-1; lev >= 0; lev--) {
+            average_down_with_grow_cells(lev, *vec);
+        }
     }
 }
 
