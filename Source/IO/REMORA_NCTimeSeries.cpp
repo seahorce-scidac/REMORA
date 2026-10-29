@@ -57,14 +57,15 @@ bool matches_native_shape (const std::vector<MPI_Offset>& file_shape,
 /** Why a field of this shape is refused.
  *
  * Any shape other than the native one is a field on another grid, and copying it
- * index for index would put it in the wrong place without a word. Interpolating
- * such a field onto the model grid is issue #680 and does not exist yet.
+ * index for index would put it in the wrong place without a word. Such a field is
+ * interpolated when it can be (see LatLonRegrid); `reason` says why this one cannot.
  */
 std::string native_shape_mismatch_message (const std::string& field_name,
                                            const std::string& file_name,
                                            const std::vector<MPI_Offset>& file_shape,
                                            const amrex::Box& domain,
-                                           const amrex::IndexType ixtype, bool is2d)
+                                           const amrex::IndexType ixtype, bool is2d,
+                                           const std::string& reason)
 {
     const bool nodal_x = ixtype.nodeCentered(0);
     const bool nodal_y = ixtype.nodeCentered(1);
@@ -81,10 +82,31 @@ std::string native_shape_mismatch_message (const std::string& field_name,
          + shape_to_string(native_spatial_shape(domain, ixtype, is2d)) + " for a " + point
          + "-point field: remora.n_cell is " + grid_dims + " = " + shape_to_string(n_cell)
          + ", a cell-centered axis has n_cell + 2 points (the ROMS boundary ring) and a face"
-         + " axis n_cell + 1. The field is copied onto the grid index for index, so a field on"
-         + " another grid would be placed wrongly rather than interpolated. REMORA does not yet"
-         + " interpolate forcing from a lat-lon or other grid (issue #680): supply the variable"
-         + " on the model grid, with the time axis first.";
+         + " axis n_cell + 1. A field of another shape is taken to be on another grid, and it"
+         + " cannot be interpolated here because " + reason + ".";
+}
+
+/** Why a field on another grid cannot be interpolated, or empty when it can */
+std::string regrid_refusal (const LatLonRegridOptions* options,
+                            const amrex::MultiFab* target_lon, const amrex::MultiFab* target_lat,
+                            const amrex::IndexType ixtype, bool is2d)
+{
+    if (options == nullptr) {
+        return "only surface forcing is interpolated from another grid; supply this field on"
+               " the model grid";
+    }
+    if (!options->enabled) {
+        return "remora.frc_regrid = off; supply the field on the model grid, or set it to auto";
+    }
+    if (!is2d || ixtype != amrex::IndexType::TheCellType()) {
+        return "only 2D rho-point forcing is interpolated from another grid, and this field is"
+               " on u or v points or 3D";
+    }
+    if (target_lon == nullptr || target_lat == nullptr) {
+        return "the model grid has no lon_rho and lat_rho to interpolate to; they come from"
+               " remora.nc_grid_file_0 (or remora.nc_grid_file_hires)";
+    }
+    return "";
 }
 
 } // namespace
@@ -103,7 +125,13 @@ NCTimeSeries::NCTimeSeries (const amrex::Vector<std::string>& a_file_names, cons
                             const std::string a_time_name,
                             const amrex::Box& a_domain,
                             amrex::MultiFab* a_mf_var, bool a_is2d, bool a_save_interpolated,
-                            double a_time_ref) {
+                            double a_time_ref,
+                            const LatLonRegridOptions* a_regrid_options,
+                            const amrex::MultiFab* a_target_lon,
+                            const amrex::MultiFab* a_target_lat) {
+    regrid_options = a_regrid_options;
+    target_lon = a_target_lon;
+    target_lat = a_target_lat;
     file_names.assign(a_file_names.begin(), a_file_names.end());
     time_name = a_time_name;
     field_name = a_field_name;
@@ -136,6 +164,8 @@ void NCTimeSeries::Initialize() {
     amrex::Vector<int> file_is_cycle;
     amrex::Vector<double> file_cycle_length;
     file_is_spatially_uniform.clear();
+    file_is_regridded.clear();
+    regrid.reset();
     for (int ifile = 0; ifile < file_names.size(); ++ifile) {
         const std::string& file_name = file_names[ifile];
 
@@ -215,12 +245,28 @@ void NCTimeSeries::Initialize() {
         amrex::ParallelDescriptor::Bcast(l_file_shape.data(), l_file_shape.size(), ioproc);
 
         if (l_shape_mismatch) {
-            const int field_rank = is2d ? 3 : 4;
-            const std::vector<MPI_Offset> file_shape(l_file_shape.begin(),
-                                                     l_file_shape.begin() + field_rank);
-            amrex::Abort(native_shape_mismatch_message(field_name, file_name, file_shape,
-                                                       domain, mf_var->ixType(), is2d));
+            const std::string refusal = regrid_refusal(regrid_options, target_lon, target_lat,
+                                                       mf_var->ixType(), is2d);
+            if (!refusal.empty()) {
+                const int field_rank = is2d ? 3 : 4;
+                const std::vector<MPI_Offset> file_shape(l_file_shape.begin(),
+                                                         l_file_shape.begin() + field_rank);
+                amrex::Abort(native_shape_mismatch_message(field_name, file_name, file_shape,
+                                                           domain, mf_var->ixType(), is2d, refusal));
+            }
+            // Every file of a series on the same lat-lon grid, so one set of weights serves
+            const std::vector<long long> shape3(l_file_shape.begin(), l_file_shape.begin() + 3);
+            if (regrid == nullptr) {
+                regrid = std::make_unique<LatLonRegrid>();
+                regrid->define(file_name, field_name, shape3, *target_lon, *target_lat,
+                               *mf_var, domain, *regrid_options);
+            } else if (!regrid->same_source_grid(file_name, field_name, shape3)) {
+                amrex::Abort("The files of the '" + field_name + "' time series are on different"
+                             " lat-lon grids (" + file_names[0] + " and " + file_name + "); a"
+                             " series must keep one grid throughout.");
+            }
         }
+        file_is_regridded.push_back(l_shape_mismatch);
 
         file_is_cycle.push_back(is_cycle_int);
         file_cycle_length.push_back(l_cycle_length);
@@ -238,6 +284,18 @@ void NCTimeSeries::Initialize() {
                 ocean_times.push_back((*(array_ts[0].get_data() + nt) + offset_days) * 60.0 * 60.0 * 24.0);
                 file_for_time.push_back(ifile);
                 file_itime_offset.push_back(nt);
+            }
+        }
+    }
+
+    // A series on the model grid in one file and a lat-lon grid in another would switch
+    // between the two at the file boundary; spatially uniform files are fine with either.
+    if (regrid != nullptr) {
+        for (int ifile = 0; ifile < file_names.size(); ++ifile) {
+            if (!file_is_regridded[ifile] && !file_is_spatially_uniform[ifile]) {
+                amrex::Abort("The files of the '" + field_name + "' time series mix the model grid ("
+                             + file_names[ifile] + ") with a lat-lon grid; a series must keep one"
+                             " grid throughout.");
             }
         }
     }
@@ -482,6 +540,11 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
         const int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
         amrex::ParallelDescriptor::Bcast(&uniform_value, 1, ioproc);
         mf->setVal(uniform_value);
+        return;
+    }
+
+    if (file_is_regridded[ifile]) {
+        regrid->apply(file_name, field_name, itime_offset, *mf);
         return;
     }
 

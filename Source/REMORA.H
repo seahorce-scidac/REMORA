@@ -2152,6 +2152,10 @@ private:
     std::string riv_time_varname = "river_time";
     /** \brief Name of time field for forcing data */
     std::string frc_time_varname = "";
+#ifdef REMORA_USE_NETCDF
+    /** \brief How forcing on a lat-lon grid is interpolated (remora.frc_regrid and friends) */
+    LatLonRegridOptions frc_regrid_options;
+#endif
 
     /** \brief Set refinement criteria */
     void refinement_criteria_setup();
