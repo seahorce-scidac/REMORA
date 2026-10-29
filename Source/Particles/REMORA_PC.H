@@ -283,9 +283,10 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
                                        amrex::MultiFab const& a_pm,
                                        amrex::MultiFab const& a_pn );
 
-        /*! Write the particles to a plotfile with x and y in physical coordinates */
-        void WritePlotFile ( const std::string& a_fname, const std::string& a_name,
-                             const amrex::Vector<amrex::MultiFab>& a_xy ) const;
+        /*! Write the particles for a checkpoint, or with a_xy for a plotfile with x and y in
+         *  physical coordinates */
+        void WriteOutput ( const std::string& a_fname, const std::string& a_name,
+                           const amrex::Vector<amrex::MultiFab>* a_xy = nullptr );
 
         /*! Compute mass density */
         virtual void massDensity ( amrex::MultiFab& a_mf, const int& a_lev, const int& a_comp = 0) const;
