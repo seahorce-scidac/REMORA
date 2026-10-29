@@ -25,57 +25,66 @@ std::string shape_to_string (const std::vector<MPI_Offset>& shape)
     return s + ")";
 }
 
-/** Abort unless the variable's spatial dimensions are those of the level 0 grid.
+/** The spatial shape, ([s,] eta, xi), a native file has for a field on this grid.
  *
  * The reader (fill_fab_from_arrays) lays the file out on the grid index for
  * index: a rho field's first column lands on the ghost cell at -1 and a face
  * field's on face 0, so a native ROMS file carries the boundary ring and has
  *   rho (ny+2, nx+2), u-face (ny+2, nx+1), v-face (ny+1, nx+2),
- * with the s_rho count in front for a 3D field. Any other shape is a field on
- * another grid, and copying it index for index would put it in the wrong place
- * without a word, so refuse it here. Interpolating such a field onto the model
- * grid is issue #680 and does not exist yet.
+ * with the s_rho count in front for a 3D field.
  */
-void check_native_shape (const std::string& field_name, const std::string& file_name,
-                         const std::vector<MPI_Offset>& shape,
-                         const amrex::Box& domain, const amrex::IndexType ixtype, bool is2d)
+std::vector<MPI_Offset> native_spatial_shape (const amrex::Box& domain,
+                                              const amrex::IndexType ixtype, bool is2d)
 {
-    const int rank = static_cast<int>(shape.size());
-    AMREX_ALWAYS_ASSERT(rank >= (is2d ? 3 : 4));
-
-    const MPI_Offset nx_file = shape[rank-1];
-    const MPI_Offset ny_file = shape[rank-2];
-    const MPI_Offset nx_grid = domain.length(0) + (ixtype.nodeCentered(0) ? 1 : 2);
-    const MPI_Offset ny_grid = domain.length(1) + (ixtype.nodeCentered(1) ? 1 : 2);
-    bool matches = (nx_file == nx_grid) && (ny_file == ny_grid);
-
-    MPI_Offset nz_grid = 0;
+    std::vector<MPI_Offset> shape;
     if (!is2d) {
-        const MPI_Offset nz_file = shape[rank-3];
-        nz_grid = domain.length(2) + (ixtype.nodeCentered(2) ? 1 : 0);
-        matches = matches && (nz_file == nz_grid);
+        shape.push_back(domain.length(2) + (ixtype.nodeCentered(2) ? 1 : 0));
     }
-    if (matches) { return; }
+    shape.push_back(domain.length(1) + (ixtype.nodeCentered(1) ? 1 : 2));
+    shape.push_back(domain.length(0) + (ixtype.nodeCentered(0) ? 1 : 2));
+    return shape;
+}
 
+/** Whether the trailing dimensions of a (time, [s,] eta, xi) variable are the native shape */
+bool matches_native_shape (const std::vector<MPI_Offset>& file_shape,
+                           const std::vector<MPI_Offset>& native_shape)
+{
+    const std::size_t n = native_shape.size();
+    if (file_shape.size() < n) { return false; }
+    return std::equal(native_shape.begin(), native_shape.end(), file_shape.end() - n);
+}
+
+/** Why a field of this shape is refused.
+ *
+ * Any shape other than the native one is a field on another grid, and copying it
+ * index for index would put it in the wrong place without a word. Interpolating
+ * such a field onto the model grid is issue #680 and does not exist yet.
+ */
+std::string native_shape_mismatch_message (const std::string& field_name,
+                                           const std::string& file_name,
+                                           const std::vector<MPI_Offset>& file_shape,
+                                           const amrex::Box& domain,
+                                           const amrex::IndexType ixtype, bool is2d)
+{
     const bool nodal_x = ixtype.nodeCentered(0);
     const bool nodal_y = ixtype.nodeCentered(1);
     const std::string point = nodal_x ? (nodal_y ? "psi" : "u") : (nodal_y ? "v" : "rho");
     const std::string file_dims = is2d ? "(time, eta, xi)" : "(time, s, eta, xi)";
-    const std::string grid_shape = is2d
-        ? "(eta, xi) = (" + std::to_string(static_cast<long long>(ny_grid)) + ", "
-                          + std::to_string(static_cast<long long>(nx_grid)) + ")"
-        : "(s, eta, xi) = (" + std::to_string(static_cast<long long>(nz_grid)) + ", "
-                             + std::to_string(static_cast<long long>(ny_grid)) + ", "
-                             + std::to_string(static_cast<long long>(nx_grid)) + ")";
+    const std::string grid_dims = is2d ? "(eta, xi)" : "(s, eta, xi)";
+    const std::vector<MPI_Offset> n_cell = is2d
+        ? std::vector<MPI_Offset>{domain.length(1), domain.length(0)}
+        : std::vector<MPI_Offset>{domain.length(2), domain.length(1), domain.length(0)};
 
-    amrex::Abort("NetCDF time series variable '" + field_name + "' in " + file_name
-                 + " has shape " + file_dims + " = " + shape_to_string(shape)
-                 + ", but the level 0 grid needs " + grid_shape + " for a " + point
-                 + "-point field (remora.n_cell plus the ROMS boundary ring). The field is"
-                 + " copied onto the grid index for index, so a field on another grid would be"
-                 + " placed wrongly rather than interpolated. REMORA does not yet interpolate"
-                 + " forcing from a lat-lon or other grid (issue #680): supply the variable on"
-                 + " the model grid, with the time axis first.");
+    return "NetCDF time series variable '" + field_name + "' in " + file_name
+         + " has shape " + file_dims + " = " + shape_to_string(file_shape)
+         + ", but the level 0 grid needs " + grid_dims + " = "
+         + shape_to_string(native_spatial_shape(domain, ixtype, is2d)) + " for a " + point
+         + "-point field: remora.n_cell is " + grid_dims + " = " + shape_to_string(n_cell)
+         + ", a cell-centered axis has n_cell + 2 points (the ROMS boundary ring) and a face"
+         + " axis n_cell + 1. The field is copied onto the grid index for index, so a field on"
+         + " another grid would be placed wrongly rather than interpolated. REMORA does not yet"
+         + " interpolate forcing from a lat-lon or other grid (issue #680): supply the variable"
+         + " on the model grid, with the time axis first.";
 }
 
 } // namespace
@@ -141,6 +150,10 @@ void NCTimeSeries::Initialize() {
         bool l_is_cycle = false;
         double l_cycle_length = 0.0;
         int l_is_spatially_uniform = 0;
+        // Shape check verdict, decided on the IO rank and broadcast so that every rank
+        // leaves the collective file calls below before any of them aborts.
+        int l_shape_mismatch = 0;
+        std::vector<long long> l_file_shape(4, 0);
 
         auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
         ncmpi_begin_indep_data(ncf.ncid);
@@ -167,7 +180,8 @@ void NCTimeSeries::Initialize() {
                              " not found in " + file_name);
             }
 
-            const int field_rank = ncf.var(field_name).ndim();
+            const auto field_var = ncf.var(field_name);
+            const int field_rank = field_var.ndim();
             const int expected_spatial_rank = is2d ? 3 : 4;
             l_is_spatially_uniform = (field_rank == 1) ? 1 : 0;
 
@@ -181,8 +195,12 @@ void NCTimeSeries::Initialize() {
             }
 
             if (field_rank == expected_spatial_rank) {
-                check_native_shape(field_name, file_name, ncf.var(field_name).shape(),
-                                   domain, mf_var->ixType(), is2d);
+                const std::vector<MPI_Offset> file_shape = field_var.shape();
+                for (int i = 0; i < field_rank; ++i) {
+                    l_file_shape[i] = static_cast<long long>(file_shape[i]);
+                }
+                l_shape_mismatch = matches_native_shape(
+                        file_shape, native_spatial_shape(domain, mf_var->ixType(), is2d)) ? 0 : 1;
             }
         }
 
@@ -193,6 +211,16 @@ void NCTimeSeries::Initialize() {
         amrex::ParallelDescriptor::Bcast(&is_cycle_int, 1, ioproc);
         amrex::ParallelDescriptor::Bcast(&l_cycle_length, 1, ioproc);
         amrex::ParallelDescriptor::Bcast(&l_is_spatially_uniform, 1, ioproc);
+        amrex::ParallelDescriptor::Bcast(&l_shape_mismatch, 1, ioproc);
+        amrex::ParallelDescriptor::Bcast(l_file_shape.data(), l_file_shape.size(), ioproc);
+
+        if (l_shape_mismatch) {
+            const int field_rank = is2d ? 3 : 4;
+            const std::vector<MPI_Offset> file_shape(l_file_shape.begin(),
+                                                     l_file_shape.begin() + field_rank);
+            amrex::Abort(native_shape_mismatch_message(field_name, file_name, file_shape,
+                                                       domain, mf_var->ixType(), is2d));
+        }
 
         file_is_cycle.push_back(is_cycle_int);
         file_cycle_length.push_back(l_cycle_length);
