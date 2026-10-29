@@ -1,0 +1,71 @@
+HyperCLaw-V1.1
+5
+temp
+salt
+x_velocity
+y_velocity
+z_velocity
+3
+3000
+0
+0 0 -50 
+64000 32000 0 
+
+((0,0,0) (31,15,7) (0,0,0)) 
+10 
+2000 2000 6.25 
+0
+0
+0 2 3000
+10
+0 32000
+0 32000
+-50 0
+32000 64000
+0 32000
+-50 0
+Level_0/Cell
+1
+3
+amrexvec_nu_x
+amrexvec_nu_y
+amrexvec_nu_z
+Level_0/Nu_nd
+28
+zeta
+net_heat_flux
+net_salt_flux
+Aice
+ice_thickness
+meltpond_thickness
+snow_thickness
+ice_age
+ice_Sxx
+ice_Sxy
+ice_Syy
+Tice
+ice_enthalpy
+ice_age_thickness
+io_friction_vel
+io_massflux
+io_transfer_coef
+ice_sst
+ice_snow_heat_conductivity
+ice_snow_heat_flux
+under_ice_salt
+under_ice_temp
+ice_divergence
+ai_melt_freeze
+ao_melt_freeze
+frazil_freeze
+io_melt_freeze
+melt_freeze_runoff
+Level_0/rho2d
+2
+Uice
+Uevp
+Level_0/u2d
+2
+Vice
+Vevp
+Level_0/v2d
