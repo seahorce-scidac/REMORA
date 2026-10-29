@@ -5,19 +5,19 @@ inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/seaice-port/Bui
 
 number of MPI processes: 2
 
-CPU time used since start of simulation (CPU-hours): 0.00100769
+CPU time used since start of simulation (CPU-hours): 0.00104834
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Tue Oct 13 17:34:35 2026
+output data / time: Thu Oct 29 10:07:03 2026
 output dir:         /home/klion/software/REMORA_codex/.claude/worktrees/seaice-port/Build_ci/Tests/test_files/SeaIceBox
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    Oct 13 2026 16:24:04
+build date:    Oct 29 2026 10:05:37
 build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64
 build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/seaice-port/Build_ci/Exec
 AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/seaice-port/Submodules/AMReX
@@ -26,7 +26,7 @@ COMP:          GNU
 COMP version:  13.3.0
 
 
-REMORA       git hash: v1.7-209-g59087611c7b1
+REMORA       git hash: v1.7-234-gcbc2feec8e02
 AMReX       git hash: 26.09-185-g19d64c697f1a
 
 
@@ -175,6 +175,7 @@ remora.bulk_fluxes = true
 remora.cf_avgdown_bar = 1
 remora.cf_avgdown_perimeter = 1
 remora.cf_avgdown_stencil = 1
+remora.cf_avgdown_volume_weighted = 0
 remora.cf_fill_all_kcomp = 1
 remora.cf_fill_vel_after = 0
 remora.cf_flux_pc = 1
