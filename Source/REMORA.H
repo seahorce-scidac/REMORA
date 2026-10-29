@@ -1445,9 +1445,14 @@ public:
     void init_grid_vars_full_domain_from_netcdf ();
 
     /** \brief Extrapolate grid metrics to edge of MultiFab, copying the outermost
-     *         in-domain ghost row outward or, with linear, extending it linearly */
+     *         in-domain ghost row outward or, with linear, extending it linearly
+     *         (steps taken modulo wrap when wrap > 0, for a longitude) */
     void extrapolate_metric_to_physical_boundaries(amrex::MultiFab& mf, const amrex::Geometry& geom,
-                                                   bool linear = false);
+                                                   bool linear = false, amrex::Real wrap = amrex::Real(0.0));
+
+    /** \brief Fill a refined level's coordinate array (lon, lat, angle) from the coarser
+     *         level, including the ghost cells outside the domain */
+    void interp_grid_coords_from_coarse (int lev, amrex::MultiFab& fine, const amrex::MultiFab& crse);
 
     /** \brief Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);

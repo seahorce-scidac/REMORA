@@ -447,120 +447,44 @@ read_grid_vars_from_netcdf (int /*lev*/,
 /**
  * @param domain          simulation domain
  * @param fname           file name to read from
- * @param NC_lonp_fab     container for lon_psi data
- * @param NC_latp_fab     container for lat_psi data
- * @returns whether the file carried spherical psi coordinates and they were read
+ * @param names           variables to read, each 2D on (eta, xi) with no time axis
+ * @param fabs            one container per name
+ * @param what            what the variables are, for the log line
+ * @returns whether the file carried every variable and they were read
  *
- * ROMS grid files for spherical grids carry lon_psi/lat_psi alongside
- * x_psi/y_psi, and those degree-valued corner arrays are what a coupled driver
- * needs when the two components do not share a projected Cartesian frame
- * (SCRIP/COAWST selects the same way; see Lib/SCRIP_COAWST/read_roms.f).
- * Idealized grid files carry no spherical coordinates, so this read is optional
- * and reports whether it happened rather than aborting.
+ * ROMS grid files carry some variables only for some grids: lon_psi/lat_psi
+ * and lon_rho/lat_rho for a spherical grid (the corner arrays a coupled driver
+ * remaps with, as SCRIP/COAWST does in Lib/SCRIP_COAWST/read_roms.f, and the
+ * cell centers a forcing field on another grid is interpolated to), and
+ * `angle`, the angle in radians from east to the local xi axis, positive
+ * counterclockwise, that rotates an east/north wind onto the grid axes.
+ * Idealized grid files carry none of them, so these reads are optional and
+ * report whether they happened rather than aborting. The variables of one
+ * call stand or fall together: a partial set is reported as absent.
  */
 bool
-read_spherical_grid_vars_from_netcdf (int /*lev*/,
-                                      const Box& domain,
-                                      const std::string& fname,
-                                      FArrayBox& NC_lonp_fab, FArrayBox& NC_latp_fab)
+read_optional_grid_vars_from_netcdf (const Box& domain,
+                                     const std::string& fname,
+                                     const Vector<std::string>& names,
+                                     const Vector<FArrayBox*>& fabs,
+                                     const std::string& what)
 {
-    Vector<std::string> NC_names;
-    NC_names.push_back("lon_psi");
-    NC_names.push_back("lat_psi");
+    AMREX_ALWAYS_ASSERT(names.size() == fabs.size());
 
-    if (!QueryNetCDFHasVars(fname, NC_names)) {
-        amrex::Print() << "Grid file " << fname << " has no lon_psi/lat_psi; "
-                       << "spherical psi coordinates unavailable" << std::endl;
+    if (!QueryNetCDFHasVars(fname, names)) {
+        std::string joined;
+        for (const auto& name : names) {
+            joined += (joined.empty() ? "" : "/") + name;
+        }
+        amrex::Print() << "Grid file " << fname << " has no " << joined << "; "
+                       << what << " unavailable" << std::endl;
         return false;
     }
 
-    amrex::Print() << "Loading spherical psi coordinates from NetCDF file " << fname << std::endl;
+    amrex::Print() << "Loading " << what << " from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
-    Vector<enum NC_Data_Dims_Type> NC_dim_types;
-
-    NC_fabs.push_back(&NC_lonp_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
-    NC_fabs.push_back(&NC_latp_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
-
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
-    return true;
-}
-
-/**
- * @param domain          simulation domain
- * @param fname           file name to read from
- * @param NC_lonr_fab     container for lon_rho data
- * @param NC_latr_fab     container for lat_rho data
- * @returns whether the file carried spherical rho coordinates and they were read
- *
- * ROMS grid files for spherical grids carry lon_rho/lat_rho at the cell centers.
- * These are the points a forcing field given on another grid (a lat-lon
- * reanalysis grid, say) is interpolated to, as ROMS's regrid does. Idealized
- * grid files carry no spherical coordinates, so this read is optional and
- * reports whether it happened rather than aborting.
- */
-bool
-read_spherical_rho_grid_vars_from_netcdf (int /*lev*/,
-                                          const Box& domain,
-                                          const std::string& fname,
-                                          FArrayBox& NC_lonr_fab, FArrayBox& NC_latr_fab)
-{
-    Vector<std::string> NC_names;
-    NC_names.push_back("lon_rho");
-    NC_names.push_back("lat_rho");
-
-    if (!QueryNetCDFHasVars(fname, NC_names)) {
-        amrex::Print() << "Grid file " << fname << " has no lon_rho/lat_rho; "
-                       << "spherical rho coordinates unavailable" << std::endl;
-        return false;
-    }
-
-    amrex::Print() << "Loading spherical rho coordinates from NetCDF file " << fname << std::endl;
-
-    Vector<FArrayBox*> NC_fabs;
-    Vector<enum NC_Data_Dims_Type> NC_dim_types;
-
-    NC_fabs.push_back(&NC_lonr_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
-    NC_fabs.push_back(&NC_latr_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
-
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
-    return true;
-}
-
-/**
- * @param domain          simulation domain
- * @param fname           file name to read from
- * @param NC_angler_fab   container for angle data
- * @returns whether the file carried the grid angle and it was read
- *
- * ROMS grid files carry `angle`, the angle in radians from east to the local
- * xi axis at the rho points, positive counterclockwise. It rotates a wind or
- * stress given in east/north components onto the grid axes. Many grids have
- * none, so this read is optional and reports whether it happened.
- */
-bool
-read_grid_angle_from_netcdf (int /*lev*/,
-                             const Box& domain,
-                             const std::string& fname,
-                             FArrayBox& NC_angler_fab)
-{
-    Vector<std::string> NC_names;
-    NC_names.push_back("angle");
-
-    if (!QueryNetCDFHasVars(fname, NC_names)) {
-        amrex::Print() << "Grid file " << fname << " has no angle; "
-                       << "grid rotation angle unavailable" << std::endl;
-        return false;
-    }
-
-    amrex::Print() << "Loading grid angle from NetCDF file " << fname << std::endl;
-
-    Vector<FArrayBox*> NC_fabs;
-    Vector<enum NC_Data_Dims_Type> NC_dim_types;
-
-    NC_fabs.push_back(&NC_angler_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
-
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    Vector<enum NC_Data_Dims_Type> NC_dim_types(names.size(), NC_Data_Dims_Type::SN_WE);
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, names, NC_dim_types, fabs);
     return true;
 }
 

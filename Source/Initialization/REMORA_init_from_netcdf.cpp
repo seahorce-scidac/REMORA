@@ -95,20 +95,13 @@ read_grid_vars_from_netcdf  (int lev, const Box& domain, const std::string& fnam
                              FArrayBox& NC_xv_fab, FArrayBox& NC_yv_fab,
                              FArrayBox& NC_xp_fab, FArrayBox& NC_yp_fab);
 
-/** \brief helper function to read optional spherical psi coordinates from netcdf */
+/** \brief helper function to read grid variables a file may or may not carry (spherical
+ *         coordinates, rotation angle) from netcdf; returns whether it did */
 bool
-read_spherical_grid_vars_from_netcdf (int lev, const Box& domain, const std::string& fname,
-                                      FArrayBox& NC_lonp_fab, FArrayBox& NC_latp_fab);
-
-/** \brief helper function to read optional spherical rho coordinates from netcdf */
-bool
-read_spherical_rho_grid_vars_from_netcdf (int lev, const Box& domain, const std::string& fname,
-                                          FArrayBox& NC_lonr_fab, FArrayBox& NC_latr_fab);
-
-/** \brief helper function to read the optional grid rotation angle from netcdf */
-bool
-read_grid_angle_from_netcdf (int lev, const Box& domain, const std::string& fname,
-                             FArrayBox& NC_angler_fab);
+read_optional_grid_vars_from_netcdf (const Box& domain, const std::string& fname,
+                                     const Vector<std::string>& names,
+                                     const Vector<FArrayBox*>& fabs,
+                                     const std::string& what);
 
 /** \brief helper function to read full-domain high resolution bathymetry from netcdf */
 void
@@ -557,8 +550,7 @@ REMORA::init_grid_vars_from_netcdf (int lev)
     Vector<FArrayBox> NC_latp_fab  ; NC_latp_fab.resize(num_boxes_at_level[lev]);
     bool have_spherical_psi = true;
 
-    // Optional spherical rho coordinates and grid angle (see
-    // read_spherical_rho_grid_vars_from_netcdf and read_grid_angle_from_netcdf)
+    // Optional spherical rho coordinates and grid angle (see read_optional_grid_vars_from_netcdf)
     Vector<FArrayBox> NC_lonr_fab  ; NC_lonr_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_latr_fab  ; NC_latr_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_angler_fab; NC_angler_fab.resize(num_boxes_at_level[lev]);
@@ -576,9 +568,10 @@ REMORA::init_grid_vars_from_netcdf (int lev)
 
         // All boxes at this level must agree: a partial set would leave holes in
         // the corner mesh that a conservative remap cannot detect.
-        have_spherical_psi = read_spherical_grid_vars_from_netcdf(
-                                 lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
-                                 NC_lonp_fab[idx], NC_latp_fab[idx]) && have_spherical_psi;
+        have_spherical_psi = read_optional_grid_vars_from_netcdf(
+                                 boxes_at_level[lev][idx], nc_grid_file[lev][idx],
+                                 {"lon_psi", "lat_psi"}, {&NC_lonp_fab[idx], &NC_latp_fab[idx]},
+                                 "spherical psi coordinates") && have_spherical_psi;
 
         // Mirror vec_xp exactly: same nodal psi BoxArray, DistributionMap and ngrow.
         if (have_spherical_psi && vec_lonp[lev] == nullptr) {
@@ -588,11 +581,14 @@ REMORA::init_grid_vars_from_netcdf (int lev)
                                              1, vec_xp[lev]->nGrowVect()));
         }
 
-        have_spherical_rho = read_spherical_rho_grid_vars_from_netcdf(
-                                 lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
-                                 NC_lonr_fab[idx], NC_latr_fab[idx]) && have_spherical_rho;
-        have_angle = read_grid_angle_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
-                                                 NC_angler_fab[idx]) && have_angle;
+        have_spherical_rho = read_optional_grid_vars_from_netcdf(
+                                 boxes_at_level[lev][idx], nc_grid_file[lev][idx],
+                                 {"lon_rho", "lat_rho"}, {&NC_lonr_fab[idx], &NC_latr_fab[idx]},
+                                 "spherical rho coordinates") && have_spherical_rho;
+        have_angle = read_optional_grid_vars_from_netcdf(
+                         boxes_at_level[lev][idx], nc_grid_file[lev][idx],
+                         {"angle"}, {&NC_angler_fab[idx]},
+                         "grid rotation angle") && have_angle;
 
         // Mirror vec_xr exactly: same rho BoxArray, DistributionMap and ngrow.
         if (have_spherical_rho && vec_lonr[lev] == nullptr) {
@@ -713,12 +709,13 @@ REMORA::init_grid_vars_from_netcdf (int lev)
 
     // The file supplies the one-cell ring around the domain. The ghost rows beyond it
     // continue the coordinates linearly, so anything interpolated onto those cells lands
-    // where they are rather than on a copy of the edge. The angle is copied outward like
-    // a metric.
+    // where they are rather than on a copy of the edge; longitude steps are taken modulo
+    // 360 so a ring that crosses the dateline continues past it instead of jumping. The
+    // angle is copied outward like a metric.
     if (vec_lonr[lev] != nullptr) {
         vec_lonr[lev]->FillBoundary(geom[lev].periodicity());
         vec_latr[lev]->FillBoundary(geom[lev].periodicity());
-        extrapolate_metric_to_physical_boundaries(*vec_lonr[lev], geom[lev], true);
+        extrapolate_metric_to_physical_boundaries(*vec_lonr[lev], geom[lev], true, Real(360.0));
         extrapolate_metric_to_physical_boundaries(*vec_latr[lev], geom[lev], true);
     }
     if (vec_angler[lev] != nullptr) {
