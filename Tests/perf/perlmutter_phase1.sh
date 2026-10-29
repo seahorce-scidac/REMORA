@@ -170,9 +170,12 @@ build_one () {   # build_one <label> <ref> <cpu|gpu>
 }
 build_fcompare () {
     [ -x "$WORK/bin/fcompare" ] && return
-    local src=$WORK/src_${LABELS[-1]}
+    local src   # any source tree built in this run has the AMReX submodule
+    src=$(ls -d "$WORK"/src_${LABELS[-1]}_* 2>/dev/null | head -1)
+    [ -n "$src" ] || { echo "no source tree to build fcompare from"; exit 1; }
     (cd "$src/Submodules/AMReX/Tools/Plotfile" && make -j "$JOBS" programs=fcompare \
-        > "$WORK/build_fcompare.log" 2>&1)
+        > "$WORK/build_fcompare.log" 2>&1) \
+        || { echo "fcompare build failed, see $WORK/build_fcompare.log"; exit 1; }
     cp "$src"/Submodules/AMReX/Tools/Plotfile/fcompare*.ex "$WORK/bin/fcompare"
 }
 for arch in cpu gpu; do
