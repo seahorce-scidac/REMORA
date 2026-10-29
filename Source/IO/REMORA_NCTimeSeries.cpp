@@ -244,22 +244,36 @@ void NCTimeSeries::Initialize() {
         amrex::ParallelDescriptor::Bcast(&l_shape_mismatch, 1, ioproc);
         amrex::ParallelDescriptor::Bcast(l_file_shape.data(), l_file_shape.size(), ioproc);
 
+        const std::string refusal = regrid_refusal(regrid_options, target_lon, target_lat,
+                                                   mf_var->ixType(), is2d);
+        // A lat-lon grid that happens to have the model grid's shape is still a lat-lon
+        // grid; its dimensions' own longitude and latitude coordinates give it away.
+        if (!l_shape_mismatch && refusal.empty() && !l_is_spatially_uniform &&
+            LatLonRegrid::has_latlon_axes(file_name, field_name)) {
+            l_shape_mismatch = 1;
+        }
         if (l_shape_mismatch) {
-            const std::string refusal = regrid_refusal(regrid_options, target_lon, target_lat,
-                                                       mf_var->ixType(), is2d);
+            const int field_rank = is2d ? 3 : 4;
+            const std::vector<MPI_Offset> file_shape(l_file_shape.begin(),
+                                                     l_file_shape.begin() + field_rank);
             if (!refusal.empty()) {
-                const int field_rank = is2d ? 3 : 4;
-                const std::vector<MPI_Offset> file_shape(l_file_shape.begin(),
-                                                         l_file_shape.begin() + field_rank);
                 amrex::Abort(native_shape_mismatch_message(field_name, file_name, file_shape,
                                                            domain, mf_var->ixType(), is2d, refusal));
             }
             // Every file of a series on the same lat-lon grid, so one set of weights serves
             const std::vector<long long> shape3(l_file_shape.begin(), l_file_shape.begin() + 3);
             if (regrid == nullptr) {
+                // Should the file have been on the model grid instead, say what that needs
+                const std::vector<MPI_Offset> native = native_spatial_shape(domain, mf_var->ixType(), is2d);
+                const std::string context =
+                    " It was taken to be on a lat-lon grid because its shape (eta, xi) = (" +
+                    std::to_string(static_cast<long long>(file_shape[1])) + ", " +
+                    std::to_string(static_cast<long long>(file_shape[2])) + ") is not the model grid's " +
+                    shape_to_string(native) + "; a file on the model grid has remora.n_cell + 2 rho" +
+                    " points along each axis, the ROMS boundary ring included.";
                 regrid = std::make_unique<LatLonRegrid>();
                 regrid->define(file_name, field_name, shape3, *target_lon, *target_lat,
-                               *mf_var, domain, *regrid_options);
+                               *mf_var, domain, *regrid_options, context);
             } else if (!regrid->same_source_grid(file_name, field_name, shape3)) {
                 amrex::Abort("The files of the '" + field_name + "' time series are on different"
                              " lat-lon grids (" + file_names[0] + " and " + file_name + "); a"

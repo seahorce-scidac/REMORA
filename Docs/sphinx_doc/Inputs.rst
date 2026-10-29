@@ -1738,17 +1738,22 @@ as ROMS's ``regrid`` does. This needs a spherical grid file: ``lon_rho`` and ``l
 come from ``remora.nc_grid_file_0`` (or ``remora.nc_grid_file_hires``). The rules are:
 
 -  The variable is dimensioned ``(time, lat, lon)``. Its longitude and latitude are 1D
-   variables named by its CF ``coordinates`` attribute (``"lon lat"``), or by
-   **remora.frc_lon_varname** and **remora.frc_lat_varname**, each running along the
-   matching dimension of the variable. 2D (curvilinear) source coordinates are not
-   supported.
+   variables named by **remora.frc_lon_varname** and **remora.frc_lat_varname**, or by
+   its CF ``coordinates`` attribute (``"lon lat"``), or else the coordinate variables of
+   its last two dimensions (``longitude(longitude)``, as ERA5 writes them); each runs
+   along the matching dimension of the variable. 2D (curvilinear) source coordinates
+   are not supported.
+-  A variable whose last two dimensions carry longitude and latitude coordinate
+   variables (in degrees east and north) is interpolated even when its shape happens
+   to be the model grid's.
+-  Packed variables are unpacked with their ``scale_factor`` and ``add_offset``.
 -  Either axis may be increasing or decreasing. Longitude may be in [-180, 180) or
    [0, 360), may cross the branch cut, and may cover the globe, in which case the grid
    is treated as periodic in longitude.
 -  The lat-lon grid must contain every rho point of level 0 and its boundary ring;
    otherwise the run stops at startup and prints both extents.
--  Source values equal to the variable's ``_FillValue`` or ``missing_value``, or not
-   finite, are left out and the remaining interpolation weights renormalized. A point
+-  Source values exactly equal to the variable's ``_FillValue`` or ``missing_value``
+   (compared before unpacking, as CF defines them), or not finite, are left out and the remaining interpolation weights renormalized. A point
    whose four surrounding source values are all missing takes the nearest valid one
    within **remora.frc_fill_max_rings** source cells; if there is none the run stops.
 -  Every file of one variable's series must be on the same lat-lon grid. Different

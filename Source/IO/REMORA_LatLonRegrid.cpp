@@ -2,6 +2,7 @@
 #include "REMORA_NCFile.H"
 
 #include <AMReX_GpuContainers.H>
+#include <AMReX_Utility.H>
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_ParallelReduce.H>
 
@@ -19,23 +20,15 @@ namespace {
 /** Broadcast a string from the IO rank */
 void bcast_string (std::string& s)
 {
-    const int ioproc = ParallelDescriptor::IOProcessorNumber();
-    int n = static_cast<int>(s.size());
-    ParallelDescriptor::Bcast(&n, 1, ioproc);
-    std::vector<char> buf(s.begin(), s.end());
-    buf.resize(n);
-    if (n > 0) { ParallelDescriptor::Bcast(buf.data(), n, ioproc); }
-    s.assign(buf.begin(), buf.end());
+    amrex::BroadcastString(s, ParallelDescriptor::MyProc(), ParallelDescriptor::IOProcessorNumber(),
+                           ParallelDescriptor::Communicator());
 }
 
 /** Broadcast a vector of doubles from the IO rank */
-void bcast_vector (std::vector<double>& v)
+void bcast_vector (Vector<double>& v)
 {
-    const int ioproc = ParallelDescriptor::IOProcessorNumber();
-    int n = static_cast<int>(v.size());
-    ParallelDescriptor::Bcast(&n, 1, ioproc);
-    v.resize(n);
-    if (n > 0) { ParallelDescriptor::Bcast(v.data(), n, ioproc); }
+    amrex::BroadcastArray(v, ParallelDescriptor::MyProc(), ParallelDescriptor::IOProcessorNumber(),
+                          ParallelDescriptor::Communicator());
 }
 
 /** Name of dimension idim of a variable */
@@ -59,28 +52,39 @@ bool units_say (const ncutils::NCVar& var, const std::string& direction)
             u.find(direction == "east" ? "_e" : "_n") != std::string::npos);
 }
 
-/** The source grid of a variable: the names and values of its coordinate axes and its
- *  missing-data markers */
+/** The source grid of a variable: the names and values of its coordinate axes, its
+ *  missing-data markers and its packing */
 struct SourceGrid
 {
     std::string lon_name, lat_name;
-    std::vector<double> lon, lat;
+    Vector<double> lon, lat;
     int has_fill = 0, has_missing = 0;
     double fill_value = 0.0, missing_value = 0.0;
+    double scale_factor = 1.0, add_offset = 0.0;
 };
+
+/** Whether dimension idim of a variable has a CF coordinate variable: a 1D variable of the
+ *  dimension's own name */
+bool has_dimension_coordinate (const ncutils::NCFile& ncf, const ncutils::NCVar& var, int idim)
+{
+    const std::string d = dim_name(ncf, var, idim);
+    return ncf.has_var(d) && ncf.var(d).ndim() == 1 && dim_name(ncf, ncf.var(d), 0) == d;
+}
 
 /**
  * Find and read the coordinate axes of a (time, lat, lon) variable. The names come from
- * the inputs when given, and otherwise from the variable's CF coordinates attribute, each
- * name identified by its units (degrees east or north) or, failing that, by its leading
- * "lon"/"lat" or, failing that, by order as ROMS's get_varcoords takes them. Each axis must
- * be 1D and dimensioned like the variable's matching dimension. Collective; aborts on every
- * rank with the reason when the axes cannot be found.
+ * the inputs when given; otherwise from the variable's CF coordinates attribute, each name
+ * identified by its units (degrees east or north) or, failing that, by its leading
+ * "lon"/"lat" or, failing that, by order as ROMS's get_varcoords takes them; otherwise from
+ * the CF coordinate variables of its last two dimensions (longitude(longitude), as ERA5 and
+ * most reanalyses write them). Each axis must be 1D and dimensioned like the variable's
+ * matching dimension. Collective; aborts on every rank with the reason, followed by
+ * `context`, when the axes cannot be found.
  */
 SourceGrid
 find_source_grid (const std::string& file_name, const std::string& field_name,
                   const std::vector<long long>& field_shape,
-                  const LatLonRegridOptions& options)
+                  const LatLonRegridOptions& options, const std::string& context)
 {
     SourceGrid g;
     std::string error;
@@ -96,8 +100,15 @@ find_source_grid (const std::string& file_name, const std::string& field_name,
         g.lat_name = options.lat_name;
         if (g.lon_name.empty() || g.lat_name.empty()) {
             if (!var.has_attr("coordinates")) {
-                error = "it has no coordinates attribute naming its longitude and latitude, and "
-                        "remora.frc_lon_varname and remora.frc_lat_varname are not both set";
+                if (has_dimension_coordinate(ncf, var, rank-1) &&
+                    has_dimension_coordinate(ncf, var, rank-2)) {
+                    if (g.lon_name.empty()) { g.lon_name = dim_name(ncf, var, rank-1); }
+                    if (g.lat_name.empty()) { g.lat_name = dim_name(ncf, var, rank-2); }
+                } else {
+                    error = "it has no coordinates attribute naming its longitude and latitude, "
+                            "its last two dimensions have no coordinate variables, and "
+                            "remora.frc_lon_varname and remora.frc_lat_varname are not both set";
+                }
             } else {
                 std::istringstream tokens(var.get_attr("coordinates"));
                 std::vector<std::string> names;
@@ -148,8 +159,11 @@ find_source_grid (const std::string& file_name, const std::string& field_name,
             }
         }
 
+        int has_scale = 0, has_offset = 0;
         for (const auto& [attr, has, val] : { std::make_tuple("_FillValue", &g.has_fill, &g.fill_value),
-                                              std::make_tuple("missing_value", &g.has_missing, &g.missing_value) })
+                                              std::make_tuple("missing_value", &g.has_missing, &g.missing_value),
+                                              std::make_tuple("scale_factor", &has_scale, &g.scale_factor),
+                                              std::make_tuple("add_offset", &has_offset, &g.add_offset) })
         {
             if (var.has_attr(attr)) {
                 std::vector<double> v;
@@ -163,7 +177,7 @@ find_source_grid (const std::string& file_name, const std::string& field_name,
     bcast_string(error);
     if (!error.empty()) {
         Abort("Cannot interpolate '" + field_name + "' in " + file_name +
-              " onto the model grid: " + error + ".");
+              " onto the model grid: " + error + "." + context);
     }
     bcast_string(g.lon_name);
     bcast_string(g.lat_name);
@@ -172,6 +186,8 @@ find_source_grid (const std::string& file_name, const std::string& field_name,
     ParallelDescriptor::Bcast(&g.has_missing, 1, ioproc);
     ParallelDescriptor::Bcast(&g.fill_value, 1, ioproc);
     ParallelDescriptor::Bcast(&g.missing_value, 1, ioproc);
+    ParallelDescriptor::Bcast(&g.scale_factor, 1, ioproc);
+    ParallelDescriptor::Bcast(&g.add_offset, 1, ioproc);
 
     Vector<NDArray<double>> arrays(2);
     ReadNetCDFFile(file_name, {g.lon_name, g.lat_name}, arrays);
@@ -196,14 +212,11 @@ int bracket (const Real* a, int n, Real x)
     return lo;
 }
 
-/** Whether a source value is data rather than a missing-data marker */
+/** Whether a source value is data: apply() has already turned missing-data markers to NaN */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-bool is_valid (Real v, bool has_fill, Real fill, bool has_missing, Real missing)
+bool is_valid (Real v)
 {
-    if (!(v == v) || std::abs(v) > std::numeric_limits<Real>::max()) { return false; }
-    if (has_fill    && std::abs(v - fill)    <= Real(1.e-6) * amrex::max(Real(1.0), std::abs(fill)))    { return false; }
-    if (has_missing && std::abs(v - missing) <= Real(1.e-6) * amrex::max(Real(1.0), std::abs(missing))) { return false; }
-    return true;
+    return (v == v) && std::abs(v) <= std::numeric_limits<Real>::max();
 }
 
 } // namespace
@@ -213,19 +226,21 @@ LatLonRegrid::define (const std::string& file_name, const std::string& field_nam
                       const std::vector<long long>& field_shape,
                       const MultiFab& target_lon, const MultiFab& target_lat,
                       const MultiFab& like, const Box& a_domain,
-                      const LatLonRegridOptions& options)
+                      const LatLonRegridOptions& options, const std::string& context)
 {
-    const SourceGrid g = find_source_grid(file_name, field_name, field_shape, options);
+    const SourceGrid g = find_source_grid(file_name, field_name, field_shape, options, context);
     lon_name = g.lon_name;
     lat_name = g.lat_name;
-    lon_file = g.lon;
-    lat_file = g.lat;
+    lon_file.assign(g.lon.begin(), g.lon.end());
+    lat_file.assign(g.lat.begin(), g.lat.end());
     nlon = static_cast<int>(lon_file.size());
     nlat = static_cast<int>(lat_file.size());
     has_fill = g.has_fill;
     has_missing = g.has_missing;
     fill_value = g.fill_value;
     missing_value = g.missing_value;
+    scale_factor = g.scale_factor;
+    add_offset = g.add_offset;
     fill_max_rings = options.fill_max_rings;
     domain = makeSlab(a_domain, 2, 0);
 
@@ -266,10 +281,8 @@ LatLonRegrid::define (const std::string& file_name, const std::string& field_nam
 
     weights.define(like.boxArray(), like.DistributionMap(), stencil_size, IntVect(1,1,0));
     indices.define(like.boxArray(), like.DistributionMap(), 3*stencil_size, IntVect(1,1,0));
-    position.define(like.boxArray(), like.DistributionMap(), 2, IntVect(1,1,0));
     weights.setVal(0.0);
     indices.setVal(-1);
-    position.setVal(0.0);
 
     // Target coordinates on the forcing layout, with the ring
     MultiFab lon(like.boxArray(), like.DistributionMap(), 1, IntVect(1,1,0));
@@ -313,7 +326,6 @@ LatLonRegrid::build_weights (const MultiFab& lon, const MultiFab& lat)
         auto const& lat_a = lat.const_array(mfi);
         auto const& w   = weights.array(mfi);
         auto const& idx = indices.array(mfi);
-        auto const& pos = position.array(mfi);
 
         reduce_op.eval(bx, reduce_data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
         {
@@ -354,10 +366,6 @@ LatLonRegrid::build_weights (const MultiFab& lon, const MultiFab& lat)
                 idx(i,j,k,3*s+1) = inside ? sj[s] : -1;
                 idx(i,j,k,3*s+2) = 0;
             }
-            const Real x_inc = Real(m) + p;
-            const Real y_inc = Real(n) + q;
-            pos(i,j,k,0) = fx ? Real(Nx-1) - x_inc : x_inc;
-            pos(i,j,k,1) = fy ? Real(Ny-1) - y_inc : y_inc;
 
             return { inside ? 0 : 1, lt, lt, pt, pt };
         });
@@ -396,7 +404,16 @@ LatLonRegrid::apply (const std::string& file_name, const std::string& field_name
         const auto shape = arrays[0].get_vshape();
         AMREX_ALWAYS_ASSERT_WITH_MESSAGE(shape.size() == 3 && shape[1] == nlat && shape[2] == nlon,
             "Lat-lon forcing record of '" + field_name + "' has an unexpected shape");
-        std::copy(arrays[0].get_data(), arrays[0].get_data() + buf.size(), buf.begin());
+        // Missing-data markers are compared exactly and in the stored (packed) values, as CF
+        // defines them, then the data unpacked. A marker becomes NaN, which the interpolation
+        // sets aside.
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+        const Real* raw = arrays[0].get_data();
+        for (std::size_t c = 0; c < buf.size(); ++c) {
+            const double v = static_cast<double>(raw[c]);
+            const bool marker = (has_fill && v == fill_value) || (has_missing && v == missing_value);
+            buf[c] = static_cast<Real>(marker ? nan : v * scale_factor + add_offset);
+        }
     }
     ParallelDescriptor::Bcast(buf.data(), buf.size(), ParallelDescriptor::IOProcessorNumber());
 
@@ -407,18 +424,17 @@ LatLonRegrid::apply (const std::string& file_name, const std::string& field_name
     interpolate(src, dst);
 
     // A target point with no valid source value within reach is left NaN
-    int n_missing = 0;
+    ReduceOps<ReduceOpSum> op;
+    ReduceData<int> data(op);
     for (MFIter mfi(dst); mfi.isValid(); ++mfi) {
         const Box bx = target_box(mfi);
         auto const& d = dst.const_array(mfi);
-        ReduceOps<ReduceOpSum> op;
-        ReduceData<int> data(op);
         op.eval(bx, data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> GpuTuple<int>
         {
             return { (d(i,j,k) == d(i,j,k)) ? 0 : 1 };
         });
-        n_missing += amrex::get<0>(data.value(op));
     }
+    int n_missing = amrex::get<0>(data.value(op));
     ParallelDescriptor::ReduceIntSum(n_missing);
     if (n_missing > 0) {
         Abort("Interpolating '" + field_name + "' record " + std::to_string(itime) + " of " +
@@ -434,9 +450,7 @@ LatLonRegrid::interpolate (const FArrayBox& src_fab, MultiFab& dst) const
 {
     auto const& src = src_fab.const_array();
     const int Nx = nlon, Ny = nlat, R = fill_max_rings;
-    const bool periodic = periodic_lon;
-    const bool hf = has_fill, hm = has_missing;
-    const Real fv = static_cast<Real>(fill_value), mv = static_cast<Real>(missing_value);
+    const bool periodic = periodic_lon, fx = flip_lon, fy = flip_lat;
     const Real nan = std::numeric_limits<Real>::quiet_NaN();
 
     for (MFIter mfi(dst); mfi.isValid(); ++mfi) {
@@ -444,7 +458,6 @@ LatLonRegrid::interpolate (const FArrayBox& src_fab, MultiFab& dst) const
         auto const& d   = dst.array(mfi);
         auto const& w   = weights.const_array(mfi);
         auto const& idx = indices.const_array(mfi);
-        auto const& pos = position.const_array(mfi);
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
@@ -453,15 +466,21 @@ LatLonRegrid::interpolate (const FArrayBox& src_fab, MultiFab& dst) const
             Real sum = Real(0.0), wsum = Real(0.0);
             for (int s = 0; s < stencil_size; ++s) {
                 const Real v = src(idx(i,j,k,3*s), idx(i,j,k,3*s+1), 0);
-                if (w(i,j,k,s) > Real(0.0) && is_valid(v, hf, fv, hm, mv)) {
+                if (w(i,j,k,s) > Real(0.0) && is_valid(v)) {
                     sum  += w(i,j,k,s) * v;
                     wsum += w(i,j,k,s);
                 }
             }
             if (wsum > Real(0.0)) { d(i,j,k) = sum / wsum; return; }
 
-            // Every corner with weight is missing: take the nearest valid source value
-            const Real xf = pos(i,j,k,0), yf = pos(i,j,k,1);
+            // Every corner with weight is missing: take the nearest valid source value. The
+            // target's fractional source index follows from the stencil: corner 0 is its
+            // lower-left cell, and the fractions are p = w1 + w2 and q = w2 + w3, counted
+            // backward along an axis the file stores decreasing.
+            const Real p = w(i,j,k,1) + w(i,j,k,2);
+            const Real q = w(i,j,k,2) + w(i,j,k,3);
+            const Real xf = Real(idx(i,j,k,0)) + (fx ? -p : p);
+            const Real yf = Real(idx(i,j,k,1)) + (fy ? -q : q);
             const int ci = static_cast<int>(std::round(xf));
             const int cj = static_cast<int>(std::round(yf));
             Real best = nan, best_d2 = std::numeric_limits<Real>::max();
@@ -473,7 +492,7 @@ LatLonRegrid::interpolate (const FArrayBox& src_fab, MultiFab& dst) const
                     if (periodic) { m = ((m % Nx) + Nx) % Nx; }
                     else if (m < 0 || m >= Nx) { continue; }
                     const Real v = src(m, n, 0);
-                    if (!is_valid(v, hf, fv, hm, mv)) { continue; }
+                    if (!is_valid(v)) { continue; }
                     Real dx = Real(m) - xf;
                     if (periodic) { dx -= Real(Nx) * std::round(dx / Real(Nx)); }
                     const Real dy = Real(n) - yf;
@@ -493,7 +512,7 @@ LatLonRegrid::same_source_grid (const std::string& file_name, const std::string&
     LatLonRegridOptions opts;
     opts.lon_name = lon_name;
     opts.lat_name = lat_name;
-    const SourceGrid g = find_source_grid(file_name, field_name, field_shape, opts);
+    const SourceGrid g = find_source_grid(file_name, field_name, field_shape, opts, "");
     auto same = [] (const std::vector<double>& a, const std::vector<double>& b) {
         if (a.size() != b.size()) { return false; }
         for (std::size_t m = 0; m < a.size(); ++m) {
@@ -503,7 +522,28 @@ LatLonRegrid::same_source_grid (const std::string& file_name, const std::string&
     };
     return same(g.lon, lon_file) && same(g.lat, lat_file) &&
            g.has_fill == static_cast<int>(has_fill) && g.has_missing == static_cast<int>(has_missing) &&
-           (!has_fill || g.fill_value == fill_value) && (!has_missing || g.missing_value == missing_value);
+           (!has_fill || g.fill_value == fill_value) && (!has_missing || g.missing_value == missing_value) &&
+           g.scale_factor == scale_factor && g.add_offset == add_offset;
+}
+
+bool
+LatLonRegrid::has_latlon_axes (const std::string& file_name, const std::string& field_name)
+{
+    int found = 0;
+    auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
+    ncmpi_begin_indep_data(ncf.ncid);
+    if (ParallelDescriptor::IOProcessor() && ncf.has_var(field_name)) {
+        const auto var = ncf.var(field_name);
+        const int rank = var.ndim();
+        if (rank >= 2 && has_dimension_coordinate(ncf, var, rank-1) &&
+                         has_dimension_coordinate(ncf, var, rank-2)) {
+            found = units_say(ncf.var(dim_name(ncf, var, rank-1)), "east") &&
+                    units_say(ncf.var(dim_name(ncf, var, rank-2)), "north");
+        }
+    }
+    ncf.close();
+    ParallelDescriptor::Bcast(&found, 1, ParallelDescriptor::IOProcessorNumber());
+    return found != 0;
 }
 
 std::string

@@ -41,9 +41,10 @@ struct LatLonRegridOptions
  * The interpolation weights are computed once, in define(), and stored per target cell in
  * the layout the coupling remap uses: up to four weights, and the (i, j, k) source index of
  * each. apply() reads one record of the field, sets aside source values equal to the
- * variable's _FillValue or missing_value (or not finite), renormalizes the remaining weights,
- * and gives a target point whose four corners are all missing the nearest valid source value
- * within LatLonRegridOptions::fill_max_rings cells.
+ * variable's _FillValue or missing_value (or not finite), unpacks the rest with its
+ * scale_factor and add_offset, renormalizes the remaining weights, and gives a target point
+ * whose four corners are all missing the nearest valid source value within
+ * LatLonRegridOptions::fill_max_rings cells.
  */
 class LatLonRegrid
 {
@@ -59,12 +60,20 @@ public:
      * @param[in] like        the forcing MultiFab the field fills, for the layout
      * @param[in] domain      level 0 domain
      * @param[in] options     remora.frc_* settings
+     * @param[in] context     appended to an error finding the source axes, to say what the
+     *                        file would need to be read on the model grid instead
      */
     void define (const std::string& file_name, const std::string& field_name,
                  const std::vector<long long>& field_shape,
                  const amrex::MultiFab& target_lon, const amrex::MultiFab& target_lat,
                  const amrex::MultiFab& like, const amrex::Box& domain,
-                 const LatLonRegridOptions& options);
+                 const LatLonRegridOptions& options, const std::string& context);
+
+    /** \brief Whether a variable's last two dimensions are CF longitude and latitude
+     *         coordinates (1D variables of the dimensions' own names, in degrees east and
+     *         north), which marks it as on a lat-lon grid even when its shape happens to be
+     *         the model grid's. Collective. */
+    static bool has_latlon_axes (const std::string& file_name, const std::string& field_name);
 
     /** \brief Whether another file's variable lies on the same source grid. Collective. */
     bool same_source_grid (const std::string& file_name, const std::string& field_name,
@@ -98,9 +107,10 @@ private:
     bool flip_lon = false, flip_lat = false;
     bool periodic_lon = false;
 
-    /** Missing-data markers */
+    /** Missing-data markers, in the stored (packed) values, and the packing */
     bool has_fill = false, has_missing = false;
     double fill_value = 0.0, missing_value = 0.0;
+    double scale_factor = 1.0, add_offset = 0.0;
 
     std::string lon_name, lat_name;
     int fill_max_rings = 3;
@@ -109,8 +119,6 @@ private:
     /** Weights and the (i, j, k) source index of each, per target cell */
     amrex::MultiFab weights;
     amrex::iMultiFab indices;
-    /** Fractional source index (i, j) of each target point, for the nearest-valid search */
-    amrex::MultiFab position;
 };
 
 #endif // REMORA_USE_NETCDF
