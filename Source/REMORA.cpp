@@ -839,23 +839,101 @@ REMORA::set_grid_vars_averaged_down (int lev) {
         mf->EnforcePeriodicity(geom[lev].periodicity());
         extrapolate_metric_to_physical_boundaries(*mf, geom[lev]);
     }
+
+    // Spherical rho coordinates and grid angle, when the high-resolution file carried them.
+    // The ghost rows beyond the domain's ring continue the coordinates, as on a level read
+    // directly from a grid file; the angle is copied outward like a metric.
+    struct Coord { Vector<std::unique_ptr<MultiFab>>* vec; Vector<std::unique_ptr<MultiFab>>* full;
+                   bool linear; Real wrap; };
+    for (const Coord& c : { Coord{&vec_lonr,   &vec_lonr_full_domain,   true,  Real(360.0)},
+                            Coord{&vec_latr,   &vec_latr_full_domain,   true,  Real(0.0)},
+                            Coord{&vec_angler, &vec_angler_full_domain, false, Real(0.0)} })
+    {
+        if (lev >= static_cast<int>(c.full->size()) || (*c.full)[lev] == nullptr) {
+            (*c.vec)[lev].reset();
+            continue;
+        }
+        const MultiFab& full = *(*c.full)[lev];
+        (*c.vec)[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
+                                         1, vec_xr[lev]->nGrowVect()));
+        MultiFab& mf = *(*c.vec)[lev];
+        mf.ParallelCopy(full, 0, 0, 1, full.nGrowVect(), mf.nGrowVect());
+        mf.FillBoundary(geom[lev].periodicity());
+        extrapolate_metric_to_physical_boundaries(mf, geom[lev], c.linear, c.wrap);
+    }
 }
 
+namespace {
+
 /**
- * Copy the outermost in-domain ghost row of a cell-centred field outward over the
- * remaining ghost rows at the physical boundaries. Used for grid metrics and bathymetry
- * in every build, so it lives here rather than in the NetCDF-only initialisation.
+ * Fill one strip of ghost cells beyond the ring along dir, from the ring index and, when
+ * linear, the in-domain index beside it. A named function rather than a lambda inside
+ * the caller: a device lambda defined inside another lambda is not allowed by CUDA.
  *
- * @param[inout] mf    multifab of data to extrapolate on
- * @param[in   ] geom  geometry
+ * @param[in   ] gbx     cells to fill
+ * @param[inout] arr     the field
+ * @param[in   ] dir     direction of the strip (0 or 1)
+ * @param[in   ] ring    index of the ring row along dir
+ * @param[in   ] inner   index of the first in-domain row along dir
+ * @param[in   ] linear  extend linearly instead of copying
+ * @param[in   ] wrap    period to take the linear step modulo, 0 for none
  */
 void
-REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry& geom)
+extrapolate_strip (const Box& gbx, const Array4<Real>& arr, int dir, int ring, int inner,
+                   bool linear, Real wrap)
+{
+    if (!gbx.ok()) { return; }
+    if (linear) {
+        ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            const int  idx   = (dir == 0) ? i : j;
+            const Real dist  = static_cast<Real>((idx > ring) ? idx - ring : ring - idx);
+            const Real vring = (dir == 0) ? arr(ring,j,k,0)  : arr(i,ring,k,0);
+            const Real vin   = (dir == 0) ? arr(inner,j,k,0) : arr(i,inner,k,0);
+            Real step = vring - vin;
+            if (wrap > Real(0.0)) { step -= wrap * std::round(step / wrap); }
+            arr(i,j,k,0) = vring + dist * step;
+        });
+    } else {
+        ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            arr(i,j,k,0) = (dir == 0) ? arr(ring,j,k,0) : arr(i,ring,k,0);
+        });
+    }
+}
+
+} // namespace
+
+/**
+ * Fill the ghost rows beyond the outermost in-domain ghost row of a cell-centred field
+ * at the physical boundaries: by copying that row outward (the default, right for grid
+ * metrics and bathymetry), or with linear by extending it from the row inside it (for
+ * coordinates, which keep growing past the edge). Used in every build, so it lives here
+ * rather than in the NetCDF-only initialisation.
+ *
+ * The x passes run first; the y passes then cover every column, including the x strips
+ * just filled, which takes care of the corners. The linear mode leaves a periodic
+ * direction alone, where FillBoundary has already put the wrapped values in the ghost
+ * cells, and its x passes read two columns, so unless y is periodic they are limited to
+ * the rows those columns hold data in (the domain and its ring). The copy mode is what it
+ * always was: it reads only the ring and covers the full extent in every direction.
+ *
+ * @param[inout] mf      multifab of data to extrapolate on
+ * @param[in   ] geom    geometry
+ * @param[in   ] linear  extend linearly instead of copying
+ * @param[in   ] wrap    period to take the linear step modulo (360 for a longitude), 0 for none
+ */
+void
+REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry& geom, bool linear,
+                                                   Real wrap)
 {
     const IntVect ng = mf.nGrowVect();
 
     const auto& dom_lo = amrex::lbound(geom.Domain());
     const auto& dom_hi = amrex::ubound(geom.Domain());
+
+    const bool do_x = !(linear && geom.isPeriodic(0));
+    const bool do_y = !(linear && geom.isPeriodic(1));
 
     for ( MFIter mfi(mf); mfi.isValid(); ++mfi )
     {
@@ -868,29 +946,20 @@ REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry&
         Box gbx_loy = adjCellLo(bx,1,ng[1]); gbx_loy.grow(0,ng[0]); gbx_loy.setBig  (1,dom_lo.y-2);
         Box gbx_hiy = adjCellHi(bx,1,ng[1]); gbx_hiy.grow(0,ng[0]); gbx_hiy.setSmall(1,dom_hi.y+2);
 
-        if (gbx_lox.ok()) {
-            ParallelFor(gbx_lox, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(dom_lo.x-1,j,k,0);
-            });
+        if (linear && !geom.isPeriodic(1)) {
+            for (Box* gbx : {&gbx_lox, &gbx_hix}) {
+                gbx->setSmall(1, std::max(gbx->smallEnd(1), dom_lo.y-1));
+                gbx->setBig  (1, std::min(gbx->bigEnd(1),   dom_hi.y+1));
+            }
         }
-        if (gbx_hix.ok()) {
-            ParallelFor(gbx_hix, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(dom_hi.x+1,j,k,0);
-            });
+
+        if (do_x) {
+            extrapolate_strip(gbx_lox, mf_arr, 0, dom_lo.x-1, dom_lo.x, linear, wrap);
+            extrapolate_strip(gbx_hix, mf_arr, 0, dom_hi.x+1, dom_hi.x, linear, wrap);
         }
-        if (gbx_loy.ok()) {
-            ParallelFor(gbx_loy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(i,dom_lo.y-1,k,0);
-            });
-        }
-        if (gbx_hiy.ok()) {
-            ParallelFor(gbx_hiy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(i,dom_hi.y+1,k,0);
-            });
+        if (do_y) {
+            extrapolate_strip(gbx_loy, mf_arr, 1, dom_lo.y-1, dom_lo.y, linear, wrap);
+            extrapolate_strip(gbx_hiy, mf_arr, 1, dom_hi.y+1, dom_hi.y, linear, wrap);
         }
     } // mfi
 }

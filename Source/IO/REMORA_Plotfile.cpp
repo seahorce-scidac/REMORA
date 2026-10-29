@@ -149,6 +149,19 @@ REMORA::WritePlotFile (int istep_for_plot)
          if (plot_name == "srflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "shflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "mask_rho") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         // Spherical coordinates and grid angle exist only when the grid file carried them,
+         // which is known only after the grid is read, so an unavailable one is warned
+         // about and dropped here, as set2DPlotVariables does for the names it can check.
+         if (plot_name == "lon_rho" || plot_name == "lat_rho" || plot_name == "angle") {
+             const bool available = (plot_name == "angle") ? (vec_angler[0] != nullptr)
+                                                            : (vec_lonr[0] != nullptr);
+             if (available) {
+                 varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;
+             } else if (ParallelDescriptor::IOProcessor()) {
+                 Warning("\nWARNING: Requested to plot variable '" + plot_name +
+                         "' in 2D list but the grid carries no " + plot_name);
+             }
+         }
          if (plot_name == "ubar" ) {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "sustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "bustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
@@ -389,6 +402,18 @@ REMORA::WritePlotFile (int istep_for_plot)
         }
         if (plot_name == "mask_rho" ) {
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_mskr[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "lon_rho" || plot_name == "lat_rho" || plot_name == "angle") {
+            const auto& src = (plot_name == "lon_rho") ? vec_lonr
+                            : (plot_name == "lat_rho") ? vec_latr : vec_angler;
+            for (int lev = 0; lev <= finest_level; ++lev) {
+                // Registered above only when level 0 has it, and every finer level follows
+                // level 0, so this cannot fire; it keeps a null from reaching the copy.
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(src[lev] != nullptr,
+                    "Plot variable " + plot_name + " is missing on a refined level");
+                MultiFab::Copy(mf_2d_rho[lev],*src[lev],0,icomp_rho,1,0);
+            }
             icomp_rho++;
         }
     }

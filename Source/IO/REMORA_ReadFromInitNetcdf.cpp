@@ -447,42 +447,47 @@ read_grid_vars_from_netcdf (int /*lev*/,
 /**
  * @param domain          simulation domain
  * @param fname           file name to read from
- * @param NC_lonp_fab     container for lon_psi data
- * @param NC_latp_fab     container for lat_psi data
- * @returns whether the file carried spherical psi coordinates and they were read
+ * @param names           variables to read, each 2D on (eta, xi) with no time axis
+ * @param fabs            one container per name
+ * @param what            what the variables are, for the log line
+ * @param ngrow           grow cells the file carries, if not the usual one-cell ring
+ * @returns whether the file carried every variable and they were read
  *
- * ROMS grid files for spherical grids carry lon_psi/lat_psi alongside
- * x_psi/y_psi, and those degree-valued corner arrays are what a coupled driver
- * needs when the two components do not share a projected Cartesian frame
- * (SCRIP/COAWST selects the same way; see Lib/SCRIP_COAWST/read_roms.f).
- * Idealized grid files carry no spherical coordinates, so this read is optional
- * and reports whether it happened rather than aborting.
+ * ROMS grid files carry some variables only for some grids: lon_psi/lat_psi
+ * and lon_rho/lat_rho for a spherical grid (the corner arrays a coupled driver
+ * remaps with, as SCRIP/COAWST does in Lib/SCRIP_COAWST/read_roms.f, and the
+ * cell centers a forcing field on another grid is interpolated to), and
+ * `angle`, the angle in radians from east to the local xi axis, positive
+ * counterclockwise, that rotates an east/north wind onto the grid axes.
+ * Idealized grid files carry none of them, so these reads are optional and
+ * report whether they happened rather than aborting. The variables of one
+ * call stand or fall together: a partial set is reported as absent.
  */
 bool
-read_spherical_grid_vars_from_netcdf (int /*lev*/,
-                                      const Box& domain,
-                                      const std::string& fname,
-                                      FArrayBox& NC_lonp_fab, FArrayBox& NC_latp_fab)
+read_optional_grid_vars_from_netcdf (const Box& domain,
+                                     const std::string& fname,
+                                     const Vector<std::string>& names,
+                                     const Vector<FArrayBox*>& fabs,
+                                     const std::string& what,
+                                     IntVect ngrow)
 {
-    Vector<std::string> NC_names;
-    NC_names.push_back("lon_psi");
-    NC_names.push_back("lat_psi");
+    AMREX_ALWAYS_ASSERT(names.size() == fabs.size());
 
-    if (!QueryNetCDFHasVars(fname, NC_names)) {
-        amrex::Print() << "Grid file " << fname << " has no lon_psi/lat_psi; "
-                       << "spherical psi coordinates unavailable" << std::endl;
+    if (!QueryNetCDFHasVars(fname, names)) {
+        std::string joined;
+        for (const auto& name : names) {
+            joined += (joined.empty() ? "" : "/") + name;
+        }
+        amrex::Print() << "Grid file " << fname << " has no " << joined << "; "
+                       << what << " unavailable" << std::endl;
         return false;
     }
 
-    amrex::Print() << "Loading spherical psi coordinates from NetCDF file " << fname << std::endl;
+    amrex::Print() << "Loading " << what << " from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
-    Vector<enum NC_Data_Dims_Type> NC_dim_types;
-
-    NC_fabs.push_back(&NC_lonp_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
-    NC_fabs.push_back(&NC_latp_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
-
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    Vector<enum NC_Data_Dims_Type> NC_dim_types(names.size(), NC_Data_Dims_Type::SN_WE);
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, names, NC_dim_types, fabs,
+                                            false, 0, ngrow);
     return true;
 }
 

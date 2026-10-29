@@ -4,6 +4,8 @@
 
 #include <REMORA.H>
 #include <REMORA_prob_common.H>
+#include <AMReX_FillPatchUtil.H>
+#include <AMReX_Interpolater.H>
 
 #include <AMReX_buildInfo.H>
 
@@ -515,6 +517,12 @@ void REMORA::resize_stuff(int lev)
     vec_yp.resize(lev+1);
     vec_lonp.resize(lev+1);
     vec_latp.resize(lev+1);
+    vec_lonr.resize(lev+1);
+    vec_latr.resize(lev+1);
+    vec_angler.resize(lev+1);
+    vec_lonr_full_domain.resize(hires_grid_level+1);
+    vec_latr_full_domain.resize(hires_grid_level+1);
+    vec_angler_full_domain.resize(hires_grid_level+1);
 
     vec_dndx.resize(lev+1);
     vec_dmde.resize(lev+1);
@@ -845,6 +853,21 @@ REMORA::set_grid_scale (int lev)
             FillCoarsePatch(lev,dummy_time,vec_pm[lev].get(), vec_pm[lev-1].get(), foextrap_bc());
             FillCoarsePatch(lev,dummy_time,vec_pn[lev].get(), vec_pn[lev-1].get(), foextrap_bc());
 
+            // Spherical coordinates and grid angle follow when the coarser level has them.
+            // Rebuilt on every (re)make of the level, because the layout may have changed;
+            // laid out like vec_xr.
+            for (auto* vec_ptr : { &vec_lonr, &vec_latr, &vec_angler })
+            {
+                auto& vec = *vec_ptr;
+                if (vec[lev-1] == nullptr) {
+                    vec[lev].reset();
+                    continue;
+                }
+                vec[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
+                                            1, vec_xr[lev]->nGrowVect()));
+                interp_grid_coords_from_coarse(lev, *vec[lev], *vec[lev-1]);
+            }
+
             int rrx = ref_ratio[lev-1][0];
             int rry = ref_ratio[lev-1][1];
             // pm and pn need to be rescaled by the refinement ratio
@@ -871,6 +894,37 @@ REMORA::set_grid_scale (int lev)
     if (solverChoice.use_curvilinear_grid) {
         set_curvilinear_terms_from_grid_scale(lev);
     }
+}
+
+/**
+ * Fill a refined level's coordinate array from the coarser level, ghost cells included.
+ *
+ * FillCoarsePatch would finish with the physical boundary condition pm and pn want, which
+ * copies the edge value into every ghost cell outside the domain and averages the
+ * corners; for a coordinate that puts those cells on top of the edge rather than where
+ * they are. Here the ghost cells outside the domain are interpolated like the rest, from
+ * the coarse level's own ghost cells, which hold the coordinates continued past the edge
+ * (extrapolate_metric_to_physical_boundaries with linear on level 0, and this function on
+ * the levels between). The coarse level has NGROW+1 ghost cells, enough for the stencil
+ * at any refinement ratio from 2 up. The interpolation is conservative-linear, which
+ * reproduces a linear field exactly.
+ *
+ * @param[in   ] lev    the refined level
+ * @param[inout] fine   its coordinate array
+ * @param[in   ] crse   the coarser level's
+ */
+void
+REMORA::interp_grid_coords_from_coarse (int lev, MultiFab& fine, const MultiFab& crse)
+{
+    AMREX_ASSERT(lev > 0);
+    Vector<BCRec> interior_bcs(1);
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        interior_bcs[0].setLo(dir, BCType::int_dir);
+        interior_bcs[0].setHi(dir, BCType::int_dir);
+    }
+    const IntVect ng = fine.nGrowVect();
+    amrex::InterpFromCoarseLevel(fine, ng, ng, crse, 0, 0, 1, geom[lev-1], geom[lev],
+                                 ref_ratio[lev-1], &cell_cons_interp, interior_bcs, 0);
 }
 
 /**
