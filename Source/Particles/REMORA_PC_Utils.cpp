@@ -54,6 +54,10 @@ void REMORAPC::massDensity ( MultiFab&  a_mf,
  * conversion and restored bit for bit after the write, so writing a plotfile does not change
  * the run.
  *
+ * While the plotfile is written the positions no longer match the grids the particles are
+ * stored in, so AMReX's AMREX_ASSERT(pc.OK()) at the start of the write fails in builds with
+ * assertions on, wherever the physical coordinates differ from the uniform ones.
+ *
  * @param a_fname   checkpoint or plotfile directory
  * @param a_name    particle species name
  * @param a_xy      null, or per level the physical x and y of the psi points
@@ -147,8 +151,9 @@ void REMORAPC::WriteOutput ( const std::string& a_fname, const std::string& a_na
             });
         }
     }
-    // saved_xy is freed on return, so the restore kernels have to finish with it first.
-    Gpu::streamSynchronize();
+    // saved_xy is freed on return. The restore kernels may run on several streams, so wait for
+    // the whole device rather than relying on ParIter's own synchronization.
+    Gpu::synchronize();
 }
 
 #endif
