@@ -91,12 +91,19 @@ void REMORA::evolveTracers (int a_lev, Real a_dt_lev)
         // conditions at the end of the step. The model's own velocity ghosts are left alone:
         // refilling them with the physical boundary conditions here changes the answer on
         // open boundaries (see timeStepML).
+        //
+        // As at initialization and regrid, each copy is its own "calc" field, with no time
+        // step: the NetCDF radiation conditions read the calc field unguarded. With calc
+        // equal to the field, a radiation (orlanski_rad*) boundary leaves the ghost as it
+        // was, so there the particles still see the start-of-step ghost value.
         mf_u.define(xvel_new[a_lev]->boxArray(), dmap[a_lev], 1, xvel_new[a_lev]->nGrowVect());
         mf_v.define(yvel_new[a_lev]->boxArray(), dmap[a_lev], 1, yvel_new[a_lev]->nGrowVect());
+        MultiFab::Copy(mf_u, *xvel_new[a_lev], 0, 0, 1, mf_u.nGrowVect());
+        MultiFab::Copy(mf_v, *yvel_new[a_lev], 0, 0, 1, mf_v.nGrowVect());
         FillPatch(a_lev, t_new[a_lev], mf_u, xvel_new, xvel_bc(), BdyVars::u, 0, true, false,
-                  0, 0, zero, amrex::MultiFab(), xvel_old, xvel_new);
+                  0, 0, zero, mf_u, xvel_old, xvel_new);
         FillPatch(a_lev, t_new[a_lev], mf_v, yvel_new, yvel_bc(), BdyVars::v, 0, true, false,
-                  0, 0, zero, amrex::MultiFab(), yvel_old, yvel_new);
+                  0, 0, zero, mf_v, yvel_old, yvel_new);
     }
 
     Vector<MultiFab const*> flowvel = {any_advect ? &mf_u : xvel_new[a_lev],
