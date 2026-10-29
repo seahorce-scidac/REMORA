@@ -1,4 +1,5 @@
 #include <REMORA.H>
+#include <AMReX_OpenMP.H>
 
 using namespace amrex;
 
@@ -80,6 +81,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     MultiFab mf_DC (ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
     MultiFab mf_Hzk(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& u = mf_u.array(mfi);
@@ -196,6 +200,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         river_source_transport->update_interpolated_to_time(model_time(t_old[lev]));
     }
 #endif
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& u = mf_u.array(mfi);
@@ -289,7 +296,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     // ************************************************************************
 
     MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
-    mf_W.setVal(zero);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& Huon = mf_Huon->array(mfi);
@@ -340,6 +349,28 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     advance_biology(lev, *cons_old[lev], mf_cons, N, dt_lev);
     nnew = 0;
 
+    // FineAdd accumulates a tile's fluxes into the coarse cells under it with atomic adds,
+    // and a tile edge that is not a multiple of the refinement ratio shares a coarse cell
+    // with the neighbouring tile, so with several threads the order of the adds, and the
+    // rounding, would follow thread timing. With more than one thread the fluxes are kept
+    // on this level's faces and added after the loop, tile by tile in the fixed order a
+    // single thread uses.
+    const bool defer_fine_add = refluxing && lev > 0 && OpenMP::get_max_threads() > 1;
+    if (defer_fine_add) {
+        if (int(vec_reflux_flux.size()) <= lev) { vec_reflux_flux.resize(lev+1); }
+        for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+            MultiFab& f = vec_reflux_flux[lev][d];
+            const BoxArray fba = convert(mf_cons.boxArray(), IntVect::TheDimensionVector(d));
+            if (!f.ok() || f.boxArray() != fba || f.DistributionMap() != mf_cons.DistributionMap()
+                || f.nComp() != ncons) {
+                f.define(fba, mf_cons.DistributionMap(), ncons, 0);
+            }
+        }
+    }
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& Hz  = mf_Hz->array(mfi);
@@ -414,8 +445,19 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             if (lev < finest_level) {
                 getAdvFluxReg(lev+1)->CrseAdd(mfi, flux, dx, dt_lev, RunOn::Device);
             }
-            if (lev > 0) {
+            if (lev > 0 && !defer_fine_add) {
                 getAdvFluxReg(lev)->FineAdd(mfi, flux, dx, dt_lev, RunOn::Device);
+            } else if (lev > 0) {
+                // nodaltilebox gives each face to exactly one tile
+                for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+                    const Box& fbx = mfi.nodaltilebox(d);
+                    Array4<Real      > const& dst = vec_reflux_flux[lev][d].array(mfi);
+                    Array4<Real const> const& src = flux[d]->const_array();
+                    ParallelFor(fbx, ncons, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+                    {
+                        dst(i,j,k,n) = src(i,j,k,n);
+                    });
+                }
             }
             // The flux FABs are temporaries scoped to this tile, so don't move on until the
             // register has finished reading them. ERF does the same at its own CrseAdd.
@@ -423,8 +465,31 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         }
     } // mfi
 
+    if (defer_fine_add) {
+        const Real* dx = geom[lev].CellSize();
+        for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+        {
+            // FineAdd takes every face the flux FAB holds inside the coarsened tile, so a
+            // tile that is not a multiple of the refinement ratio would also add its
+            // neighbour's faces from the level-wide FAB. Hand it the tile's own faces, as
+            // the loop above did.
+            std::array<FArrayBox, AMREX_SPACEDIM> ftile;
+            std::array<FArrayBox const*, AMREX_SPACEDIM> flux;
+            for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+                ftile[d].resize(surroundingNodes(mfi.tilebox(), d), ncons, The_Async_Arena());
+                ftile[d].template copy<RunOn::Device>(vec_reflux_flux[lev][d][mfi], 0, 0, ncons);
+                flux[d] = &ftile[d];
+            }
+            getAdvFluxReg(lev)->FineAdd(mfi, flux, dx, dt_lev, RunOn::Device);
+            Gpu::streamSynchronize();
+        }
+    }
+
     FillPatch(lev, t_old[lev], mf_cons, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& AK = mf_AK.array(mfi);
@@ -470,6 +535,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         cons_clim_data_from_file[icomp]->update_interpolated_to_time(model_time(t_old[lev]), lev, cons_new[lev], geom, ref_ratio);
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Box bx = mfi.growntilebox(IntVect(1,1,0));

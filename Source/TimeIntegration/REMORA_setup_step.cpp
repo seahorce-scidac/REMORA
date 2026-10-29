@@ -85,13 +85,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
     std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
 
-    // We need to set these because otherwise in the first call to remora_advance we may
-    //    read uninitialized data on ghost values in setting the bc's on the velocities
-    mf_rho.setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_rhoS->setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_rhoA->setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_DC.setVal(zero);
-
     FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t,0,true,true, cons_old, cons_new);
     FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u,0,true,true, xvel_old, xvel_new);
     FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v,0,true,true, yvel_old, yvel_new);
@@ -128,6 +121,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& h     = vec_h[lev]->const_array(mfi);
@@ -213,6 +209,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
 
     if (solverChoice.do_temp_flux) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Array4<Real      > const& stflx =  vec_stflx[lev]->array(mfi);
@@ -229,6 +228,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         }
     }
     if (solverChoice.do_salt_flux) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Array4<Real      > const& stflx =  vec_stflx[lev]->array(mfi);
@@ -248,6 +250,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         }
     }
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& bustr = mf_bustr->array(mfi);
@@ -351,6 +356,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
 #endif
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(S_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& Hz    = vec_Hz[lev]->const_array(mfi);
@@ -504,6 +512,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t,0,true,true,0,0,dt_lev,*cons_old[lev]);
 
     // Don't actually want to apply boundary conditions here
-    vec_Huon[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Hvom[lev]->FillBoundary(geom[lev].periodicity());
+    amrex::FillBoundary(Vector<MultiFab*>{vec_Huon[lev].get(), vec_Hvom[lev].get()},
+                        geom[lev].periodicity());
 }

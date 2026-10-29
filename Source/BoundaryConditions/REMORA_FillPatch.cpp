@@ -29,22 +29,13 @@ PhysBCFunctNoOp null_bc;
 void
 REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs,
                   const int  bccomp,
-#ifdef REMORA_USE_NETCDF
-                  const int bdy_var_type,
-#else
-                  const int /*bdy_var_type*/,
-#endif
+                  const int  bdy_var_type,
                   const int  icomp,
                   const bool fill_all,
                   const bool fill_set,
                   const int  n_not_fill,
-#ifdef REMORA_USE_NETCDF
                   const int  icomp_calc,
                   const Real dt_lev,
-#else
-                  const int /*icomp_calc*/,
-                  const Real /*dt_lev*/,
-#endif
                   const MultiFab& mf_calc,
                   Vector<MultiFab*> const& mfs_crse_old,
                   Vector<MultiFab*> const& mfs_crse_new)
@@ -54,8 +45,6 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
 
     Box mf_box(mf_to_fill.boxArray()[0]);
     bool is_2d = mf_box.length(2) == 1;
-
-    MultiFab* mask;
 
     //
     // ***************************************************************************
@@ -97,21 +86,9 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
     if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
     {
         mapper = &cell_cons_interp;
-        mask   = vec_mskr[lev].get();
-    }
-    else if (mf_box.ixType() == IndexType(IntVect(1,0,0)))
-    {
-        mapper = &face_cons_linear_interp;
-        mask   = vec_msku[lev].get();
-    }
-    else if (mf_box.ixType() == IndexType(IntVect(0,1,0)))
-    {
-        mapper = &face_cons_linear_interp;
-        mask   = vec_mskv[lev].get();
     }
     else {
         mapper = &face_cons_linear_interp;
-        mask   = vec_mskr[lev].get();
     }
 
     if (lev == 0)
@@ -147,45 +124,91 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                                   mapper, domain_bcs_type, bccomp);
     } // lev > 0
 
-    // This is currently unconditionally true, but do_bc flag should actually be passed in
-    const bool do_bc=true;
-    if (do_bc) {
-        // ***************************************************************************
-        // Physical bc's at domain boundary
-        // ***************************************************************************
+    FillPatchBCs(lev, time, mf_to_fill, bccomp, bdy_var_type, icomp, ncomp, n_not_fill,
+                 icomp_calc, dt_lev, mf_calc);
+}
 
-        // Enforce physical boundary conditions
-        (*physbcs[lev])(mf_to_fill,*mask,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp,n_not_fill,mf_calc,
-                *vec_msku[lev].get(), *vec_mskv[lev].get());
+/**
+ * The boundary-condition half of FillPatch, for a MultiFab whose fine-fine (and, above
+ * level 0, coarse-fine) ghost cells are already filled: physical boundary conditions,
+ * boundary data from NetCDF files, periodic corners, and free-slip at the top for the
+ * face-centered velocities. Split out so that several fields can share one exchange and
+ * then take their conditions in turn (advance_2d does this for ubar, vbar and zeta).
+ *
+ * @param[in   ] lev            level to fill on
+ * @param[in   ] time           current time
+ * @param[inout] mf_to_fill     MultiFab to fill
+ * @param[in   ] bccomp         index into domain_bcs_type
+ * @param[in   ] bdy_var_type   when filling from NetCDF, which boundary data
+ * @param[in   ] icomp          first component to fill
+ * @param[in   ] ncomp          number of components to fill
+ * @param[in   ] n_not_fill     number of ghost cells not to fill
+ * @param[in   ] icomp_calc     component to use in RHS boundary calculation
+ * @param[in   ] dt_lev         time step at this level
+ * @param[in   ] mf_calc        data to use in RHS boundary calculation
+ */
+void
+REMORA::FillPatchBCs (int lev, Real time, MultiFab& mf_to_fill,
+                      const int  bccomp,
+                      const int  bdy_var_type,
+                      const int  icomp,
+                      const int  ncomp,
+                      const int  n_not_fill,
+                      const int  icomp_calc,
+                      const Real dt_lev,
+                      const MultiFab& mf_calc)
+{
+    Box mf_box(mf_to_fill.boxArray()[0]);
+
+    MultiFab* mask;
+    if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
+        mask = vec_msku[lev].get();
+    } else if (mf_box.ixType() == IndexType(IntVect(0,1,0))) {
+        mask = vec_mskv[lev].get();
+    } else {
+        mask = vec_mskr[lev].get();
+    }
+
+    // ***************************************************************************
+    // Physical bc's at domain boundary
+    // ***************************************************************************
+
+    // Enforce physical boundary conditions
+    (*physbcs[lev])(mf_to_fill,*mask,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp,n_not_fill,mf_calc,
+            *vec_msku[lev].get(), *vec_mskv[lev].get());
 
 #ifdef REMORA_USE_NETCDF
-        // Fill the data which is stored in the boundary data read from netcdf files
-        if ( (solverChoice.boundary_from_netcdf) && (bdy_var_type != BdyVars::null) )
-        {
-            fill_from_bdyfiles(lev, mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
-        }
+    // Fill the data which is stored in the boundary data read from netcdf files
+    if ( (solverChoice.boundary_from_netcdf) && (bdy_var_type != BdyVars::null) )
+    {
+        fill_from_bdyfiles(lev, mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
+    }
+#else
+    amrex::ignore_unused(bdy_var_type, icomp_calc, dt_lev);
 #endif
-        // Fill corners of the domain with periodic data
-        if  ( mf_box.ixType() == IndexType(IntVect(0,0,0)) ) {
-            mf_to_fill.EnforcePeriodicity(geom[lev].periodicity());
-        }
+    // Fill corners of the domain with periodic data
+    if  ( mf_box.ixType() == IndexType(IntVect(0,0,0)) ) {
+        mf_to_fill.EnforcePeriodicity(geom[lev].periodicity());
+    }
 
-        // Also enforce free-slip at top boundary (on xvel or yvel)
-        if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
-             (mf_box.ixType() == IndexType(IntVect(0,1,0))) )
+    // Also enforce free-slip at top boundary (on xvel or yvel)
+    if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
+         (mf_box.ixType() == IndexType(IntVect(0,1,0))) )
+    {
+        int khi = geom[lev].Domain().bigEnd(2);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MFIter mfi(mf_to_fill); mfi.isValid(); ++mfi)
         {
-            int khi = geom[lev].Domain().bigEnd(2);
-            for (MFIter mfi(mf_to_fill); mfi.isValid(); ++mfi)
-            {
-                Box gbx  = mfi.growntilebox(); // Note this is face-centered since vel is
-                gbx.setSmall(2,khi+1);
-                if (gbx.ok()) {
-                    Array4<Real> vel_arr = mf_to_fill.array(mfi);
-                    ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                    {
-                        vel_arr(i,j,k) = vel_arr(i,j,khi);
-                    });
-                }
+            Box gbx  = mfi.growntilebox(); // Note this is face-centered since vel is
+            gbx.setSmall(2,khi+1);
+            if (gbx.ok()) {
+                Array4<Real> vel_arr = mf_to_fill.array(mfi);
+                ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    vel_arr(i,j,k) = vel_arr(i,j,khi);
+                });
             }
         }
     }
@@ -611,6 +634,9 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
          (box_mf.ixType() == IndexType(IntVect(0,1,0))) )
     {
         int khi = geom[lev].Domain().bigEnd(2);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for (MFIter mfi(*mf_to_fill); mfi.isValid(); ++mfi)
         {
             Box gbx  = mfi.growntilebox(); // Note this is face-centered since vel is

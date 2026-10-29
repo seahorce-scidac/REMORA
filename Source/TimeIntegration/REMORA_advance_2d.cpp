@@ -29,6 +29,9 @@ void fill_ghost_kcomps (MultiFab& mf, int knew, const Geometry& geom)
     const bool per_x = geom.isPeriodic(0);
     const bool per_y = geom.isPeriodic(1);
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Box gbx = mfi.growntilebox();
         const auto& a = mf.array(mfi);
@@ -156,11 +159,10 @@ REMORA::advance_2d (int lev,
     // Include indx1 updates for diagnostic purposes?
     //indx1-=1;
     ptsk-=1;
-    auto ba = mf_h->boxArray();
-    auto dm = mf_h->DistributionMap();
-
-    MultiFab mf_DUon(convert(ba,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_DVom(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0));
+    // Per-level scratch (see MakeNewLevel), every cell read below is written first in
+    // this call, so nothing carries over between fast steps.
+    MultiFab& mf_DUon = *vec_DUon[lev];
+    MultiFab& mf_DVom = *vec_DVom[lev];
 
     int ncomp = 0;
     int fomn_comp = ncomp++;
@@ -176,8 +178,12 @@ REMORA::advance_2d (int lev,
     int rhs_zeta_comp = ncomp++;
     int zeta_new_comp = ncomp++;
 
-    MultiFab mf(ba,dm,ncomp,IntVect(NGROW+1,NGROW+1,0));
+    AMREX_ALWAYS_ASSERT(ncomp == n_scratch_2d);
+    MultiFab& mf = *vec_scratch_2d[lev];
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& ubar = mf_ubar->array(mfi);
@@ -242,8 +248,8 @@ REMORA::advance_2d (int lev,
         set_2d_cf_flux(lev, t_old[lev], mf_DUon, mf_DVom);
     }
 
-    mf_DUon.FillBoundary(geom[lev].periodicity());
-    mf_DVom.FillBoundary(geom[lev].periodicity());
+    // One exchange for both so their messages are in flight together
+    amrex::FillBoundary(Vector<MultiFab*>{&mf_DUon, &mf_DVom}, geom[lev].periodicity());
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_m2_clim_nudg) {
@@ -252,6 +258,9 @@ REMORA::advance_2d (int lev,
     }
 #endif
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& rhoS = mf_rhoS->const_array(mfi);
@@ -840,21 +849,44 @@ REMORA::advance_2d (int lev,
         MultiFab vbar_know(*vec_vbar[lev], make_alias, know, 1);
         MultiFab zeta_know(*vec_zeta[lev], make_alias, know, 1);
 
-        FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),
-                  knew, false,true, 0,know, dt2d, ubar_know);
-        FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),
-                  knew, false,true, 0,know, dt2d, vbar_know);
-        // With the snapshot pair the coarse contribution is interpolated onto t_old[lev],
-        // which timeStep guarantees lies inside the parent's step; without it FillPatch
-        // falls back to the parent frozen at the end of that step. See roll_2d_snapshot.
-        if (cf_time_interp_zeta && lev > 0 && int(vec_zeta_crse_old.size()) >= lev
-            && vec_zeta_crse_old[lev-1] && vec_zeta_crse_new[lev-1]) {
-            FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
-                      knew, false,false, 0,know, dt2d, zeta_know,
-                      GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new));
+        if (lev == 0) {
+            // At level 0 FillPatch is one exchange of component knew followed by the
+            // boundary conditions, and those read only `know` components (the field's own,
+            // and zeta's for Flather and Chapman), h and the masks -- nothing the exchange
+            // of knew changes. Post the three exchanges together so their messages are in
+            // flight at once -- this runs every fast step -- then apply the conditions in
+            // the same order as before.
+            const Periodicity& per = geom[lev].periodicity();
+            amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get(),
+                                                  vec_zeta[lev].get()},
+                                Vector<int>{knew, knew, knew}, Vector<int>{1, 1, 1},
+                                Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
+                                                vec_vbar[lev]->nGrowVect(),
+                                                vec_zeta[lev]->nGrowVect()},
+                                Vector<Periodicity>{per, per, per});
+            FillPatchBCs(lev, t_old[lev], *vec_ubar[lev], ubar_bc(), bdy_ubar(),
+                         knew, 1, 0, know, dt2d, ubar_know);
+            FillPatchBCs(lev, t_old[lev], *vec_vbar[lev], vbar_bc(), bdy_vbar(),
+                         knew, 1, 0, know, dt2d, vbar_know);
+            FillPatchBCs(lev, t_old[lev], *vec_zeta[lev], zeta_bc(), bdy_zeta(),
+                         knew, 1, 0, know, dt2d, zeta_know);
         } else {
-            FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
-                      knew, false,false, 0,know, dt2d, zeta_know);
+            FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),
+                      knew, false,true, 0,know, dt2d, ubar_know);
+            FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),
+                      knew, false,true, 0,know, dt2d, vbar_know);
+            // With the snapshot pair the coarse contribution is interpolated onto t_old[lev],
+            // which timeStep guarantees lies inside the parent's step; without it FillPatch
+            // falls back to the parent frozen at the end of that step. See roll_2d_snapshot.
+            if (cf_time_interp_zeta && int(vec_zeta_crse_old.size()) >= lev
+                && vec_zeta_crse_old[lev-1] && vec_zeta_crse_new[lev-1]) {
+                FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
+                          knew, false,false, 0,know, dt2d, zeta_know,
+                          GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new));
+            } else {
+                FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
+                          knew, false,false, 0,know, dt2d, zeta_know);
+            }
         }
 
         // See fill_ghost_kcomps: without this the components the solver reads in the ghost
@@ -880,14 +912,21 @@ REMORA::advance_2d (int lev,
             // the interface, the neighbouring box's ghost copy of that face still holds the
             // FillPatch value, and the shared face between the two boxes would be advanced
             // from different neighbours -- the answer then depends on the box layout.
-            vec_ubar[lev]->FillBoundary(knew, 1, geom[lev].periodicity());
-            vec_vbar[lev]->FillBoundary(knew, 1, geom[lev].periodicity());
+            const Periodicity& per = geom[lev].periodicity();
+            amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get()},
+                                Vector<int>{knew, knew}, Vector<int>{1, 1},
+                                Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
+                                                vec_vbar[lev]->nGrowVect()},
+                                Vector<Periodicity>{per, per});
         }
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_rivers) {
             river_source_transportbar->update_interpolated_to_time(model_time(t_old[lev]));
             int* river_direction_d = river_direction.data();
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
             for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
             {
                 Array4<const int > const& river_pos = vec_river_position[lev]->const_array(mfi);
@@ -920,10 +959,20 @@ REMORA::advance_2d (int lev,
                     }
                 });
             }
-            FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),
-                      knew, false,false);
-            FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),
-                      knew, false,false);
+            if (lev == 0) {
+                // FillPatchNoBC at level 0 is just the exchange: do both in one
+                const Periodicity& per = geom[lev].periodicity();
+                amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get()},
+                                    Vector<int>{knew, knew}, Vector<int>{1, 1},
+                                    Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
+                                                    vec_vbar[lev]->nGrowVect()},
+                                    Vector<Periodicity>{per, per});
+            } else {
+                FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),
+                          knew, false,false);
+                FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),
+                          knew, false,false);
+            }
         }
 #endif
     }

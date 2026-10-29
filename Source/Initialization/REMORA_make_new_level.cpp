@@ -6,8 +6,46 @@
 #include <REMORA_prob_common.H>
 
 #include <AMReX_buildInfo.H>
+#include <AMReX_OpenMP.H>
 
 using namespace amrex;
+
+namespace {
+/**
+ * By default OpenMP threads share the boxes of a level, not tiles (see the tile-size
+ * default in main.cpp), so a rank with fewer boxes than threads leaves threads idle. Say
+ * so once per level, naming the knobs that fix it. With tiling on the threads share the
+ * tiles of a box instead, so there is nothing to warn about.
+ */
+void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm)
+{
+#ifdef AMREX_USE_OMP
+    // Tiling is on when a tile is smaller than some box in x or y; inputs often write
+    // "1024 1024 1024" to mean no tiling, so compare with the boxes, not a fixed value.
+    const int nthreads = OpenMP::get_max_threads();
+    const IntVect& tile_size = FabArrayBase::mfiter_tile_size;
+    int nlocal = 0;
+    bool tiled = false;
+    const int myproc = ParallelDescriptor::MyProc();
+    for (int i = 0; i < ba.size(); ++i) {
+        if (dm[i] == myproc) { ++nlocal; }
+        tiled = tiled || ba[i].length(0) > tile_size[0] || ba[i].length(1) > tile_size[1];
+    }
+    // Collective: every rank reaches it, whatever its thread count
+    ParallelDescriptor::ReduceIntMin(nlocal);
+    if (nthreads > 1 && !tiled && nlocal < nthreads) {
+        amrex::Print() << "WARNING: level " << lev << " has only " << nlocal
+                       << " boxes on some rank for " << nthreads << " OpenMP threads;"
+                       << " threads beyond the box count idle. Lower amr.max_grid_size"
+                       << " (or amr.max_grid_size_x/y) to give every rank at least "
+                       << nthreads << " boxes, or set remora.omp_tile_size so the"
+                       << " threads share the tiles of a box.\n";
+    }
+#else
+    amrex::ignore_unused(lev, ba, dm);
+#endif
+}
+}
 
 /**
  * Make a new level using provided BoxArray and DistributionMapping and
@@ -32,6 +70,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     amrex::Print() << "Making level " << lev << " from coarse" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     cons_new[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
     cons_old[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
@@ -189,6 +228,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     amrex::Print() << "Remaking level " << lev << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state   = 3;
     int ngrow_vels    = 3;
@@ -365,6 +405,7 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 
     amrex::Print() << "Making level " << lev << " from scratch" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state = 3;
     int ngrow_vels  = 3;
@@ -468,6 +509,9 @@ void REMORA::resize_stuff(int lev)
     vec_alpha.resize(lev+1);
     vec_beta.resize(lev+1);
 
+    vec_DUon.resize(lev+1);
+    vec_DVom.resize(lev+1);
+    vec_scratch_2d.resize(lev+1);
     vec_DU_avg1.resize(lev+1);
     vec_DU_avg2.resize(lev+1);
     vec_DV_avg1.resize(lev+1);
@@ -643,6 +687,11 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_bvstr[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
     //all 2d -- all associated with the 2D advance
+    // Scratch of advance_2d, rewritten on every fast step
+    vec_DUon[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_DVom[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_scratch_2d[lev].reset(new MultiFab(ba2d,dm,n_scratch_2d,IntVect(NGROW+1,NGROW+1,0)));
+
     //2d DU: sum(height[incl free surface?] * u)
     vec_DU_avg1[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
 

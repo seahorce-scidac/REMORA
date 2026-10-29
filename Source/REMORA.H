@@ -541,6 +541,18 @@ public:
     /** \brief Bottom stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bvstr;
 
+    /** \brief Scratch for the barotropic step, kept per level rather than allocated on
+     *  every fast step: the x and y mass fluxes of the current fast step */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DUon;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DVom;
+    /** \brief Scratch for the barotropic step: the n_scratch_2d work fields of advance_2d
+     *  (depths, free-surface gradients, right-hand sides), cell-centered 2D */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_scratch_2d;
+    static constexpr int n_scratch_2d = 12;
+    /** \brief A fine level's advective tracer fluxes on its faces, kept only when OpenMP
+     *  threads defer the flux-register FineAdd to a fixed-order pass (see advance_3d) */
+    amrex::Vector<amrex::Array<amrex::MultiFab,AMREX_SPACEDIM>> vec_reflux_flux;
+
     /** \brief time average of barotropic x velocity flux (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DU_avg1;
     /** \brief correct time average of barotropic x velocity flux for coupling (2D) */
@@ -1320,6 +1332,20 @@ public:
                     const bool fill_set=false,
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_old = {},
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {});
+
+    /** \brief The boundary-condition half of FillPatch: physical and NetCDF boundary
+     *  conditions, periodic corners and the free-slip top, for a MultiFab whose fine-fine
+     *  ghost cells are already filled. Lets several fields share one exchange. */
+    void FillPatchBCs (int lev, amrex::Real time,
+                       amrex::MultiFab& mf_to_fill,
+                       const int bccomp,
+                       const int bdy_var_type,
+                       const int icomp,
+                       const int ncomp,
+                       const int n_not_fill,
+                       const int icomp_calc,
+                       const amrex::Real dt_lev,
+                       const amrex::MultiFab& mf_calc);
     /** \brief Fill boundary data from netcdf file */
     void fill_from_bdyfiles (int lev,
                              amrex::MultiFab& mf_to_fill,
@@ -1970,6 +1996,8 @@ private:
 
     /** \brief how often each level regrids the higher levels of refinement (after a level advances that many time steps) */
     int regrid_int = 2;
+    /** \brief Whether the input set amr.regrid_int (queryAdd makes it present afterwards) */
+    bool regrid_int_from_input = false;
 
     // I/O controls
     /** \brief Plotfile prefix */

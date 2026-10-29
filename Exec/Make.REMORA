@@ -32,6 +32,21 @@ endif
 
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs
 
+# Tune for the build machine's CPU. Off by default so a binary built on a
+# login node still runs on compute nodes of another generation. The compiler
+# files included by Make.defs assign CXXFLAGS outright, so this must follow
+# the include and go through XTRA_CXXFLAGS, which Make.defs appends. Host
+# flags do not belong on the device compilers, so GPU builds ignore it.
+ifeq ($(NATIVE_ARCH), TRUE)
+  ifneq ($(USE_CUDA), TRUE)
+    ifneq ($(USE_HIP), TRUE)
+      ifneq ($(USE_SYCL), TRUE)
+        XTRA_CXXFLAGS += -march=native
+      endif
+    endif
+  endif
+endif
+
 EBASE = REMORA
 USE_RPATH = TRUE
 

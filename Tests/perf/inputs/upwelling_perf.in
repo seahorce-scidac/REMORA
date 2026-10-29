@@ -1,0 +1,41 @@
+# Scaled Upwelling timing case. Tests/perf/perlmutter_phase1.sh fills the @...@ fields.
+# Periodic in x, slip walls in y, linear EOS, no output during the run; a plotfile is
+# written at the last step for the bitwise comparison between binaries.
+remora.prob_name = Upwelling
+remora.max_step  = @NSTEP@
+
+remora.prob_lo   =     0.     0.   -150.
+remora.prob_hi   = 41000. 80000.      0.
+remora.n_cell    = @NX@ @NY@ @NZ@
+amr.max_grid_size_x = @MGX@
+amr.max_grid_size_y = @MGY@
+amr.max_grid_size_z = 1024
+amr.blocking_factor = 8
+remora.is_periodic = 1 0 0
+remora.bc.ylo.type = "SlipWall"
+remora.bc.yhi.type = "SlipWall"
+
+# dx = 41000/@NX@ m; the barotropic step must keep sqrt(g h) dtfast below dx
+remora.fixed_dt = @DT@
+remora.ndtfast  = 30
+
+remora.sum_interval = -1
+remora.v            = 0
+remora.check_int    = -1
+remora.plot_file    = plt
+remora.plot_int     = @NSTEP@
+remora.plot_vars_3d = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+
+remora.tracer_horizontal_advection_scheme = "upstream3"
+remora.R0    = 1027.0
+remora.S0    = 35.0
+remora.T0    = 14.0
+remora.Tcoef = 1.7e-4
+remora.Scoef = 0.0
+remora.rho0  = 1025.0
+remora.tcline = 25.0
+remora.use_coriolis  = true
+remora.coriolis_type = beta_plane
+remora.coriolis_f0   = -8.26e-5
+remora.coriolis_beta = 0.0

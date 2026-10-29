@@ -23,6 +23,9 @@ namespace {
 void group_average_faces (MultiFab& mf, const iMultiFab& mask, int set_mask, int tdir, int nr)
 {
     if (nr <= 1) { return; }
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mf); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.validbox();

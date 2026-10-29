@@ -276,17 +276,21 @@ List of Parameters
 |                           |                 |                           |                       |
 |                           | level           |                           |                       |
 +---------------------------+-----------------+---------------------------+-----------------------+
-| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | CPU: 8 8 1024000      |
-|                           | size            |                           |                       |
-|                           |                 | {x,y,z}                   | GPU: 1024000 1024000  |
-|                           |                 |                           | 1024000               |
+| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | CPU: 1024000 16       |
+|                           | size            |                           | 1024000               |
+|                           |                 | {x,y,z}                   |                       |
+|                           |                 |                           | GPU: 1024000 1024000  |
+|                           |                 |                           | 1024000 (no tiling)   |
+|                           |                 |                           |                       |
 +---------------------------+-----------------+---------------------------+-----------------------+
 
 Notes
 -----
 
 -  **remora.omp_tile_size** is an alias for **fabarray.mfiter_tile_size**, which controls
-   the distribution of work by OpenMP.
+   the distribution of work by OpenMP. The results do not depend on it or on the thread
+   count: where tiles overlap on shared scratch every tile writes the same value, and the
+   coarse-fine flux correction is accumulated in a fixed order.
 
 -  The domain may not be tiled in the z direction. That is, the last component of **remora.omp_tile_size**
    must be greater than or equal to the number of vertical levels.
@@ -436,7 +440,11 @@ Notes
 -  **amr.regrid_int** is a single integer used at every level: each level
    below **amr.max_level** rebuilds the grids of the levels above it every
    **amr.regrid_int** of its own time steps. A value of 0 or less disables
-   regridding.
+   regridding. When every refinement indicator is a fixed box without a time
+   window the grids never change, so set **amr.regrid_int** = -1: each regrid
+   still fills the ghost cells of the level being regridded, tags and clusters
+   the cells, and checks the masks, and the grids come out the same. REMORA
+   prints a note at startup when the default is in effect in that case.
 
 -  **amr.max_grid_size** at every level must be even
 
