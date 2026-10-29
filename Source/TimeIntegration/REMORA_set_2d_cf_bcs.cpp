@@ -23,6 +23,9 @@ namespace {
 void group_average_faces (MultiFab& mf, const iMultiFab& mask, int set_mask, int tdir, int nr)
 {
     if (nr <= 1) { return; }
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mf); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.validbox();
@@ -78,7 +81,7 @@ REMORA::store_2d_flux (int lev)
 #endif
     for ( MFIter mfi(*vec_Dubar_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real const> const& pn      = vec_pn[lev]->const_array(mfi);
+        Array4<Real const> const& on_u    = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
         Array4<Real const> const& DU_avg2 = vec_DU_avg2[lev]->const_array(mfi);
         Array4<Real      > const& Dubar   = vec_Dubar_new[lev]->array(mfi);
 
@@ -90,8 +93,7 @@ REMORA::store_2d_flux (int lev)
         // to the coarse one. Passing ubar across, or the raw flux, loses that.
         ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            Real on_u = two / (pn(i,j,0) + pn(i-1,j,0));
-            Dubar(i,j,0) = DU_avg2(i,j,0) / on_u;
+            Dubar(i,j,0) = DU_avg2(i,j,0) / on_u(i,j,0);
         });
     }
 
@@ -100,7 +102,7 @@ REMORA::store_2d_flux (int lev)
 #endif
     for ( MFIter mfi(*vec_Dvbar_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real const> const& pm      = vec_pm[lev]->const_array(mfi);
+        Array4<Real const> const& om_v    = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
         Array4<Real const> const& DV_avg2 = vec_DV_avg2[lev]->const_array(mfi);
         Array4<Real      > const& Dvbar   = vec_Dvbar_new[lev]->array(mfi);
 
@@ -109,8 +111,7 @@ REMORA::store_2d_flux (int lev)
 
         ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            Real om_v = two / (pm(i,j,0) + pm(i,j-1,0));
-            Dvbar(i,j,0) = DV_avg2(i,j,0) / om_v;
+            Dvbar(i,j,0) = DV_avg2(i,j,0) / om_v(i,j,0);
         });
     }
 
@@ -340,15 +341,14 @@ REMORA::set_2d_cf_flux (int lev, Real time, MultiFab& mf_DUon, MultiFab& mf_DVom
         Array4<Real      > const& DUon  = mf_DUon.array(mfi);
         Array4<Real const> const& Dubar = Dubar_cf.const_array(mfi);
         Array4<int  const> const& cmask = FPr_Dubar[lev-1].GetMask()->const_array(mfi);
-        Array4<Real const> const& pn    = vec_pn[lev]->const_array(mfi);
+        Array4<Real const> const& on_u  = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
         Array4<Real const> const& msku  = vec_msku[lev]->const_array(mfi);
 
         ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             if (cmask(i,j,0) != set_mask) { return; }
 
-            Real on_u = two / (pn(i,j,0) + pn(i-1,j,0));
-            DUon(i,j,0) = Dubar(i,j,0) * on_u * msku(i,j,0);
+            DUon(i,j,0) = Dubar(i,j,0) * on_u(i,j,0) * msku(i,j,0);
         });
     }
 
@@ -360,15 +360,14 @@ REMORA::set_2d_cf_flux (int lev, Real time, MultiFab& mf_DUon, MultiFab& mf_DVom
         Array4<Real      > const& DVom  = mf_DVom.array(mfi);
         Array4<Real const> const& Dvbar = Dvbar_cf.const_array(mfi);
         Array4<int  const> const& cmask = FPr_Dvbar[lev-1].GetMask()->const_array(mfi);
-        Array4<Real const> const& pm    = vec_pm[lev]->const_array(mfi);
+        Array4<Real const> const& om_v  = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
         Array4<Real const> const& mskv  = vec_mskv[lev]->const_array(mfi);
 
         ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             if (cmask(i,j,0) != set_mask) { return; }
 
-            Real om_v = two / (pm(i,j,0) + pm(i,j-1,0));
-            DVom(i,j,0) = Dvbar(i,j,0) * om_v * mskv(i,j,0);
+            DVom(i,j,0) = Dvbar(i,j,0) * om_v(i,j,0) * mskv(i,j,0);
         });
     }
 }

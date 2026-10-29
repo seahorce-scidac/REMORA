@@ -177,11 +177,15 @@ REMORA::WritePlotFile (int istep_for_plot)
     Vector<MultiFab> nc_wvel(finest_level+1);
     if (plotfile_type == PlotfileType::netcdf && (plot_omega || plot_wvel)) {
         for (int lev = 0; lev <= finest_level; ++lev) {
+            // Boxes outside the first subdomain are skipped below and the NaN check reads
+            // every ghost cell, so start from zero
             if (plot_omega) {
                 nc_omega[lev].define(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,IntVect(1,1,0));
+                nc_omega[lev].setVal(zero);
             }
             if (plot_wvel) {
                 nc_wvel[lev].define(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,IntVect(1,1,0));
+                nc_wvel[lev].setVal(zero);
             }
             compute_omega_and_w(lev, plot_omega ? &nc_omega[lev] : nullptr,
                                      plot_wvel  ? &nc_wvel[lev]  : nullptr);

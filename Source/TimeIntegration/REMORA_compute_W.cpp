@@ -61,7 +61,7 @@ REMORA::compute_W (const Box& bx2d,
  *
  * @param[in ] lev       level
  * @param[out] mf_omega  z-nodal omega (m/s); ghost cells are filled across grids and
- *                       periodic boundaries, and zero outside the domain
+ *                       periodic boundaries, and left as they were outside the domain
  * @param[in ] mf_Huon   u-volume flux on at least the valid faces
  * @param[in ] mf_Hvom   v-volume flux on at least the valid faces
  */
@@ -71,7 +71,6 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
 {
     const int N = Geom(lev).Domain().size()[2]-1;
 
-    mf_omega.setVal(zero);
 
     // Not tiled: compute_W integrates whole columns
 #ifdef _OPENMP
@@ -237,12 +236,11 @@ REMORA::set_massflux_3d (int lev, MultiFab& mf_Huon, MultiFab& mf_Hvom)
         Array4<Real      > const& Huon = mf_Huon.array(mfi);
         Array4<Real const> const& u    = xvel_new[lev]->const_array(mfi);
         Array4<Real const> const& Hz   = vec_Hz[lev]->const_array(mfi);
-        Array4<Real const> const& pn   = vec_pn[lev]->const_array(mfi);
+        Array4<Real const> const& on_u = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
 
         ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real on_u = two / (pn(i-1,j,0)+pn(i,j,0));
-            Huon(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i-1,j,k))*u(i,j,k)* on_u;
+            Huon(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i-1,j,k))*u(i,j,k)* on_u(i,j,0);
         });
     }
 #ifdef _OPENMP
@@ -253,12 +251,11 @@ REMORA::set_massflux_3d (int lev, MultiFab& mf_Huon, MultiFab& mf_Hvom)
         Array4<Real      > const& Hvom = mf_Hvom.array(mfi);
         Array4<Real const> const& v    = yvel_new[lev]->const_array(mfi);
         Array4<Real const> const& Hz   = vec_Hz[lev]->const_array(mfi);
-        Array4<Real const> const& pm   = vec_pm[lev]->const_array(mfi);
+        Array4<Real const> const& om_v = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
 
         ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real om_v= two / (pm(i,j-1,0)+pm(i,j,0));
-            Hvom(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k)* om_v;
+            Hvom(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k)* om_v(i,j,0);
         });
     }
 }

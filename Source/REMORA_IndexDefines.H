@@ -30,6 +30,45 @@ int akt_comp (int icomp) noexcept { return (icomp < NAT) ? icomp : Salt_comp; }
 #define NGROW          2
 
 /**
+ * \brief Components of the per-level metric products (vec_metric_r/u/v/p), computed once
+ * from pm and pn in set_derived_metrics so the time step multiplies instead of dividing.
+ * Names follow ROMS metrics.F; each is evaluated with exactly the expression the kernels
+ * used before, so reading the stored value is bitwise identical to recomputing it.
+ */
+namespace MetricR {          // rho points
+    enum { pmn = 0,          ///< pm*pn
+           omn,              ///< 1/(pm*pn)
+           om_r,             ///< 1/pm
+           on_r,             ///< 1/pn
+           pmon_r,           ///< pm/pn
+           pnom_r,           ///< pn/pm
+           ncomp };
+}
+namespace MetricU {          // u points, from the two cells either side in x
+    enum { om_u = 0,         ///< 2/(pm(i-1)+pm(i))
+           on_u,             ///< 2/(pn(i-1)+pn(i))
+           omn_u,            ///< om_u*on_u
+           pmon_u,           ///< (pm(i-1)+pm(i))/(pn(i-1)+pn(i))
+           pmn4_u,           ///< (pm(i-1)+pm(i))*(pn(i-1)+pn(i)), four times pm*pn at u
+           ncomp };
+}
+namespace MetricV {          // v points, from the two cells either side in y
+    enum { om_v = 0,         ///< 2/(pm(j-1)+pm(j))
+           on_v,             ///< 2/(pn(j-1)+pn(j))
+           omn_v,            ///< om_v*on_v
+           pnom_v,           ///< (pn(j-1)+pn(j))/(pm(j-1)+pm(j))
+           pmn4_v,           ///< (pm(j-1)+pm(j))*(pn(j-1)+pn(j)), four times pm*pn at v
+           ncomp };
+}
+namespace MetricP {          // psi points, from the four surrounding cells
+    enum { om_p = 0,         ///< 4/sum(pm)
+           on_p,             ///< 4/sum(pn)
+           pmon_p,           ///< sum(pm)/sum(pn)
+           pnom_p,           ///< sum(pn)/sum(pm)
+           ncomp };
+}
+
+/**
  * \brief Boundary fill types
  */
 namespace BCVars {

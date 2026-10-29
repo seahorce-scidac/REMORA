@@ -2409,6 +2409,10 @@ REMORA::ReadParameters ()
     pp.queryAdd("cf_avgdown_bar", cf_avgdown_bar);
     pp.queryAdd("cf_fill_all_kcomp", cf_fill_all_kcomp);
     pp.queryAdd("cf_time_interp_zeta", cf_time_interp_zeta);
+    pp.queryAdd("cf_2d_fill_cache", cf_2d_fill_cache);
+    if (cf_2d_fill_cache < 0 || cf_2d_fill_cache > 2) {
+        amrex::Abort("remora.cf_2d_fill_cache must be 0 (recompute), 1 (cache) or 2 (cache and check)");
+    }
     pp.queryAdd("cf_flux_pc", cf_flux_pc);
     pp.queryAdd("cf_avgdown_stencil", cf_avgdown_stencil);
     pp.queryAdd("cf_avgdown_volume_weighted", cf_avgdown_volume_weighted);
@@ -2614,6 +2618,7 @@ REMORA::ReadParameters ()
 
     {
         ParmParse pp_amr("amr");
+        regrid_int_from_input = pp_amr.contains("regrid_int");
         pp_amr.queryAdd("regrid_int", regrid_int);
     }
     solverChoice.init_params(ncons, nscalar, cons_names);
@@ -3122,6 +3127,9 @@ REMORA::restore_perimeter_faces (const MultiFab& saved, MultiFab& mf,
                                  const MultiFab& covered, int dir, int ncomp)
 {
     const IntVect off = IntVect::TheDimensionVector(dir);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.tilebox();
@@ -3183,6 +3191,9 @@ REMORA::average_down_masked (int crse_lev, const MultiFab& S_fine, MultiFab& S_c
         AMREX_ALWAYS_ASSERT(S_fine.DistributionMap() == vec_pm[flev]->DistributionMap());
         AMREX_ALWAYS_ASSERT(S_fine.DistributionMap() == vec_pn[flev]->DistributionMap());
         wt.define(S_fine.boxArray(), S_fine.DistributionMap(), 1, 0);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for (MFIter mfi(wt, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
             Array4<      Real> const& w  = wt.array(mfi);
@@ -3198,6 +3209,9 @@ REMORA::average_down_masked (int crse_lev, const MultiFab& S_fine, MultiFab& S_c
         }
     }
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(ctmp, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.tilebox();

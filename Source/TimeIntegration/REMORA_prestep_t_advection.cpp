@@ -303,7 +303,9 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
         FC(i,j,  0) = Real(0.0);
     });
 
-    ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    // DC is shared between the tiles of a box and only read on tbx below, so it is not
+    // written on the grown box: that would reach into the neighbouring tile's cells.
+    ParallelFor(tbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         DC(i,j,k)=one/(Hz(i,j,k)-
                         cff*pm(i,j,0)*pn(i,j,0)*

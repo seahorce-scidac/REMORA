@@ -305,6 +305,9 @@ public:
     /** \brief Set curvilinear derivative terms on level lev based on pm and pn */
     void set_curvilinear_terms_from_grid_scale (int lev);
 
+    /** \brief fill vec_metric_r/u/v/p from the level's final pm and pn */
+    void set_derived_metrics (int lev);
+
     /** \brief Set pm/pn by averaging down from higher-resolution grid */
     void set_grid_vars_averaged_down (int lev);
 
@@ -541,6 +544,19 @@ public:
     /** \brief Bottom stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bvstr;
 
+    /** \brief Scratch for the barotropic step, kept per level rather than allocated on
+     *  every fast step: the x and y mass fluxes of the current fast step */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DUon;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DVom;
+    /** \brief Scratch for the barotropic step: the n_scratch_2d fields one pass of
+     *  advance_2d hands the next (new depth, free-surface pressure-gradient terms, and the
+     *  momentum right-hand sides stored at their face index), cell-centered 2D */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_scratch_2d;
+    static constexpr int n_scratch_2d = 7;
+    /** \brief A fine level's advective tracer fluxes on its faces, kept only when OpenMP
+     *  threads defer the flux-register FineAdd to a fixed-order pass (see advance_3d) */
+    amrex::Vector<amrex::Array<amrex::MultiFab,AMREX_SPACEDIM>> vec_reflux_flux;
+
     /** \brief time average of barotropic x velocity flux (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DU_avg1;
     /** \brief correct time average of barotropic x velocity flux for coupling (2D) */
@@ -607,6 +623,16 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pm_full_domain;
     /** \brief horizontal scaling factor: 1 / dy (2D) on whole domain */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn_full_domain;
+
+    /** \brief metric products of pm and pn at rho points, components MetricR (2D).
+     *  Recomputed by set_derived_metrics whenever set_grid_scale sets pm and pn */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_r;
+    /** \brief metric products at u points, components MetricU (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_u;
+    /** \brief metric products at v points, components MetricV (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_v;
+    /** \brief metric products at psi points, components MetricP (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_p;
 
     /** \brief coriolis factor (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_fcor;
@@ -898,23 +924,11 @@ public:
                     const amrex::Array4<amrex::Real const>& bvstr,
                     const amrex::Array4<amrex::Real const>& Huon,
                     const amrex::Array4<amrex::Real const>& Hvom,
-                    const amrex::Array4<amrex::Real const>& pm,
-                    const amrex::Array4<amrex::Real const>& pn,
+                    const amrex::Array4<amrex::Real const>& omn_u,
+                    const amrex::Array4<amrex::Real const>& omn_v,
                     const amrex::Array4<amrex::Real const>& W,
                     const amrex::Array4<amrex::Real      >& FC,
                     int nrhs, int N);
-
-    /** \brief RHS terms for 2D momentum */
-    void rhs_uv_2d (int lev,
-                    const amrex::Box& xbx,
-                    const amrex::Box& ybx,
-                    const amrex::Array4<amrex::Real const>& uold,
-                    const amrex::Array4<amrex::Real const>& vold,
-                    const amrex::Array4<amrex::Real      >& ru,
-                    const amrex::Array4<amrex::Real      >& rv,
-                    const amrex::Array4<amrex::Real const>& Duon,
-                    const amrex::Array4<amrex::Real const>& Dvom,
-                    const int nrhs);
 
     /** \brief Wrapper around equation of state calculation */
     void rho_eos (const amrex::Box& bx,
@@ -969,8 +983,8 @@ public:
                  const amrex::Box& vtbx,
                  const amrex::Array4<amrex::Real      >& ru,
                  const amrex::Array4<amrex::Real      >& rv,
-                 const amrex::Array4<amrex::Real const>& pn,
-                 const amrex::Array4<amrex::Real const>& pm,
+                 const amrex::Array4<amrex::Real const>& on_u,
+                 const amrex::Array4<amrex::Real const>& om_v,
                  const amrex::Array4<amrex::Real const>& rho,
                  const amrex::Array4<amrex::Real      >& FC,
                  const amrex::Array4<amrex::Real const>& Hz,
@@ -1049,7 +1063,7 @@ public:
                              const amrex::Array4<amrex::Real      >& phibar,
                              const amrex::Array4<amrex::Real      >& Hphi,
                              const amrex::Array4<amrex::Real const>& Hz,
-                             const amrex::Array4<amrex::Real const>& pm_or_pn,
+                             const amrex::Array4<amrex::Real const>& om_v_or_on_u,
                              const amrex::Array4<amrex::Real const>& Dphi1,
                              const amrex::Array4<amrex::Real const>& Dphi2,
                              const amrex::Array4<amrex::Real      >& DC,
@@ -1065,7 +1079,7 @@ public:
                        const amrex::Array4<amrex::Real const>& Dphi_avg1,
                        const amrex::Array4<amrex::Real      >& DC,
                        const amrex::Array4<amrex::Real      >& CF,
-                       const amrex::Array4<amrex::Real const>& pm_or_pn,
+                       const amrex::Array4<amrex::Real const>& on_u_or_om_v,
                        const amrex::Array4<amrex::Real const>& msk,
                        const int nnew, const int N);
 
@@ -1083,6 +1097,8 @@ public:
                    const amrex::Array4<amrex::Real const>& Hz,
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& metr,
+                   const amrex::Array4<amrex::Real const>& metp,
                    const amrex::Array4<amrex::Real const>& mskp,
                    int nrhs, int nnew,
                    const amrex::Real dt_lev);
@@ -1096,6 +1112,8 @@ public:
                   const amrex::Array4<amrex::Real const>& z_r,
                   const amrex::Array4<amrex::Real const>& pm,
                   const amrex::Array4<amrex::Real const>& pn,
+                  const amrex::Array4<amrex::Real const>& metu,
+                  const amrex::Array4<amrex::Real const>& metv,
                   const amrex::Array4<amrex::Real const>& msku,
                   const amrex::Array4<amrex::Real const>& mskv,
                   const amrex::Real dt_lev,
@@ -1109,6 +1127,8 @@ public:
                    const amrex::Array4<amrex::Real const>& Hz,
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& metu,
+                   const amrex::Array4<amrex::Real const>& metv,
                    const amrex::Array4<amrex::Real const>& msku,
                    const amrex::Array4<amrex::Real const>& mskv,
                    const amrex::Real dt_lev, const int ncomp);
@@ -1122,6 +1142,8 @@ public:
                       const amrex::Array4<amrex::Real const>& z_r,
                       const amrex::Array4<amrex::Real const>& pm,
                       const amrex::Array4<amrex::Real const>& pn,
+                      const amrex::Array4<amrex::Real const>& metu,
+                      const amrex::Array4<amrex::Real const>& metv,
                       const amrex::Array4<amrex::Real const>& msku,
                       const amrex::Array4<amrex::Real const>& mskv,
                       const amrex::Real dt_lev,
@@ -1177,8 +1199,8 @@ public:
                    const amrex::Array4<amrex::Real const>& var_clim,
                    const amrex::Array4<amrex::Real const>& clim_coeff,
                    const amrex::Array4<amrex::Real const>& Hz,
-                   const amrex::Array4<amrex::Real const>& pm,
-                   const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& om_face,
+                   const amrex::Array4<amrex::Real const>& on_face,
                    const amrex::Real dt_lev = zero);
 
     /** \brief Set 2D momentum arrays from 3D momentum */
@@ -1308,7 +1330,15 @@ public:
                     const amrex::Real dt = zero,
                     const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_old = {},
-                    amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {});
+                    amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {},
+                    const int cf_cache_slot = -1);
+
+    /** \brief Make cf_2d_cache[lev][slot] fit mf's layout: on a layout change, find the
+     *  ghost cells a two-level fill of mf from crse writes (by a probe fill) and drop the
+     *  cached values */
+    void cf_2d_cache_entry (int lev, int slot, const amrex::MultiFab& mf,
+                            const amrex::MultiFab& crse, amrex::Real time,
+                            amrex::Interpolater* mapper, int bccomp);
 
     /** \brief Fill a new MultiFab by copying in phi from valid region and filling ghost cells without applying boundary conditions */
     void FillPatchNoBC (int lev, amrex::Real time,
@@ -1320,6 +1350,20 @@ public:
                     const bool fill_set=false,
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_old = {},
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {});
+
+    /** \brief The boundary-condition half of FillPatch: physical and NetCDF boundary
+     *  conditions, periodic corners and the free-slip top, for a MultiFab whose fine-fine
+     *  ghost cells are already filled. Lets several fields share one exchange. */
+    void FillPatchBCs (int lev, amrex::Real time,
+                       amrex::MultiFab& mf_to_fill,
+                       const int bccomp,
+                       const int bdy_var_type,
+                       const int icomp,
+                       const int ncomp,
+                       const int n_not_fill,
+                       const int icomp_calc,
+                       const amrex::Real dt_lev,
+                       const amrex::MultiFab& mf_calc);
     /** \brief Fill boundary data from netcdf file */
     void fill_from_bdyfiles (int lev,
                              amrex::MultiFab& mf_to_fill,
@@ -1922,6 +1966,29 @@ private:
      *         non-conservative for the same reason as cf_fill_all_kcomp: 1.4e-08 of volume
      *         drift on its own. */
     int cf_time_interp_zeta = 1;
+    /** \brief reuse the coarse-fine ghost values of a fine level's barotropic fills
+     *         (ubar, vbar, zeta in advance_2d). 0: recompute on every fast step, where the
+     *         two-level fill re-exchanges and re-interpolates the coarse level each time.
+     *         1 (default): compute once per (component, fill time) within a parent step and
+     *         replay the result; bitwise identical, since the fill reads only the registered
+     *         coarse data and, for faces, the interface faces FillSet rewrites before every
+     *         fill, none of which changes inside the parent step. 2: as 1, but also
+     *         recompute and abort on any difference in the replayed cells. Subcycled driver
+     *         only. */
+    int cf_2d_fill_cache = 1;
+    /** \brief one cached two-level fill: the values it leaves in the ghost cells it writes
+     *         (mask), per component, with the fill time and coarse generation of each */
+    struct CF2DCache {
+        std::unique_ptr<amrex::MultiFab>  vals;
+        std::unique_ptr<amrex::iMultiFab> mask;
+        amrex::Vector<amrex::Real> time;
+        amrex::Vector<long> gen;
+    };
+    /** \brief per level: the caches for ubar, vbar and zeta (slots 0, 1, 2) */
+    amrex::Vector<amrex::Array<CF2DCache,3>> cf_2d_cache;
+    /** \brief per level: bumped whenever register_coarse_data hands the level's new state to
+     *         the next finer level, which invalidates that level's cf_2d_cache */
+    amrex::Vector<long> cf_crse_gen;
     /** \brief distribute the parent's interface mass flux piecewise-constantly over the fine
      *         faces under each parent face, as ROMS's get_persisted2d does, instead of with
      *         the linear tangential variation of AMReX's face interpolator. Both conserve the
@@ -1970,6 +2037,8 @@ private:
 
     /** \brief how often each level regrids the higher levels of refinement (after a level advances that many time steps) */
     int regrid_int = 2;
+    /** \brief Whether the input set amr.regrid_int (queryAdd makes it present afterwards) */
+    bool regrid_int_from_input = false;
 
     // I/O controls
     /** \brief Plotfile prefix */

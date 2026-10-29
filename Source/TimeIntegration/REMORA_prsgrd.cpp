@@ -9,8 +9,8 @@ using namespace amrex;
  * @param[in   ] vtbx     v-nodal tilebox
  * @param[  out] ru       u-velocity RHS
  * @param[  out] rv       v-velocity RHS
- * @param[in   ] pm       1/dx
- * @param[in   ] pn       1/dy
+ * @param[in   ] om_v     om_v metric at v points
+ * @param[in   ] on_u     on_u metric at u points
  * @param[in   ] rho      density
  * @param        FC       temporary
  * @param[in   ] Hz       vertical cell height
@@ -26,8 +26,8 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
                const Box& utbx, const Box& vtbx,
                const Array4<Real      >& ru,
                const Array4<Real      >& rv,
-               const Array4<Real const>& pn,
-               const Array4<Real const>& pm,
+               const Array4<Real const>& on_u,
+               const Array4<Real const>& om_v,
                const Array4<Real const>& rho,
                const Array4<Real      >& FC,
                const Array4<Real const>& Hz,
@@ -162,8 +162,7 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
             Real z_r_diff   = z_r(i,j,k)-z_r(i-1,j,k)- OneTwelfth* (dZx(i,j,k)+dZx(i-1,j,k));
             Real   Hz_avg   = Real(0.5) * (Hz(i,j,k)+Hz(i-1,j,k));
 
-            Real on_u = two / (pn(i-1,j,0)+pn(i,j,0));
-            ru(i,j,k,nrhs) = on_u * Hz_avg * (
+            ru(i,j,k,nrhs) = on_u(i,j,0) * Hz_avg * (
                             P(i-1,j,k) - P(i,j,k) - HalfGRho *
                             ( (rho(i,j,k)+rho(i-1,j,k))*(z_r(i,j,k)-z_r(i-1,j,k))-
                               OneFifth * ( (dRx(i,j,k)-dRx(i-1,j,k)) * z_r_diff -
@@ -209,8 +208,7 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
             Real z_r_diff   = z_r(i,j,k)-z_r(i,j-1,k)- OneTwelfth* (dZx(i,j,k)+dZx(i,j-1,k));
             Real   Hz_avg   = Real(0.5) * (Hz(i,j,k)+Hz(i,j-1,k));
 
-            Real om_v = two / (pm(i,j-1,0)+pm(i,j,0));
-            rv(i,j,k,nrhs) = om_v * Hz_avg * (
+            rv(i,j,k,nrhs) = om_v(i,j,0) * Hz_avg * (
                             P(i,j-1,k) - P(i,j,k) - HalfGRho *
                             ( (rho(i,j,k)+rho(i,j-1,k))*(z_r(i,j,k)-z_r(i,j-1,k))-
                               OneFifth * ( (dRx(i,j,k)-dRx(i,j-1,k)) * z_r_diff -

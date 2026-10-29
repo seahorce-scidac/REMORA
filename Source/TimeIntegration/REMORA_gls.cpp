@@ -24,6 +24,9 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 {
     BL_PROFILE("REMORA::gls_prestep()");
     // temps: grad, gradL, XF, FX, FXL, EF, FE, FEL
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& gls = mf_gls->array(mfi);
         Array4<Real> const& tke = mf_tke->array(mfi);
@@ -409,6 +412,9 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Box   bx = mfi.tilebox();
@@ -457,7 +463,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     // While potentially counterintuitive, this is what ROMS does for handling shear2 at all boundaries, even
     // periodic
     (*physbcs[lev])(mf,*mf_mskr,shear2_cache_comp,1,mf.nGrowVect(),t_new[lev],foextrap_bc());
-    mf.setVal(zero,CF_comp,1);
 
     int ncomp_fab = 0;
     int tmp_buoy_comp  = ncomp_fab++;
@@ -473,6 +478,9 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     int BCK_comp = ncomp_fab++;
     int BCP_comp = ncomp_fab++;
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Box  bx = mfi.tilebox();

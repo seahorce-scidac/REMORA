@@ -97,34 +97,43 @@ REMORA::register_coarse_data (int lev, Real time, Real dt_lev)
     // step before any child substep, so {t_old, t_new} brackets every time the child asks for.
     if (lev >= finest_level) { return; }
 
+    // The finer level's cached coarse-fine fills were made from the state replaced here
+    if (int(cf_crse_gen.size()) <= lev) { cf_crse_gen.resize(lev+1, 0); }
+    ++cf_crse_gen[lev];
+
+    const Periodicity& per = geom[lev].periodicity();
+
+    // The parallel copies inside RegisterCoarseData need filled ghost cells. Each copy
+    // reads only its own fields, so all the exchanges are posted together, in flight at
+    // once, before the first copy.
+    Vector<MultiFab*> to_fill;
     if (cf_width > 0) {
-        // The parallel copy inside RegisterCoarseData needs filled ghost cells
-        cons_old[lev]->FillBoundary(geom[lev].periodicity());
-        cons_new[lev]->FillBoundary(geom[lev].periodicity());
+        to_fill.push_back(cons_old[lev]);
+        to_fill.push_back(cons_new[lev]);
+    }
+    if (cf_width >= 0) {
+        for (MultiFab* mf : {xvel_old[lev], xvel_new[lev], yvel_old[lev], yvel_new[lev],
+                             zvel_old[lev], zvel_new[lev],
+                             vec_ubar[lev].get(), vec_vbar[lev].get()}) {
+            to_fill.push_back(mf);
+        }
+    }
+    if (!to_fill.empty()) { amrex::FillBoundary(to_fill, per); }
+
+    if (cf_width > 0) {
         FPr_c[lev].RegisterCoarseData({cons_old[lev], cons_new[lev]}, {time, time + dt_lev});
     }
 
     if (cf_width >= 0) {
-        xvel_old[lev]->FillBoundary(geom[lev].periodicity());
-        xvel_new[lev]->FillBoundary(geom[lev].periodicity());
         FPr_u[lev].RegisterCoarseData({xvel_old[lev], xvel_new[lev]}, {time, time + dt_lev});
-
-        yvel_old[lev]->FillBoundary(geom[lev].periodicity());
-        yvel_new[lev]->FillBoundary(geom[lev].periodicity());
         FPr_v[lev].RegisterCoarseData({yvel_old[lev], yvel_new[lev]}, {time, time + dt_lev});
-
-        zvel_old[lev]->FillBoundary(geom[lev].periodicity());
-        zvel_new[lev]->FillBoundary(geom[lev].periodicity());
         FPr_w[lev].RegisterCoarseData({zvel_old[lev], zvel_new[lev]}, {time, time + dt_lev});
 
         // ubar and vbar carry their time levels as components of one MultiFab, so there is
         // no old/new pair. These serve the tangential and interior contact points; the
         // normal ones on the interface come from the mass flux below.
-        vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
         FPr_ubar[lev].RegisterCoarseData({vec_ubar[lev].get(), vec_ubar[lev].get()},
                                          {time, time + dt_lev});
-
-        vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
         FPr_vbar[lev].RegisterCoarseData({vec_vbar[lev].get(), vec_vbar[lev].get()},
                                          {time, time + dt_lev});
 
@@ -136,13 +145,15 @@ REMORA::register_coarse_data (int lev, Real time, Real dt_lev)
         MultiFab* Du_old = time_interp_flux ? vec_Dubar_old[lev].get() : vec_Dubar_new[lev].get();
         MultiFab* Dv_old = time_interp_flux ? vec_Dvbar_old[lev].get() : vec_Dvbar_new[lev].get();
 
-        vec_Dubar_new[lev]->FillBoundary(geom[lev].periodicity());
-        Du_old->FillBoundary(geom[lev].periodicity());
+        // Without time interpolation Du_old is Dubar_new itself and needs no second exchange
+        Vector<MultiFab*> flux = {vec_Dubar_new[lev].get(), vec_Dvbar_new[lev].get()};
+        if (time_interp_flux) {
+            flux.push_back(Du_old);
+            flux.push_back(Dv_old);
+        }
+        amrex::FillBoundary(flux, per);
         FPr_Dubar[lev].RegisterCoarseData({Du_old, vec_Dubar_new[lev].get()},
                                           {time, time + dt_lev});
-
-        vec_Dvbar_new[lev]->FillBoundary(geom[lev].periodicity());
-        Dv_old->FillBoundary(geom[lev].periodicity());
         FPr_Dvbar[lev].RegisterCoarseData({Dv_old, vec_Dvbar_new[lev].get()},
                                           {time, time + dt_lev});
 

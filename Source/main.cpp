@@ -108,9 +108,16 @@ void add_par () {
 
     ParmParse pp_fabarray("fabarray");
 #if defined(REMORA_USE_GPU)
+    // No tiling: on the GPU each box is one kernel launch.
     amrex::Vector<int> omp_tile_size = {1024000,1024000,1024000};
 #else
-    amrex::Vector<int> omp_tile_size = {8, 8, 1024000};
+    // CPU: full rows in i, 16 cells in j, the whole column. The kernels recompute the grown
+    // cells of every tile, so 8x8 tiles cost 1.7x the untiled time on a 128x128-column box,
+    // while j-strips of 16 run 8% faster than no tiling in serial and 13% faster with four
+    // OpenMP threads, which share the tiles of a box. Where tiles overlap on shared scratch
+    // every tile writes the same value, so the answers do not depend on the tiling or the
+    // thread count.
+    amrex::Vector<int> omp_tile_size = {1024000, 16, 1024000};
 #endif
     pp_remora.queryarr("omp_tile_size",omp_tile_size,0,3);
     pp_fabarray.queryAdd("mfiter_tile_size",omp_tile_size);
