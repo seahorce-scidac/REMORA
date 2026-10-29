@@ -34,6 +34,14 @@ class NCTimeSeries
          *         on the model grid */
         bool regridded () const { return regrid != nullptr; }
 
+        /** \brief Whether the first file stores a field on the model grid at this index type
+         *         (or as one value per time), rather than on a lat-lon grid. A variable that
+         *         is missing counts as on the model grid, so that Initialize reports it.
+         *         Collective. */
+        static bool is_on_model_grid (const amrex::Vector<std::string>& file_names,
+                                      const std::string& field_name, const amrex::Box& domain,
+                                      amrex::IndexType ixtype, bool is2d);
+
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
 

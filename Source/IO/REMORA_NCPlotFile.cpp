@@ -788,6 +788,20 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var(nm).put_attr("field", nm + ", scalar, series");
         }
 
+        if (solverChoice.output_forcing && vec_uwind[lev] != nullptr) {
+            // Surface winds, along the grid axes as the model uses them
+            for (const auto& [nm, long_name] : { std::make_pair("Uwind", "surface u-wind component"),
+                                                 std::make_pair("Vwind", "surface v-wind component") }) {
+                ncf.def_var(nm, ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+                ncf.var(nm).put_attr("long_name", long_name);
+                ncf.var(nm).put_attr("units","meter second-1");
+                ncf.var(nm).put_attr("time","ocean_time");
+                ncf.var(nm).put_attr("grid","grid");
+                ncf.var(nm).put_attr("location","face");
+                ncf.var(nm).put_attr("coordinates","x_rho y_rho ocean_time");
+                ncf.var(nm).put_attr("field", std::string(nm) + ", scalar, series");
+            }
+        }
         if (solverChoice.output_forcing) {
             // Surface air temperature (Celsius)
             ncf.def_var("Tair", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
@@ -1266,6 +1280,19 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             if (solverChoice.output_forcing)
             {
                 const Real Hscale = solverChoice.rho0 * Cp;
+                // Uwind, Vwind
+                if (vec_uwind[lev] != nullptr) {
+                    for (const auto& [nm, mf] : { std::make_pair("Uwind", vec_uwind[lev].get()),
+                                                  std::make_pair("Vwind", vec_vwind[lev].get()) }) {
+                        FArrayBox tmp_wind;
+                        tmp_wind.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                        tmp_wind.template copy<RunOn::Device>((*mf)[mfi.index()], 0, 0, 1);
+                        Gpu::streamSynchronize();
+
+                        auto nc_plot_var = collector.var(ncf, nm);
+                        nc_plot_var.put(tmp_wind.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
+                    }
+                }
                 // The copy and the mult below are both async on the same stream, so the
                 // sync has to follow the last of them and precede the host-side put().
                 // Tair

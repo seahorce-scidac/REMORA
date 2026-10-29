@@ -250,6 +250,10 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   | forcing                           |                 | ``coordinates`` attribute       |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_rotate**             | rotate lat-lon winds and stresses | ``auto`` or     | ``auto``                        |
+|                                   |                                   |                 |                                 |
+|                                   | onto the grid axes                | ``off``         |                                 |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.frc_fill_max_rings**     | how many source cells out to look | integer >= 0    | 3                               |
 |                                   |                                   |                 |                                 |
 |                                   | for a valid value where lat-lon   |                 |                                 |
@@ -1758,11 +1762,17 @@ come from ``remora.nc_grid_file_0`` (or ``remora.nc_grid_file_hires``). The rule
    within **remora.frc_fill_max_rings** source cells; if there is none the run stops.
 -  Every file of one variable's series must be on the same lat-lon grid. Different
    variables may be on different grids.
--  Only 2D rho-point forcing is interpolated: the bulk-flux fields above. Surface stress
-   (``sustr``, ``svstr``) and climatology must still be on the model grid.
--  Winds are interpolated as given, as east and north components; they are not yet
-   rotated onto a rotated model grid's xi and eta axes, and a warning says so when the
-   grid's ``angle`` is not zero.
+-  The bulk-flux fields above and the surface stress (``sustr``, ``svstr``) can be on a
+   lat-lon grid; climatology must still be on the model grid.
+-  Winds and stresses on a lat-lon grid are taken to be east and north components and
+   are rotated onto the model grid's xi and eta axes with the grid file's ``angle``
+   :math:`a` (radians from east to xi, counterclockwise), as ROMS does:
+   :math:`u_\xi = u_E\cos a + v_N\sin a`, :math:`v_\eta = -u_E\sin a + v_N\cos a`.
+   Surface stress is interpolated, rotated at rho points and then averaged to the u and
+   v faces. Both components of a vector must come from the same kind of file, and a grid
+   file without ``angle`` gets a warning and no rotation. Set **remora.frc_rotate** to
+   ``off`` for a file whose components are already along the grid axes. Winds and
+   stresses on the model grid are never rotated.
 
 Each interpolated variable is reported at startup with its source grid. Setting
 **remora.frc_regrid** to ``off`` turns the interpolation off, so that a variable not on

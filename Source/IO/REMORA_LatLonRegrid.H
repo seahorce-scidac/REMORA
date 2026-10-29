@@ -26,6 +26,9 @@ struct LatLonRegridOptions
     /** How many source cells out to look for a valid value when every corner of a target
      *  point's cell is missing data */
     int fill_max_rings = 3;
+    /** Rotate interpolated winds and stresses, given east and north, onto the model grid's
+     *  xi and eta axes (remora.frc_rotate = auto); off when the file is already rotated */
+    bool rotate = true;
 };
 
 /**

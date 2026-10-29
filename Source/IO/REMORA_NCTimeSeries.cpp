@@ -142,6 +142,31 @@ NCTimeSeries::NCTimeSeries (const amrex::Vector<std::string>& a_file_names, cons
     time_ref = a_time_ref;
 }
 
+bool
+NCTimeSeries::is_on_model_grid (const amrex::Vector<std::string>& a_file_names,
+                                const std::string& a_field_name, const amrex::Box& a_domain,
+                                amrex::IndexType ixtype, bool a_is2d)
+{
+    if (a_file_names.empty()) { return true; }
+    const std::string& file_name = a_file_names[0];
+    int native = 1;
+    {
+        auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
+        ncmpi_begin_indep_data(ncf.ncid);
+        if (amrex::ParallelDescriptor::IOProcessor() && ncf.has_var(a_field_name)) {
+            const auto var = ncf.var(a_field_name);
+            if (var.ndim() == (a_is2d ? 3 : 4)) {
+                native = matches_native_shape(var.shape(),
+                                              native_spatial_shape(a_domain, ixtype, a_is2d)) ? 1 : 0;
+            }
+        }
+        ncf.close();
+        amrex::ParallelDescriptor::Bcast(&native, 1, amrex::ParallelDescriptor::IOProcessorNumber());
+    }
+    if (native && LatLonRegrid::has_latlon_axes(file_name, a_field_name)) { native = 0; }
+    return native != 0;
+}
+
 void NCTimeSeries::Initialize() {
     // open file
     amrex::Print() << "Loading " << field_name << " from NetCDF file(s)" << std::endl;
