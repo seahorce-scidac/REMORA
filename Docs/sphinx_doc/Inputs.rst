@@ -290,7 +290,10 @@ Notes
 -  **remora.omp_tile_size** is an alias for **fabarray.mfiter_tile_size**, which controls
    the distribution of work by OpenMP. The results do not depend on it or on the thread
    count: where tiles overlap on shared scratch every tile writes the same value, and the
-   coarse-fine flux correction is accumulated in a fixed order.
+   coarse-fine flux correction is accumulated in a fixed order. (This holds for the default
+   build, which keeps the compiler from fusing multiply-adds; see :ref:`PerformanceTuning`.)
+   The tile shape also has a large effect on speed; :ref:`PerformanceTuning` says how to
+   choose it.
 
 -  The domain may not be tiled in the z direction. That is, the last component of **remora.omp_tile_size**
    must be greater than or equal to the number of vertical levels.

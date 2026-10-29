@@ -47,6 +47,7 @@ In addition to this documentation, there is API documentation for REMORA generat
    AgenticWorkFlow.rst
    Context7.rst
    ProblemSetup.rst
+   PerformanceTuning.rst
    testing.rst
 
 .. toctree::

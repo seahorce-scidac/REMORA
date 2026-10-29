@@ -47,6 +47,30 @@ ifeq ($(NATIVE_ARCH), TRUE)
   endif
 endif
 
+# Round every multiply and add as written. A compiler that fuses them into FMA
+# instructions may round the same expression differently in the vectorized body
+# of a loop and in its remainder, and the answer then depends on where tile and
+# box edges fall (Docs: Performance tuning). FP_CONTRACT=TRUE allows the fusion.
+# Host flag, so CPU builds only, through XTRA_CXXFLAGS for the reason above; it
+# reaches the AMReX sources of the same build as well.
+ifneq ($(FP_CONTRACT), TRUE)
+  ifneq ($(USE_CUDA), TRUE)
+    ifneq ($(USE_HIP), TRUE)
+      ifneq ($(USE_SYCL), TRUE)
+        ifeq ($(COMP), nvhpc)
+          XTRA_CXXFLAGS += -Mnofma
+        else ifeq ($(COMP), pgi)
+          XTRA_CXXFLAGS += -Mnofma
+        else ifeq ($(COMP), intel)
+          XTRA_CXXFLAGS += -no-fma
+        else
+          XTRA_CXXFLAGS += -ffp-contract=off
+        endif
+      endif
+    endif
+  endif
+endif
+
 EBASE = REMORA
 USE_RPATH = TRUE
 

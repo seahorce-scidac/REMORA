@@ -107,6 +107,9 @@ or if using tcsh,
    | NATIVE_ARCH     | Compile for the CPU of the build | TRUE / FALSE     | FALSE       |
    |                 | machine (``-march=native``)      |                  |             |
    +-----------------+----------------------------------+------------------+-------------+
+   | FP_CONTRACT     | Let the compiler fuse multiply-  | TRUE / FALSE     | FALSE       |
+   |                 | adds (Performance tuning page)   |                  |             |
+   +-----------------+----------------------------------+------------------+-------------+
    | USE_CUDA        | Whether to enable CUDA           | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
    | USE_HIP         | Whether to enable HIP            | TRUE / FALSE     | FALSE       |
@@ -201,6 +204,11 @@ The options are described in the table below. Standard CMake options like ``CMAK
    |                                  | machine (``-march=native``);     |                  |             |
    |                                  | the binary may not run on other  |                  |             |
    |                                  | CPUs                             |                  |             |
+   +----------------------------------+----------------------------------+------------------+-------------+
+   | ``REMORA_ENABLE_FP_CONTRACT``    | Let the compiler fuse multiply-  | ON / OFF         | OFF         |
+   |                                  | adds into FMA instructions; the  |                  |             |
+   |                                  | answers then depend on the tile  |                  |             |
+   |                                  | size (:ref:`PerformanceTuning`)  |                  |             |
    +----------------------------------+----------------------------------+------------------+-------------+
    | ``REMORA_ENABLE_CUDA``           | Whether to enable CUDA           | ON / OFF         | OFF         |
    +----------------------------------+----------------------------------+------------------+-------------+

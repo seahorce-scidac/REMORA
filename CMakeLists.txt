@@ -17,6 +17,7 @@ set(REMORA_DIM "3" CACHE STRING "Number of physical dimensions")
 option(REMORA_ENABLE_DOCUMENTATION "Build documentation" OFF)
 option(REMORA_ENABLE_ALL_WARNINGS  "Enable all compiler warnings" OFF)
 option(REMORA_ENABLE_NATIVE_ARCH   "Compile REMORA for the CPU of the build machine (-march=native)" OFF)
+option(REMORA_ENABLE_FP_CONTRACT   "Let the compiler fuse multiply-adds into FMA instructions; the answers then depend on the tile size" OFF)
 option(REMORA_ENABLE_TESTS         "Enable regression and unit tests" OFF)
 option(REMORA_ENABLE_PNETCDF        "Enable PNetCDF IO" OFF)
 option(REMORA_USE_INTERNAL_AMREX   "Add AMReX as subproject" ON)
@@ -121,6 +122,28 @@ if(CODECOVERAGE)
 
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
+endif()
+
+# Round every multiply and add as written. A compiler that fuses them into FMA
+# instructions may round the same expression differently in the vectorized body
+# of a loop and in its remainder, and the answer then depends on where tile and
+# box edges fall (Docs: Performance tuning). Set here, before AMReX is added, so
+# the library's own loops follow the same rule. It is a host-compiler flag, so
+# CPU builds only: GPU builds run no tiled host loops and keep the device
+# compiler's defaults.
+if(NOT REMORA_ENABLE_FP_CONTRACT AND NOT (REMORA_ENABLE_CUDA OR REMORA_ENABLE_HIP OR REMORA_ENABLE_SYCL))
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-contract=off")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -no-fma")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "NVHPC")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Mnofma")
+  else()
+    message(WARNING "REMORA does not know how to disable floating-point contraction for the ${CMAKE_CXX_COMPILER_ID} compiler; the answers may depend on remora.omp_tile_size")
+  endif()
+  if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffp-contract=off")
+  endif()
 endif()
 
 ########################### AMReX #####################################
