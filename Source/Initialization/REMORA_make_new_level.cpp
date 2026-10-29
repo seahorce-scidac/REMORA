@@ -515,6 +515,9 @@ void REMORA::resize_stuff(int lev)
     vec_yp.resize(lev+1);
     vec_lonp.resize(lev+1);
     vec_latp.resize(lev+1);
+    vec_lonr.resize(lev+1);
+    vec_latr.resize(lev+1);
+    vec_angler.resize(lev+1);
 
     vec_dndx.resize(lev+1);
     vec_dmde.resize(lev+1);
@@ -844,6 +847,22 @@ REMORA::set_grid_scale (int lev)
             Real dummy_time = zero;
             FillCoarsePatch(lev,dummy_time,vec_pm[lev].get(), vec_pm[lev-1].get(), foextrap_bc());
             FillCoarsePatch(lev,dummy_time,vec_pn[lev].get(), vec_pn[lev-1].get(), foextrap_bc());
+
+            // Spherical coordinates and grid angle follow when the coarser level has them.
+            // They are smooth, so the conservative-linear interpolation that fills pm and
+            // pn reproduces a linear field exactly. Rebuilt on every (re)make of the level,
+            // because the layout may have changed; laid out like vec_xr.
+            for (auto* vec_ptr : { &vec_lonr, &vec_latr, &vec_angler })
+            {
+                auto& vec = *vec_ptr;
+                if (vec[lev-1] == nullptr) {
+                    vec[lev].reset();
+                    continue;
+                }
+                vec[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
+                                            1, vec_xr[lev]->nGrowVect()));
+                FillCoarsePatch(lev,dummy_time,vec[lev].get(), vec[lev-1].get(), foextrap_bc());
+            }
 
             int rrx = ref_ratio[lev-1][0];
             int rry = ref_ratio[lev-1][1];

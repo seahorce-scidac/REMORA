@@ -487,6 +487,84 @@ read_spherical_grid_vars_from_netcdf (int /*lev*/,
 }
 
 /**
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param NC_lonr_fab     container for lon_rho data
+ * @param NC_latr_fab     container for lat_rho data
+ * @returns whether the file carried spherical rho coordinates and they were read
+ *
+ * ROMS grid files for spherical grids carry lon_rho/lat_rho at the cell centers.
+ * These are the points a forcing field given on another grid (a lat-lon
+ * reanalysis grid, say) is interpolated to, as ROMS's regrid does. Idealized
+ * grid files carry no spherical coordinates, so this read is optional and
+ * reports whether it happened rather than aborting.
+ */
+bool
+read_spherical_rho_grid_vars_from_netcdf (int /*lev*/,
+                                          const Box& domain,
+                                          const std::string& fname,
+                                          FArrayBox& NC_lonr_fab, FArrayBox& NC_latr_fab)
+{
+    Vector<std::string> NC_names;
+    NC_names.push_back("lon_rho");
+    NC_names.push_back("lat_rho");
+
+    if (!QueryNetCDFHasVars(fname, NC_names)) {
+        amrex::Print() << "Grid file " << fname << " has no lon_rho/lat_rho; "
+                       << "spherical rho coordinates unavailable" << std::endl;
+        return false;
+    }
+
+    amrex::Print() << "Loading spherical rho coordinates from NetCDF file " << fname << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    NC_fabs.push_back(&NC_lonr_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
+    NC_fabs.push_back(&NC_latr_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
+
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    return true;
+}
+
+/**
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param NC_angler_fab   container for angle data
+ * @returns whether the file carried the grid angle and it was read
+ *
+ * ROMS grid files carry `angle`, the angle in radians from east to the local
+ * xi axis at the rho points, positive counterclockwise. It rotates a wind or
+ * stress given in east/north components onto the grid axes. Many grids have
+ * none, so this read is optional and reports whether it happened.
+ */
+bool
+read_grid_angle_from_netcdf (int /*lev*/,
+                             const Box& domain,
+                             const std::string& fname,
+                             FArrayBox& NC_angler_fab)
+{
+    Vector<std::string> NC_names;
+    NC_names.push_back("angle");
+
+    if (!QueryNetCDFHasVars(fname, NC_names)) {
+        amrex::Print() << "Grid file " << fname << " has no angle; "
+                       << "grid rotation angle unavailable" << std::endl;
+        return false;
+    }
+
+    amrex::Print() << "Loading grid angle from NetCDF file " << fname << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    NC_fabs.push_back(&NC_angler_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
+
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    return true;
+}
+
+/**
  * @param domain          simulation domain at nc_hires_grid_level
  * @param fname           file name to read from
  * @param NC_h_fab        container for bathymetry data

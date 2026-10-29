@@ -171,6 +171,13 @@ public:
     void GetAtmosToOceanPsiLonLat (const amrex::MultiFab*& lon_psi,
                                    const amrex::MultiFab*& lat_psi) const;
 
+    // Returns pointers to level-0 rho-point spherical coordinate MultiFabs
+    // (vec_lonr/vec_latr, degrees east/north): the cell centers a forcing field
+    // given on another grid is interpolated to. Sets both to nullptr when the
+    // grid file carried no lon_rho/lat_rho rather than aborting.
+    void GetRhoLonLat (const amrex::MultiFab*& lon_rho,
+                       const amrex::MultiFab*& lat_rho) const;
+
     // Returns the level-0 wet/dry masks (1 = wet, 0 = land) at rho, u-face,
     // and v-face points, used by the driver to exclude land cells from
     // remap destination stencils. Sets pointers to nullptr if unavailable.
@@ -637,6 +644,17 @@ public:
     /** \brief latitude on psi-points (2D, degrees north); only filled when the
      *         grid NetCDF file carries lat_psi */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_latp;
+
+    /** \brief longitude on rho-points (2D, degrees east); only filled when the
+     *         grid NetCDF file carries lon_rho */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lonr;
+    /** \brief latitude on rho-points (2D, degrees north); only filled when the
+     *         grid NetCDF file carries lat_rho */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_latr;
+    /** \brief angle from east to the local xi axis on rho-points (2D, radians,
+     *         positive counterclockwise: ROMS's `angle`); only filled when the
+     *         grid NetCDF file carries angle */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_angler;
 
     /** \brief d(1/n)/d(xi) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_dndx;
@@ -1426,8 +1444,10 @@ public:
     /** \brief Full domain high-res grid variable initialization from NetCDF file */
     void init_grid_vars_full_domain_from_netcdf ();
 
-    /** \brief Extrapolate grid metrics to edge of MultiFab */
-    void extrapolate_metric_to_physical_boundaries(amrex::MultiFab& mf, const amrex::Geometry& geom);
+    /** \brief Extrapolate grid metrics to edge of MultiFab, copying the outermost
+     *         in-domain ghost row outward or, with linear, extending it linearly */
+    void extrapolate_metric_to_physical_boundaries(amrex::MultiFab& mf, const amrex::Geometry& geom,
+                                                   bool linear = false);
 
     /** \brief Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);

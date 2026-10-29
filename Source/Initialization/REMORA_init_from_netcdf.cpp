@@ -100,6 +100,16 @@ bool
 read_spherical_grid_vars_from_netcdf (int lev, const Box& domain, const std::string& fname,
                                       FArrayBox& NC_lonp_fab, FArrayBox& NC_latp_fab);
 
+/** \brief helper function to read optional spherical rho coordinates from netcdf */
+bool
+read_spherical_rho_grid_vars_from_netcdf (int lev, const Box& domain, const std::string& fname,
+                                          FArrayBox& NC_lonr_fab, FArrayBox& NC_latr_fab);
+
+/** \brief helper function to read the optional grid rotation angle from netcdf */
+bool
+read_grid_angle_from_netcdf (int lev, const Box& domain, const std::string& fname,
+                             FArrayBox& NC_angler_fab);
+
 /** \brief helper function to read full-domain high resolution bathymetry from netcdf */
 void
 read_bathymetry_full_domain_from_netcdf (const Box& domain, const std::string& fname,
@@ -547,6 +557,14 @@ REMORA::init_grid_vars_from_netcdf (int lev)
     Vector<FArrayBox> NC_latp_fab  ; NC_latp_fab.resize(num_boxes_at_level[lev]);
     bool have_spherical_psi = true;
 
+    // Optional spherical rho coordinates and grid angle (see
+    // read_spherical_rho_grid_vars_from_netcdf and read_grid_angle_from_netcdf)
+    Vector<FArrayBox> NC_lonr_fab  ; NC_lonr_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_latr_fab  ; NC_latr_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_angler_fab; NC_angler_fab.resize(num_boxes_at_level[lev]);
+    bool have_spherical_rho = true;
+    bool have_angle = true;
+
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
         read_grid_vars_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
@@ -568,6 +586,24 @@ REMORA::init_grid_vars_from_netcdf (int lev)
                                              1, vec_xp[lev]->nGrowVect()));
             vec_latp[lev].reset(new MultiFab(vec_xp[lev]->boxArray(), vec_xp[lev]->DistributionMap(),
                                              1, vec_xp[lev]->nGrowVect()));
+        }
+
+        have_spherical_rho = read_spherical_rho_grid_vars_from_netcdf(
+                                 lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
+                                 NC_lonr_fab[idx], NC_latr_fab[idx]) && have_spherical_rho;
+        have_angle = read_grid_angle_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
+                                                 NC_angler_fab[idx]) && have_angle;
+
+        // Mirror vec_xr exactly: same rho BoxArray, DistributionMap and ngrow.
+        if (have_spherical_rho && vec_lonr[lev] == nullptr) {
+            vec_lonr[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
+                                             1, vec_xr[lev]->nGrowVect()));
+            vec_latr[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
+                                             1, vec_xr[lev]->nGrowVect()));
+        }
+        if (have_angle && vec_angler[lev] == nullptr) {
+            vec_angler[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
+                                               1, vec_xr[lev]->nGrowVect()));
         }
 
 #ifdef _OPENMP
@@ -609,6 +645,13 @@ REMORA::init_grid_vars_from_netcdf (int lev)
                 (*vec_lonp[lev])[mfi].template copy<RunOn::Device>(NC_lonp_fab[idx]);
                 (*vec_latp[lev])[mfi].template copy<RunOn::Device>(NC_latp_fab[idx]);
             }
+            if (have_spherical_rho) {
+                (*vec_lonr[lev])[mfi].template copy<RunOn::Device>(NC_lonr_fab[idx]);
+                (*vec_latr[lev])[mfi].template copy<RunOn::Device>(NC_latr_fab[idx]);
+            }
+            if (have_angle) {
+                (*vec_angler[lev])[mfi].template copy<RunOn::Device>(NC_angler_fab[idx]);
+            }
         } // mf
         } // omp
     } // idx
@@ -617,6 +660,13 @@ REMORA::init_grid_vars_from_netcdf (int lev)
     if (!have_spherical_psi) {
         vec_lonp[lev].reset();
         vec_latp[lev].reset();
+    }
+    if (!have_spherical_rho) {
+        vec_lonr[lev].reset();
+        vec_latr[lev].reset();
+    }
+    if (!have_angle) {
+        vec_angler[lev].reset();
     }
 
     Real dummy_time = zero;
@@ -660,6 +710,21 @@ REMORA::init_grid_vars_from_netcdf (int lev)
 
     extrapolate_metric_to_physical_boundaries(*vec_pm[lev], geom[lev]);
     extrapolate_metric_to_physical_boundaries(*vec_pn[lev], geom[lev]);
+
+    // The file supplies the one-cell ring around the domain. The ghost rows beyond it
+    // continue the coordinates linearly, so anything interpolated onto those cells lands
+    // where they are rather than on a copy of the edge. The angle is copied outward like
+    // a metric.
+    if (vec_lonr[lev] != nullptr) {
+        vec_lonr[lev]->FillBoundary(geom[lev].periodicity());
+        vec_latr[lev]->FillBoundary(geom[lev].periodicity());
+        extrapolate_metric_to_physical_boundaries(*vec_lonr[lev], geom[lev], true);
+        extrapolate_metric_to_physical_boundaries(*vec_latr[lev], geom[lev], true);
+    }
+    if (vec_angler[lev] != nullptr) {
+        vec_angler[lev]->FillBoundary(geom[lev].periodicity());
+        extrapolate_metric_to_physical_boundaries(*vec_angler[lev], geom[lev]);
+    }
 }
 
 /**

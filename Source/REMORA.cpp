@@ -842,15 +842,23 @@ REMORA::set_grid_vars_averaged_down (int lev) {
 }
 
 /**
- * Copy the outermost in-domain ghost row of a cell-centred field outward over the
- * remaining ghost rows at the physical boundaries. Used for grid metrics and bathymetry
- * in every build, so it lives here rather than in the NetCDF-only initialisation.
+ * Fill the ghost rows beyond the outermost in-domain ghost row of a cell-centred field
+ * at the physical boundaries: by copying that row outward (the default, right for grid
+ * metrics and bathymetry), or with linear by extending it from the row inside it (for
+ * coordinates, which keep growing past the edge). Used in every build, so it lives here
+ * rather than in the NetCDF-only initialisation.
  *
- * @param[inout] mf    multifab of data to extrapolate on
- * @param[in   ] geom  geometry
+ * The x passes run first; the y passes then cover every column, including the x strips
+ * just filled, which takes care of the corners. The linear x passes read two columns, so
+ * they are limited to the rows those columns hold data in (the domain and its ring); the
+ * copy reads only the ring and can keep covering the full y extent.
+ *
+ * @param[inout] mf      multifab of data to extrapolate on
+ * @param[in   ] geom    geometry
+ * @param[in   ] linear  extend linearly instead of copying
  */
 void
-REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry& geom)
+REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry& geom, bool linear)
 {
     const IntVect ng = mf.nGrowVect();
 
@@ -868,30 +876,38 @@ REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry&
         Box gbx_loy = adjCellLo(bx,1,ng[1]); gbx_loy.grow(0,ng[0]); gbx_loy.setBig  (1,dom_lo.y-2);
         Box gbx_hiy = adjCellHi(bx,1,ng[1]); gbx_hiy.grow(0,ng[0]); gbx_hiy.setSmall(1,dom_hi.y+2);
 
-        if (gbx_lox.ok()) {
-            ParallelFor(gbx_lox, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(dom_lo.x-1,j,k,0);
-            });
+        if (linear) {
+            for (Box* gbx : {&gbx_lox, &gbx_hix}) {
+                gbx->setSmall(1, std::max(gbx->smallEnd(1), dom_lo.y-1));
+                gbx->setBig  (1, std::min(gbx->bigEnd(1),   dom_hi.y+1));
+            }
         }
-        if (gbx_hix.ok()) {
-            ParallelFor(gbx_hix, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(dom_hi.x+1,j,k,0);
-            });
-        }
-        if (gbx_loy.ok()) {
-            ParallelFor(gbx_loy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(i,dom_lo.y-1,k,0);
-            });
-        }
-        if (gbx_hiy.ok()) {
-            ParallelFor(gbx_hiy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(i,dom_hi.y+1,k,0);
-            });
-        }
+
+        // Fill gbx from the ring index along dir, with inner the in-domain index beside it.
+        auto extrap = [&] (const Box& gbx, int dir, int ring, int inner)
+        {
+            if (!gbx.ok()) { return; }
+            if (linear) {
+                ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    const int  idx   = (dir == 0) ? i : j;
+                    const Real dist  = static_cast<Real>((idx > ring) ? idx - ring : ring - idx);
+                    const Real vring = (dir == 0) ? mf_arr(ring,j,k,0)  : mf_arr(i,ring,k,0);
+                    const Real vin   = (dir == 0) ? mf_arr(inner,j,k,0) : mf_arr(i,inner,k,0);
+                    mf_arr(i,j,k,0) = vring + dist * (vring - vin);
+                });
+            } else {
+                ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    mf_arr(i,j,k,0) = (dir == 0) ? mf_arr(ring,j,k,0) : mf_arr(i,ring,k,0);
+                });
+            }
+        };
+
+        extrap(gbx_lox, 0, dom_lo.x-1, dom_lo.x);
+        extrap(gbx_hix, 0, dom_hi.x+1, dom_hi.x);
+        extrap(gbx_loy, 1, dom_lo.y-1, dom_lo.y);
+        extrap(gbx_hiy, 1, dom_hi.y+1, dom_hi.y);
     } // mfi
 }
 

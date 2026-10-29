@@ -261,6 +261,16 @@ the tracers are advected with. All velocities are averaged to cell centers in AM
 +--------------------------------+------------------------------------+
 | **mask_v**                     | v-point mask (sea = 1, land = 0)   |
 +--------------------------------+------------------------------------+
+| **lon_rho**                    | rho-point longitude [degrees east],|
+|                                | when the grid file carries it      |
++--------------------------------+------------------------------------+
+| **lat_rho**                    | rho-point latitude [degrees north],|
+|                                | when the grid file carries it      |
++--------------------------------+------------------------------------+
+| **angle**                      | angle from east to the xi axis     |
+|                                | [radians], when the grid file      |
+|                                | carries it                         |
++--------------------------------+------------------------------------+
 
 .. _examples-of-usage-8:
 

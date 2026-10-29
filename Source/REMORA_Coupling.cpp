@@ -452,6 +452,20 @@ REMORA::GetAtmosToOceanPsiLonLat (const amrex::MultiFab*& lon_psi,
 }
 
 void
+REMORA::GetRhoLonLat (const amrex::MultiFab*& lon_rho,
+                      const amrex::MultiFab*& lat_rho) const
+{
+    if (vec_lonr.empty() || vec_latr.empty() ||
+        vec_lonr[0] == nullptr || vec_latr[0] == nullptr) {
+        lon_rho = nullptr;
+        lat_rho = nullptr;
+        return;
+    }
+    lon_rho = vec_lonr[0].get();
+    lat_rho = vec_latr[0].get();
+}
+
+void
 REMORA::GetLandSeaMasks (const amrex::MultiFab*& mskr,
                          const amrex::MultiFab*& msku,
                          const amrex::MultiFab*& mskv) const

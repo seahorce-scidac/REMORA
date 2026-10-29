@@ -508,6 +508,27 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("y_rho").put_attr("units","meter");
         ncf.var("y_rho").put_attr("field","y_rho, scalar");
 
+        // Spherical coordinates and rotation angle, as ROMS writes them, when the grid
+        // file carried them
+        if (vec_lonr[lev] != nullptr) {
+            ncf.def_var("lon_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            ncf.var("lon_rho").put_attr("long_name","longitude of RHO-points");
+            ncf.var("lon_rho").put_attr("units","degree_east");
+            ncf.var("lon_rho").put_attr("field","lon_rho, scalar");
+
+            ncf.def_var("lat_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            ncf.var("lat_rho").put_attr("long_name","latitude of RHO-points");
+            ncf.var("lat_rho").put_attr("units","degree_north");
+            ncf.var("lat_rho").put_attr("field","lat_rho, scalar");
+        }
+        if (vec_angler[lev] != nullptr) {
+            ncf.def_var("angle",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            ncf.var("angle").put_attr("long_name","angle between XI-axis and EAST");
+            ncf.var("angle").put_attr("units","radians");
+            ncf.var("angle").put_attr("coordinates","x_rho y_rho");
+            ncf.var("angle").put_attr("field","angle, scalar");
+        }
+
         ncf.def_var("x_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
         ncf.var("x_u").put_attr("long_name","x-locations of U-points");
         ncf.var("x_u").put_attr("units","meter");
@@ -1188,6 +1209,21 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     auto nc_plot_var = collector.var(ncf, "y_rho");
                     //nc_plot_var.par_access(NC_INDEPENDENT);
                     nc_plot_var.put(tmp_yr.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
+                }
+
+                for (const auto& [name, vec] : { std::make_pair("lon_rho", &vec_lonr),
+                                                 std::make_pair("lat_rho", &vec_latr),
+                                                 std::make_pair("angle",   &vec_angler) })
+                {
+                    if ((*vec)[lev] == nullptr) { continue; }
+                    FArrayBox tmp_sph;
+                    tmp_sph.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+
+                    tmp_sph.template copy<RunOn::Device>((*(*vec)[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_plot_var = collector.var(ncf, name);
+                    nc_plot_var.put(tmp_sph.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
             }
 
