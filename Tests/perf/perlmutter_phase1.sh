@@ -19,6 +19,7 @@
 #   -t steps       steps per run                            [10]
 #   -c "RxT ..."   CPU ranks x threads configurations        ["128x1 64x2 32x4"]
 #   -T "spec ..."  extra CPU tile sizes for every revision      []
+#   -F mode        -ffp-contract for every CPU build (off|on|fast) [off]
 #   -q qos         Slurm QOS                                [debug]
 #   -j n           make -j                                  [16]
 #   -S             build only, do not submit
@@ -33,15 +34,17 @@
 set -euo pipefail
 
 ACCOUNT=""; ARCH=both; REVS=""; BASE=""; NEW=""; WORK=""; GULF=""; SIZE="512 1024 40"
-NSTEP=10; QOS=debug; JOBS=16; SUBMIT=1; CPU_CFGS="128x1 64x2 32x4"; TILES=""
-while getopts "A:a:r:b:n:w:g:s:t:q:j:Sc:T:" opt; do
+NSTEP=10; QOS=debug; JOBS=16; SUBMIT=1; CPU_CFGS="128x1 64x2 32x4"; TILES=""; FPCONTRACT=off
+while getopts "A:a:r:b:n:w:g:s:t:q:j:Sc:T:F:" opt; do
     case $opt in
         A) ACCOUNT=$OPTARG;; a) ARCH=$OPTARG;; r) REVS=$OPTARG;; b) BASE=$OPTARG;; n) NEW=$OPTARG;;
         w) WORK=$OPTARG;; g) GULF=$OPTARG;; s) SIZE=$OPTARG;; t) NSTEP=$OPTARG;;
         q) QOS=$OPTARG;; j) JOBS=$OPTARG;; S) SUBMIT=0;; c) CPU_CFGS=$OPTARG;; T) TILES=$OPTARG;;
+        F) FPCONTRACT=$OPTARG;;
         *) echo "unknown option"; exit 1;;
     esac
 done
+case $FPCONTRACT in off|on|fast) ;; *) echo "-F takes off, on or fast"; exit 1;; esac
 # -T "8x8 16x16 j8 none": extra CPU runs of every revision with these tile sizes
 # (AxB = A by B columns, jN = N rows, iN = N columns, none = untiled), each checked
 # bitwise against the baseline. The baseline is always also run with 16-row tiles.
@@ -128,7 +131,9 @@ if [ -f "$REPO/Build/saul-env.sh" ] && command -v module > /dev/null; then
     source "$REPO/Build/saul-env.sh"
 fi
 build_one () {   # build_one <label> <ref> <cpu|gpu>
-    local tag=$1 ref=$2 arch=$3 src=$WORK/src_$1 flags sha
+    # One source tree per revision and architecture: `make clean` empties the whole
+    # tmp_build_dir, so a shared tree would lose the other architecture's objects.
+    local tag=$1 ref=$2 arch=$3 src=$WORK/src_${1}_$3 flags sha
     sha=$(resolve_ref "$ref") || exit 1
     if [ ! -d "$src" ]; then
         git -C "$REPO" worktree add --detach "$src" "$sha"
@@ -141,11 +146,23 @@ build_one () {   # build_one <label> <ref> <cpu|gpu>
         module load cudatoolkit 2>/dev/null || true
         flags="USE_OMP=FALSE USE_CUDA=TRUE"
     else
-        flags="USE_OMP=TRUE USE_CUDA=FALSE"
+        # Every CPU build, the baseline included, gets the same contraction setting, so the
+        # bitwise comparison is not confused by a baseline that predates the default of
+        # -ffp-contract=off (Docs: Performance tuning). -F fast allows FMA fusion everywhere.
+        flags="USE_OMP=TRUE USE_CUDA=FALSE XTRA_CXXFLAGS=-ffp-contract=$FPCONTRACT"
     fi
-    (cd "$src/Exec" && make -j "$JOBS" COMP=gnu USE_MPI=TRUE USE_PNETCDF=TRUE TINY_PROFILE=TRUE \
-        USE_PARTICLES=FALSE $flags > "$WORK/build_${tag}_${arch}.log" 2>&1) \
+    local cmd="make COMP=gnu USE_MPI=TRUE USE_PNETCDF=TRUE TINY_PROFILE=TRUE USE_PARTICLES=FALSE $flags"
+    # GNU make rebuilds an object when its sources change, not when its flags or the
+    # makefiles do, so a tree reused for another revision or another command line would
+    # keep stale objects. Start that configuration over when either differs from the
+    # record of the last build here.
+    local record="$sha $cmd" recfile=$WORK/bin/remora_${tag}_${arch}.build
+    if [ ! -f "$recfile" ] || [ "$(cat "$recfile")" != "$record" ]; then
+        (cd "$src/Exec" && $cmd clean > /dev/null 2>&1) || true
+    fi
+    (cd "$src/Exec" && $cmd -j "$JOBS" > "$WORK/build_${tag}_${arch}.log" 2>&1) \
         || { echo "build of $tag ($arch) failed, see $WORK/build_${tag}_${arch}.log"; exit 1; }
+    echo "$record" > "$recfile"
     local exe
     exe=$(ls -t "$src"/Exec/REMORA3d.gnu.*.ex | head -1)
     cp "$exe" "$WORK/bin/remora_${tag}_${arch}"
