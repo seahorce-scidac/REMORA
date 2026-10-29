@@ -41,8 +41,17 @@ done
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(git -C "$HERE" rev-parse --show-toplevel)
-[ -n "$BASE" ] || BASE=$(git -C "$REPO" merge-base HEAD upstream/development 2>/dev/null \
-                        || git -C "$REPO" merge-base HEAD origin/development)
+if [ -z "$BASE" ]; then
+    # The merge base with development, from a fresh fetch: a stale remote-tracking branch
+    # would silently pick a months-old baseline.
+    for remote in upstream origin; do
+        if git -C "$REPO" remote get-url $remote > /dev/null 2>&1; then
+            git -C "$REPO" fetch -q $remote development 2>/dev/null \
+                && BASE=$(git -C "$REPO" merge-base HEAD FETCH_HEAD) && break
+        fi
+    done
+    [ -n "$BASE" ] || { echo "could not determine the baseline; pass -b <ref>"; exit 1; }
+fi
 if [ -n "$GULF" ]; then
     GULF=$(cd "$GULF" 2>/dev/null && pwd) || { echo "-g: no such directory"; exit 1; }
     ls "$GULF"/GS_toyGrd_lev0_v1.3.nc "$GULF"/GS_toyIni_lev0_v1.3.nc > /dev/null \
@@ -50,6 +59,7 @@ if [ -n "$GULF" ]; then
 fi
 [ -n "$WORK" ] || WORK=${SCRATCH:-$HOME}/remora_perf/$(date +%Y%m%d_%H%M)
 mkdir -p "$WORK/bin" "$WORK/runs"
+echo "baseline is $(git -C "$REPO" log -1 --format='%h %ad %s' --date=short ${BASE:-${REFS[0]}})"
 echo "baseline $BASE  new $NEW  work $WORK"
 
 # ---------------------------------------------------------------- environment and builds
