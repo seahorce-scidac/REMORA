@@ -1700,11 +1700,15 @@ When a source selector is ``netcdf``, the field is
 read from **remora.nc_frc_file** using variable names ``Uwind``, ``Vwind``,
 ``Tair``, ``qair``, ``Pair``, ``swrad``, ``rain``, ``cloud``, ``EminusP``,
 and the configured longwave variable name. Multiple files may be specified,
-in which case in which case REMORA concatenates their time axes in the
+in which case REMORA concatenates their time axes in the
 order listed in the inputs file. Forcing variables must have the same dimensions
-as the level 0 (coarsest) model grid. Time interpolation is performed automatically
-based on the simulation time at level 0, and fields are interpoalted to finer
-AMR levels as needed.
+as the level 0 (coarsest) model grid, including the ROMS boundary ring: a rho-point
+field is ``(time, eta_rho, xi_rho)`` with ``xi_rho = n_cell_x + 2``. A variable on any
+other grid, such as a lat-lon reanalysis grid, is rejected at startup with a message
+giving both shapes, since REMORA does not yet interpolate forcing between grids
+(the same check applies to climatology fields). Time interpolation is performed
+automatically based on the simulation time at level 0, and fields are interpolated
+to finer AMR levels as needed.
 
 The legacy boolean inputs **Tair_from_netcdf**, **qair_from_netcdf**,
 **Pair_from_netcdf**, **srflx_from_netcdf**, **longwave_down_from_netcdf**,

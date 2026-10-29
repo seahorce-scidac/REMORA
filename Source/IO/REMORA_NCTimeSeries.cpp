@@ -12,6 +12,74 @@
 #include <vector>
 
 #ifdef REMORA_USE_NETCDF
+namespace {
+
+/** Print a NetCDF shape as "(5848, 69, 81)" */
+std::string shape_to_string (const std::vector<MPI_Offset>& shape)
+{
+    std::string s = "(";
+    for (std::size_t i = 0; i < shape.size(); ++i) {
+        if (i > 0) { s += ", "; }
+        s += std::to_string(static_cast<long long>(shape[i]));
+    }
+    return s + ")";
+}
+
+/** Abort unless the variable's spatial dimensions are those of the level 0 grid.
+ *
+ * The reader (fill_fab_from_arrays) lays the file out on the grid index for
+ * index: a rho field's first column lands on the ghost cell at -1 and a face
+ * field's on face 0, so a native ROMS file carries the boundary ring and has
+ *   rho (ny+2, nx+2), u-face (ny+2, nx+1), v-face (ny+1, nx+2),
+ * with the s_rho count in front for a 3D field. Any other shape is a field on
+ * another grid, and copying it index for index would put it in the wrong place
+ * without a word, so refuse it here. Interpolating such a field onto the model
+ * grid is issue #680 and does not exist yet.
+ */
+void check_native_shape (const std::string& field_name, const std::string& file_name,
+                         const std::vector<MPI_Offset>& shape,
+                         const amrex::Box& domain, const amrex::IndexType ixtype, bool is2d)
+{
+    const int rank = static_cast<int>(shape.size());
+    AMREX_ALWAYS_ASSERT(rank >= (is2d ? 3 : 4));
+
+    const MPI_Offset nx_file = shape[rank-1];
+    const MPI_Offset ny_file = shape[rank-2];
+    const MPI_Offset nx_grid = domain.length(0) + (ixtype.nodeCentered(0) ? 1 : 2);
+    const MPI_Offset ny_grid = domain.length(1) + (ixtype.nodeCentered(1) ? 1 : 2);
+    bool matches = (nx_file == nx_grid) && (ny_file == ny_grid);
+
+    MPI_Offset nz_grid = 0;
+    if (!is2d) {
+        const MPI_Offset nz_file = shape[rank-3];
+        nz_grid = domain.length(2) + (ixtype.nodeCentered(2) ? 1 : 0);
+        matches = matches && (nz_file == nz_grid);
+    }
+    if (matches) { return; }
+
+    const bool nodal_x = ixtype.nodeCentered(0);
+    const bool nodal_y = ixtype.nodeCentered(1);
+    const std::string point = nodal_x ? (nodal_y ? "psi" : "u") : (nodal_y ? "v" : "rho");
+    const std::string file_dims = is2d ? "(time, eta, xi)" : "(time, s, eta, xi)";
+    const std::string grid_shape = is2d
+        ? "(eta, xi) = (" + std::to_string(static_cast<long long>(ny_grid)) + ", "
+                          + std::to_string(static_cast<long long>(nx_grid)) + ")"
+        : "(s, eta, xi) = (" + std::to_string(static_cast<long long>(nz_grid)) + ", "
+                             + std::to_string(static_cast<long long>(ny_grid)) + ", "
+                             + std::to_string(static_cast<long long>(nx_grid)) + ")";
+
+    amrex::Abort("NetCDF time series variable '" + field_name + "' in " + file_name
+                 + " has shape " + file_dims + " = " + shape_to_string(shape)
+                 + ", but the level 0 grid needs " + grid_shape + " for a " + point
+                 + "-point field (remora.n_cell plus the ROMS boundary ring). The field is"
+                 + " copied onto the grid index for index, so a field on another grid would be"
+                 + " placed wrongly rather than interpolated. REMORA does not yet interpolate"
+                 + " forcing from a lat-lon or other grid (issue #680): supply the variable on"
+                 + " the model grid, with the time axis first.");
+}
+
+} // namespace
+
 /**
  * @param[in   ] a_file_names         vector of file name(s) to read from
  * @param[in   ] a_field_name         name of field to read in
@@ -110,6 +178,11 @@ void NCTimeSeries::Initialize() {
                              "uniform time-only data or rank " +
                              std::to_string(expected_spatial_rank) +
                              " for spatial data.");
+            }
+
+            if (field_rank == expected_spatial_rank) {
+                check_native_shape(field_name, file_name, ncf.var(field_name).shape(),
+                                   domain, mf_var->ixType(), is2d);
             }
         }
 
