@@ -58,19 +58,27 @@ tile_string () {   # tile_string <spec>  -> the remora.omp_tile_size value, spac
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(git -C "$HERE" rev-parse --show-toplevel)
-resolve_ref () {   # resolve_ref <ref> -> commit SHA. A SHA, tag or local branch as given; then a
-    local ref=$1 sha remote   # remote-tracking branch; then a fetch of that branch from the remotes.
-    sha=$(git -C "$REPO" rev-parse --verify -q "$ref^{commit}") && { echo "$sha"; return; }
-    for remote in upstream origin; do
-        git -C "$REPO" remote get-url $remote > /dev/null 2>&1 || continue
-        sha=$(git -C "$REPO" rev-parse --verify -q "$remote/$ref^{commit}") && { echo "$sha"; return; }
-    done
+resolve_ref () {   # resolve_ref <ref> -> commit SHA
+    # A commit SHA or a tag is taken as given. A branch name is fetched fresh from upstream,
+    # then origin, so a cluster checkout follows what was pushed; a local branch of the same
+    # name that points elsewhere is reported, since a stale one would otherwise be built in
+    # silence. A name on no remote (a local-only branch, origin/xyz) is resolved locally.
+    local ref=$1 sha remote local_sha
+    if [[ $ref =~ ^[0-9a-f]{7,40}$ ]] || git -C "$REPO" rev-parse --verify -q "refs/tags/$ref" > /dev/null 2>&1; then
+        git -C "$REPO" rev-parse --verify -q "$ref^{commit}" && return
+    fi
     for remote in upstream origin; do
         git -C "$REPO" remote get-url $remote > /dev/null 2>&1 || continue
         git -C "$REPO" fetch -q $remote "$ref" 2>/dev/null || continue
-        git -C "$REPO" rev-parse --verify -q 'FETCH_HEAD^{commit}' && return
+        sha=$(git -C "$REPO" rev-parse --verify -q 'FETCH_HEAD^{commit}') || continue
+        local_sha=$(git -C "$REPO" rev-parse --verify -q "refs/heads/$ref" 2>/dev/null)
+        if [ -n "$local_sha" ] && [ "$local_sha" != "$sha" ]; then
+            echo "note: $ref is taken from $remote ($(git -C "$REPO" rev-parse --short "$sha")); the local branch is at $(git -C "$REPO" rev-parse --short "$local_sha")" >&2
+        fi
+        echo "$sha"; return
     done
-    echo "cannot resolve revision '$ref': not a commit, tag, local or remote branch here" >&2
+    sha=$(git -C "$REPO" rev-parse --verify -q "$ref^{commit}") && { echo "$sha"; return; }
+    echo "cannot resolve revision '$ref': not a commit, tag, local branch or a branch on upstream/origin" >&2
     return 1
 }
 if [ -z "$REVS" ]; then
