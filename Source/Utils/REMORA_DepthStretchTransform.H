@@ -194,8 +194,8 @@ REMORA::stretch_transform (int lev)
         //
 
         // Nodal in all three directions so that the outermost node in x and y is
-        //    filled as well.  We do not grow in the vertical since z_phys_nd has a
-        //    ghost node there which we fill by extrapolation, not from z_w.
+        //    filled as well.  We do not grow in the vertical: z_w has no node there,
+        //    and nothing reads z_phys_nd outside the column.
         Box bx = mfi.grownnodaltilebox(-1,IntVect(NGROW,NGROW,0));
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -213,13 +213,6 @@ REMORA::stretch_transform (int lev)
 
             z_phys_nd(i,j,k)=Real(0.25)*( z_w(im,jm,k) + z_w(ii,jm,k) +
                                           z_w(im,jj,k) + z_w(ii,jj,k) );
-        });
-
-        // Fill nodes below the surface (to avoid out of bounds errors in particle functions)
-        int klo = -1;
-        ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-            z_phys_nd(i,j,klo) = two * z_phys_nd(i,j,klo+1) - z_phys_nd(i,j,klo+2);
         });
     } // mf
 

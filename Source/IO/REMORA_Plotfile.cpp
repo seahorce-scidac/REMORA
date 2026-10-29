@@ -35,8 +35,8 @@ fill_nodal_z_displacement (MultiFab& mf_nd, const MultiFab& z_phys_nd, const Geo
             const int k = kf / rz;
             const int r = kf - k * rz;
             Real z = zp(i,j,k);
-            // z_phys_nd has one z ghost but only k = -1 is filled, so k+1 is read only when
-            // its weight is nonzero, which keeps it at or below the top node.
+            // z_phys_nd's z ghost layers are not filled, so k+1 is read only when its weight
+            // is nonzero, which keeps it at or below the top node.
             if (r > 0) { z += (Real(r) / Real(rz)) * (zp(i,j,k+1) - zp(i,j,k)); }
             nu(i,j,kf,2) = z - (zlo + Real(kf) * dz);
         });
