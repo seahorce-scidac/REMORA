@@ -759,5 +759,18 @@ REMORA::refinement_criteria_setup ()
             ref_tags.back().SetTimeWindow(min_elapsed, max_elapsed,
                                           min_total, max_total);
         } // loop over criteria
+
+        // A refined level's NetCDF file covers the first static box at that level,
+        // so a level without one, refined only by field-based tagging, can't be written.
+        if (plotfile_type == PlotfileType::netcdf) {
+            for (int lev = 1; lev <= max_level; ++lev) {
+                if (num_boxes_at_level[lev] == 0) {
+                    Abort("remora.plotfile_type = netcdf requires every level up to amr.max_level"
+                          " to have a static refinement box (in_box_lo/in_box_hi or their _indices"
+                          " forms); level " + std::to_string(lev) + " has none. Use"
+                          " remora.plotfile_type = amrex for levels created by field-based tagging.");
+                }
+            }
+        }
     } // if max_level > 0
 }

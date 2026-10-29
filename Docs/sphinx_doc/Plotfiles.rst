@@ -301,8 +301,8 @@ Examples of Usage
    refinement boxes (``in_box_lo``/``in_box_hi`` or their ``_indices`` forms), not
    from the level's actual grids, and only the first such box at that level is
    written. NetCDF output of a refined level therefore requires the level to be
-   defined by a static box; levels created only by field-based tagging are not
-   supported.
+   defined by a static box; a run with ``remora.plotfile_type = netcdf`` aborts at
+   startup if any level up to ``amr.max_level`` has no static box.
 
 -  **remora.plot_nodal_data** = *false*
 
