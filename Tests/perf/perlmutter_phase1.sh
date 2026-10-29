@@ -15,7 +15,7 @@
 #   -s "NX NY NZ"  Upwelling grid                           ["512 1024 40"]
 #   -t steps       steps per run                            [10]
 #   -c "RxT ..."   CPU ranks x threads configurations        ["128x1 64x2 32x4"]
-#   -q qos         Slurm QOS                                [regular]
+#   -q qos         Slurm QOS                                [debug]
 #   -j n           make -j                                  [16]
 #   -S             build only, do not submit
 #
@@ -28,7 +28,7 @@
 set -euo pipefail
 
 ACCOUNT=""; ARCH=both; BASE=""; NEW=HEAD; WORK=""; GULF=""; SIZE="512 1024 40"
-NSTEP=10; QOS=regular; JOBS=16; SUBMIT=1; CPU_CFGS="128x1 64x2 32x4"
+NSTEP=10; QOS=debug; JOBS=16; SUBMIT=1; CPU_CFGS="128x1 64x2 32x4"
 while getopts "A:a:b:n:w:g:s:t:q:j:Sc:" opt; do
     case $opt in
         A) ACCOUNT=$OPTARG;; a) ARCH=$OPTARG;; b) BASE=$OPTARG;; n) NEW=$OPTARG;;
@@ -147,7 +147,7 @@ cat > "$cpu_job" <<EOF
 #SBATCH -C cpu
 #SBATCH -q $QOS
 #SBATCH -N 1
-#SBATCH -t 01:00:00
+#SBATCH -t 00:30:00
 #SBATCH -J remora_perf_cpu
 #SBATCH -o $WORK/runs/cpu_%j.out
 export OMP_PLACES=cores
@@ -191,7 +191,7 @@ cat > "$gpu_job" <<EOF
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4
 #SBATCH --gpu-bind=none
-#SBATCH -t 00:40:00
+#SBATCH -t 00:30:00
 #SBATCH -J remora_perf_gpu
 #SBATCH -o $WORK/runs/gpu_%j.out
 export MPICH_OFI_NIC_POLICY=GPU
