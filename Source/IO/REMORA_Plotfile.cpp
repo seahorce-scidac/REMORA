@@ -238,7 +238,6 @@ REMORA::WritePlotFile (int istep_for_plot)
         for (int lev = 0; lev <= finest_level; ++lev) {
             BoxArray nodal_grids(grids[lev]); nodal_grids.surroundingNodes();
             mf_nd[lev].define(nodal_grids, dmap[lev], AMREX_SPACEDIM, 0);
-            mf_nd[lev].setVal(zero);
         }
     }
 
@@ -695,7 +694,6 @@ REMORA::WritePlotFile (int istep_for_plot)
                     if (plot_nodal_data) {
                         BoxArray nodal2(mf2[lev].boxArray()); nodal2.surroundingNodes();
                         mf_nd2[lev].define(nodal2, dmap[lev], AMREX_SPACEDIM, 0);
-                        mf_nd2[lev].setVal(zero);
                         fill_nodal_xy_displacement(mf_nd2[lev], mf_xy[lev], g2[lev]);
                         fill_nodal_z_displacement(mf_nd2[lev], *vec_z_phys_nd[lev], g2[lev], rz);
                         nd2_ptrs[lev] = &mf_nd2[lev];

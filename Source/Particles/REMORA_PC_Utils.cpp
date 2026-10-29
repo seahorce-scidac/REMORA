@@ -45,27 +45,40 @@ void REMORAPC::massDensity ( MultiFab&  a_mf,
 }
 
 /**
- * Write the particles to a plotfile with x and y in physical coordinates. The particles move
- * in the uniform coordinates of the AMReX geometry; for output, x and y are replaced by the
- * physical coordinates of the cell corners (psi points) interpolated bilinearly to each
- * particle. These are the corner positions the plotfile's nodal displacement gives a viewer,
- * so each particle is drawn inside the cell that holds it. z is already the physical height.
- * Only a copy of the particles is converted, so writing a plotfile does not change the run.
+ * Write the particles of one species, for a checkpoint or a plotfile. With a_xy null they are
+ * written as they are, in the uniform coordinates of the AMReX geometry they move in. With a_xy
+ * given (plotfiles), x and y are replaced by the physical coordinates of the cell corners (psi
+ * points) interpolated bilinearly to each particle. These are the corner positions the
+ * plotfile's nodal displacement gives a viewer, so each particle is drawn inside the cell that
+ * holds it. z is already the physical height. The uniform x and y are saved before the
+ * conversion and restored bit for bit after the write, so writing a plotfile does not change
+ * the run.
  *
- * @param a_fname   plotfile directory
+ * @param a_fname   checkpoint or plotfile directory
  * @param a_name    particle species name
- * @param a_xy      per level, physical x and y of the psi points (REMORA::plot_node_coords)
+ * @param a_xy      null, or per level the physical x and y of the psi points
+ *                  (REMORA::plot_node_coords)
  */
-void REMORAPC::WritePlotFile ( const std::string& a_fname, const std::string& a_name,
-                               const Vector<MultiFab>& a_xy ) const
+void REMORAPC::WriteOutput ( const std::string& a_fname, const std::string& a_name,
+                             const Vector<MultiFab>* a_xy )
 {
-    BL_PROFILE("REMORAPC::WritePlotFile()");
+    BL_PROFILE("REMORAPC::WriteOutput()");
 
-    auto pc = make_alike();
-    pc.copyParticles(*this, true);
+    if (a_xy == nullptr) {
+        Checkpoint(a_fname, a_name, true, varNames());
+        return;
+    }
 
-    using PCType = decltype(pc);
-    for (int lev = 0; lev <= pc.finestLevel(); ++lev)
+    // The uniform x and y of each tile, keyed like the particle tiles by (grid, tile). Every
+    // entry is made here, so the threaded loops below only look entries up.
+    Vector<std::map<std::pair<int,int>, Gpu::DeviceVector<ParticleReal>>> saved_xy(finestLevel()+1);
+    for (int lev = 0; lev <= finestLevel(); ++lev) {
+        for (const auto& kv : GetParticles(lev)) {
+            saved_xy[lev][kv.first].resize(2 * kv.second.numParticles());
+        }
+    }
+
+    for (int lev = 0; lev <= finestLevel(); ++lev)
     {
         const Geometry& geom = m_gdb->Geom(lev);
         const auto plo = geom.ProbLoArray();
@@ -74,12 +87,13 @@ void REMORAPC::WritePlotFile ( const std::string& a_fname, const std::string& a_
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-        for (typename PCType::ParIterType pti(pc, lev); pti.isValid(); ++pti)
+        for (ParIterType pti(*this, lev); pti.isValid(); ++pti)
         {
             auto& aos = pti.GetArrayOfStructs();
             const int np = aos.numParticles();
             auto* p_pbox = aos().data();
-            const auto xy = a_xy[lev].const_array(pti.index());
+            auto* p_save = saved_xy[lev].at(pti.GetPairIndex()).data();
+            const auto xy = (*a_xy)[lev].const_array(pti.index());
             const Box& vbx = pti.validbox();
             const int ilo = vbx.smallEnd(0);
             const int ihi = vbx.bigEnd(0);
@@ -89,6 +103,8 @@ void REMORAPC::WritePlotFile ( const std::string& a_fname, const std::string& a_
             ParallelFor(np, [=] AMREX_GPU_DEVICE (int n)
             {
                 auto& p = p_pbox[n];
+                p_save[2*n  ] = p.pos(0);
+                p_save[2*n+1] = p.pos(1);
                 if (p.id() <= 0) { return; }
 
                 // Nodal index coordinates, kept in ParticleReal: rounding them to a
@@ -111,7 +127,28 @@ void REMORAPC::WritePlotFile ( const std::string& a_fname, const std::string& a_
         }
     }
 
-    pc.Checkpoint(a_fname, a_name, true, varNames());
+    Checkpoint(a_fname, a_name, true, varNames());
+
+    for (int lev = 0; lev <= finestLevel(); ++lev)
+    {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (ParIterType pti(*this, lev); pti.isValid(); ++pti)
+        {
+            auto& aos = pti.GetArrayOfStructs();
+            const int np = aos.numParticles();
+            auto* p_pbox = aos().data();
+            const auto* p_save = saved_xy[lev].at(pti.GetPairIndex()).data();
+            ParallelFor(np, [=] AMREX_GPU_DEVICE (int n)
+            {
+                p_pbox[n].pos(0) = p_save[2*n  ];
+                p_pbox[n].pos(1) = p_save[2*n+1];
+            });
+        }
+    }
+    // saved_xy is freed on return, so the restore kernels have to finish with it first.
+    Gpu::streamSynchronize();
 }
 
 #endif

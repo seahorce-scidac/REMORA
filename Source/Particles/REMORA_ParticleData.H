@@ -54,11 +54,7 @@ class ParticleData
         void Checkpoint ( const std::string& a_fname ) const
         {
             BL_PROFILE("ParticleData::Checkpoint()");
-            for (ParticlesNamesVector::size_type i = 0; i < m_namelist.size(); i++) {
-                auto name( m_namelist[i] );
-                auto particles( m_particle_species.at(name) );
-                particles->Checkpoint( a_fname, name, true, particles->varNames() );
-            }
+            writeSpecies( a_fname, nullptr );
         }
 
         /*! Write particles to a plotfile, with x and y in physical coordinates */
@@ -66,11 +62,7 @@ class ParticleData
                              const amrex::Vector<amrex::MultiFab>& a_xy ) const
         {
             BL_PROFILE("ParticleData::writePlotFile()");
-            for (ParticlesNamesVector::size_type i = 0; i < m_namelist.size(); i++) {
-                auto name( m_namelist[i] );
-                auto particles( m_particle_species.at(name) );
-                particles->WritePlotFile( a_fname, name, a_xy );
-            }
+            writeSpecies( a_fname, &a_xy );
         }
 
         /*! Read from restart file */
@@ -239,6 +231,17 @@ class ParticleData
 
 
     private:
+
+        /*! Write every species, for a checkpoint (a_xy null) or a plotfile */
+        void writeSpecies ( const std::string& a_fname,
+                            const amrex::Vector<amrex::MultiFab>* a_xy ) const
+        {
+            for (ParticlesNamesVector::size_type i = 0; i < m_namelist.size(); i++) {
+                auto name( m_namelist[i] );
+                auto particles( m_particle_species.at(name) );
+                particles->WriteOutput( a_fname, name, a_xy );
+            }
+        }
 
         /*! Vector of all particle species */
         ParticleSpeciesMap m_particle_species;
