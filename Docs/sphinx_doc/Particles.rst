@@ -121,11 +121,11 @@ Let :math:`z_k(x,y)`, :math:`k = 0, \dots, N`, be the heights of the :math:`w`-l
 at the cell corners:
 
 .. math::
-   z_k(x,y) = \sum_{a,b \in \{0,1\}} \lambda_a(\xi)\, \lambda_b(\eta)\, z^{nd}_{i+a,\,j+b,\,k},
+   z_k(x,y) = \sum_{a,b \in \{0,1\}} \lambda_a(f_x)\, \lambda_b(f_y)\, z^{nd}_{i+a,\,j+b,\,k},
    \qquad \lambda_0(t) = 1-t, \quad \lambda_1(t) = t,
 
-where :math:`i = \lfloor (x - x_{lo})/\Delta x \rfloor`, :math:`\xi = (x - x_{lo})/\Delta x - i`, and
-likewise :math:`j` and :math:`\eta` in :math:`y`.
+where :math:`i = \lfloor (x - x_{lo})/\Delta x \rfloor` and :math:`f_x = (x - x_{lo})/\Delta x - i` is the
+fraction of the way across cell :math:`i`, and likewise :math:`j` and :math:`f_y` in :math:`y`.
 
 A particle's vertical position is a fractional :math:`w`-level index :math:`s = k + f \in [0, N]`,
 :math:`0 \le f \le 1`, which places it the fraction :math:`f` of the way from level :math:`k` to level
