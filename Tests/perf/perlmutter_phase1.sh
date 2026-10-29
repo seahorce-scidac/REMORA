@@ -18,7 +18,7 @@
 #   -s "NX NY NZ"  Upwelling grid                           ["512 1024 40"]
 #   -t steps       steps per run                            [10]
 #   -c "RxT ..."   CPU ranks x threads configurations        ["128x1 64x2 32x4"]
-#   -T "spec ..."  extra CPU tile sizes for the last revision   []
+#   -T "spec ..."  extra CPU tile sizes for every revision      []
 #   -q qos         Slurm QOS                                [debug]
 #   -j n           make -j                                  [16]
 #   -S             build only, do not submit
@@ -42,7 +42,7 @@ while getopts "A:a:r:b:n:w:g:s:t:q:j:Sc:T:" opt; do
         *) echo "unknown option"; exit 1;;
     esac
 done
-# -T "8x8 16x16 j8 none": extra CPU runs of the last revision with these tile sizes
+# -T "8x8 16x16 j8 none": extra CPU runs of every revision with these tile sizes
 # (AxB = A by B columns, jN = N rows, iN = N columns, none = untiled), each checked
 # bitwise against the baseline. The baseline is always also run with 16-row tiles.
 tile_string () {   # tile_string <spec>  -> the remora.omp_tile_size value, spaces as _
@@ -96,7 +96,12 @@ for l in "${LABELS[@]}"; do
     GPU_VARIANTS="$GPU_VARIANTS $l:$l:"
     [ "$l" = "$BASE_LABEL" ] || CPU_VARIANTS="$CPU_VARIANTS $l:$l:"
 done
-for spec in $TILES; do CPU_VARIANTS="$CPU_VARIANTS ${LABELS[-1]}_$spec:${LABELS[-1]}:$(tile_string $spec)"; done
+for spec in $TILES; do
+    for l in "${LABELS[@]}"; do
+        [ "$l" = "$BASE_LABEL" ] && [ "$spec" = j16 ] && continue   # already in the list
+        CPU_VARIANTS="$CPU_VARIANTS ${l}_$spec:$l:$(tile_string $spec)"
+    done
+done
 if [ -n "$GULF" ]; then
     GULF=$(cd "$GULF" 2>/dev/null && pwd) || { echo "-g: no such directory"; exit 1; }
     ls "$GULF"/GS_toyGrd_lev0_v1.3.nc "$GULF"/GS_toyIni_lev0_v1.3.nc > /dev/null \

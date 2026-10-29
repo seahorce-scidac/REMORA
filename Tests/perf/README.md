@@ -25,8 +25,9 @@ Cases:
 
 The CPU job also runs the baseline with `remora.omp_tile_size=1024000 16 1024000`
 (`<baseline>_j16`), so the effect of the tile default and of the threading can be told
-apart, and `-T "8x8 16x16 j8 none"` adds runs of the last revision at those tile sizes
-(`AxB` columns, `jN` rows, `iN` columns, `none` untiled) for a tile-size scan.
+apart, and `-T "8x8 16x16 j8 none"` adds runs of every revision at those tile sizes
+(`AxB` columns, `jN` rows, `iN` columns, `none` untiled) for a tile-size scan. The summary
+prints `IDENTICAL` or the largest relative difference `fcompare` reported.
 Any number of revisions can be compared: `-r "base:c8bc0b8 p1:perf-phase1-omp p2:perf-phase2"`
 builds each (the first is the baseline the others are compared with) and
 runs them back to back in every configuration; `-b`/`-n` are the two-revision shorthand,

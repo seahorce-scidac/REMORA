@@ -60,6 +60,25 @@ def main(runs):
     def fmt(x):
         return f"{x:9.2f}" if x is not None else f"{'--':>9}"
 
+    def verdict(fcl):
+        # IDENTICAL, the largest relative difference fcompare reported, or DIFFER when the
+        # log has no table (a run that did not finish).
+        if not os.path.exists(fcl):
+            return "-"
+        text = open(fcl).read()
+        if "AGREE" in text:
+            return "IDENTICAL"
+        worst = None
+        for ln in text.splitlines():
+            parts = ln.split()
+            if len(parts) == 3 and parts[0] != "level":
+                try:
+                    rel = float(parts[2])
+                except ValueError:
+                    continue
+                worst = rel if worst is None else max(worst, rel)
+        return f"{worst:.1e}" if worst is not None else "DIFFER"
+
     head = f"{'arch':4} {'case':10} {'config':7} {base:>9}"
     for v in others:
         head += f" {v:>9} {'/'+base:>7} {'bitwise':>9}"
@@ -69,10 +88,7 @@ def main(runs):
         for v in others:
             ratio = (f"{t[v]/t[base]:7.2f}" if t.get(v) and t.get(base) else f"{'--':>7}")
             fcl = os.path.join(runs, f"{arch}_{case}_{cfg}_fcompare_{v}.log")
-            verdict = "-"
-            if os.path.exists(fcl):
-                verdict = "IDENTICAL" if "AGREE" in open(fcl).read() else "DIFFER"
-            line += f" {fmt(t.get(v))} {ratio} {verdict:>9}"
+            line += f" {fmt(t.get(v))} {ratio} {verdict(fcl):>9}"
         print(line)
 
 
