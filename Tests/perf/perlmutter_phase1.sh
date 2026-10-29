@@ -12,8 +12,9 @@
 #                                                           [$SCRATCH/remora_perf/<date>]
 #   -g dir         directory holding the GS_toy*.nc Gulf Stream files; the nested case is
 #                  skipped when not given
-#   -s "NX NY NZ"  Upwelling grid                           ["1024 2048 40"]
-#   -t steps       steps per run                            [20]
+#   -s "NX NY NZ"  Upwelling grid                           ["512 1024 40"]
+#   -t steps       steps per run                            [10]
+#   -c "RxT ..."   CPU ranks x threads configurations        ["128x1 64x2 32x4"]
 #   -q qos         Slurm QOS                                [regular]
 #   -j n           make -j                                  [16]
 #   -S             build only, do not submit
@@ -26,13 +27,13 @@
 #   python3 Tests/perf/summarize.py <workdir>/runs
 set -euo pipefail
 
-ACCOUNT=""; ARCH=both; BASE=""; NEW=HEAD; WORK=""; GULF=""; SIZE="1024 2048 40"
-NSTEP=20; QOS=regular; JOBS=16; SUBMIT=1
-while getopts "A:a:b:n:w:g:s:t:q:j:S" opt; do
+ACCOUNT=""; ARCH=both; BASE=""; NEW=HEAD; WORK=""; GULF=""; SIZE="512 1024 40"
+NSTEP=10; QOS=regular; JOBS=16; SUBMIT=1; CPU_CFGS="128x1 64x2 32x4"
+while getopts "A:a:b:n:w:g:s:t:q:j:Sc:" opt; do
     case $opt in
         A) ACCOUNT=$OPTARG;; a) ARCH=$OPTARG;; b) BASE=$OPTARG;; n) NEW=$OPTARG;;
         w) WORK=$OPTARG;; g) GULF=$OPTARG;; s) SIZE=$OPTARG;; t) NSTEP=$OPTARG;;
-        q) QOS=$OPTARG;; j) JOBS=$OPTARG;; S) SUBMIT=0;;
+        q) QOS=$OPTARG;; j) JOBS=$OPTARG;; S) SUBMIT=0;; c) CPU_CFGS=$OPTARG;;
         *) echo "unknown option"; exit 1;;
     esac
 done
@@ -153,8 +154,9 @@ export OMP_PLACES=cores
 export OMP_PROC_BIND=spread
 cd $WORK/runs
 $(common_body)
-# ranks x threads on one 128-core node (two threads per core are left to the OS)
-for cfg in 128x1 64x2 32x4 16x8 8x16; do
+# ranks x threads on one 128-core node; the few-rank configurations take hours for a
+# revision whose threads idle, so they are opt-in through -c
+for cfg in $CPU_CFGS; do
     R=\${cfg%x*}; T=\${cfg#*x}
     export OMP_NUM_THREADS=\$T
     run_pair cpu upwelling $WORK/runs/upwelling_cpu.in \$cfg "srun -n \$R -c \$((256/R)) --cpu-bind=cores"

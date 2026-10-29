@@ -10,7 +10,7 @@
 #   -a arch      cpu | gpu                                        [cpu]
 #   -b ref       baseline revision; built and run once, its plotfile is the reference
 #   -w dir       work directory                                   [$SCRATCH/remora_bisect]
-#   -s "NX NY NZ" Upwelling grid                                  ["1024 2048 40"]
+#   -s "NX NY NZ" Upwelling grid                                  ["512 1024 40"]
 #   -t steps     steps per run                                    [3]
 #   -q qos       Slurm QOS                                        [debug]
 #   -j n         make -j                                          [16]
@@ -21,7 +21,7 @@
 # fcompare. Exit 0 = identical (good), 1 = differs (bad), 125 = could not build/run (skip).
 set -u
 
-ACCOUNT=""; ARCH=cpu; BASE=""; WORK=""; SIZE="1024 2048 40"; NSTEP=3; QOS=debug; JOBS=16
+ACCOUNT=""; ARCH=cpu; BASE=""; WORK=""; SIZE="512 1024 40"; NSTEP=3; QOS=debug; JOBS=16
 while getopts "A:a:b:w:s:t:q:j:" opt; do
     case $opt in
         A) ACCOUNT=$OPTARG;; a) ARCH=$OPTARG;; b) BASE=$OPTARG;; w) WORK=$OPTARG;;
