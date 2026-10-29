@@ -76,7 +76,7 @@ build () {   # build <src dir> <out binary>
 # ---------------------------------------------------------------- inputs (once)
 read -r NX NY NZ <<< "$SIZE"
 INP=$WORK/upwelling_$ARCH.in
-if [ ! -f "$INP" ]; then
+if [ ! -s "$INP" ]; then   # missing or empty (a failed earlier attempt leaves an empty file)
     # Self-contained copy of Tests/perf/inputs/upwelling_perf.in: the commits bisect checks
     # out may predate that file.
     DT=$(python3 -c "import math; dx=41000.0/$NX; print(round(min(50.0, 30*0.35*dx/math.sqrt(9.81*150)), 2))")
