@@ -467,6 +467,31 @@ std::vector<NCVar> NCFile::all_vars() const {
     return avars;
 }
 
+// PnetCDF fills fixed-size variables when the header is written, but not the
+// records of a record variable, so a record whose cells are not all written
+// has to be filled before it is.
+void NCFile::fill_record(long long rec) const {
+    int unlimdim;
+    check_ncmpi_error(ncmpi_inq_unlimdim(ncid, &unlimdim));
+    if (unlimdim < 0) {
+        return;
+    }
+    for (const auto& v : all_vars()) {
+        int ndims;
+        check_ncmpi_error(ncmpi_inq_varndims(ncid, v.varid, &ndims));
+        if (ndims == 0) {
+            continue;
+        }
+        std::vector<int> dimids(ndims);
+        check_ncmpi_error(ncmpi_inq_vardimid(ncid, v.varid, dimids.data()));
+        int no_fill;
+        check_ncmpi_error(ncmpi_inq_var_fill(ncid, v.varid, &no_fill, nullptr));
+        if (dimids[0] == unlimdim && !no_fill) {
+            check_ncmpi_error(ncmpi_fill_var_rec(ncid, v.varid, rec));
+        }
+    }
+}
+
 void NCFile::enter_def_mode() const {
     int ierr;
     ierr = ncmpi_redef(ncid);
