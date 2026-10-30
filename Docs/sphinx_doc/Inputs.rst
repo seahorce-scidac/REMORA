@@ -721,7 +721,8 @@ though (0 times NaN is NaN), so each new array is zeroed when it is allocated
 level-0 box is kept wherever a finer level may need it: inside every refinement indicator's box,
 grown by the tag buffer, by ``amr.n_proper`` blocks of the fine blocking factor and by the
 coarse stencil of the coarse-fine fills. An indicator that tags on a field may refine anywhere,
-so with one of those no box is dropped. After each regrid REMORA aborts if level 1, or the
+so with one of those no box is dropped; nor is any under the atmosphere coupling driver, whose
+remap assumes level 0 covers the domain, or in a build with particles. After each regrid REMORA aborts if level 1, or the
 level-0 cells its fills need, reaches a dropped box. A restart keeps the BoxArray of the
 checkpoint, so it continues with the boxes the original run dropped whatever this option says.
 Plotfiles and checkpoints hold the kept boxes only (a valid AMReX plotfile with holes; compare

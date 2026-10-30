@@ -192,7 +192,8 @@ REMORA::MakeDistributionMap (int lev, BoxArray const& ba)
     };
     amrex::Print() << "Level " << lev << " load balance (" << load_balance_name()
                    << ", land weight " << load_balance_land_weight << "): " << ba.size()
-                   << " boxes, " << total_wet << " of " << total_cells << " cells wet;"
+                   << " boxes, " << total_wet << " of " << total_cells
+                   << (known ? " cells wet;" : " cells (mask unknown, all weighed);")
                    << " max/mean rank load " << max_over_mean(rank_w)
                    << " by weight, " << max_over_mean(rank_c) << " by cell count\n";
     return dm;
@@ -278,6 +279,19 @@ REMORA::drop_dry_level0_boxes (const BoxArray& ba)
     BL_PROFILE("REMORA::drop_dry_level0_boxes()");
     if (solverChoice.mask_type == MaskType::none) {
         amrex::Print() << "remora.drop_dry_boxes: no land mask (remora.mask_type = none), so no"
+                       << " box is dropped.\n";
+        return ba;
+    }
+
+#ifdef REMORA_USE_PARTICLES
+    // Tracer particles are seeded over the whole domain, and a particle in a dropped box would
+    // belong to no box. Untested, so not allowed.
+    amrex::Print() << "remora.drop_dry_boxes: built with particles, so no level-0 box is dropped.\n";
+    return ba;
+#endif
+    if (running_with_coupling_driver) {
+        // The driver builds its remap from level 0's layout, which it takes to cover the domain
+        amrex::Print() << "remora.drop_dry_boxes: coupled to an atmosphere driver, so no level-0"
                        << " box is dropped.\n";
         return ba;
     }
