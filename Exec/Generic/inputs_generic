@@ -562,6 +562,22 @@ remora.fixed_ndtfast_ratio = 0
 # type=bool; method=query
 remora.flush_subnormals = true
 
+# how many source cells out to look for a valid value where lat-lon forcing is missing
+# type=LatLonRegridOptions; method=queryAdd
+remora.frc_fill_max_rings = <UNKNOWN_DEFAULT>
+
+# latitude variable of lat-lon forcing
+# type=LatLonRegridOptions; method=queryAdd
+remora.frc_lat_varname = <UNKNOWN_DEFAULT>
+
+# longitude variable of lat-lon forcing
+# type=LatLonRegridOptions; method=queryAdd
+remora.frc_lon_varname = <UNKNOWN_DEFAULT>
+
+# interpolate forcing given on a lat-lon grid onto the model grid
+# type=string; method=queryAdd
+remora.frc_regrid = auto
+
 # name of time variable in forcing file
 # type=string; method=queryAdd
 remora.frc_time_varname = <UNKNOWN_DEFAULT>
