@@ -139,7 +139,9 @@ Grid layout and regridding
 
 * ``amr.max_grid_size`` and ``amr.blocking_factor`` set the box sizes. One box per rank
   is the usual target on CPUs; on GPUs larger boxes (256 x 256 columns) amortize the
-  kernel launches better and one box per GPU is best when the memory allows.
+  kernel launches better and one box per GPU is best when the memory allows. A box always
+  spans the whole water column (``amr.max_grid_size_z`` defaults to the number of vertical
+  cells), so these only shape the boxes in x and y.
 
 * Static nests do not need regridding. When the refined region never changes, set
   ``amr.regrid_int = -1`` so no time is spent tagging cells and rebuilding levels (see

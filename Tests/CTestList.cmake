@@ -887,6 +887,17 @@ add_test_layout(DogboneAnalytic_drop_ghosts DogboneAnalytic_landlayout "remora_e
 add_test_restart(DogboneAnalytic_drop_restart "remora_exec" "plt00010" "chk00005")
 
 #=============================================================================
+# Boxes hold whole water columns. A small amr.max_grid_size cuts the domain in x and y only,
+# since amr.max_grid_size_z defaults to the number of vertical cells; the 24 boxes must give the
+# single-box answer bitwise (before that default, the column was cut and the run aborted). A
+# box cut in z on purpose is refused.
+#=============================================================================
+
+add_test_layout(DogboneAnalytic_maskring_mgs8 DogboneAnalytic_maskring "remora_exec"
+                "plt00010" "chk00010" "" "amr.max_grid_size=8")
+add_test_abort(DogboneAnalytic_split_column_abort "remora_exec" "Boxes must hold whole water columns")
+
+#=============================================================================
 # Performance tests
 #=============================================================================
 

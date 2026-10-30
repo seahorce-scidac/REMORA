@@ -363,6 +363,12 @@ List of Parameters
 |                                  | size in each     |                    |                   |
 |                                  | direction        |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
+| **amr.max_grid_size_{x,y,z}**    | maximum grid     | Integer > 0;       | x, y:             |
+|                                  | size in one      |                    | amr.max_grid_size |
+|                                  | direction        | z: at least the    |                   |
+|                                  |                  | number of vertical | z: the number of  |
+|                                  |                  | cells              | vertical cells    |
++----------------------------------+------------------+--------------------+-------------------+
 | **amr.grid_eff**                 | grid             | Real > 0, < 1      | 0.7               |
 |                                  | efficiency at    |                    |                   |
 |                                  |                  |                    |                   |
@@ -440,6 +446,12 @@ Notes
    REMORA always sets the blocking factor in z to 4096, whatever is given, so the
    blocking factor only constrains the grids in x and y.
 
+-  A box always holds whole water columns: the vertical sweeps (the implicit vertical
+   mixing solves, the vertical integrals and the vertical grid itself) run down a box's own
+   column. **amr.max_grid_size_z** therefore defaults to the number of vertical cells,
+   **remora.n_cell** in z, so a small **amr.max_grid_size** only cuts the domain in x and y,
+   and REMORA aborts at startup if a box is shorter than the column.
+
 -  **amr.regrid_int** is a single integer used at every level: each level
    below **amr.max_level** rebuilds the grids of the levels above it every
    **amr.regrid_int** of its own time steps. A value of 0 or less disables
@@ -453,8 +465,9 @@ Notes
 
 -  **amr.blocking_factor** at every level must be a power of 2
 
--  The blocking factor in the z-direction will be forced to a large value automatically to
-   guarantee the domain will not be decomposed in the z-direction
+-  The blocking factor in the z-direction will be forced to a large value automatically, so
+   refined grids are never decomposed in the z-direction; the default of
+   **amr.max_grid_size_z** does the same for the level-0 grids
 
 -  the domain size **remora.n_cell** must be a multiple of
    **amr.blocking_factor** at level 0

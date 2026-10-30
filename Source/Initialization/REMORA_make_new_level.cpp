@@ -12,6 +12,23 @@ using namespace amrex;
 
 namespace {
 /**
+ * Every box has to span the whole water column; see the amr.max_grid_size_z default in
+ * main.cpp. Abort with the reason rather than fail somewhere in a vertical sweep.
+ */
+void check_full_columns (int lev, const BoxArray& ba, const Geometry& geom)
+{
+    const int nz = geom.Domain().length(2);
+    for (int i = 0; i < ba.size(); ++i) {
+        if (ba[i].length(2) != nz) {
+            amrex::Abort("Level " + std::to_string(lev) + " has a box " + std::to_string(ba[i].length(2))
+                         + " cells tall in a column of " + std::to_string(nz) + ". Boxes must"
+                         " hold whole water columns: set amr.max_grid_size_z to at least the"
+                         " number of vertical cells, which is its default.");
+        }
+    }
+}
+
+/**
  * By default OpenMP threads share the boxes of a level, not tiles (see the tile-size
  * default in main.cpp), so a rank with fewer boxes than threads leaves threads idle. Say
  * so once per level, naming the knobs that fix it. With tiling on the threads share the
@@ -70,6 +87,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     amrex::Print() << "Making level " << lev << " from coarse" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    check_full_columns(lev, ba, geom[lev]);
     warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     cons_new[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
@@ -228,6 +246,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     amrex::Print() << "Remaking level " << lev << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    check_full_columns(lev, ba, geom[lev]);
     warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state   = 3;
@@ -430,6 +449,7 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba_in,
 
     amrex::Print() << "Making level " << lev << " from scratch" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    check_full_columns(lev, ba, geom[lev]);
     warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state = 3;
