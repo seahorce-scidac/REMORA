@@ -284,8 +284,7 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
  */
 long long REMORA::history_restart_record (int lev, const std::string& path)
 {
-    const Box subdomain = (lev == 0) ? geom[lev].Domain()
-                                     : boxes_at_level[lev][0];
+    const Box subdomain = netcdf_subdomain(lev);
     const double t = model_time(t_new[lev]);
     long long nrec = 0;
     long long first = 0;
@@ -361,12 +360,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     // One level per file, so the geometry records below describe just this level.
     int flev = lev + 1;
 
-    Box subdomain;
-    if (lev == 0) {
-        subdomain = geom[lev].Domain();
-    } else {
-        subdomain = boxes_at_level[lev][which_subdomain];
-    }
+    const Box subdomain = netcdf_subdomain(lev, which_subdomain);
 
     int nx = subdomain.length(0);
     int ny = subdomain.length(1);

@@ -1061,6 +1061,9 @@ public:
     /** \brief As compute_wvel, from an omega already computed by compute_diagnostic_omega */
     void compute_wvel (int lev, amrex::MultiFab& mf_w, const amrex::MultiFab& mf_omega);
 
+    /** \brief Region of a level that its NetCDF output covers */
+    amrex::Box netcdf_subdomain (int lev, int which_subdomain = 0) const;
+
     /** \brief omega and w on the s_w points of the NetCDF output, ghost columns filled and masked */
     void compute_omega_and_w (int lev, amrex::MultiFab* mf_omega, amrex::MultiFab* mf_wvel);
 

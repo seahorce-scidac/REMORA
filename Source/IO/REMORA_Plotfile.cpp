@@ -1429,6 +1429,31 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 }
 
 /**
+ * The region of a level that its NetCDF output covers: the whole domain on level 0,
+ * and a static refinement box (in_box_lo/in_box_hi or their _indices forms) on a
+ * refined level. A refined level created only by field-based tagging has no such box
+ * and can't be written to NetCDF.
+ *
+ * @param lev               level being written
+ * @param which_subdomain   which static box at that level
+ * @return                  the region the NetCDF file covers
+ */
+Box
+REMORA::netcdf_subdomain (int lev, int which_subdomain) const
+{
+    if (lev == 0) {
+        return geom[lev].Domain();
+    }
+    if (which_subdomain >= static_cast<int>(boxes_at_level[lev].size())) {
+        Abort("NetCDF output of level " + std::to_string(lev) + " needs a static"
+              " refinement box (in_box_lo/in_box_hi or their _indices forms) at that"
+              " level, but it was created by field-based tagging alone. Add a static"
+              " box or use remora.plotfile_type = amrex.");
+    }
+    return boxes_at_level[lev][which_subdomain];
+}
+
+/**
  * omega and w for the NetCDF writer, on the s_w points ROMS writes them at.
  *
  * Both are diagnosed from the current velocities, as ROMS does just before it writes a
@@ -1464,11 +1489,11 @@ REMORA::compute_omega_and_w (int lev, MultiFab* mf_omega, MultiFab* mf_wvel)
         }
     }
 
-    // The NetCDF writer adds one ghost column around the subdomain it writes, which on a
-    // refined level is the first of boxes_at_level. A side of it is copied from the
-    // interior unless it is a periodic domain edge, which FillBoundary has filled.
+    // The NetCDF writer adds one ghost column around the subdomain it writes. A side of
+    // it is copied from the interior unless it is a periodic domain edge, which
+    // FillBoundary has filled.
     const Box& dom = Geom(lev).Domain();
-    const Box  sub = (lev == 0) ? dom : boxes_at_level[lev][0];
+    const Box  sub = netcdf_subdomain(lev);
     const IntVect slo = sub.smallEnd();
     const IntVect shi = sub.bigEnd();
     GpuArray<bool,2> copy_lo, copy_hi;
