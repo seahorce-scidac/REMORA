@@ -750,6 +750,21 @@ REMORA::init_coriolis_from_netcdf (int lev)
 void
 REMORA::init_masks_from_netcdf (int lev)
 {
+    fill_rho_mask_from_netcdf(lev, *vec_mskr[lev]);
+    update_nodal_masks(lev);
+}
+
+/**
+ * Fill a rho-point mask on any layout of level lev from the level's grid file(s), ghost cells
+ * included, as init_masks_from_netcdf does for the level's own mask. Also used before the level
+ * exists, to weigh or drop boxes by their land (see REMORA_land_layout.cpp).
+ *
+ * @param lev   Integer specifying the level whose grid file(s) to read
+ * @param mskr  rho-point mask to fill
+ */
+void
+REMORA::fill_rho_mask_from_netcdf (int lev, MultiFab& mskr)
+{
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<FArrayBox> NC_mskr_fab     ; NC_mskr_fab.resize(num_boxes_at_level[lev]);
 
@@ -763,9 +778,9 @@ REMORA::init_masks_from_netcdf (int lev)
 #endif
         {
         // Don't tile this since we are operating on full FABs in this routine
-        for ( MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi )
+        for ( MFIter mfi(mskr, false); mfi.isValid(); ++mfi )
         {
-            FArrayBox &mskr_fab  = (*vec_mskr[lev])[mfi];
+            FArrayBox &mskr_fab  = mskr[mfi];
 
             //
             // FArrayBox to FArrayBox copy does "copy on intersection"
@@ -778,8 +793,7 @@ REMORA::init_masks_from_netcdf (int lev)
     } // idx
 
     // Ghosts first: update_nodal_masks reaches mskr(i-1,j-1).
-    vec_mskr[lev]->FillBoundary(geom[lev].periodicity());
-    update_nodal_masks(lev);
+    mskr.FillBoundary(geom[lev].periodicity());
 }
 
 /**

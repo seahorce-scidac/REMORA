@@ -672,6 +672,47 @@ List of Parameters
 |                                          | Only read when the check is on         |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 
+.. _sec:LandLayout:
+
+Land Layout: Load Balance
+-------------------------
+
+The mask can also weigh the boxes of a level when they are assigned to ranks. This never
+changes the answer, only which rank holds a box (see :ref:`PerformanceTuning`).
+
+``remora.load_balance`` chooses how boxes are assigned to ranks, for every new layout: at
+initialization, at each regrid, for a level made from a coarser one, and on restart. Each box
+weighs its wet cells plus ``remora.load_balance_land_weight`` times its land cells, counted
+from the rho-point mask the level will have. ``sfc`` orders the boxes along a space-filling
+curve and cuts it into pieces of equal weight; ``knapsack`` packs boxes to equalize the
+weight without regard to position; ``roundrobin`` deals them out heaviest first; ``amrex``
+is AMReX's own mapping (its ``DistributionMapping.strategy``, by default the space-filling
+curve, weighted by cell count). A land weight of 1 weighs every box by its cell count, so the
+default, ``sfc`` with a land weight of 1, is exactly AMReX's mapping and reads no mask for it.
+REMORA computes land cells as fully as wet ones -- the masks are multiplications, not branches
+-- so the cell count is the right weight. Where the level-0 mask comes from
+``remora.hires_grid_level`` it is not known before the level is made, and level 0 falls back to
+cell counts.
+
+.. _list-of-parameters-landlayout:
+
+List of Parameters
+~~~~~~~~~~~~~~~~~~
+
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| Parameter                                | Definition                             | Acceptable             | Default        |
+|                                          |                                        |                        |                |
+|                                          |                                        | Values                 |                |
++==========================================+========================================+========================+================+
+| **remora.load_balance**                  | How boxes are assigned to ranks        | sfc, knapsack,         | sfc            |
+|                                          |                                        |                        |                |
+|                                          |                                        | roundrobin, amrex      |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.load_balance_land_weight**      | Weight of a land cell relative to a    | Real >= 0              | 1              |
+|                                          |                                        |                        |                |
+|                                          | wet one in the box weights             |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+
 Simulation Time
 ===============
 

@@ -576,7 +576,6 @@ REMORA::InitData ()
     if (restart_chkfile == "") {
         ComputeDt();
     }
-
 }
 
 /**
@@ -2417,6 +2416,28 @@ REMORA::ReadParameters ()
     pp.queryAdd("cf_avgdown_stencil", cf_avgdown_stencil);
     pp.queryAdd("cf_avgdown_volume_weighted", cf_avgdown_volume_weighted);
     pp.queryAdd("cf_print_iface", cf_print_iface);
+
+    // Box-to-rank assignment; see MakeDistributionMap.
+    {
+        std::string lb = load_balance_name();
+        pp.queryAdd("load_balance", lb);
+        const std::string lbl = amrex::toLower(lb);
+        if (lbl == "amrex") {
+            load_balance = LoadBalance::amrex;
+        } else if (lbl == "sfc") {
+            load_balance = LoadBalance::sfc;
+        } else if (lbl == "knapsack") {
+            load_balance = LoadBalance::knapsack;
+        } else if (lbl == "roundrobin") {
+            load_balance = LoadBalance::roundrobin;
+        } else {
+            amrex::Abort("remora.load_balance must be amrex, sfc, knapsack or roundrobin, not " + lb);
+        }
+        pp.queryAdd("load_balance_land_weight", load_balance_land_weight);
+        if (load_balance_land_weight < zero) {
+            amrex::Abort("remora.load_balance_land_weight must not be negative");
+        }
+    }
 
     // Whether to zero a tracer the correction drives negative, as ROMS does.
     pp.queryAdd("reflux_clamp", reflux_clamp);

@@ -251,6 +251,47 @@ function(add_test_restart TEST_NAME TEST_EXE PLTFILE CHKFILE)
     )
 endfunction(add_test_restart)
 
+# Run one input under two sets of options whose layouts may differ -- box-to-rank assignment,
+# or a BoxArray that leaves part of the domain out -- and require the second run to match the
+# first bitwise on every cell of the second run's boxes, which amrex_fcompare cannot do when
+# the BoxArrays differ. PLTFILE is compared, and CHKFILE too (every MultiFab in it) unless it
+# is "none". INPUT_NAME picks the input file, so several tests can share one case.
+function(add_test_layout TEST_NAME INPUT_NAME TEST_EXE PLTFILE CHKFILE OPTIONS_A OPTIONS_B)
+
+    set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${INPUT_NAME})
+    set(CURRENT_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
+    file(MAKE_DIRECTORY ${CURRENT_TEST_BINARY_DIR})
+    file(GLOB TEST_FILES "${CURRENT_TEST_SOURCE_DIR}/*")
+    file(COPY ${TEST_FILES} DESTINATION "${CURRENT_TEST_BINARY_DIR}/")
+
+    if(REMORA_ENABLE_MPI)
+        set(NP 2)
+        set(MPI_COMMANDS "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${NP} ${MPIEXEC_PREFLAGS}")
+    else()
+        set(NP 1)
+        unset(MPI_COMMANDS)
+    endif()
+    set(RUNTIME_OPTIONS "remora.check_mask_consistency=true")
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(CHK_CLAUSE "")
+    if(NOT "${CHKFILE}" STREQUAL "none")
+        set(CHK_CLAUSE " && ${SUBSET_COMPARE_EXE} --chk runB/${CHKFILE} runA/${CHKFILE}")
+    endif()
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_A} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_B} >> ../${TEST_NAME}.log 2>&1 && cd .. && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}${CHK_CLAUSE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_layout)
+
 # Assert how far an integrated quantity drifts over a run. INPUT_NAME picks the input file, so
 # several tests can share one case; OPTIONS go on the command line; the remaining arguments are
 # <column> <bound> <below|above> triples handed to check_conservation.sh.
@@ -818,6 +859,18 @@ add_test_equiv(DogboneAnalytic_MLmaskring DogboneAnalytic_MLmaskring_hires "remo
 # make the open y=250..500 stretch across the seam dry. Either breaks the agreement.
 add_test_equiv(DogboneAnalytic_MLmaskring_periodic DogboneAnalytic_MLmaskring_periodic_hires
                "remora_exec" "plt_per00010" "plt_per_hires00010")
+
+#=============================================================================
+# Land layout. Which rank owns a box never changes the answer, so every remora.load_balance
+# strategy, weighting boxes by their wet cells, must reproduce AMReX's own mapping bitwise.
+#=============================================================================
+
+add_test_layout(DogboneAnalytic_loadbalance_knapsack DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" "remora.load_balance=amrex"
+                "remora.load_balance=knapsack remora.load_balance_land_weight=0")
+add_test_layout(DogboneAnalytic_loadbalance_roundrobin DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" "remora.load_balance=amrex"
+                "remora.load_balance=roundrobin remora.load_balance_land_weight=0.25")
 
 #=============================================================================
 # Performance tests

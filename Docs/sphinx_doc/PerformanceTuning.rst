@@ -140,12 +140,27 @@ Grid layout and regridding
 * ``amr.max_grid_size`` and ``amr.blocking_factor`` set the box sizes. One box per rank
   is the usual target on CPUs; on GPUs larger boxes (256 x 256 columns) amortize the
   kernel launches better and one box per GPU is best when the memory allows.
+
 * Static nests do not need regridding. When the refined region never changes, set
   ``amr.regrid_int = -1`` so no time is spent tagging cells and rebuilding levels (see
   the notes on ``amr.regrid_int`` in :ref:`Inputs <sec:Inputs>`).
 * The number of barotropic (fast) steps per baroclinic step, ``remora.ndtfast``, sets
   the cost of the 2D loop, which is the largest part of a single-level step. Use the
   smallest value that keeps the fast step stable.
+
+Land
+----
+
+Coastal domains are often a third land or more, and REMORA computes land cells as fully as
+wet ones (details in :ref:`Land Layout <sec:LandLayout>`).
+
+* ``remora.load_balance`` weighs boxes by their wet cells when assigning them to ranks. The
+  default weighs a land cell like a wet one, which is right whenever land boxes are kept:
+  every cell of a box costs the same, so weighing by wet cells alone
+  (``remora.load_balance_land_weight = 0``) piles land boxes onto some ranks: on 4 ranks of a
+  workstation it was 13 to 16 % slower than the default on a 1 M-cell dogbone (44 % land) and
+  a 0.8 M-cell staircase coastline (36 % land). The option is there for platforms where land
+  might be cheaper, and costs nothing when left alone.
 
 Output and diagnostics
 ----------------------

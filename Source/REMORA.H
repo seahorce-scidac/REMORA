@@ -296,6 +296,28 @@ public:
     virtual void MakeNewLevelFromScratch (int lev, amrex::Real time, const amrex::BoxArray& ba,
                       const amrex::DistributionMapping& dm) override;
 
+    /** \brief Distribution mapping for a new BoxArray on level lev, by remora.load_balance:
+     *         each box weighs its wet cells plus remora.load_balance_land_weight times its
+     *         land cells (overrides AmrMesh) */
+    virtual amrex::DistributionMapping MakeDistributionMap (int lev, amrex::BoxArray const& ba) override;
+
+    /** \brief The rho-point mask a level lev on mskr's layout would get, before that level
+     *         exists; false if it cannot be known yet */
+    bool probe_rho_mask (int lev, amrex::MultiFab& mskr);
+
+    /** \brief Wet cells in each box of a prospective layout of level lev; false if unknown */
+    bool wet_cells_per_box (int lev, const amrex::BoxArray& ba, amrex::Vector<amrex::Long>& wet);
+
+    /** \brief The remora.load_balance spelling of the current strategy */
+    std::string load_balance_name () const;
+
+    /** \brief How MakeDistributionMap assigns boxes to ranks (remora.load_balance) */
+    enum class LoadBalance { amrex, sfc, knapsack, roundrobin };
+    LoadBalance load_balance = LoadBalance::sfc;
+    /** \brief cost of a land cell relative to a wet one in the load-balance weights
+     *         (remora.load_balance_land_weight); 1 weighs boxes by cell count */
+    amrex::Real load_balance_land_weight = amrex::Real(1.0);
+
     /** \brief Set pm and pn arrays and x/y coords on level lev */
     void set_grid_scale (int lev);
 
@@ -1458,6 +1480,8 @@ public:
     void init_bdry_from_netcdf (int lev);
     /** \brief Mask data initialization from NetCDF file */
     void init_masks_from_netcdf (int lev);
+    /** \brief fill a rho-point mask on any layout of level lev from its NetCDF grid file(s) */
+    void fill_rho_mask_from_netcdf (int lev, amrex::MultiFab& mskr);
     /** \brief Full domain high-res mask data initialization from NetCDF file */
     void init_masks_full_domain_from_netcdf ();
     /** \brief Bathymetry data initialization from NetCDF file */
