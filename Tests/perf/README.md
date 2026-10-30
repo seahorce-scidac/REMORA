@@ -23,6 +23,13 @@ Cases:
   `Exec/GulfRefinementTest` with level 1 active, two-way coupling and NetCDF grid and
   initial data; it needs the `GS_toy*.nc` files from the REMORA-data repository.
 
+Neither case has land. For the land-layout options (`remora.drop_dry_boxes`,
+`remora.load_balance`), `make_masked_grid.py <REMORA-data>/IdealMiniGrid <dir> <factor>`
+writes a staircase-coastline grid and initial file (36 % land, reaching the domain edges)
+that `inputs/masked_grid_perf.in` runs from `<dir>`; it is not yet wired into the script.
+Run it with and without the options and compare the outputs with `remora_subset_compare`
+(built with the tests), since the BoxArrays differ.
+
 The CPU job also runs the baseline with `remora.omp_tile_size=1024000 16 1024000`
 (`<baseline>_j16`), so the effect of the tile default and of the threading can be told
 apart, and `-T "8x8 16x16 j8 none"` adds runs of every revision at those tile sizes
