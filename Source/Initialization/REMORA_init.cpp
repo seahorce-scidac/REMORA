@@ -62,8 +62,11 @@ REMORA::init_biology_ic (int lev)
          solverChoice.ic_type != IC_Type::netcdf);
 
     if (use_analytic) {
-        // The common application hook delegates to the selected model's profile
-        // by default. A model without a matching profile must fail explicitly.
+        // Problem::init_analytic_biology (Exec/REMORA_Prob.cpp) errors for any
+        // prob_name without an analytic biology profile, so a problem that
+        // enables biology without one fails loudly rather than starting from
+        // zeroed tracers. ProblemBase's default errors too, for an application
+        // that does not override the hook.
         REMORABiology::BiologyInitContext context{
             .level = lev,
             .geometry = geom[lev],

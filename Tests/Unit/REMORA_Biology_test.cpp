@@ -1,29 +1,24 @@
 #include <REMORA_Biology.H>
 #include <REMORA_FennelBiology.H>
-#include <REMORA_prob_common.H>
+#include <REMORA_DataStruct.H>
 
 #include <AMReX.H>
+#include <AMReX_MFIter.H>
 #include <AMReX_ParmParse.H>
+
+#include <cmath>
 
 using namespace amrex;
 using namespace REMORABiology;
 
 namespace {
 
-// An application profile must be able to use the abstract interface without
-// knowing Fennel's parameter type or testing an ecosystem name.
-class ProfileProbe final : public Biology {
-public:
-    std::string name () const override { return "profile_probe"; }
-    void configure (const std::string&) override {}
-    const BiologyDeclaration& declaration () const noexcept override { return m_declaration; }
-    void initialize_analytic (BiologyInitContext& context) const override {
-        context.state.setVal(Real(123.0), context.component_start, 1, 0);
-    }
-    void advance (const BiologyAdvanceContext&) const override {}
-private:
-    BiologyDeclaration m_declaration{{"probe"}, {}};
-};
+// Apply the BioToy/Upwelling profile exactly as Problem::init_analytic_biology
+// does: the fragment sees only the abstract model and the init context.
+void apply_biotoy_profile (Biology const& biology, BiologyInitContext& context)
+{
+#include "Prob/REMORA_InitAnalyticBiology_BioToy.H"
+}
 
 void check_layouts ()
 {
@@ -60,6 +55,9 @@ void check_layouts ()
                 c.rden, c.po4, c.ldec, c.sdec, c.tic, c.talk, c.rdec, c.oxyg, c.odu};
             int next = base;
             for (int field = 0; field < int(indices.size()); ++field) {
+                AMREX_ALWAYS_ASSERT(
+                    declaration.component_index(all_names[field], base) ==
+                    indices[field]);
                 if (indices[field] >= 0) {
                     AMREX_ALWAYS_ASSERT(indices[field] == next);
                     AMREX_ALWAYS_ASSERT(declaration.tracer_names[next - base] == all_names[field]);
@@ -91,21 +89,43 @@ void check_profiles_and_noops ()
                                .state = state,
                                .component_start = base};
 
-    ProblemBase problem;
-    ProfileProbe probe;
-    problem.init_analytic_biology(probe, context);
-    AMREX_ALWAYS_ASSERT(state.min(base) == Real(123.0));
-    AMREX_ALWAYS_ASSERT(state.max(Tracer_comp) == Real(-7.0));
+    // Nitrogen-only layout: the profile writes the seven base tracers and
+    // leaves every optional slot alone, since their names are not declared.
+    // The options are set explicitly so a change to a FennelParameters default
+    // cannot move the optional slots under this check.
+    ParmParse nitrogen_pp("nitrogen.fennel");
+    for (const auto* option : {"carbon", "oxygen", "po4", "odu", "river_don"}) {
+        nitrogen_pp.add(option, 0);
+    }
+    auto nitrogen = make_biology("fennel");
+    nitrogen->configure("nitrogen");
+    apply_biotoy_profile(*nitrogen, context);
+    // Temperature is 12, so the silicate proxy is 10 - 4*(12 - 11) = 6.
+    const Real sio4 = Real(6.0);
+    const Real no3 = Real(1.67) + Real(0.5873)*sio4 + Real(0.0144)*sio4*sio4 +
+                     Real(0.0003099)*sio4*sio4*sio4;
+    // Each base tracer in Fennel order, with the value ana_biology.h gives it.
+    const Vector<Real> nitrogen_values{no3, Real(0.1), Real(0.02), Real(0.08),
+                                       Real(0.06), Real(0.02), Real(0.04)};
+    for (int n = 0; n < Fennel::NumBaseTracers; ++n) {
+        const Real tol = Real(1.0e-12) * std::abs(nitrogen_values[n]);
+        const Real expected = nitrogen_values[n];
+        AMREX_ALWAYS_ASSERT(std::abs(state.min(base + n) - expected) <= tol);
+        AMREX_ALWAYS_ASSERT(std::abs(state.max(base + n) - expected) <= tol);
+    }
+    for (int icomp = base + Fennel::NumBaseTracers; icomp < state.nComp();
+         ++icomp) {
+        AMREX_ALWAYS_ASSERT(state.min(icomp) == Real(-7.0));
+        AMREX_ALWAYS_ASSERT(state.max(icomp) == Real(-7.0));
+    }
 
-    ParmParse profile_pp("profile");
-    profile_pp.add("prob_name", std::string("Upwelling"));
     ParmParse parameters("profile.fennel");
     for (const auto* option : {"carbon", "oxygen", "po4", "odu", "river_don"}) {
         parameters.add(option, 1);
     }
     auto model = make_biology("fennel");
     model->configure("profile");
-    problem.init_analytic_biology(*model, context);
+    apply_biotoy_profile(*model, context);
     AMREX_ALWAYS_ASSERT(state.min(Temp_comp) == Real(12.0));
     AMREX_ALWAYS_ASSERT(state.min(Salt_comp) == Real(30.0));
     for (int dye = Tracer_comp; dye < base; ++dye) {
@@ -134,7 +154,6 @@ void check_profiles_and_noops ()
         AMREX_ALWAYS_ASSERT(none->name() == "none");
         AMREX_ALWAYS_ASSERT(none->declaration().tracer_names.empty());
         AMREX_ALWAYS_ASSERT(none->declaration().plot_aliases.empty());
-        none->initialize_analytic(context);
         none->advance(advance);
     }
     ParmParse disabled("disabled.fennel");

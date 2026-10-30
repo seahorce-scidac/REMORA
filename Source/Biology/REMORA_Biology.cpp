@@ -11,7 +11,6 @@ public:
     std::string name () const override { return "none"; }
     void configure (const std::string&) override {}
     const BiologyDeclaration& declaration () const noexcept override { return m_declaration; }
-    void initialize_analytic (BiologyInitContext&) const override {}
     void advance (const BiologyAdvanceContext&) const override {}
 private:
     BiologyDeclaration m_declaration;

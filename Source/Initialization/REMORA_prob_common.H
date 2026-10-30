@@ -130,12 +130,14 @@ public:
           amrex::Error("Doing analytic masks, but not defined in prob.cpp");
     }
 
-    /** \brief Override to provide a custom profile without depending on a concrete model. */
+    /** \brief Analytic biology initial condition. Problems locate their
+     *         fields by tracer name through biology.declaration(), so the
+     *         hook does not depend on a concrete ecosystem model. */
     virtual void
     init_analytic_biology (
-        REMORABiology::Biology const& biology,
-        REMORABiology::BiologyInitContext& context) {
-        biology.initialize_analytic(context);
+        REMORABiology::Biology const& /*biology*/,
+        REMORABiology::BiologyInitContext& /*context*/) {
+          amrex::Error("Doing analytic biology but not defined in prob.cpp");
     }
 };
 

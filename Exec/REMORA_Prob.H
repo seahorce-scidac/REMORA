@@ -92,6 +92,9 @@ public:
         amrex::MultiFab& mf_cloud,
         amrex::MultiFab& mf_EminusP) override;
 
+    void init_analytic_biology (
+        REMORABiology::Biology const& biology,
+        REMORABiology::BiologyInitContext& context) override;
 };
 
 #endif
