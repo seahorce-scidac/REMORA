@@ -276,7 +276,7 @@ List of Parameters
 |                           |                 |                           |                       |
 |                           | level           |                           |                       |
 +---------------------------+-----------------+---------------------------+-----------------------+
-| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | CPU: 1024000 16       |
+| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | CPU: 16 16            |
 |                           | size            |                           | 1024000               |
 |                           |                 | {x,y,z}                   |                       |
 |                           |                 |                           | GPU: 1024000 1024000  |
