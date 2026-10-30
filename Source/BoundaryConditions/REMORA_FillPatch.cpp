@@ -39,10 +39,13 @@ Long count_mask_diff (const MultiFab& a, const MultiFab& b, const iMultiFab& mas
         reduce_op.eval(mfi.fabbox(), reduce_data,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
         {
+            // Outside the mask the cells may never have been written (a signalling NaN in a
+            // debug build), so do not even compare them
+            if (!m(i,j,k)) { return { Long(0) }; }
             const Real xv = x(i,j,k);
             const Real yv = y(i,j,k);
             const bool same = (xv == yv) || (xv != xv && yv != yv);
-            return { (m(i,j,k) && !same) ? Long(1) : Long(0) };
+            return { same ? Long(0) : Long(1) };
         });
     }
     Long n = amrex::get<0>(reduce_data.value(reduce_op));
