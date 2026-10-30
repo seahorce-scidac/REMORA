@@ -712,12 +712,13 @@ not known before the level is made, and level 0 falls back to cell counts.
 footprint: its own cells and every ghost cell of the mask, up to one cell beyond a non-periodic
 domain edge. Boxes partly wet are kept whole. The dropped cells cost neither memory nor time,
 and no rank holds them. Kept boxes keep their ghost cells in a dropped box, which no exchange
-fills. The land stencils of a kept box read them, but nothing computed from them reaches a wet
-cell, which is at least four cells away: the regression tests overwrite them after
-initialization and still match the full layout in every plotted field. They must hold numbers,
-though (0 times NaN is NaN), so each new array is zeroed when it is allocated
-(``fab.do_initval``), and ``amrex.init_snan``, which overrides that, makes a run with
-``amrex.fpe_trap_invalid`` stop. With mesh refinement, a
+fills, and the land stencils of a kept box read them. The nearest wet cell is at least four
+cells away and the masks multiply land values out, so what is computed from finite values
+there stays on land: the regression tests write 7 into them after initialization and still
+match the full layout in every plotted field. A NaN there would not stay on land (0 times NaN
+is NaN), and a fresh array holds NaN in a debug build (``amrex.init_snan``), so REMORA writes 0
+into these cells of every level-0 field as soon as the fields are allocated, before anything
+reads them; this also holds on restart. With mesh refinement, a
 level-0 box is kept wherever a finer level may need it: inside every refinement indicator's box,
 grown by the tag buffer, by ``amr.n_proper`` blocks of the fine blocking factor and by the
 coarse stencil of the coarse-fine fills. An indicator that tags on a field may refine anywhere,

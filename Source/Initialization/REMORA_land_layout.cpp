@@ -12,6 +12,11 @@
 
 #include <AMReX_ParallelReduce.H>
 
+#include <algorithm>
+#include <limits>
+#include <map>
+#include <vector>
+
 using namespace amrex;
 
 namespace {
@@ -422,26 +427,28 @@ REMORA::check_dropped_level0_mask ()
 namespace {
 void add_if (Vector<MultiFab*>& v, MultiFab* mf) { if (mf) { v.push_back(mf); } }
 void add_if (Vector<MultiFab*>& v, const std::unique_ptr<MultiFab>& mf) { if (mf) { v.push_back(mf.get()); } }
+
+/**
+ * Per layout (BoxArray and ghost width), the cells of each box's footprint that lie inside the
+ * domain but in no box of the layout, computed once per box index. Level 0 is never regridded,
+ * so a run has few such layouts: one per index type, 2D or 3D, and ghost width.
+ */
+struct DryGhostHoles {
+    BoxArray ba;
+    IntVect ng;
+    std::map<int, Vector<Box>> holes;
+};
+std::vector<DryGhostHoles>& dry_ghost_cache () { static std::vector<DryGhostHoles> c; return c; }
 }
 
 /**
- * remora.dry_ghost_test (debug). After initialization, overwrite every ghost cell of a kept
- * level-0 box that lies inside the domain but in no kept box -- the cells no exchange ever
- * fills once boxes are dropped -- in every per-level field: 1 writes a signalling NaN, which
- * with amrex.fpe_trap_invalid = 1 stops the run at the first arithmetic read of one; 2 writes
- * 1e30, so a wet-cell answer that still matches the full-domain run cannot depend on them.
+ * The level-0 fields: those the time step evolves or rebuilds from them, and, with all, the
+ * grid, metrics, bathymetry, masks, forcing and coefficients as well.
  */
-void
-REMORA::poison_dry_ghost_cells ()
+Vector<MultiFab*>
+REMORA::level0_fields (bool all)
 {
-    if (dry_ghost_test == 0 || !level0_has_holes()) { return; }
     const int lev = 0;
-    // The fields the time step evolves or rebuilds from them. remora.dry_ghost_fields = all
-    // adds the static ones -- grid, metrics, bathymetry, masks, forcing, coefficients -- which
-    // initialization computes over every ghost cell itself, so poisoning them tests nothing
-    // about the exchanges.
-    std::string which = "dynamic";
-    ParmParse("remora").query("dry_ghost_fields", which);
     Vector<MultiFab*> f;
     for (auto* m : {cons_new[lev], cons_old[lev], xvel_new[lev], xvel_old[lev],
                     yvel_new[lev], yvel_old[lev], zvel_new[lev], zvel_old[lev]}) { add_if(f, m); }
@@ -455,88 +462,124 @@ REMORA::poison_dry_ghost_cells ()
                     &vec_Lscale, &vec_Akk, &vec_Akp}) {
         if (lev < v->size()) { add_if(f, (*v)[lev]); }
     }
-    if (which == "all") {
+    if (all) {
         for (auto* v : {&vec_h, &vec_Hz, &vec_z_w, &vec_z_r, &vec_z_phys_nd, &vec_visc2_p,
                         &vec_visc2_r, &vec_diff2, &vec_stflux, &vec_btflux, &vec_pm, &vec_pn,
                         &vec_metric_r, &vec_metric_u, &vec_metric_v, &vec_metric_p, &vec_fcor,
                         &vec_xr, &vec_yr, &vec_xu, &vec_yu, &vec_xv, &vec_yv, &vec_xp, &vec_yp,
-                        &vec_dndx, &vec_dmde, &vec_rdrag, &vec_rdrag2, &vec_ZoBot, &vec_uwind,
-                        &vec_vwind, &vec_Tair, &vec_qair, &vec_Pair, &vec_srflx,
-                        &vec_longwave_down, &vec_cloud, &vec_EminusP, &vec_alpha, &vec_beta,
-                        &vec_lrflx, &vec_lhflx, &vec_shflx, &vec_rain, &vec_evap, &vec_mskr,
-                        &vec_msku, &vec_mskv, &vec_mskp, &vec_mskr3d}) {
+                        &vec_lonp, &vec_latp, &vec_dndx, &vec_dmde, &vec_rdrag, &vec_rdrag2,
+                        &vec_ZoBot, &vec_uwind, &vec_vwind, &vec_Tair, &vec_qair, &vec_Pair,
+                        &vec_srflx, &vec_longwave_down, &vec_cloud, &vec_EminusP, &vec_alpha,
+                        &vec_beta, &vec_lrflx, &vec_lhflx, &vec_shflx, &vec_rain, &vec_evap,
+                        &vec_mskr, &vec_msku, &vec_mskv, &vec_mskp, &vec_mskr3d}) {
             if (lev < v->size()) { add_if(f, (*v)[lev]); }
         }
         for (auto& nv : vec_nudg_coeff) {
             if (lev < nv.size()) { add_if(f, nv[lev]); }
         }
     }
+    return f;
+}
 
-    Real big = Real(1.e30);
-    ParmParse("remora").query("dry_ghost_value", big);
-    const Real val = (dry_ghost_test == 1) ? std::numeric_limits<Real>::signaling_NaN() : big;
-    Long npoison = 0;
-    for (MultiFab* mf : f) {
-        const IndexType it = mf->ixType();
-        Box dom = amrex::convert(geom[lev].Domain(), it);
-        BoxArray cov = amrex::convert(grids[lev], it);
-        if (mf->boxArray().minimalBox().length(2) == 1) {
-            // A 2D field lives on slabs at k = 0
-            dom.setRange(2,0);
-            BoxList bl = cov.boxList();
-            for (auto& b : bl) { b.setRange(2,0); }
-            cov = BoxArray(std::move(bl));
-        }
-        for (MFIter mfi(*mf); mfi.isValid(); ++mfi) {
+/**
+ * Write val into every cell of mf, a field on the level-0 layout, that lies inside the domain
+ * but in no box: the ghost cells of kept boxes inside dropped ones, which no exchange fills. No
+ * op when level 0 covers the domain.
+ *
+ * @return the number of values written on this rank
+ */
+Long
+REMORA::set_dry_ghost_cells (MultiFab& mf, Real val)
+{
+    if (!level0_has_holes()) { return 0; }
+    const BoxArray& ba = mf.boxArray();
+    const IntVect ng = mf.nGrowVect();
+    auto& cache = dry_ghost_cache();
+    DryGhostHoles* entry = nullptr;
+    for (auto& e : cache) {
+        if (e.ng == ng && e.ba == ba) { entry = &e; break; }
+    }
+    if (!entry) {
+        cache.push_back(DryGhostHoles{ba, ng, {}});
+        entry = &cache.back();
+    }
+    // The domain in the field's index type; a 2D field lives on slabs at k = 0
+    Box dom = amrex::convert(geom[0].Domain(), mf.ixType());
+    const Box mb = ba.minimalBox();
+    dom.setRange(2, mb.smallEnd(2), mb.length(2));
+
+    Long n = 0;
+    const int nc = mf.nComp();
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
+        auto it = entry->holes.find(mfi.index());
+        if (it == entry->holes.end()) {
+            Vector<Box> hv;
             const Box fab = mfi.fabbox() & dom;
-            if (!fab.ok()) { continue; }
-            const BoxList holes = cov.complementIn(fab);
-            Array4<Real> const& a = mf->array(mfi);
-            const int nc = mf->nComp();
-            for (const Box& h : holes) {
-                npoison += h.numPts() * nc;
-                ParallelFor(h, nc, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-                {
-                    a(i,j,k,n) = val;
-                });
+            if (fab.ok()) {
+                for (const Box& h : ba.complementIn(fab)) { hv.push_back(h); }
             }
+            it = entry->holes.emplace(mfi.index(), std::move(hv)).first;
+        }
+        Array4<Real> const& a = mf.array(mfi);
+        for (const Box& h : it->second) {
+            n += h.numPts() * nc;
+            ParallelFor(h, nc, [=] AMREX_GPU_DEVICE (int i, int j, int k, int c) noexcept
+            {
+                a(i,j,k,c) = val;
+            });
         }
     }
     Gpu::streamSynchronize();
-    ParallelDescriptor::ReduceLongSum(npoison);
-    amrex::Print() << "remora.dry_ghost_test = " << dry_ghost_test << ": overwrote " << npoison
-                   << " uncovered ghost values in " << f.size() << " level-0 fields\n";
+    return n;
 }
 
 /**
  * With level-0 boxes dropped, the ghost cells of a kept box that lie in a dropped box are never
- * filled by an exchange; they hold whatever the box's own kernels leave there, or what the
- * memory held when the field was allocated. The land stencils of the kept box read them, but
- * what they compute stays on land -- a wet cell is at least NGROW+2 land cells away -- so the
- * answer does not depend on the values (the regression tests overwrite them and compare). It
- * has to be a number, though: a NaN or an infinity there would survive the masks (0 * NaN is
- * NaN). So every FArrayBox is zeroed when it is allocated, as AMReX debug builds already do,
- * unless the input set fab.do_initval itself.
+ * filled by an exchange, and the land stencils of the kept box read them. What those stencils
+ * compute stays on land only while the values there are finite: a wet cell is at least NGROW+2
+ * land cells away and the masks multiply the land values out (the regression tests write 7
+ * there and compare), but 0 * NaN is NaN, so a NaN there spreads into the water within a few
+ * steps. A fresh FArrayBox holds NaN in a debug build (amrex.init_snan), so these cells are
+ * zeroed in every level-0 field as soon as the fields exist, before anything reads them, and
+ * the step zeroes them in the scratch fields it allocates on the level-0 layout and exchanges
+ * (see the set_dry_ghost_cells callers).
  */
 void
-REMORA::zero_new_fabs_if_holes ()
+REMORA::zero_level0_dry_ghost_cells ()
 {
     if (!level0_has_holes()) { return; }
-    if (amrex::InitSNaN()) {
-        // AMReX then skips fab.do_initval, so those cells start as signalling NaNs
-        amrex::Print() << "WARNING: amrex.init_snan with remora.drop_dry_boxes: the ghost cells"
-                       << " of kept boxes inside dropped ones start as signalling NaNs, and"
-                       << " the land stencils of the kept boxes read them, so"
-                       << " amrex.fpe_trap_invalid will stop the run.\n";
-        return;
+    for (MultiFab* mf : level0_fields(true)) {
+        set_dry_ghost_cells(*mf, zero);
     }
-    ParmParse pp("fab");
-    if (pp.contains("do_initval")) { return; }
-    if (!FArrayBox::get_do_initval() || FArrayBox::get_initval() != zero) {
-        FArrayBox::set_do_initval(true);
-        FArrayBox::set_initval(zero);
-        amrex::Print() << "remora.drop_dry_boxes: new FArrayBoxes are zeroed (fab.do_initval = 1,"
-                       << " fab.initval = 0), so the ghost cells no exchange reaches hold a"
-                       << " number\n";
+}
+
+/**
+ * remora.dry_ghost_test (debug). After initialization, overwrite the ghost cells of the kept
+ * level-0 boxes that lie in dropped boxes, in every evolving field (remora.dry_ghost_fields =
+ * dynamic) or every field (all): 1 writes a signalling NaN, which with amrex.fpe_trap_invalid
+ * = 1 stops the run at the first arithmetic read of one; 2 writes remora.dry_ghost_value
+ * (default 1e30), so a plotted field that still matches the full-domain run does not depend on
+ * those cells while they hold that finite value.
+ */
+void
+REMORA::poison_dry_ghost_cells ()
+{
+    if (dry_ghost_test == 0 || !level0_has_holes()) { return; }
+    std::string which = "dynamic";
+    ParmParse pp("remora");
+    pp.query("dry_ghost_fields", which);
+    if (which != "dynamic" && which != "all") {
+        amrex::Abort("remora.dry_ghost_fields must be dynamic or all, not " + which);
     }
+    Real big = Real(1.e30);
+    pp.query("dry_ghost_value", big);
+    const Real val = (dry_ghost_test == 1) ? std::numeric_limits<Real>::signaling_NaN() : big;
+    const Vector<MultiFab*> f = level0_fields(which == "all");
+    Long npoison = 0;
+    for (MultiFab* mf : f) {
+        npoison += set_dry_ghost_cells(*mf, val);
+    }
+    ParallelDescriptor::ReduceLongSum(npoison);
+    amrex::Print() << "remora.dry_ghost_test = " << dry_ghost_test << ": overwrote " << npoison
+                   << " uncovered ghost values in " << f.size() << " level-0 fields\n";
 }

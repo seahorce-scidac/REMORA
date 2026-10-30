@@ -327,8 +327,14 @@ public:
     /** \brief Abort if level 1 or its coarse stencil reaches a dropped level-0 box */
     void check_dry_box_nesting () const;
 
-    /** \brief Zero every new FArrayBox once level 0 has dropped boxes */
-    void zero_new_fabs_if_holes ();
+    /** \brief The level-0 fields: the evolving ones, and with all the static ones too */
+    amrex::Vector<amrex::MultiFab*> level0_fields (bool all);
+
+    /** \brief Write val into the cells of a level-0 field inside the domain but in no box */
+    amrex::Long set_dry_ghost_cells (amrex::MultiFab& mf, amrex::Real val);
+
+    /** \brief Zero those cells in every level-0 field (see set_dry_ghost_cells) */
+    void zero_level0_dry_ghost_cells ();
 
     /** \brief Check level 0's mask against the mask the dropping decision was made on */
     void check_dropped_level0_mask ();

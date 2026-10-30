@@ -2444,6 +2444,9 @@ REMORA::ReadParameters ()
     // Leave all-land level-0 boxes out; see drop_dry_level0_boxes.
     pp.queryAdd("drop_dry_boxes", drop_dry_boxes);
     pp.queryAdd("dry_ghost_test", dry_ghost_test);
+    if (dry_ghost_test < 0 || dry_ghost_test > 2) {
+        amrex::Abort("remora.dry_ghost_test must be 0 (off), 1 (signalling NaN) or 2 (remora.dry_ghost_value)");
+    }
 
     // Whether to zero a tracer the correction drives negative, as ROMS does.
     pp.queryAdd("reflux_clamp", reflux_clamp);

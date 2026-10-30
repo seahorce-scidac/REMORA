@@ -866,9 +866,10 @@ add_test_equiv(DogboneAnalytic_MLmaskring_periodic DogboneAnalytic_MLmaskring_pe
 # Leaving out the level-0 boxes that are land over their whole footprint
 # (remora.drop_dry_boxes) must leave every kept cell -- the plotted fields and every field in
 # the checkpoint -- bitwise as the full layout has it: on one level; with a nest near the coast
-# made at a regrid; with the ghost cells no exchange fills overwritten (they reach only land,
-# so the plotted fields still agree, though the land-face tendencies in the checkpoint do
-# not); and across a restart, which keeps the checkpoint's BoxArray.
+# made at a regrid; with the ghost cells no exchange fills overwritten by a finite value (what
+# is computed from it stays on land, so the plotted fields still agree, though the land-face
+# tendencies in the checkpoint do not; a NaN there would spread to the water); and across a
+# restart, which keeps the checkpoint's BoxArray.
 #=============================================================================
 
 add_test_layout(DogboneAnalytic_loadbalance_knapsack DogboneAnalytic_landlayout "remora_exec"

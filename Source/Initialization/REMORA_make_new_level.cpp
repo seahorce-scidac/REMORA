@@ -436,11 +436,6 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba_in,
     SetBoxArray(lev, ba);
     SetDistributionMap(lev, dm);
 
-    // Before anything is allocated on the new layout: see zero_new_fabs_if_holes
-    if (lev == 0) {
-        zero_new_fabs_if_holes();
-    }
-
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
         b.setRange(2,0);
@@ -482,6 +477,12 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba_in,
 
     init_masks(lev, ba, dm);
     init_stuff(lev, ba, dm);
+
+    // Every field exists now and nothing has read it: give the ghost cells no exchange fills
+    // a number (see zero_level0_dry_ghost_cells)
+    if (lev == 0) {
+        zero_level0_dry_ghost_cells();
+    }
 
     init_only(lev, time);
 
