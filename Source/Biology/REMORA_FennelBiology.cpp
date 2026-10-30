@@ -390,10 +390,13 @@ FennelParameters::init_params (const std::string& remora_prefix)
 }
 
 void
-FennelBiology::configure (const std::string& prefix)
+FennelBiology::configure (const std::string& remora_prefix)
 {
-    m_parameters.init_params(prefix);
-    ParmParse pp(prefix);
+    // Keep the name remora_prefix: Exec/Generic/build_schema_remora.py resolves it to
+    // "remora" when generating inputs_generic, and any other name is misattributed.
+    m_parameters.init_params(remora_prefix);
+    ParmParse pp(remora_prefix);
+    pp.query("prob_name", m_prob_name);
     pp.queryAdd("use_biology_cpp_answer", m_use_cpp);
     pp.queryAdd("biology_debug", m_debug);
     pp.queryAdd("biology_debug_i", m_debug_i);
@@ -447,9 +450,7 @@ FennelBiology::initialize_analytic (BiologyInitContext& context) const
     auto const& m_fennel_params = m_parameters;
     auto& mf_cons = context.state;
     const auto bio_comp = Fennel::components(m_parameters, context.component_start);
-    ParmParse pp("remora");
-    std::string profile;
-    pp.get("prob_name", profile);
+    const std::string& profile = m_prob_name;
     const auto profile_ci = amrex::toLower(profile);
     if (profile_ci == "biotoy" || profile_ci == "upwelling") {
 #include "Prob/REMORA_InitAnalyticBiology_BioToy.H"

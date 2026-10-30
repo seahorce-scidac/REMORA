@@ -65,7 +65,11 @@ REMORA::init_biology_ic (int lev)
         // The common application hook delegates to the selected model's profile
         // by default. A model without a matching profile must fail explicitly.
         REMORABiology::BiologyInitContext context{
-            lev, geom[lev], solverChoice, *cons_new[lev], Bio_comp};
+            .level = lev,
+            .geometry = geom[lev],
+            .solver_choice = solverChoice,
+            .state = *cons_new[lev],
+            .component_start = Bio_comp};
         prob->init_analytic_biology(*m_biology, context);
     } else {
 #ifdef REMORA_USE_NETCDF
@@ -100,8 +104,11 @@ REMORA::init_biology_ic_full_domain ()
 
     if (use_analytic) {
         REMORABiology::BiologyInitContext context{
-            hires_init_level, geom[hires_init_level], solverChoice,
-            *vec_cons_full_domain[hires_init_level], Bio_comp};
+            .level = hires_init_level,
+            .geometry = geom[hires_init_level],
+            .solver_choice = solverChoice,
+            .state = *vec_cons_full_domain[hires_init_level],
+            .component_start = Bio_comp};
         prob->init_analytic_biology(*m_biology, context);
     } else {
 #ifdef REMORA_USE_NETCDF

@@ -85,7 +85,11 @@ void check_profiles_and_noops ()
     state.setVal(Real(-7.0));
     state.setVal(Real(12.0), Temp_comp, 1, 0);
     state.setVal(Real(30.0), Salt_comp, 1, 0);
-    BiologyInitContext context{0, geometry, solver, state, base};
+    BiologyInitContext context{.level = 0,
+                               .geometry = geometry,
+                               .solver_choice = solver,
+                               .state = state,
+                               .component_start = base};
 
     ProblemBase problem;
     ProfileProbe probe;
@@ -93,8 +97,8 @@ void check_profiles_and_noops ()
     AMREX_ALWAYS_ASSERT(state.min(base) == Real(123.0));
     AMREX_ALWAYS_ASSERT(state.max(Tracer_comp) == Real(-7.0));
 
-    ParmParse remora_pp("remora");
-    remora_pp.add("prob_name", std::string("Upwelling"));
+    ParmParse profile_pp("profile");
+    profile_pp.add("prob_name", std::string("Upwelling"));
     ParmParse parameters("profile.fennel");
     for (const auto* option : {"carbon", "oxygen", "po4", "odu", "river_don"}) {
         parameters.add(option, 1);
@@ -116,10 +120,14 @@ void check_profiles_and_noops ()
 
     MultiFab old_state(boxes, mapping, state.nComp(), 0);
     old_state.setVal(Real(5.0));
-    const BiologyAdvanceContext advance{
-        old_state, state, solver, base, 3, Real(10.0), 0.0,
-        nullptr, nullptr, nullptr, nullptr, nullptr,
-        nullptr, nullptr, nullptr, nullptr};
+    // Forcing pointers are left null by omission.
+    const BiologyAdvanceContext advance{.old_state = old_state,
+                                        .new_state = state,
+                                        .solver_choice = solver,
+                                        .component_start = base,
+                                        .top_layer = 3,
+                                        .dt = Real(10.0),
+                                        .model_time = 0.0};
     for (const auto* name : {"none", "OFF"}) {
         auto none = make_biology(name);
         none->configure("unused");

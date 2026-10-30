@@ -264,7 +264,7 @@ inline int num_tracers (FennelParameters const& parameters) noexcept
 class FennelBiology final : public Biology {
 public:
     std::string name () const override { return "fennel"; }
-    void configure (const std::string& prefix) override;
+    void configure (const std::string& remora_prefix) override;
     const BiologyDeclaration& declaration () const noexcept override { return m_declaration; }
     void initialize_analytic (BiologyInitContext& context) const override;
     void advance (const BiologyAdvanceContext& context) const override;
@@ -276,6 +276,8 @@ private:
     int m_debug = 0;
     int m_debug_i = 2;
     int m_debug_j = 2;
+    // Read from the configure prefix, so the model reads one ParmParse namespace.
+    std::string m_prob_name;
 #ifdef REMORA_USE_FENNEL_FORT
     void advance_fortran (const BiologyAdvanceContext& context) const;
 #endif

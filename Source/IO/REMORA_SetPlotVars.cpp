@@ -2,6 +2,8 @@
 #include "AMReX_Interp_3D_C.H"
 #include "AMReX_PlotFileUtil.H"
 
+#include <algorithm>
+
 using namespace amrex;
 
 template<typename V, typename T>
@@ -46,11 +48,10 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
 
     auto groups = m_biology->declaration().plot_aliases;
     groups.emplace_back("biology");
-    bool expand_biology = false;
-    for (const auto& group : groups) {
-        expand_biology = expand_biology ||
-            (nbio > 0 && containerHasElement(plot_var_names_3d, group));
-    }
+    const bool expand_biology = nbio > 0 &&
+        std::any_of(groups.begin(), groups.end(), [&](const std::string& group) {
+            return containerHasElement(plot_var_names_3d, group);
+        });
     if (expand_biology) {
         // Group aliases expand only the biology block, excluding passive dyes.
         for (int icomp = Bio_comp; icomp < ncons; ++icomp) {

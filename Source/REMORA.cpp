@@ -3400,10 +3400,21 @@ REMORA::advance_biology (int lev, amrex::MultiFab const& old_state,
         return;
     }
     const REMORABiology::BiologyAdvanceContext context{
-        old_state, new_state, solverChoice, Bio_comp, N, dt_lev,
-        model_time(t_old[lev]), vec_Hz[lev].get(), vec_z_r[lev].get(),
-        vec_z_w[lev].get(), vec_mskr[lev].get(), vec_srflx[lev].get(),
-        vec_sustr[lev].get(), vec_svstr[lev].get(),
-        vec_uwind[lev].get(), vec_vwind[lev].get()};
+        .old_state = old_state,
+        .new_state = new_state,
+        .solver_choice = solverChoice,
+        .component_start = Bio_comp,
+        .top_layer = N,
+        .dt = dt_lev,
+        .model_time = model_time(t_old[lev]),
+        .hz = vec_Hz[lev].get(),
+        .z_r = vec_z_r[lev].get(),
+        .z_w = vec_z_w[lev].get(),
+        .mask = vec_mskr[lev].get(),
+        .shortwave = vec_srflx[lev].get(),
+        .stress_u = vec_sustr[lev].get(),
+        .stress_v = vec_svstr[lev].get(),
+        .wind_u = vec_uwind[lev].get(),
+        .wind_v = vec_vwind[lev].get()};
     m_biology->advance(context);
 }

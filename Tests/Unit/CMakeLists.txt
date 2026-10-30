@@ -37,6 +37,12 @@ add_executable(remora_biology_tests
 get_target_property(remora_biology_include_dirs remora_srclib INCLUDE_DIRECTORIES)
 target_include_directories(remora_biology_tests PRIVATE ${remora_biology_include_dirs})
 target_link_libraries(remora_biology_tests PRIVATE ${REMORA_AMREX_TARGET})
+# The parity diagnostics are header-only printf inside the Fennel kernel, so
+# compile the test TU the way remora_srclib is compiled. The Fortran bridge
+# stays out: it would pull the whole ROMS kernel into the link.
+if (REMORA_ENABLE_BIOLOGY_DIAG)
+  target_compile_definitions(remora_biology_tests PRIVATE REMORA_USE_BIOLOGY_DIAG)
+endif ()
 if (REMORA_ENABLE_CUDA)
   setup_target_for_cuda_compilation(remora_biology_tests)
 endif ()

@@ -41,7 +41,8 @@ struct BiologyInitContext {
  *
  * old_state holds concentrations. new_state receives additive Hz-weighted
  * increments; it must not be overwritten with scratch concentrations. Optional
- * forcing views can be null and are validated by the concrete model. This is
+ * forcing views default to null and are validated by the concrete model. Fill it
+ * with designated initializers so the pointers cannot be transposed silently. This is
  * a host context: device kernels capture plain views/parameters, not this object.
  */
 struct BiologyAdvanceContext {
@@ -52,15 +53,15 @@ struct BiologyAdvanceContext {
     int top_layer;
     amrex::Real dt;
     double model_time;
-    const amrex::MultiFab* hz;
-    const amrex::MultiFab* z_r;
-    const amrex::MultiFab* z_w;
-    const amrex::MultiFab* mask;
-    const amrex::MultiFab* shortwave;
-    const amrex::MultiFab* stress_u;
-    const amrex::MultiFab* stress_v;
-    const amrex::MultiFab* wind_u;
-    const amrex::MultiFab* wind_v;
+    const amrex::MultiFab* hz = nullptr;
+    const amrex::MultiFab* z_r = nullptr;
+    const amrex::MultiFab* z_w = nullptr;
+    const amrex::MultiFab* mask = nullptr;
+    const amrex::MultiFab* shortwave = nullptr;
+    const amrex::MultiFab* stress_u = nullptr;
+    const amrex::MultiFab* stress_v = nullptr;
+    const amrex::MultiFab* wind_u = nullptr;
+    const amrex::MultiFab* wind_v = nullptr;
 };
 
 /** \brief Common host-side ecosystem interface.
@@ -74,7 +75,7 @@ class Biology {
 public:
     virtual ~Biology () = default;
     virtual std::string name () const = 0;
-    virtual void configure (const std::string& prefix) = 0;
+    virtual void configure (const std::string& remora_prefix) = 0;
     virtual const BiologyDeclaration& declaration () const noexcept = 0;
     virtual void initialize_analytic (BiologyInitContext& context) const = 0;
     virtual void advance (const BiologyAdvanceContext& context) const = 0;
