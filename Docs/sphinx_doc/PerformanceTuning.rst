@@ -110,15 +110,16 @@ Tiling
 ``remora.omp_tile_size`` (an alias of ``fabarray.mfiter_tile_size``) gives the maximum
 tile extent in each direction; a box is split into tiles of that size, each ``MFIter``
 loop visits the tiles, and with OpenMP the tiles of a rank are shared out among its
-threads. The default on CPUs is ``1024000 16 1024000``, 16-row strips spanning the full
-``x`` extent of a box; GPU builds run untiled. The third component may not be smaller than
+threads. The default on CPUs is ``16 16 1024000``, columns of 16x16 cells spanning the
+whole water column; GPU builds run untiled. The third component may not be smaller than
 the number of vertical levels.
 
 The tile shape sets the working set of each kernel pass and so how much of it stays in
-cache between passes. On the Milan node at one rank per core, column tiles of 16x16 and
-8x8 cells ran 25 to 30 percent faster than the 16-row default, 8-row strips were in
-between, and the untiled run took twice as long as the best. On the 4-core workstation
-the code was developed on, the ordering of 16-row strips and 8x8 tiles was the reverse.
+cache between passes. On the Milan node, 16x16 tiles were the fastest shape at every
+rank/thread mix tried (128 x 1, 64 x 2, 32 x 4), and they made the time per step nearly
+the same for all three. 8x8 tiles were 5 to 10 percent slower, 16-row strips 25 to 35
+percent slower, and the untiled run took twice as long as the best. On the 4-core
+workstation the code was developed on, 16-row strips beat 8x8 tiles instead.
 So the default is a reasonable starting point, not an answer: run a short timing of your
 problem on your machine with
 

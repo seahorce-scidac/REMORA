@@ -121,13 +121,14 @@ void add_par () {
     // No tiling: on the GPU each box is one kernel launch.
     amrex::Vector<int> omp_tile_size = {1024000,1024000,1024000};
 #else
-    // CPU: full rows in i, 16 cells in j, the whole column. The kernels recompute the grown
-    // cells of every tile, so 8x8 tiles cost 1.7x the untiled time on a 128x128-column box,
-    // while j-strips of 16 run 8% faster than no tiling in serial and 13% faster with four
-    // OpenMP threads, which share the tiles of a box. Where tiles overlap on shared scratch
-    // every tile writes the same value, so the answers do not depend on the tiling or the
-    // thread count.
-    amrex::Vector<int> omp_tile_size = {1024000, 16, 1024000};
+    // CPU: 16x16 columns, the whole column in z. On a Perlmutter Milan node (Upwelling,
+    // 84 M cells, 128x128 boxes) this was the fastest shape at 128x1, 64x2 and 32x4 ranks x
+    // threads, 25-35% faster than 16-row strips and 5-10% faster than 8x8, because each
+    // kernel pass's working set stays in cache. On a small workstation the ordering can
+    // differ, so it is worth timing a few shapes (Docs: Performance tuning). Where tiles
+    // overlap on shared scratch every tile writes the same value, so the answers do not
+    // depend on the tiling or the thread count.
+    amrex::Vector<int> omp_tile_size = {16, 16, 1024000};
 #endif
     pp_remora.queryarr("omp_tile_size",omp_tile_size,0,3);
     pp_fabarray.queryAdd("mfiter_tile_size",omp_tile_size);

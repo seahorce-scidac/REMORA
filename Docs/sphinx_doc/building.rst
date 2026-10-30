@@ -140,8 +140,8 @@ or if using tcsh,
 
    .. note::
       With OpenMP, the ``MFIter`` loops of the time step run their tiles in parallel, and
-      CPU builds tile by default in strips of 16 rows (``remora.omp_tile_size``), which
-      runs faster than untiled or 8x8 tiles both in serial and with threads. Where tiles
+      CPU builds tile by default in 16x16 columns (``remora.omp_tile_size``), the fastest
+      shape measured on a Perlmutter CPU node (see the Performance tuning page). Where tiles
       overlap on shared scratch every tile writes the same value, and the coarse-fine flux
       correction is accumulated in a fixed order, so the answers do not depend on the
       tiling or the thread count. If tiling is turned off, the threads share
