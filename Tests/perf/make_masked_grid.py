@@ -12,12 +12,14 @@ water, so the run has something to do. Writes grid.nc and ini.nc, which
 Tests/perf/inputs/masked_grid_perf.in reads from the run directory (factor 16 there; set
 remora.n_cell = 10*factor 16*factor 20 for another).
 """
+import os
 import sys
 
 import numpy as np
 import netCDF4
 
 src, out, f = sys.argv[1], sys.argv[2], int(sys.argv[3])
+os.makedirs(out, exist_ok=True)
 g = netCDF4.Dataset(src + "/idmini_grd_masked_v1_classic64.nc")
 ini = netCDF4.Dataset(src + "/idmini_ini_v1_classic64.nc")
 
