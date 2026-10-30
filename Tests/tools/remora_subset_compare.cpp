@@ -8,16 +8,23 @@
  *
  *   remora_subset_compare [--abs_tol a] [--rel_tol r] [--chk] <subset> <full>
  *
- * Plotfiles by default: every variable and level the two share. With --chk, two checkpoint
- * directories: every MultiFab under Level_<n>/ that both have (cons, velocities, barotropic
- * fields, free surface, mixing coefficients, ...). The default tolerance is zero, so a pass
- * means bitwise identical. Prints "SUBSET AGREE" and exits 0 on success.
+ * Plotfiles by default: every variable of the first file, which the second must also hold, on
+ * every level. With --chk, two checkpoint directories: every MultiFab under Level_<n>/ of the
+ * first (cons, velocities, barotropic fields, free surface, mixing coefficients, ...), which
+ * the second must also hold. Only level 0 may leave cells out; finer levels must have the same
+ * BoxArray in both. With the default tolerance of zero every value must have the same bit
+ * pattern in both (so -0 and +0 differ, and a NaN agrees only with the same NaN); with
+ * --abs_tol or --rel_tol values are compared numerically and any NaN fails. Prints
+ * "SUBSET AGREE" and exits 0 on success; fails when nothing was compared.
  */
 #include <AMReX.H>
 #include <AMReX_MultiFab.H>
 #include <AMReX_PlotFileUtil.H>
 #include <AMReX_VisMF.H>
 
+#include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <filesystem>
 #include <set>
 #include <string>
@@ -28,11 +35,16 @@ using namespace amrex;
 namespace {
 
 // Largest |a - b| and |b| over the valid cells of a, b copied onto a's layout
-bool compare_mf (const std::string& what, const MultiFab& a, const MultiFab& b_in,
+bool compare_mf (const std::string& what, int lev, const MultiFab& a, const MultiFab& b_in,
                  Real abs_tol, Real rel_tol)
 {
     if (a.nComp() != b_in.nComp() || a.ixType() != b_in.ixType()) {
         Print() << "  " << what << ": component count or index type differs\n";
+        return false;
+    }
+    if (lev > 0 && a.boxArray() != b_in.boxArray()) {
+        Print() << "  " << what << ": the BoxArrays of level " << lev << " differ; only level 0"
+                << " may leave cells out\n";
         return false;
     }
     BoxArray need = a.boxArray();
@@ -48,6 +60,7 @@ bool compare_mf (const std::string& what, const MultiFab& a, const MultiFab& b_i
     ah.ParallelCopy(a, 0, 0, a.nComp());
     b.ParallelCopy(b_in, 0, 0, a.nComp());
     Gpu::streamSynchronize();
+    const bool exact = (abs_tol <= 0 && rel_tol <= 0);
     bool ok = true;
     for (int n = 0; n < a.nComp(); ++n) {
         Real dmax = 0, bmax = 0;
@@ -61,17 +74,16 @@ bool compare_mf (const std::string& what, const MultiFab& a, const MultiFab& b_i
             for (int j = lo.y; j <= hi.y; ++j)
             for (int i = lo.x; i <= hi.x; ++i) {
                 const Real u = x(i,j,k,n), v = y(i,j,k,n);
-                // Bitwise, NaN included: two NaNs in the same cell agree
-                const bool same = (u == v) || (u != u && v != v);
-                if (u != u || v != v) {
-                    if (!same) { ++nnan; ++ndiff; }
+                if (std::isnan(u) || std::isnan(v)) {
+                    // Exact mode: the same NaN bits agree. Tolerance mode: any NaN fails.
+                    if (!exact || std::memcmp(&u, &v, sizeof(Real)) != 0) { ++nnan; ++ndiff; }
                     continue;
                 }
-                const Real d = std::abs(u - v);
                 bmax = std::max(bmax, std::abs(v));
+                const bool same = exact ? (std::memcmp(&u, &v, sizeof(Real)) == 0) : (u == v);
                 if (!same) {
                     ++ndiff;
-                    dmax = std::max(dmax, d);
+                    dmax = std::max(dmax, std::abs(u - v));
                 }
             }
         }
@@ -79,8 +91,8 @@ bool compare_mf (const std::string& what, const MultiFab& a, const MultiFab& b_i
         ParallelDescriptor::ReduceRealMax(bmax);
         ParallelDescriptor::ReduceLongSum(ndiff);
         ParallelDescriptor::ReduceLongSum(nnan);
-        const bool pass = (nnan == 0) && (dmax <= abs_tol || dmax <= rel_tol * bmax)
-                          && (ndiff == 0 || abs_tol > 0 || rel_tol > 0);
+        const bool pass = (nnan == 0) && (exact ? ndiff == 0
+                                                : (dmax <= abs_tol || dmax <= rel_tol * bmax));
         Print() << "  " << what << " comp " << n << ": cells differing " << ndiff
                 << ", max |diff| " << dmax << " (max |value| " << bmax << ")"
                 << (nnan ? ", NaN mismatch" : "") << (pass ? "" : "  <-- FAIL") << "\n";
@@ -100,6 +112,13 @@ bool compare_plotfiles (const std::string& fa, const std::string& fb, Real abs_t
     const auto& va = pa.varNames();
     const std::set<std::string> vb(pb.varNames().begin(), pb.varNames().end());
     bool ok = true;
+    int ncompared = 0;
+    for (const auto& v : va) {
+        if (vb.count(v) == 0) {
+            Print() << "Variable " << v << " is missing from " << fb << "\n";
+            ok = false;
+        }
+    }
     for (int lev = 0; lev < nlev; ++lev) {
         Print() << "level " << lev << ": " << pa.boxArray(lev).size() << " vs "
                 << pb.boxArray(lev).size() << " boxes\n";
@@ -107,8 +126,13 @@ bool compare_plotfiles (const std::string& fa, const std::string& fb, Real abs_t
             if (vb.count(v) == 0) { continue; }
             const MultiFab a = pa.get(lev, v);
             const MultiFab b = pb.get(lev, v);
-            ok = compare_mf(v, a, b, abs_tol, rel_tol) && ok;
+            ok = compare_mf(v, lev, a, b, abs_tol, rel_tol) && ok;
+            ++ncompared;
         }
+    }
+    if (ncompared == 0) {
+        Print() << "Nothing to compare in " << fa << " and " << fb << "\n";
+        return false;
     }
     return ok;
 }
@@ -129,9 +153,13 @@ bool compare_checkpoints (const std::string& fa, const std::string& fb, Real abs
         std::vector<std::string> names;
         for (const auto& e : fs::directory_iterator(la)) {
             const std::string f = e.path().filename().string();
-            if (f.size() > 2 && f.substr(f.size()-2) == "_H" &&
-                fs::exists(lb + "/" + f)) {
-                names.push_back(f.substr(0, f.size()-2));
+            if (f.size() > 2 && f.substr(f.size()-2) == "_H") {
+                if (fs::exists(lb + "/" + f)) {
+                    names.push_back(f.substr(0, f.size()-2));
+                } else {
+                    Print() << f.substr(0, f.size()-2) << " is missing from " << lb << "\n";
+                    ok = false;
+                }
             }
         }
         std::sort(names.begin(), names.end());
@@ -140,7 +168,7 @@ bool compare_checkpoints (const std::string& fa, const std::string& fb, Real abs
             MultiFab a, b;
             VisMF::Read(a, la + "/" + nm);
             VisMF::Read(b, lb + "/" + nm);
-            ok = compare_mf(nm, a, b, abs_tol, rel_tol) && ok;
+            ok = compare_mf(nm, lev, a, b, abs_tol, rel_tol) && ok;
             ++ncompared;
         }
     }

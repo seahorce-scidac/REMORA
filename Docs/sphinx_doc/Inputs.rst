@@ -697,7 +697,8 @@ first only moves boxes between ranks, and the second leaves out boxes no water c
 ``remora.load_balance`` chooses how boxes are assigned to ranks, for every new layout: at
 initialization, at each regrid, for a level made from a coarser one, and on restart. Each box
 weighs its wet cells plus ``remora.load_balance_land_weight`` times its land cells, counted
-from the rho-point mask the level will have. ``sfc`` orders the boxes along a space-filling
+from the rho-point mask the level will have (the land weight counts to within 2^-20). ``sfc``
+orders the boxes along a space-filling
 curve and cuts it into pieces of equal weight; ``knapsack`` packs boxes to equalize the
 weight without regard to position; ``roundrobin`` deals them out heaviest first; ``amrex``
 is AMReX's own mapping (its ``DistributionMapping.strategy``, by default the space-filling
@@ -718,18 +719,21 @@ there stays on land: the regression tests write 7 into them after initialization
 match the full layout in every plotted field. A NaN there would not stay on land (0 times NaN
 is NaN), and a fresh array holds NaN in a debug build (``amrex.init_snan``), so REMORA writes 0
 into these cells of every level-0 field as soon as the fields are allocated, before anything
-reads them; this also holds on restart. With mesh refinement, a
-level-0 box is kept wherever a finer level may need it: inside every refinement indicator's box,
-grown by the tag buffer, by ``amr.n_proper`` blocks of the fine blocking factor and by the
-coarse stencil of the coarse-fine fills. An indicator that tags on a field may refine anywhere,
-so with one of those no box is dropped; nor is any under the atmosphere coupling driver, whose
-remap assumes level 0 covers the domain, or in a build with particles. After each regrid REMORA aborts if level 1, or the
-level-0 cells its fills need, reaches a dropped box. A restart keeps the BoxArray of the
+reads them; this also holds on restart. With one refined level, a level-0 box is kept wherever
+level 1 may need it: inside every refinement indicator's box, grown by the tag buffer, by
+``amr.n_proper`` + 1 blocks of the level-1 blocking factor and by the coarse stencil of the
+coarse-fine fills. No box is dropped with ``amr.max_level`` > 1, with an indicator that tags on
+a field (it may refine anywhere), under the atmosphere coupling driver (whose remap assumes
+level 0 covers the domain; the driver must be configured before ``InitData``, and REMORA
+aborts otherwise), or in a build with particles or MOAB. After each regrid REMORA aborts if
+level 1, or the level-0 cells its fills need, reaches a dropped box. A restart keeps the BoxArray of the
 checkpoint, so it continues with the boxes the original run dropped whatever this option says.
 Plotfiles and checkpoints hold the kept boxes only (a valid AMReX plotfile with holes; compare
 two layouts with ``remora_subset_compare``, built with the tests, since ``amrex_fcompare`` needs
 equal BoxArrays); in NetCDF output the dropped cells hold the fill value
-``remora.netcdf_fill_value``, and the masks hold 0 there. The integrated diagnostics printed at
+``remora.netcdf_fill_value`` in every gridded variable, the grid fields (``h``, ``pm``,
+``x_rho``, ...) included, which the run no longer holds there and which the grid file still
+has, and the masks hold 0 there. The integrated diagnostics printed at
 ``remora.v`` > 0 sum over the cells held, so their ``VOLUME`` leaves out the dropped land, which
 a full-domain run counts. The number of boxes and cells dropped is printed at startup.
 

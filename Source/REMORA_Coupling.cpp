@@ -340,6 +340,12 @@ REMORA::ConfigureDriverAtmosToOceanCoupling (bool use_coupling_driver,
                                              bool use_two_way_coupling,
                                              DriverAtmosForcingMode active_mode)
 {
+    // remora.drop_dry_boxes is decided when level 0 is made, and the driver's remap needs a
+    // level 0 that covers the domain, so the driver has to be configured before InitData.
+    if (use_coupling_driver && !grids.empty() && !grids[0].empty() && level0_has_holes()) {
+        amrex::Abort("ConfigureDriverAtmosToOceanCoupling was called after level 0 dropped"
+                     " boxes (remora.drop_dry_boxes); call it before InitData");
+    }
     running_with_coupling_driver = use_coupling_driver;
     driver_uses_two_way_coupling = use_two_way_coupling;
     driver_atmos_forcing_mode = active_mode;
@@ -394,6 +400,9 @@ void
 REMORA::GetAtmosToOceanRhoLayout (amrex::BoxArray& ba,
                                   amrex::DistributionMapping& dm) const
 {
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!level0_has_holes(),
+        "The atmosphere coupling needs a level 0 that covers the domain; "
+        "remora.drop_dry_boxes left boxes out");
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
         !vec_srflx.empty() && vec_srflx[0] != nullptr,
         "REMORA::GetAtmosToOceanRhoLayout requires post-InitData rho-point forcing storage.");
@@ -405,6 +414,9 @@ void
 REMORA::GetAtmosToOceanUFaceLayout (amrex::BoxArray& ba,
                                     amrex::DistributionMapping& dm) const
 {
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!level0_has_holes(),
+        "The atmosphere coupling needs a level 0 that covers the domain; "
+        "remora.drop_dry_boxes left boxes out");
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
         !vec_sustr.empty() && vec_sustr[0] != nullptr,
         "REMORA::GetAtmosToOceanUFaceLayout requires post-InitData u-face forcing storage.");
@@ -416,6 +428,9 @@ void
 REMORA::GetAtmosToOceanVFaceLayout (amrex::BoxArray& ba,
                                     amrex::DistributionMapping& dm) const
 {
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!level0_has_holes(),
+        "The atmosphere coupling needs a level 0 that covers the domain; "
+        "remora.drop_dry_boxes left boxes out");
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
         !vec_svstr.empty() && vec_svstr[0] != nullptr,
         "REMORA::GetAtmosToOceanVFaceLayout requires post-InitData v-face forcing storage.");

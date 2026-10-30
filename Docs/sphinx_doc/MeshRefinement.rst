@@ -271,9 +271,12 @@ clip the fine grids to stay ``amr.n_proper`` blocks away from the hole, and the 
 fills read coarse cells around the fine grids. So a level-0 box is kept wherever a refinement
 indicator's box, grown by the tag buffer, by ``amr.n_proper`` + 1 blocks of the level-1
 blocking factor (over the refinement ratio) and by the coarse stencil of the fills, reaches
-it; the fine grids are then the ones the full-domain run makes. A field-based criterion
-can refine anywhere, so with one of those no box is dropped. REMORA aborts after a regrid
-if level 1, or the level-0 cells its fills need, reaches a dropped box.
+it; the fine grids are then the ones the full-domain run makes. This margin covers level 1
+only: a level-2 indicator would grow level 1 by its own buffer and proper nesting, and AMReX
+would clear level-1 tags near a hole without a word, so with ``amr.max_level`` > 1 no box is
+dropped. A field-based criterion can refine anywhere, so with one of those no box is dropped
+either. REMORA aborts after a regrid if level 1, or the level-0 cells its fills need, reaches a
+dropped box.
 
 Coupling Types
 --------------

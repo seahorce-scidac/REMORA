@@ -115,6 +115,9 @@ REMORA::wet_cells_per_box (int lev, const BoxArray& ba, Vector<Long>& wet)
     if (!probe_rho_mask(lev, mskr)) { return false; }
 
     wet.assign(ba.size(), 0);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mskr); mfi.isValid(); ++mfi) {
         // The mask is exactly 0 or 1, so the sum counts wet columns exactly
         const Real ncol = mskr[mfi].sum<RunOn::Device>(mfi.validbox(), 0);
@@ -149,16 +152,18 @@ REMORA::MakeDistributionMap (int lev, BoxArray const& ba)
     Vector<Long> wet;
     const bool known = (load_balance_land_weight != one) && wet_cells_per_box(lev, ba, wet);
 
-    // Weights in hundredths of a wet cell, so a fractional land weight keeps its value
-    const Long land_w = std::lround(Real(100.0) * load_balance_land_weight);
+    // Weights in units of 1/scale of a wet cell, so a fractional land weight keeps its value
+    // to 1/scale (2^20, about 1e-6); a box of 1e7 cells weighs 1e13 at most, far inside Long.
+    constexpr Long scale = Long(1) << 20;
+    const Long land_w = std::llround(Real(scale) * load_balance_land_weight);
     std::vector<Long> wgts(ba.size());
     Long total_cells = 0, total_wet = 0;
     bool cell_count_weights = true;
     for (int b = 0; b < ba.size(); ++b) {
         const Long npts = ba[b].numPts();
         const Long nwet = known ? wet[b] : npts;
-        wgts[b] = 100 * nwet + land_w * (npts - nwet);
-        cell_count_weights = cell_count_weights && (wgts[b] == 100 * npts);
+        wgts[b] = scale * nwet + land_w * (npts - nwet);
+        cell_count_weights = cell_count_weights && (wgts[b] == scale * npts);
         total_cells += npts;
         total_wet += nwet;
     }
@@ -184,11 +189,12 @@ REMORA::MakeDistributionMap (int lev, BoxArray const& ba)
     }
 
     // How even the result is, by the weights balanced and by cell count
-    std::vector<Long> rank_w(nprocs, 0), rank_c(nprocs, 0);
+    std::vector<Long> rank_w(nprocs, 0), rank_c(nprocs, 0), rank_n(nprocs, 0);
     for (int b = 0; b < ba.size(); ++b) {
         const int r = ParallelContext::global_to_local_rank(dm[b]);
         rank_w[r] += wgts[b];
         rank_c[r] += ba[b].numPts();
+        rank_n[r] += 1;
     }
     auto max_over_mean = [nprocs] (const std::vector<Long>& v) {
         Long tot = 0, mx = 0;
@@ -200,7 +206,9 @@ REMORA::MakeDistributionMap (int lev, BoxArray const& ba)
                    << " boxes, " << total_wet << " of " << total_cells
                    << (known ? " cells wet;" : " cells (mask unknown, all weighed);")
                    << " max/mean rank load " << max_over_mean(rank_w)
-                   << " by weight, " << max_over_mean(rank_c) << " by cell count\n";
+                   << " by weight, " << max_over_mean(rank_c) << " by cell count; boxes per"
+                   << " rank " << *std::min_element(rank_n.begin(), rank_n.end()) << " to "
+                   << *std::max_element(rank_n.begin(), rank_n.end()) << "\n";
     return dm;
 }
 
@@ -228,7 +236,9 @@ REMORA::load_balance_name () const
  * makes. The region is therefore the indicator's cells plus the buffer, rounded out to whole
  * blocks, grown by n_proper + 1 blocks, and then by the coarse stencil of the coarse-fine fills
  * and the flux register. A box touching it is never dropped, so the fine grids, and the coarse
- * data under and around them, are those of the full-domain run.
+ * data under and around them, are those of the full-domain run. Level 1 only: drop_dry_level0_boxes
+ * drops nothing when amr.max_level > 1, since a level-2 indicator grows level 1 by its own
+ * buffer and proper nesting, which this does not follow.
  *
  * @param[  out] unbounded  true when an indicator has no region, so a finer level may go anywhere
  */
@@ -289,11 +299,35 @@ REMORA::drop_dry_level0_boxes (const BoxArray& ba)
     }
 
 #ifdef REMORA_USE_PARTICLES
-    // Tracer particles are seeded over the whole domain, and a particle in a dropped box would
-    // belong to no box. Untested, so not allowed.
-    amrex::Print() << "remora.drop_dry_boxes: built with particles, so no level-0 box is dropped.\n";
-    return ba;
+    constexpr bool with_particles = true;
+#else
+    constexpr bool with_particles = false;
 #endif
+#ifdef REMORA_USE_MOAB
+    constexpr bool with_moab = true;
+#else
+    constexpr bool with_moab = false;
+#endif
+    if (with_particles) {
+        // Tracer particles are seeded over the whole domain, and a particle in a dropped box
+        // would belong to no box. Untested, so not allowed.
+        amrex::Print() << "remora.drop_dry_boxes: built with particles, so no level-0 box is"
+                       << " dropped.\n";
+        return ba;
+    }
+    if (with_moab) {
+        // InitMOABMesh builds its mesh from level 0 and takes it to cover the domain
+        amrex::Print() << "remora.drop_dry_boxes: built with MOAB, so no level-0 box is dropped.\n";
+        return ba;
+    }
+    if (max_level > 1) {
+        // A level-2 indicator makes level 1 grow by its own buffer and proper nesting, and
+        // AMReX would clear the level-1 tags near a hole without a word; the footprint below
+        // covers level 1 only.
+        amrex::Print() << "remora.drop_dry_boxes: amr.max_level > 1, so no level-0 box is"
+                       << " dropped.\n";
+        return ba;
+    }
     if (running_with_coupling_driver) {
         // The driver builds its remap from level 0's layout, which it takes to cover the domain
         amrex::Print() << "remora.drop_dry_boxes: coupled to an atmosphere driver, so no level-0"
@@ -325,6 +359,9 @@ REMORA::drop_dry_level0_boxes (const BoxArray& ba)
         reach.grow(d, geom[0].isPeriodic(d) ? NGROW+1 : 1);
     }
     Vector<int> keep(ba.size(), 0);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mskr); mfi.isValid(); ++mfi) {
         const Real wet = mskr[mfi].max<RunOn::Device>(mfi.fabbox() & reach, 0);
         keep[mfi.index()] = (wet > zero) ? 1 : 0;
@@ -368,6 +405,7 @@ REMORA::drop_dry_level0_boxes (const BoxArray& ba)
 bool
 REMORA::level0_has_holes () const
 {
+    if (grids.empty() || grids[0].empty()) { return false; }
     return grids[0].numPts() != geom[0].Domain().numPts();
 }
 
@@ -508,20 +546,27 @@ REMORA::set_dry_ghost_cells (MultiFab& mf, Real val)
     const Box mb = ba.minimalBox();
     dom.setRange(2, mb.smallEnd(2), mb.length(2));
 
-    Long n = 0;
-    const int nc = mf.nComp();
+    // The hole boxes of every local box first, serially, since this fills the cache
     for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
-        auto it = entry->holes.find(mfi.index());
-        if (it == entry->holes.end()) {
+        if (entry->holes.count(mfi.index()) == 0) {
             Vector<Box> hv;
             const Box fab = mfi.fabbox() & dom;
             if (fab.ok()) {
                 for (const Box& h : ba.complementIn(fab)) { hv.push_back(h); }
             }
-            it = entry->holes.emplace(mfi.index(), std::move(hv)).first;
+            entry->holes.emplace(mfi.index(), std::move(hv));
         }
+    }
+
+    Long n = 0;
+    const int nc = mf.nComp();
+    const auto& holes = entry->holes;
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion()) reduction(+:n)
+#endif
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
         Array4<Real> const& a = mf.array(mfi);
-        for (const Box& h : it->second) {
+        for (const Box& h : holes.at(mfi.index())) {
             n += h.numPts() * nc;
             ParallelFor(h, nc, [=] AMREX_GPU_DEVICE (int i, int j, int k, int c) noexcept
             {

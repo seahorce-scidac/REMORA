@@ -251,11 +251,33 @@ function(add_test_restart TEST_NAME TEST_EXE PLTFILE CHKFILE)
     )
 endfunction(add_test_restart)
 
+# As add_test_restart, but bitwise: every value of the restarted run's plotfile must have the
+# same bit pattern as the continuous run's (remora_subset_compare at zero tolerance).
+function(add_test_restart_exact TEST_NAME TEST_EXE PLTFILE CHKFILE)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} remora.restart=../runA/${CHKFILE} remora.check_int=-1 >> ../${TEST_NAME}.log 2>&1 && cd .. && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_restart_exact)
+
 # Run one input under two sets of options whose layouts may differ -- box-to-rank assignment,
 # or level-0 boxes left out by remora.drop_dry_boxes -- and require the second run to match the
 # first bitwise on every cell of the second run's boxes, which amrex_fcompare cannot do when
 # the BoxArrays differ. PLTFILE is compared, and CHKFILE too (every MultiFab in it) unless it
-# is "none". INPUT_NAME picks the input file, so several tests can share one case.
+# is "none". INPUT_NAME picks the input file, so several tests can share one case. An extra
+# argument is plain text the second run's output must contain, to show the options took effect.
 function(add_test_layout TEST_NAME INPUT_NAME TEST_EXE PLTFILE CHKFILE OPTIONS_A OPTIONS_B)
 
     set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${INPUT_NAME})
@@ -279,7 +301,11 @@ function(add_test_layout TEST_NAME INPUT_NAME TEST_EXE PLTFILE CHKFILE OPTIONS_A
     if(NOT "${CHKFILE}" STREQUAL "none")
         set(CHK_CLAUSE " && ${SUBSET_COMPARE_EXE} --chk runB/${CHKFILE} runA/${CHKFILE}")
     endif()
-    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_A} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_B} >> ../${TEST_NAME}.log 2>&1 && cd .. && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}${CHK_CLAUSE}")
+    set(LOG_CLAUSE "")
+    if(NOT "${ARGN}" STREQUAL "")
+        set(LOG_CLAUSE " && grep -q -- \"${ARGN}\" ${TEST_NAME}.runB.log")
+    endif()
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_A} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_B} > ../${TEST_NAME}.runB.log 2>&1 && cd .. && cat ${TEST_NAME}.runB.log >> ${TEST_NAME}.log && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}${CHK_CLAUSE}${LOG_CLAUSE}")
 
     add_test(${TEST_NAME} ${test_command})
     set_tests_properties(${TEST_NAME}
@@ -878,6 +904,12 @@ add_test_layout(DogboneAnalytic_loadbalance_knapsack DogboneAnalytic_landlayout 
 add_test_layout(DogboneAnalytic_loadbalance_roundrobin DogboneAnalytic_landlayout "remora_exec"
                 "plt00020" "none" "remora.load_balance=amrex"
                 "remora.load_balance=roundrobin remora.load_balance_land_weight=0.25")
+# With land from the west edge on, weighing wet cells alone moves boxes between the two ranks:
+# 11 and 21 instead of AMReX's 16 and 16. The answer must not move with them.
+add_test_layout(DogboneAnalytic_loadbalance_sfc DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" "remora.load_balance=amrex remora.prob.mask_x_lo=-100."
+                "remora.load_balance=sfc remora.load_balance_land_weight=0 remora.prob.mask_x_lo=-100."
+                "boxes per rank 11 to 21")
 add_test_layout(DogboneAnalytic_drop DogboneAnalytic_landlayout "remora_exec"
                 "plt00020" "chk00020" "" "remora.drop_dry_boxes=true")
 add_test_layout(DogboneAnalytic_MLdrop DogboneAnalytic_MLlandlayout "remora_exec"
@@ -885,7 +917,7 @@ add_test_layout(DogboneAnalytic_MLdrop DogboneAnalytic_MLlandlayout "remora_exec
 add_test_layout(DogboneAnalytic_drop_ghosts DogboneAnalytic_landlayout "remora_exec"
                 "plt00020" "none" ""
                 "remora.drop_dry_boxes=true remora.dry_ghost_test=2 remora.dry_ghost_value=7")
-add_test_restart(DogboneAnalytic_drop_restart "remora_exec" "plt00010" "chk00005")
+add_test_restart_exact(DogboneAnalytic_drop_restart "remora_exec" "plt00010" "chk00005")
 
 #=============================================================================
 # Boxes hold whole water columns. A small amr.max_grid_size cuts the domain in x and y only,
