@@ -142,6 +142,48 @@ NCTimeSeries::NCTimeSeries (const amrex::Vector<std::string>& a_file_names, cons
     time_ref = a_time_ref;
 }
 
+NCTimeSeries::SourceGridKind
+NCTimeSeries::source_grid (const amrex::Vector<std::string>& a_file_names,
+                           const std::string& a_field_name, const amrex::Box& a_domain,
+                           amrex::IndexType ixtype, bool a_is2d)
+{
+    // Per file: 0 model grid (or missing, for Initialize to report), 1 uniform, 2 lat-lon.
+    // The same rule Initialize applies: a shape other than the model grid's, or CF
+    // longitude and latitude axes on the last two dimensions, mark a lat-lon grid.
+    bool any_latlon = false, all_uniform = true;
+    for (const auto& file_name : a_file_names) {
+        int kind = 0;
+        {
+            auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
+            ncmpi_begin_indep_data(ncf.ncid);
+            if (amrex::ParallelDescriptor::IOProcessor() && ncf.has_var(a_field_name)) {
+                const auto var = ncf.var(a_field_name);
+                if (var.ndim() == 1) {
+                    kind = 1;
+                } else if (var.ndim() == (a_is2d ? 3 : 4) &&
+                           !matches_native_shape(var.shape(), native_spatial_shape(a_domain, ixtype, a_is2d))) {
+                    kind = 2;
+                }
+            }
+            ncf.close();
+            amrex::ParallelDescriptor::Bcast(&kind, 1, amrex::ParallelDescriptor::IOProcessorNumber());
+        }
+        if (kind == 0 && LatLonRegrid::has_latlon_axes(file_name, a_field_name)) { kind = 2; }
+        any_latlon = any_latlon || kind == 2;
+        all_uniform = all_uniform && kind == 1;
+    }
+    if (any_latlon) { return SourceGridKind::latlon; }
+    return (all_uniform && !a_file_names.empty()) ? SourceGridKind::uniform : SourceGridKind::model;
+}
+
+bool
+NCTimeSeries::spatially_uniform () const
+{
+    return !file_is_spatially_uniform.empty() &&
+           std::all_of(file_is_spatially_uniform.begin(), file_is_spatially_uniform.end(),
+                       [] (int u) { return u != 0; });
+}
+
 void NCTimeSeries::Initialize() {
     // open file
     amrex::Print() << "Loading " << field_name << " from NetCDF file(s)" << std::endl;

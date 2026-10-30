@@ -1310,6 +1310,30 @@ public:
     /** \brief Initialize or calculate wind speed and other surface state vars from file or analytic */
     void set_surface_state (int lev);
 
+#ifdef REMORA_USE_NETCDF
+    /** \brief Make or remake the rho-point stress arrays of a level */
+    void ensure_stress_rho_arrays (int lev);
+#endif
+
+    /** \brief Rotate a vector given as east and north components on rho points onto the
+     *         grid's xi and eta axes, in place, over the valid cells and first ghost cell */
+    void rotate_to_grid_axes (amrex::MultiFab& u_east, amrex::MultiFab& v_north,
+                              const amrex::MultiFab& angle);
+
+#ifdef REMORA_USE_NETCDF
+    /** \brief Whether the winds come from a lat-lon file and are to be rotated; the other
+     *         component then comes from one too, or is uniform (checked at startup) */
+    bool winds_need_rotation () const {
+        return frc_regrid_options.rotate &&
+               ((Uwind_data_from_file && Uwind_data_from_file->regridded()) ||
+                (Vwind_data_from_file && Vwind_data_from_file->regridded()));
+    }
+#endif
+
+    /** \brief Average rho-point stress components to the u and v faces */
+    void average_stress_to_faces (int lev, const amrex::MultiFab& tau_xi_rho,
+                                  const amrex::MultiFab& tau_eta_rho);
+
     /** \brief Initialize horizontal mixing coefficients */
     void set_hmixcoef (int lev);
 
@@ -1657,6 +1681,13 @@ private:
     std::unique_ptr<NCTimeSeries> sustr_data_from_file;
     /** \brief Data container for v-component surface momentum flux read from file */
     std::unique_ptr<NCTimeSeries> svstr_data_from_file;
+    /** \brief Surface stress from a lat-lon file, east and north components on rho points
+     *  before it is rotated onto the grid and averaged to the u and v faces; one per level,
+     *  unallocated when the stress file is on the model grid */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sustr_rho;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_svstr_rho;
+    /** \brief Whether the surface stress is read on rho points, from a lat-lon grid */
+    bool stress_on_rho = false;
     /** \brief Data container for u-direction wind read from file */
     std::unique_ptr<NCTimeSeries> Uwind_data_from_file;
     /** \brief Data container for v-direction wind read from file */

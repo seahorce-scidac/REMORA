@@ -34,6 +34,23 @@ class NCTimeSeries
          *         on the model grid */
         bool regridded () const { return regrid != nullptr; }
 
+        /** \brief Whether every file stores the field as one value per time */
+        bool spatially_uniform () const;
+
+        /** \brief Where a series' files store a field */
+        enum class SourceGridKind {
+            model,    ///< on the model grid at the given index type (some files may be uniform)
+            uniform,  ///< one value per time in every file
+            latlon    ///< on a lat-lon grid in at least one file
+        };
+
+        /** \brief Classify the files of a series, by the rule Initialize applies to each.
+         *         A variable that is missing counts as on the model grid, so that Initialize
+         *         reports it. Collective. */
+        static SourceGridKind source_grid (const amrex::Vector<std::string>& file_names,
+                                           const std::string& field_name, const amrex::Box& domain,
+                                           amrex::IndexType ixtype, bool is2d);
+
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
 
