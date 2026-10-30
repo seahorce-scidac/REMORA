@@ -175,35 +175,10 @@ private:
 void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
                              MultiFab const* mf_omega, MultiFab const* mf_wvel) {
     // A refined level is written to its own file, _d02 and up, the way ROMS names a nested
-    // grid. Its dimensions come from boxes_at_level, so a level covering nx by ny cells gets
-    // xi_rho = nx+2, xi_u = nx+1 and so on, exactly as ROMS shapes a child grid.
-    int which_subdomain = 0;
+    // grid. Its dimensions come from netcdf_subdomain, so a level covering nx by ny cells
+    // gets xi_rho = nx+2, xi_u = nx+1 and so on, exactly as ROMS shapes a child grid.
     int which_step_in_chunk = -1;
-
-    // Create filename
-    std::string plt_string;
-    std::string plotfilename;
-    if (REMORA::write_history_file) {
-        plotfilename = plot_file_name + "_his";
-    } else {
-        plotfilename = Concatenate(plot_file_name, which_step, file_min_digits);
-    }
-    // If chunking, concatenate with which file we're in
-    if (REMORA::write_history_file and REMORA::chunk_history_file) {
-        int which_chunk = history_count / REMORA::steps_per_history_file;
-        plotfilename = Concatenate(plotfilename, which_chunk, file_min_digits);
-        which_step_in_chunk = history_count - which_chunk * REMORA::steps_per_history_file;
-    }
-
-    // Set the full IO path for NetCDF output
-    std::string FullPath = plotfilename;
-    if (lev == 0) {
-        const std::string &extension = amrex::Concatenate("_d", lev + 1, 2);
-        FullPath += extension + ".nc";
-    } else {
-        const std::string &extension = amrex::Concatenate("_d", lev + 1 + which_subdomain, 2);
-        FullPath += extension + ".nc";
-    }
+    const std::string FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk);
 
     //
     // Check if this file/directory already exists and if so,
@@ -232,6 +207,7 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
         if (history_file_in_use.size() <= lev) {
             history_file_in_use.resize(lev+1);
             history_record_shift.resize(lev+1, 0);
+            history_extent.resize(lev+1);
         }
         const long long record = chunk_history_file
                                ? history_count % steps_per_history_file
@@ -241,6 +217,7 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
         // run continues an existing file at the restart time, else starts at 0.
         if (FullPath != history_file_in_use[lev]) {
             history_file_in_use[lev] = FullPath;
+            history_extent[lev] = netcdf_subdomain(lev);
             long long start = record;
             if (!restart_chkfile.empty()) {
                 start = amrex::FileExists(FullPath)
@@ -257,7 +234,7 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
 
         amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
 
-        WriteNCPlotFile_which(lev, which_subdomain, plotMF, mf_omega, mf_wvel, write_header, ncf,
+        WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, write_header, ncf,
                               is_history, record - history_record_shift[lev]);
 
     } else {
@@ -269,7 +246,64 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
         auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
         amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << std::endl;
 
-        WriteNCPlotFile_which(lev, which_subdomain, plotMF, mf_omega, mf_wvel, write_header, ncf, is_history);
+        WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, write_header, ncf, is_history);
+    }
+}
+
+/**
+ * The NetCDF file a level's output goes to at this output step.
+ *
+ * @param which_step              step being written, naming the file when each output
+ *                                step gets its own
+ * @param lev                     level being written
+ * @param[out] which_step_in_chunk  record within a chunked history file, else -1
+ * @return                        path of the file
+ */
+std::string REMORA::netcdf_plot_path (int which_step, int lev, int& which_step_in_chunk) const
+{
+    which_step_in_chunk = -1;
+    std::string plotfilename;
+    if (REMORA::write_history_file) {
+        plotfilename = plot_file_name + "_his";
+    } else {
+        plotfilename = Concatenate(plot_file_name, which_step, file_min_digits);
+    }
+    // If chunking, concatenate with which file we're in
+    if (REMORA::write_history_file and REMORA::chunk_history_file) {
+        int which_chunk = history_count / REMORA::steps_per_history_file;
+        plotfilename = Concatenate(plotfilename, which_chunk, file_min_digits);
+        which_step_in_chunk = history_count - which_chunk * REMORA::steps_per_history_file;
+    }
+    return plotfilename + amrex::Concatenate("_d", lev + 1, 2) + ".nc";
+}
+
+/**
+ * Abort before anything is written if a level would add a record to a history file
+ * holding a different extent: field-based tagging moves a refined level when it
+ * regrids, and a file has one extent.
+ *
+ * @param which_step   step being written
+ */
+void REMORA::check_netcdf_history_extents (int which_step) const
+{
+    if (!write_history_file) {
+        return;
+    }
+    for (int lev = 1; lev <= finest_level; ++lev) {
+        if (lev >= static_cast<int>(history_file_in_use.size())) {
+            break;
+        }
+        int which_step_in_chunk;
+        const std::string path = netcdf_plot_path(which_step, lev, which_step_in_chunk);
+        const Box now = netcdf_subdomain(lev);
+        if (path == history_file_in_use[lev] && now != history_extent[lev]) {
+            std::ostringstream msg;
+            msg << "Level " << lev << " now covers " << now << ", but its NetCDF history file "
+                << path << " holds " << history_extent[lev] << ". A history file has one extent"
+                << " per level; set remora.write_history_file = false to write a file per"
+                << " output step, or fix the level with a static refinement box.";
+            Abort(msg.str());
+        }
     }
 }
 
@@ -340,7 +374,6 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
 
 /**
  * @param lev               level of data to output
- * @param which_subdomain   index of subdomain if lev != 0
  * @param plotMF            cell-centered plot variables at this level
  * @param mf_omega          omega at w points, or nullptr when it is not plotted
  * @param mf_wvel           w at w points, or nullptr when it is not plotted
@@ -349,7 +382,7 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
  * @param is_history        whether the file being written is a history file
  * @param history_record    record of the history file to write to
  */
-void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const* plotMF,
+void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
                                    MultiFab const* mf_omega, MultiFab const* mf_wvel,
                                    bool write_header, ncutils::NCFile &ncf,
                                    bool is_history, long long history_record)
@@ -360,7 +393,23 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     // One level per file, so the geometry records below describe just this level.
     int flev = lev + 1;
 
-    const Box subdomain = netcdf_subdomain(lev, which_subdomain);
+    const Box subdomain = netcdf_subdomain(lev);
+
+    // Where a refined level's grids leave gaps in the file's rectangle, the cells there
+    // are never written, so every variable there, the masks included, holds the fill
+    // value. PnetCDF fills fixed-size variables when the header is written and records
+    // only on request, below. The grid variables and masks of every refined level get
+    // a _FillValue, since a history file's later records may have gaps its first
+    // didn't; level 0, which has none, keeps them without.
+    const bool has_gaps = netcdf_subdomain_has_gaps(lev);
+    auto def_grid_var = [&] (const std::string& name, nc_type dtype,
+                             const std::vector<std::string>& dims) {
+        if (lev > 0) {
+            ncf.def_var_fill(name, dtype, dims, &netcdf_fill_value);
+        } else {
+            ncf.def_var(name, dtype, dims);
+        }
+    };
 
     int nx = subdomain.length(0);
     int ny = subdomain.length(1);
@@ -468,7 +517,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("s_w").put_attr("long_name","S-coordinate at W-points");
         ncf.var("s_w").put_attr("field","s_w, scalar");
 
-        ncf.def_var("pm",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        def_grid_var("pm",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
         ncf.var("pm").put_attr("long_name","curvilinear coordinate metric in XI");
         ncf.var("pm").put_attr("units","meter-1");
         ncf.var("pm").put_attr("grid","grid");
@@ -476,7 +525,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("pm").put_attr("coordinates","x_rho y_rho");
         ncf.var("pm").put_attr("field","pm, scalar");
 
-        ncf.def_var("pn",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        def_grid_var("pn",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
         ncf.var("pn").put_attr("long_name","curvilinear coordinate metric in ETA");
         ncf.var("pn").put_attr("units","meter-1");
         ncf.var("pn").put_attr("grid","grid");
@@ -484,7 +533,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("pn").put_attr("coordinates","x_rho y_rho");
         ncf.var("pn").put_attr("field","pn, scalar");
 
-        ncf.def_var("f",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        def_grid_var("f",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
         ncf.var("f").put_attr("long_name","Coriolis parameter at RHO-points");
         ncf.var("f").put_attr("units","second-1");
         ncf.var("f").put_attr("grid","grid");
@@ -492,12 +541,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("f").put_attr("coordinates","x_rho y_rho");
         ncf.var("f").put_attr("field","coriolis, scalar");
 
-        ncf.def_var("x_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        def_grid_var("x_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
         ncf.var("x_rho").put_attr("long_name","x-locations of RHO-points");
         ncf.var("x_rho").put_attr("units","meter");
         ncf.var("x_rho").put_attr("field","x_rho, scalar");
 
-        ncf.def_var("y_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        def_grid_var("y_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
         ncf.var("y_rho").put_attr("long_name","y-locations of RHO-points");
         ncf.var("y_rho").put_attr("units","meter");
         ncf.var("y_rho").put_attr("field","y_rho, scalar");
@@ -505,50 +554,50 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         // Spherical coordinates and rotation angle, as ROMS writes them, when the grid
         // file carried them
         if (vec_lonr[lev] != nullptr) {
-            ncf.def_var("lon_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            def_grid_var("lon_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
             ncf.var("lon_rho").put_attr("long_name","longitude of RHO-points");
             ncf.var("lon_rho").put_attr("units","degree_east");
             ncf.var("lon_rho").put_attr("field","lon_rho, scalar");
 
-            ncf.def_var("lat_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            def_grid_var("lat_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
             ncf.var("lat_rho").put_attr("long_name","latitude of RHO-points");
             ncf.var("lat_rho").put_attr("units","degree_north");
             ncf.var("lat_rho").put_attr("field","lat_rho, scalar");
         }
         if (vec_angler[lev] != nullptr) {
-            ncf.def_var("angle",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            def_grid_var("angle",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
             ncf.var("angle").put_attr("long_name","angle between XI-axis and EAST");
             ncf.var("angle").put_attr("units","radians");
             ncf.var("angle").put_attr("coordinates","x_rho y_rho");
             ncf.var("angle").put_attr("field","angle, scalar");
         }
 
-        ncf.def_var("x_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
+        def_grid_var("x_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
         ncf.var("x_u").put_attr("long_name","x-locations of U-points");
         ncf.var("x_u").put_attr("units","meter");
         ncf.var("x_u").put_attr("field","x_u, scalar");
 
-        ncf.def_var("y_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
+        def_grid_var("y_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
         ncf.var("y_u").put_attr("long_name","y-locations of U-points");
         ncf.var("y_u").put_attr("units","meter");
         ncf.var("y_u").put_attr("field","y_u, scalar");
 
-        ncf.def_var("x_v",ncutils::NCDType::Real, {ny_v_name, nx_v_name});
+        def_grid_var("x_v",ncutils::NCDType::Real, {ny_v_name, nx_v_name});
         ncf.var("x_v").put_attr("long_name","x-locations of V-points");
         ncf.var("x_v").put_attr("units","meter");
         ncf.var("x_v").put_attr("field","x_v, scalar");
 
-        ncf.def_var("y_v",ncutils::NCDType::Real, {ny_v_name, nx_v_name});
+        def_grid_var("y_v",ncutils::NCDType::Real, {ny_v_name, nx_v_name});
         ncf.var("y_v").put_attr("long_name","y-locations of V-points");
         ncf.var("y_v").put_attr("units","meter");
         ncf.var("y_v").put_attr("field","y_v, scalar");
 
-        ncf.def_var("x_psi",ncutils::NCDType::Real, {ny_p_name, nx_p_name});
+        def_grid_var("x_psi",ncutils::NCDType::Real, {ny_p_name, nx_p_name});
         ncf.var("x_psi").put_attr("long_name","x-locations of PSI-points");
         ncf.var("x_psi").put_attr("units","meter");
         ncf.var("x_psi").put_attr("field","x_psi, scalar");
 
-        ncf.def_var("y_psi",ncutils::NCDType::Real, {ny_p_name, nx_p_name});
+        def_grid_var("y_psi",ncutils::NCDType::Real, {ny_p_name, nx_p_name});
         ncf.var("y_psi").put_attr("long_name","y-locations of PSI-points");
         ncf.var("y_psi").put_attr("units","meter");
         ncf.var("y_psi").put_attr("field","y_psi, scalar");
@@ -586,7 +635,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("Cs_w").put_attr("valid_max",std::vector({zero}));
         ncf.var("Cs_w").put_attr("field","Cs_w, scalar");
 
-        ncf.def_var("h", ncutils::NCDType::Real, { ny_r_name, nx_r_name });
+        def_grid_var("h", ncutils::NCDType::Real, { ny_r_name, nx_r_name });
         ncf.var("h").put_attr("long_name","bathymetry at RHO-points");
         ncf.var("h").put_attr("units","meter");
         ncf.var("h").put_attr("grid","grid");
@@ -725,7 +774,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("vbar").put_attr("coordinates","x_v y_v ocean_time");
         ncf.var("vbar").put_attr("field","vbar-velocity, scalar, series");
 
-        ncf.def_var("sustr", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
+        def_grid_var("sustr", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
         ncf.var("sustr").put_attr("long_name","surface u-momentum stress");
         ncf.var("sustr").put_attr("units","newton meter-2");
         ncf.var("sustr").put_attr("time","ocean_time");
@@ -734,7 +783,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("sustr").put_attr("coordinates","x_u y_u ocean_time");
         ncf.var("sustr").put_attr("field","surface u-momentum stress, scalar, series");
 
-        ncf.def_var("svstr", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
+        def_grid_var("svstr", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
         ncf.var("svstr").put_attr("long_name","surface v-momentum stress");
         ncf.var("svstr").put_attr("units","newton meter-2");
         ncf.var("svstr").put_attr("time","ocean_time");
@@ -743,19 +792,19 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("svstr").put_attr("coordinates","x_v y_v ocean_time");
         ncf.var("svstr").put_attr("field","surface v-momentum stress, scalar, series");
 
-        ncf.def_var("mask_rho", ncutils::NCDType::Real, { nt_name, ny_r_name, nx_r_name });
+        def_grid_var("mask_rho", ncutils::NCDType::Real, { nt_name, ny_r_name, nx_r_name });
         ncf.var("mask_rho").put_attr("long_name","mask on RHO-points");
         ncf.var("mask_rho").put_attr("time","ocean_time");
         ncf.var("mask_rho").put_attr("flag_values",std::vector({Real(0.0),Real(1.0)}));
         ncf.var("mask_rho").put_attr("flag_meanings","land water");
 
-        ncf.def_var("mask_u", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
+        def_grid_var("mask_u", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
         ncf.var("mask_u").put_attr("long_name","mask on U-points");
         ncf.var("mask_u").put_attr("time","ocean_time");
         ncf.var("mask_u").put_attr("flag_values",std::vector({Real(0.0),Real(1.0)}));
         ncf.var("mask_u").put_attr("flag_meanings","land water");
 
-        ncf.def_var("mask_v", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
+        def_grid_var("mask_v", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
         ncf.var("mask_v").put_attr("long_name","mask on V-points");
         ncf.var("mask_v").put_attr("time","ocean_time");
         ncf.var("mask_v").put_attr("flag_values",std::vector({Real(0.0),Real(1.0)}));
@@ -784,7 +833,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 
         if (solverChoice.output_forcing) {
             // Surface air temperature (Celsius)
-            ncf.def_var("Tair", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("Tair", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("Tair").put_attr("long_name","surface air temperature");
             ncf.var("Tair").put_attr("units","Celsius");
             ncf.var("Tair").put_attr("time","ocean_time");
@@ -794,7 +843,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("Tair").put_attr("field","Tair, scalar, series");
 
             // Surface air pressure (Pascal)
-            ncf.def_var("Pair", ncutils::NCDType::Real,{ nt_name, ny_r_name, nx_r_name });
+            def_grid_var("Pair", ncutils::NCDType::Real,{ nt_name, ny_r_name, nx_r_name });
             ncf.var("Pair").put_attr("long_name","surface air pressure");
             ncf.var("Pair").put_attr("units","Pascal");
             ncf.var("Pair").put_attr("time","ocean_time");
@@ -804,7 +853,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("Pair").put_attr("field","Pair, scalar, series");
 
             // Surface net heat flux (W/m2)
-            ncf.def_var("qnet", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("qnet", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("qnet").put_attr("long_name","surface net heat flux");
             ncf.var("qnet").put_attr("units","watt meter-2");
             ncf.var("qnet").put_attr("time","ocean_time");
@@ -814,7 +863,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("qnet").put_attr("field","surface heat flux, scalar, series");
 
             // Surface net salt flux (kinematic)
-            ncf.def_var("ssflux", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("ssflux", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("ssflux").put_attr("long_name","kinematic surface net salt flux, SALT*(E-P)/rhow");
             ncf.var("ssflux").put_attr("units","meter second-1");
             ncf.var("ssflux").put_attr("time","ocean_time");
@@ -824,7 +873,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("ssflux").put_attr("field","surface net salt flux, scalar, series");
 
             // Latent heat flux (W/m2)
-            ncf.def_var("latent", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("latent", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("latent").put_attr("long_name","net latent heat flux");
             ncf.var("latent").put_attr("units","watt meter-2");
             ncf.var("latent").put_attr("time","ocean_time");
@@ -834,7 +883,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("latent").put_attr("field","latent heat flux, scalar, series");
 
             // Sensible heat flux (W/m2)
-            ncf.def_var("sensible", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("sensible", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("sensible").put_attr("long_name","net sensible heat flux");
             ncf.var("sensible").put_attr("units","watt meter-2");
             ncf.var("sensible").put_attr("time","ocean_time");
@@ -844,7 +893,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("sensible").put_attr("field","sensible heat flux, scalar, series");
 
             // Longwave radiation (W/m2)
-            ncf.def_var("lwrad", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("lwrad", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("lwrad").put_attr("long_name","net longwave radiation flux");
             ncf.var("lwrad").put_attr("units","watt meter-2");
             ncf.var("lwrad").put_attr("time","ocean_time");
@@ -854,7 +903,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("lwrad").put_attr("field","longwave radiation, scalar, series");
 
             // Shortwave radiation (W/m2)
-            ncf.def_var("swrad", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("swrad", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("swrad").put_attr("long_name","solar shortwave radiation flux");
             ncf.var("swrad").put_attr("units","watt meter-2");
             ncf.var("swrad").put_attr("time","ocean_time");
@@ -864,7 +913,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("swrad").put_attr("field","shortwave radiation, scalar, series");
 
             // Evaporation rate (kg m-2 s-1)
-            ncf.def_var("evaporation", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("evaporation", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("evaporation").put_attr("long_name","evaporation rate");
             ncf.var("evaporation").put_attr("units","kilogram meter-2 second-1");
             ncf.var("evaporation").put_attr("time","ocean_time");
@@ -874,7 +923,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("evaporation").put_attr("field","evaporation, scalar, series");
 
             // Rain rate (kg m-2 s-1)
-            ncf.def_var("rain", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("rain", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("rain").put_attr("long_name","rain fall rate");
             ncf.var("rain").put_attr("units","kilogram meter-2 second-1");
             ncf.var("rain").put_attr("time","ocean_time");
@@ -989,6 +1038,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         const long long nt_count = amrex::ParallelDescriptor::IOProcessor() ? local_nt : 0;
         ncf.var("ocean_time").put_all(&ocean_time, { local_start_nt }, { nt_count });
     }
+    if (has_gaps) {
+        ncf.fill_record(local_start_nt);
+    }
 
     // Check whether there are any nans or infs in variables that we will write out
     if (vec_Zt_avg1[lev]->contains_nan() || vec_Zt_avg1[lev]->contains_inf()) {
@@ -1069,8 +1121,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2] - subdomain.smallEnd()[2]);
 
             if (write_header) {
-                // Only write out s_rho and s_w at x=0,y=0 to avoid NaNs
-                if (bx.contains(subdomain.smallEnd()))
+                // The vertical coordinates are written once, by the rank owning the
+                // first grid: no grid need hold the file's corner when the level has gaps
+                if (mfi.index() == 0)
                 {
                     {
                         amrex::Vector<amrex::Real> tmp_srho(local_nz);

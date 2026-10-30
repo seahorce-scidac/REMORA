@@ -184,12 +184,12 @@ REMORA::WritePlotFile (int istep_for_plot)
         FillPatchNoBC(lev, t_new[lev], *vec_diff2[lev],   GetVecOfPtrs(vec_diff2),   BdyVars::null,0,true,false);
     }
 
+#ifdef REMORA_USE_NETCDF
     // Check every level can be written before any file is moved aside or started
     if (plotfile_type == PlotfileType::netcdf) {
-        for (int lev = 0; lev <= finest_level; ++lev) {
-            netcdf_subdomain(lev);
-        }
+        check_netcdf_history_extents(istep_for_plot);
     }
+#endif
 
     // omega and w are built from u and v, so they have to be computed before the land
     // faces of u and v are overwritten with the fill value below
@@ -814,7 +814,6 @@ REMORA::WritePlotFile (int istep_for_plot)
     else if (plotfile_type == PlotfileType::netcdf)
     {
         // Each level goes to its own file: level 0 to _d01, a refined level to _d02 and up.
-        // A level with more than one box is not handled; only its first subdomain is written.
         for (int lev = 0; lev <= finest_level; ++lev) {
             plotMF[lev].FillBoundary(geom[lev].periodicity());
             WriteNCPlotFile(istep_for_plot,&plotMF[lev],lev,
@@ -1437,43 +1436,29 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 
 /**
  * The region of a level that its NetCDF output covers: the whole domain on level 0,
- * and on a refined level the box of a refinement indicator whose max_level is that
- * level (in_box_lo/in_box_hi or their _indices forms). The box is stored only at its
- * indicator's max_level, so a level made by field-based tagging, or by a box
- * reaching a finer level, has none. The level's grids must also cover the box, which
- * they don't when a time window has stopped refining it or it only limits where a
- * field-based criterion tags. Either case aborts rather than writing cells the
- * level doesn't hold.
+ * and on a refined level the smallest box holding all of the level's grids, so the
+ * file follows the level however it was made and wherever regridding has moved it.
  *
- * @param lev               level being written
- * @param which_subdomain   which box at that level
- * @return                  the region the NetCDF file covers
+ * @param lev   level being written
+ * @return      the region the NetCDF file covers
  */
 Box
-REMORA::netcdf_subdomain (int lev, int which_subdomain) const
+REMORA::netcdf_subdomain (int lev) const
 {
-    if (lev == 0) {
-        return geom[lev].Domain();
-    }
-    const std::string where = "NetCDF output of level " + std::to_string(lev);
-    const int nbox = static_cast<int>(boxes_at_level[lev].size());
-    if (which_subdomain < 0 || which_subdomain >= nbox) {
-        Abort(where + " covers the box of a refinement indicator with in_box_lo/in_box_hi"
-              " (or their _indices forms) and max_level = " + std::to_string(lev) +
-              ", and there is none. A level made by field-based tagging, or by a box whose"
-              " max_level is a finer level, can't be written to NetCDF; use"
-              " remora.plotfile_type = amrex.");
-    }
-    const Box& bx = boxes_at_level[lev][which_subdomain];
-    if (!grids[lev].contains(bx)) {
-        std::ostringstream msg;
-        msg << where << " covers the refinement box " << bx << ", but the level's grids"
-            << " don't cover all of it: a start_time/end_time window has stopped refining"
-            << " it, or it only limits where a field-based criterion tags. Use"
-            << " remora.plotfile_type = amrex.";
-        Abort(msg.str());
-    }
-    return bx;
+    return (lev == 0) ? geom[lev].Domain() : grids[lev].minimalBox();
+}
+
+/**
+ * Whether a level's grids leave cells of its NetCDF region uncovered, as field-based
+ * tagging of an irregular region does. Those cells are written as the fill value.
+ *
+ * @param lev   level being written
+ * @return      whether the grids miss any cell of netcdf_subdomain(lev)
+ */
+bool
+REMORA::netcdf_subdomain_has_gaps (int lev) const
+{
+    return grids[lev].numPts() != netcdf_subdomain(lev).numPts();
 }
 
 /**
@@ -1528,6 +1513,10 @@ REMORA::compute_omega_and_w (int lev, MultiFab* mf_omega, MultiFab* mf_wvel)
     for (MultiFab* mf : {mf_omega, mf_wvel}) {
         if (mf == nullptr) { continue; }
 
+        // A ghost cell facing a gap in a refined level's grids is neither filled from
+        // a neighbor nor copied below; the writer leaves it out, so it just holds the
+        // fill value
+        mf->setBndry(fill_value);
         mf->FillBoundary(geom[lev].periodicity());
 
 #ifdef _OPENMP
@@ -1535,10 +1524,6 @@ REMORA::compute_omega_and_w (int lev, MultiFab* mf_omega, MultiFab* mf_wvel)
 #endif
         for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
-            // The writer skips grids outside the subdomain, and the clamp below would
-            // reach outside their arrays
-            if (!sub.contains(enclosedCells(mfi.validbox(),2))) { continue; }
-
             Box gbx = mfi.growntilebox(IntVect(1,1,0));
             Array4<Real> const& a = mf->array(mfi);
             Array4<Real const> const& mskr = vec_mskr[lev]->const_array(mfi);

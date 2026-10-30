@@ -297,17 +297,20 @@ Examples of Usage
    *out/plt_run_his00000_d01.nc*; and with ``remora.write_history_file = false``
    there is one file per output step, as in *out/plt_run00010_d01.nc*.
 
-   The region a refined level's NetCDF file covers is taken from the static
-   refinement boxes (``in_box_lo``/``in_box_hi`` or their ``_indices`` forms), not
-   from the level's actual grids, and only the first such box at that level is
-   written. NetCDF output of a refined level therefore requires the level to be
-   defined by a static box, given by an indicator whose ``max_level`` is that
-   level, and the level's grids must cover the whole box. A write aborts the run
-   otherwise: for a level created only by field-based tagging, for a level created
-   by a box whose ``max_level`` is a finer level, for a box that only limits where a
-   field-based criterion tags, and for a box that a ``start_time``/``end_time``
-   window has stopped refining. Cells that field-based tagging adds to a level
-   outside its first static box are not written.
+   A refined level's NetCDF file covers the smallest rectangle holding all of the
+   level's grids, however the level was made: by static refinement boxes, by
+   field-based tagging, or both. Cells of that rectangle the grids don't cover,
+   as when field-based tagging refines an irregular region, hold the fill value
+   ``remora.netcdf_fill_value`` in every variable, the masks included, so they
+   read as missing rather than as land. The grid variables and masks of a refined
+   level carry a ``_FillValue`` attribute for this reason; level 0's do not.
+
+   A history file holds one extent per level, while regridding can move a level
+   made by field-based tagging. A write that would add a record of a different
+   extent to a level's history file aborts the run, before any file is written for
+   that step. Set ``remora.write_history_file = false`` to write a file per output
+   step instead, or fix the level with a static refinement box. A new history
+   chunk (``remora.chunk_history_file = true``) may start at a new extent.
 
 -  **remora.plot_nodal_data** = *false*
 
