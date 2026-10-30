@@ -2037,9 +2037,10 @@ private:
     int history_count = 0;
     /** \brief Per level, the history file this run last wrote to */
     amrex::Vector<std::string> history_file_in_use;
-    /** \brief Per level, history_count minus the record written in the file in
-     *  use. Nonzero only after a restart. */
-    amrex::Vector<long long> history_record_shift;
+    /** \brief Per level, the next record to write in the history file in use. A
+     *  level counts its own records, since a level made by tagging may appear,
+     *  vanish and reappear while history_count counts every output. */
+    amrex::Vector<long long> history_next_record;
     /** \brief Per level, the region of the history file in use */
     amrex::Vector<amrex::Box> history_extent;
 

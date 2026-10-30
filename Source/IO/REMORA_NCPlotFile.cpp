@@ -206,25 +206,33 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
 
         if (history_file_in_use.size() <= lev) {
             history_file_in_use.resize(lev+1);
-            history_record_shift.resize(lev+1, 0);
+            history_next_record.resize(lev+1, 0);
             history_extent.resize(lev+1);
         }
-        const long long record = chunk_history_file
-                               ? history_count % steps_per_history_file
-                               : history_count;
 
-        // On the first write to a file, fix where its records start. A restarted
-        // run continues an existing file at the restart time, else starts at 0.
+        // On this run's first write to a file, fix where its records start. A
+        // restarted run continues an existing file at the restart time. Otherwise
+        // any file already there is from an earlier run, as when a refined level
+        // first appears after the first output, and is moved aside.
         if (FullPath != history_file_in_use[lev]) {
             history_file_in_use[lev] = FullPath;
             history_extent[lev] = netcdf_subdomain(lev);
-            long long start = record;
-            if (!restart_chkfile.empty()) {
-                start = amrex::FileExists(FullPath)
-                      ? history_restart_record(lev, FullPath) : 0;
+            long long start = 0;
+            if (!restart_chkfile.empty() && amrex::FileExists(FullPath)) {
+                start = history_restart_record(lev, FullPath);
+            } else {
+                if (amrex::ParallelDescriptor::IOProcessor() && amrex::FileExists(FullPath)) {
+                    std::string newoldname(FullPath + ".old." + amrex::UniqueString());
+                    amrex::Print() << "WriteNCPlotFile:  " << FullPath << " exists.  Renaming to:  " << newoldname << std::endl;
+                    if (std::rename(FullPath.c_str(), newoldname.c_str())) {
+                        amrex::Abort("WriteNCPlotfile:: std::rename failed");
+                    }
+                }
+                ParallelDescriptor::Barrier();
             }
-            history_record_shift[lev] = record - start;
+            history_next_record[lev] = start;
         }
+        const long long record = history_next_record[lev]++;
         bool write_header = !(amrex::FileExists(FullPath));
 
         auto ncf =
@@ -235,7 +243,7 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
         amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
 
         WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, write_header, ncf,
-                              is_history, record - history_record_shift[lev]);
+                              is_history, record);
 
     } else {
 
@@ -397,14 +405,17 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
 
     // Where a refined level's grids leave gaps in the file's rectangle, the cells there
     // are never written, so every variable there, the masks included, holds the fill
-    // value. PnetCDF fills fixed-size variables when the header is written and records
-    // only on request, below. The grid variables and masks of every refined level get
-    // a _FillValue, since a history file's later records may have gaps its first
-    // didn't; level 0, which has none, keeps them without.
+    // value. PnetCDF fills fixed-size variables when the header is written, which costs
+    // a pass over each, so they get a _FillValue only when this level has gaps; they
+    // are written with the header, so later records don't matter. Records are filled
+    // only on request, below, so the record variables of every refined level get one,
+    // since a history file's later records may have gaps its first didn't. Level 0,
+    // which has none, keeps them without.
     const bool has_gaps = netcdf_subdomain_has_gaps(lev);
     auto def_grid_var = [&] (const std::string& name, nc_type dtype,
                              const std::vector<std::string>& dims) {
-        if (lev > 0) {
+        const bool is_record = !dims.empty() && dims[0] == "ocean_time";
+        if (is_record ? lev > 0 : has_gaps) {
             ncf.def_var_fill(name, dtype, dims, &netcdf_fill_value);
         } else {
             ncf.def_var(name, dtype, dims);
@@ -419,7 +430,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
     n_cells.push_back(ny);
     n_cells.push_back(nz);
 
-    const std::string nt_name = "ocean_time";
+    const std::string nt_name = "ocean_time";  // also named in def_grid_var above
     const std::string ndim_name = "num_geo_dimensions";
 
     const std::string flev_name = "FINEST_LEVEL";
