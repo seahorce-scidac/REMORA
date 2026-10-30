@@ -1810,6 +1810,7 @@ REMORA::set_smflux(int lev)
     }
 }
 
+#ifdef REMORA_USE_NETCDF
 /**
  * The rho-point stress arrays of a level, laid out like its rho points, which a regrid may
  * have changed since they were last made.
@@ -1829,6 +1830,7 @@ REMORA::ensure_stress_rho_arrays (int lev)
         }
     }
 }
+#endif
 
 /**
  * The xi axis is at angle a from east, counterclockwise (ROMS's `angle`), so a vector with

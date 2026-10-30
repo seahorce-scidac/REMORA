@@ -1307,8 +1307,10 @@ public:
     /** \brief Initialize or calculate wind speed and other surface state vars from file or analytic */
     void set_surface_state (int lev);
 
+#ifdef REMORA_USE_NETCDF
     /** \brief Make or remake the rho-point stress arrays of a level */
     void ensure_stress_rho_arrays (int lev);
+#endif
 
     /** \brief Rotate a vector given as east and north components on rho points onto the
      *         grid's xi and eta axes, in place, over the valid cells and first ghost cell */
