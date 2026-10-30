@@ -28,6 +28,11 @@ The CPU job also runs the baseline with `remora.omp_tile_size=1024000 16 1024000
 apart, and `-T "8x8 16x16 j8 none"` adds runs of every revision at those tile sizes
 (`AxB` columns, `jN` rows, `iN` columns, `none` untiled) for a tile-size scan. The summary
 prints `IDENTICAL` or the largest relative difference `fcompare` reported.
+Every CPU build, the baseline included, is compiled with `-ffp-contract=off` (`-F fast` to
+allow FMA fusion in all of them instead), so a baseline that predates REMORA's default does
+not differ at roundoff for that reason alone. A source tree that is reused for another
+revision or another build command is cleaned first, since GNU make does not rebuild
+objects when only flags or makefiles change.
 Any number of revisions can be compared: `-r "base:c8bc0b8 p1:perf-phase1-omp p2:perf-phase2"`
 builds each (the first is the baseline the others are compared with) and
 runs them back to back in every configuration; `-b`/`-n` are the two-revision shorthand,
