@@ -252,7 +252,7 @@ function(add_test_restart TEST_NAME TEST_EXE PLTFILE CHKFILE)
 endfunction(add_test_restart)
 
 # Run one input under two sets of options whose layouts may differ -- box-to-rank assignment,
-# or a BoxArray that leaves part of the domain out -- and require the second run to match the
+# or level-0 boxes left out by remora.drop_dry_boxes -- and require the second run to match the
 # first bitwise on every cell of the second run's boxes, which amrex_fcompare cannot do when
 # the BoxArrays differ. PLTFILE is compared, and CHKFILE too (every MultiFab in it) unless it
 # is "none". INPUT_NAME picks the input file, so several tests can share one case.
@@ -863,6 +863,12 @@ add_test_equiv(DogboneAnalytic_MLmaskring_periodic DogboneAnalytic_MLmaskring_pe
 #=============================================================================
 # Land layout. Which rank owns a box never changes the answer, so every remora.load_balance
 # strategy, weighting boxes by their wet cells, must reproduce AMReX's own mapping bitwise.
+# Leaving out the level-0 boxes that are land over their whole footprint
+# (remora.drop_dry_boxes) must leave every kept cell -- the plotted fields and every field in
+# the checkpoint -- bitwise as the full layout has it: on one level; with a nest near the coast
+# made at a regrid; with the ghost cells no exchange fills overwritten (they reach only land,
+# so the plotted fields still agree, though the land-face tendencies in the checkpoint do
+# not); and across a restart, which keeps the checkpoint's BoxArray.
 #=============================================================================
 
 add_test_layout(DogboneAnalytic_loadbalance_knapsack DogboneAnalytic_landlayout "remora_exec"
@@ -871,6 +877,14 @@ add_test_layout(DogboneAnalytic_loadbalance_knapsack DogboneAnalytic_landlayout 
 add_test_layout(DogboneAnalytic_loadbalance_roundrobin DogboneAnalytic_landlayout "remora_exec"
                 "plt00020" "none" "remora.load_balance=amrex"
                 "remora.load_balance=roundrobin remora.load_balance_land_weight=0.25")
+add_test_layout(DogboneAnalytic_drop DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "chk00020" "" "remora.drop_dry_boxes=true")
+add_test_layout(DogboneAnalytic_MLdrop DogboneAnalytic_MLlandlayout "remora_exec"
+                "plt00008" "chk00008" "" "remora.drop_dry_boxes=true")
+add_test_layout(DogboneAnalytic_drop_ghosts DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" ""
+                "remora.drop_dry_boxes=true remora.dry_ghost_test=2 remora.dry_ghost_value=7")
+add_test_restart(DogboneAnalytic_drop_restart "remora_exec" "plt00010" "chk00005")
 
 #=============================================================================
 # Performance tests

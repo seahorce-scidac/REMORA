@@ -674,11 +674,12 @@ List of Parameters
 
 .. _sec:LandLayout:
 
-Land Layout: Load Balance
--------------------------
+Land Layout: Load Balance and Dry Boxes
+---------------------------------------
 
-The mask can also weigh the boxes of a level when they are assigned to ranks. This never
-changes the answer, only which rank holds a box (see :ref:`PerformanceTuning`).
+Two options use the mask to lay a level out over the ranks. Neither changes the answer: the
+first only moves boxes between ranks, and the second leaves out boxes no water cell can reach
+(see :ref:`PerformanceTuning` for when they pay).
 
 ``remora.load_balance`` chooses how boxes are assigned to ranks, for every new layout: at
 initialization, at each regrid, for a level made from a coarser one, and on restart. Each box
@@ -690,9 +691,32 @@ is AMReX's own mapping (its ``DistributionMapping.strategy``, by default the spa
 curve, weighted by cell count). A land weight of 1 weighs every box by its cell count, so the
 default, ``sfc`` with a land weight of 1, is exactly AMReX's mapping and reads no mask for it.
 REMORA computes land cells as fully as wet ones -- the masks are multiplications, not branches
--- so the cell count is the right weight. Where the level-0 mask comes from
-``remora.hires_grid_level`` it is not known before the level is made, and level 0 falls back to
-cell counts.
+-- so the cell count is the right weight even where land boxes are dropped (below): a kept box
+computes all of its cells. Where the level-0 mask comes from ``remora.hires_grid_level`` it is
+not known before the level is made, and level 0 falls back to cell counts.
+
+``remora.drop_dry_boxes`` leaves out of level 0 every box that is land over its whole
+footprint: its own cells and every ghost cell of the mask, up to one cell beyond a non-periodic
+domain edge. Boxes partly wet are kept whole. The dropped cells cost neither memory nor time,
+and no rank holds them. Kept boxes keep their ghost cells in a dropped box, which no exchange
+fills. The land stencils of a kept box read them, but nothing computed from them reaches a wet
+cell, which is at least four cells away: the regression tests overwrite them after
+initialization and still match the full layout in every plotted field. They must hold numbers,
+though (0 times NaN is NaN), so each new array is zeroed when it is allocated
+(``fab.do_initval``), and ``amrex.init_snan``, which overrides that, makes a run with
+``amrex.fpe_trap_invalid`` stop. With mesh refinement, a
+level-0 box is kept wherever a finer level may need it: inside every refinement indicator's box,
+grown by the tag buffer, by ``amr.n_proper`` blocks of the fine blocking factor and by the
+coarse stencil of the coarse-fine fills. An indicator that tags on a field may refine anywhere,
+so with one of those no box is dropped. After each regrid REMORA aborts if level 1, or the
+level-0 cells its fills need, reaches a dropped box. A restart keeps the BoxArray of the
+checkpoint, so it continues with the boxes the original run dropped whatever this option says.
+Plotfiles and checkpoints hold the kept boxes only (a valid AMReX plotfile with holes; compare
+two layouts with ``remora_subset_compare``, built with the tests, since ``amrex_fcompare`` needs
+equal BoxArrays); in NetCDF output the dropped cells hold the fill value
+``remora.netcdf_fill_value``, and the masks hold 0 there. The integrated diagnostics printed at
+``remora.v`` > 0 sum over the cells held, so their ``VOLUME`` leaves out the dropped land, which
+a full-domain run counts. The number of boxes and cells dropped is printed at startup.
 
 .. _list-of-parameters-landlayout:
 
@@ -711,6 +735,24 @@ List of Parameters
 | **remora.load_balance_land_weight**      | Weight of a land cell relative to a    | Real >= 0              | 1              |
 |                                          |                                        |                        |                |
 |                                          | wet one in the box weights             |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.drop_dry_boxes**                | Leave out level-0 boxes that are land  | true / false           | false          |
+|                                          |                                        |                        |                |
+|                                          | over their whole footprint             |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.dry_ghost_test**                | Debug: after initialization, overwrite | 0, 1 (signalling NaN), | 0              |
+|                                          |                                        |                        |                |
+|                                          | the ghost cells of kept boxes that lie | 2 (the value below)    |                |
+|                                          |                                        |                        |                |
+|                                          | in dropped boxes                       |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.dry_ghost_value**               | Value written by dry_ghost_test = 2    | Real                   | 1e30           |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.dry_ghost_fields**              | Fields dry_ghost_test overwrites: the  | dynamic, all           | dynamic        |
+|                                          |                                        |                        |                |
+|                                          | evolving ones, or also the grid,       |                        |                |
+|                                          |                                        |                        |                |
+|                                          | metrics, masks and forcing             |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 
 Simulation Time

@@ -152,15 +152,26 @@ Land
 ----
 
 Coastal domains are often a third land or more, and REMORA computes land cells as fully as
-wet ones (details in :ref:`Land Layout <sec:LandLayout>`).
+wet ones. Two options use the land mask to spend less on them (details in
+:ref:`Land Layout <sec:LandLayout>`); neither changes the answer.
 
+* ``remora.drop_dry_boxes = true`` leaves out of level 0 every box that is land over its
+  footprint. The time and memory saved are proportional to the cells dropped, so it pays
+  when the boxes are small enough to fit the coastline: a box has to be land over its own
+  cells and three cells around them to go. Cut the domain into boxes of 16 to 64 columns
+  (``amr.max_grid_size``) and compare the "keeps N of M boxes" line printed at startup for a
+  few sizes; smaller boxes drop more land but exchange more halo cells per wet cell.
+  Refinement indicators that tag on a field disable it. On a 4-core workstation a dogbone of
+  1 M cells in 32 x 32 boxes, 44 % land, dropped 31 % of its cells and ran 25 % faster on 1
+  and on 4 ranks; a staircase coastline of 0.8 M cells in 16 x 16 boxes, 36 % land, dropped
+  23 % and ran 21 % faster.
 * ``remora.load_balance`` weighs boxes by their wet cells when assigning them to ranks. The
   default weighs a land cell like a wet one, which is right whenever land boxes are kept:
   every cell of a box costs the same, so weighing by wet cells alone
-  (``remora.load_balance_land_weight = 0``) piles land boxes onto some ranks: on 4 ranks of a
-  workstation it was 13 to 16 % slower than the default on a 1 M-cell dogbone (44 % land) and
-  a 0.8 M-cell staircase coastline (36 % land). The option is there for platforms where land
-  might be cheaper, and costs nothing when left alone.
+  (``remora.load_balance_land_weight = 0``) piles land boxes onto some ranks and was 13 to
+  16 % slower in the cases above. With dropped boxes the kept boxes still compute all of
+  their cells, and no land weight below 1 measured faster than the default either; the
+  option is there for platforms where it might, and costs nothing when left alone.
 
 Output and diagnostics
 ----------------------

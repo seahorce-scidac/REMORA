@@ -311,6 +311,42 @@ public:
     /** \brief The remora.load_balance spelling of the current strategy */
     std::string load_balance_name () const;
 
+    /** \brief Regrid (overrides AmrCore), then check that level 1 stays clear of dropped
+     *         level-0 boxes */
+    virtual void regrid (int lbase, amrex::Real time, bool initial=false) override;
+
+    /** \brief The kept boxes of a level-0 BoxArray under remora.drop_dry_boxes */
+    amrex::BoxArray drop_dry_level0_boxes (const amrex::BoxArray& ba);
+
+    /** \brief Level-0 index region a finer level may need; unbounded if it can go anywhere */
+    amrex::BoxList level0_refine_footprint (bool& unbounded) const;
+
+    /** \brief Whether level 0's BoxArray leaves part of the domain out */
+    bool level0_has_holes () const;
+
+    /** \brief Abort if level 1 or its coarse stencil reaches a dropped level-0 box */
+    void check_dry_box_nesting () const;
+
+    /** \brief Zero every new FArrayBox once level 0 has dropped boxes */
+    void zero_new_fabs_if_holes ();
+
+    /** \brief Check level 0's mask against the mask the dropping decision was made on */
+    void check_dropped_level0_mask ();
+
+    /** \brief remora.dry_ghost_test: overwrite the ghost cells of kept level-0 boxes that lie in
+     *         dropped boxes (1: signalling NaN, 2: a large finite value) after initialization */
+    void poison_dry_ghost_cells ();
+
+    /** \brief Leave out level-0 boxes that are land over their whole footprint
+     *         (remora.drop_dry_boxes) */
+    bool drop_dry_boxes = false;
+    /** \brief Debug: see poison_dry_ghost_cells */
+    int dry_ghost_test = 0;
+    /** \brief Physical-space region of each refinement indicator, for level0_refine_footprint */
+    amrex::Vector<amrex::RealBox> refine_regions;
+    /** \brief Whether some refinement indicator has no region, so it may refine anywhere */
+    bool refine_region_unbounded = false;
+
     /** \brief How MakeDistributionMap assigns boxes to ranks (remora.load_balance) */
     enum class LoadBalance { amrex, sfc, knapsack, roundrobin };
     LoadBalance load_balance = LoadBalance::sfc;

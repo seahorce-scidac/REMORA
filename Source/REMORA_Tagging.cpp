@@ -760,6 +760,16 @@ REMORA::refinement_criteria_setup ()
             }
             ref_tags.back().SetTimeWindow(min_elapsed, max_elapsed,
                                           min_total, max_total);
+            // Where a finer level can go, for remora.drop_dry_boxes. A field criterion tags
+            // wherever the field qualifies -- REMORAErrorTag does not read the box -- so only a
+            // box-only indicator bounds it.
+            const bool field_criterion = ppr.countval("value_greater") || ppr.countval("value_less")
+                                         || ppr.countval("adjacent_difference_greater");
+            if (field_criterion) {
+                refine_region_unbounded = true;
+            } else {
+                refine_regions.push_back(realbox);
+            }
             static_only = static_only && realbox.ok()
                           && !ppr.countval("value_greater") && !ppr.countval("value_less")
                           && !ppr.countval("adjacent_difference_greater")

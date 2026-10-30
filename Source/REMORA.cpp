@@ -506,6 +506,7 @@ REMORA::InitData ()
 
     // Every level's mask exists by now, whether built from scratch or read back
     check_mask_consistency();
+    check_dry_box_nesting();
 
 #ifdef REMORA_USE_MOAB
     InitMOABMesh();
@@ -576,6 +577,8 @@ REMORA::InitData ()
     if (restart_chkfile == "") {
         ComputeDt();
     }
+
+    poison_dry_ghost_cells();
 }
 
 /**
@@ -2438,6 +2441,9 @@ REMORA::ReadParameters ()
             amrex::Abort("remora.load_balance_land_weight must not be negative");
         }
     }
+    // Leave all-land level-0 boxes out; see drop_dry_level0_boxes.
+    pp.queryAdd("drop_dry_boxes", drop_dry_boxes);
+    pp.queryAdd("dry_ghost_test", dry_ghost_test);
 
     // Whether to zero a tracer the correction drives negative, as ROMS does.
     pp.queryAdd("reflux_clamp", reflux_clamp);

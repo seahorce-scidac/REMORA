@@ -390,12 +390,37 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
  * @param[in   ] ba      BoxArray for the level
  * @param[in   ] dm      DistributionMapping for the level
  */
-void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
-                                     const DistributionMapping& dm)
+void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba_in,
+                                     const DistributionMapping& dm_in)
 {
-    // Set BoxArray grids and DistributionMapping dmap in AMReX_AmrMesh.H class
+    BoxArray ba = ba_in;
+    DistributionMapping dm = dm_in;
+    // Decided once, when the run starts: a restart keeps the checkpoint's BoxArray, which
+    // already holds whatever the run it continues dropped.
+    bool dropped = false;
+    if (lev == 0 && drop_dry_boxes) {
+        if (restart_chkfile.empty()) {
+            BoxArray kept = drop_dry_level0_boxes(ba_in);
+            if (kept.size() != ba_in.size()) {
+                ba = std::move(kept);
+                dm = MakeDistributionMap(lev, ba);
+                dropped = true;
+            }
+        } else {
+            amrex::Print() << "remora.drop_dry_boxes: restarting, so level 0 keeps the"
+                           << " checkpoint's BoxArray\n";
+        }
+    }
+
+    // Set BoxArray grids and DistributionMapping dmap in AMReX_AmrMesh.H class. AmrMesh keeps
+    // these, not the ones it passed in, since they are set here.
     SetBoxArray(lev, ba);
     SetDistributionMap(lev, dm);
+
+    // Before anything is allocated on the new layout: see zero_new_fabs_if_holes
+    if (lev == 0) {
+        zero_new_fabs_if_holes();
+    }
 
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
@@ -439,6 +464,10 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     init_stuff(lev, ba, dm);
 
     init_only(lev, time);
+
+    if (dropped) {
+        check_dropped_level0_mask();
+    }
 
 #ifdef REMORA_USE_PARTICLES
     if (restart_chkfile.empty()) {

@@ -1,7 +1,8 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 # Land layout: wide land blocks on both sides of the dogbone's channel, cut into 16 x 16 boxes,
 # so whole boxes are land over their footprint. The tests run it twice and require the same
-# answer from two box-to-rank assignments (remora.load_balance).
+# answer from two layouts: a different box-to-rank assignment (remora.load_balance), or the
+# all-land level-0 boxes left out (remora.drop_dry_boxes), compared on the kept boxes.
 remora.prob_name = DogboneAnalytic
 
 remora.max_step = 20
