@@ -184,6 +184,13 @@ REMORA::WritePlotFile (int istep_for_plot)
         FillPatchNoBC(lev, t_new[lev], *vec_diff2[lev],   GetVecOfPtrs(vec_diff2),   BdyVars::null,0,true,false);
     }
 
+    // Check every level can be written before any file is moved aside or started
+    if (plotfile_type == PlotfileType::netcdf) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            netcdf_subdomain(lev);
+        }
+    }
+
     // omega and w are built from u and v, so they have to be computed before the land
     // faces of u and v are overwritten with the fill value below
     Vector<MultiFab> nc_omega(finest_level+1);
@@ -1430,12 +1437,16 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 
 /**
  * The region of a level that its NetCDF output covers: the whole domain on level 0,
- * and a static refinement box (in_box_lo/in_box_hi or their _indices forms) on a
- * refined level. A refined level created only by field-based tagging has no such box
- * and can't be written to NetCDF.
+ * and on a refined level the box of a refinement indicator whose max_level is that
+ * level (in_box_lo/in_box_hi or their _indices forms). The box is stored only at its
+ * indicator's max_level, so a level made by field-based tagging, or by a box
+ * reaching a finer level, has none. The level's grids must also cover the box, which
+ * they don't when a time window has stopped refining it or it only limits where a
+ * field-based criterion tags. Either case aborts rather than writing cells the
+ * level doesn't hold.
  *
  * @param lev               level being written
- * @param which_subdomain   which static box at that level
+ * @param which_subdomain   which box at that level
  * @return                  the region the NetCDF file covers
  */
 Box
@@ -1444,13 +1455,25 @@ REMORA::netcdf_subdomain (int lev, int which_subdomain) const
     if (lev == 0) {
         return geom[lev].Domain();
     }
-    if (which_subdomain >= static_cast<int>(boxes_at_level[lev].size())) {
-        Abort("NetCDF output of level " + std::to_string(lev) + " needs a static"
-              " refinement box (in_box_lo/in_box_hi or their _indices forms) at that"
-              " level, but it was created by field-based tagging alone. Add a static"
-              " box or use remora.plotfile_type = amrex.");
+    const std::string where = "NetCDF output of level " + std::to_string(lev);
+    const int nbox = static_cast<int>(boxes_at_level[lev].size());
+    if (which_subdomain < 0 || which_subdomain >= nbox) {
+        Abort(where + " covers the box of a refinement indicator with in_box_lo/in_box_hi"
+              " (or their _indices forms) and max_level = " + std::to_string(lev) +
+              ", and there is none. A level made by field-based tagging, or by a box whose"
+              " max_level is a finer level, can't be written to NetCDF; use"
+              " remora.plotfile_type = amrex.");
     }
-    return boxes_at_level[lev][which_subdomain];
+    const Box& bx = boxes_at_level[lev][which_subdomain];
+    if (!grids[lev].contains(bx)) {
+        std::ostringstream msg;
+        msg << where << " covers the refinement box " << bx << ", but the level's grids"
+            << " don't cover all of it: a start_time/end_time window has stopped refining"
+            << " it, or it only limits where a field-based criterion tags. Use"
+            << " remora.plotfile_type = amrex.";
+        Abort(msg.str());
+    }
+    return bx;
 }
 
 /**
