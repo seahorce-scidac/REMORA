@@ -8,7 +8,11 @@ verifies correct behavior with land-sea masking when using the ``_masked`` grid
 file.
 
 There is also a version of the problem with a file-specified surface wind
-velocity (inputs file ``inputs_frc``).
+velocity (inputs file ``inputs_frc``). ``inputs_frc_latlon`` gives the winds and
+air temperature on a coarse lat-lon grid instead, over a rotated copy of the
+grid, so that they are interpolated onto the model grid and the winds rotated
+onto its axes; its header gives the commands that make its two files with
+``Tests/tools/make_latlon_forcing_test_data.py`` and check the result.
 
 To test climatology nudging, use ``inputs_clim_nudg``.
 

@@ -5,6 +5,7 @@
 #include <REMORA_prob_common.H>
 #include <REMORA.H>
 #include <REMORA_MaskedAverageDown.H>
+#include <REMORA_LatLonRegridMath.H>
 
 #ifdef REMORA_USE_NETCDF
 #include "REMORA_NCFile.H"
@@ -1862,11 +1863,8 @@ REMORA::rotate_to_grid_axes (MultiFab& u_east, MultiFab& v_north, const MultiFab
         auto const& a = angle.const_array(mfi);
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            const Real c = std::cos(a(i,j,0));
-            const Real s = std::sin(a(i,j,0));
             const Real e = u(i,j,k), n = v(i,j,k);
-            u(i,j,k) =  e * c + n * s;
-            v(i,j,k) = -e * s + n * c;
+            latlon_regrid::rotate_to_grid(e, n, a(i,j,0), u(i,j,k), v(i,j,k));
         });
     }
 }
