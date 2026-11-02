@@ -578,6 +578,10 @@ remora.frc_lon_varname = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.frc_regrid = auto
 
+# rotate lat-lon winds and stresses onto the grid axes
+# type=string; method=queryAdd
+remora.frc_rotate = auto
+
 # name of time variable in forcing file
 # type=string; method=queryAdd
 remora.frc_time_varname = <UNKNOWN_DEFAULT>
