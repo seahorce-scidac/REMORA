@@ -209,6 +209,12 @@ with the list of the ones it does. All but ``mask`` are restricted to water; see
 than filled, so ``adjacent_difference_greater`` on one sees a step at every grid
 boundary and tags a set of cells that depends on the domain decomposition.
 
+Levels made by dynamic refinement can be written to NetCDF as well as to AMReX
+plotfiles. A refined level's NetCDF file covers the rectangle around its grids.
+Cells in that rectangle the grids miss hold the fill value. A history file
+continues in a new segment file each time regridding moves the level. See
+:ref:`sec:Plotfiles`.
+
 Masked Regions and Tagging
 --------------------------
 

@@ -142,11 +142,21 @@ Notes
 
    - Per-step files keep their step numbers. The restart step's file is written again, and
      the earlier copy is renamed to ``*.old.*``.
-   - A history file in the run directory is continued from its first record at or after the
-     restart time. Later records from the earlier run are written over as the new run
-     reaches them; any it does not reach stay at the end of the file.
-   - With no history file, or one for a different grid (which is renamed aside), a new file
-     is started. Chunked history files keep the numbering from the checkpoint.
+   - Each level's history file in the run directory is continued from its first record at
+     or after the restart time. Later records from the earlier run are written over as the
+     new run reaches them; any it does not reach stay at the end of the file.
+   - For a refined level whose history is split into segments (see below), the run continues
+     the last segment that began at or before the restart. If the level no longer fits that
+     file, the run starts the next segment instead, and the earlier records stay where they
+     are. Any later segments of the earlier run are renamed aside when the new run first
+     writes to the level.
+   - With no history file, a new one is started. A level 0 file for a different grid is
+     renamed aside first. Chunked history files keep the numbering from the checkpoint.
+
+-  A run that is not a restart never adds to a history file it finds in the run directory.
+   It renames the file aside when it first writes to that name, as it does any later
+   segments of the same level and chunk. This also applies to a refined level that first
+   appears partway through the run.
 
 -  REMORA writes CDF-5 files, which have no practical size limit. Some MPI builds still fail on writes
    larger than 2 GB — a limit of the MPI-IO layer, not the file format. If a large write crashes, see the
@@ -314,9 +324,14 @@ Examples of Usage
    moves. Each segment holds the records written while the level had that extent,
    so reading a moving level's history means reading its segments in turn. With
    ``remora.chunk_history_file = true`` each chunk starts again without a segment
-   number, as in *out/plt_run_his00001_d02.nc*. A restarted run continues the last
-   segment that began at or before the restart, or starts the next one if the level
-   no longer fits it.
+   number, as in *out/plt_run_his00001_d02.nc*. Restarts are described under the
+   notes above.
+
+   A refined level's history holds a record only for the outputs at which the level
+   exists. If tagging creates the level partway through the run, or the level
+   disappears and comes back, its file starts at record 0 and skips the outputs when
+   the level was absent. ``ocean_time`` gives each record's time, so it does not line
+   up record for record with level 0's file.
 
 -  **remora.plot_nodal_data** = *false*
 
