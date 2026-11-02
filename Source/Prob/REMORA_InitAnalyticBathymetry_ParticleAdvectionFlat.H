@@ -1,7 +1,4 @@
-    // This problem is run over a flat bottom at the base of the domain. The tracer
-    // particles are seeded through the full water column and there is no bed
-    // reflection in REMORAPC::AdvectWithFlow, so a shoaling bottom would leave
-    // particles below the sea floor, outside the terrain-following grid.
+    // This problem is run over a flat bottom at the base of the domain
     mf_h.setVal(geomdata.ProbHi(2));
 
     // vec_h has two components, but vec_h_full_domain (used with hires_grid_level) has one

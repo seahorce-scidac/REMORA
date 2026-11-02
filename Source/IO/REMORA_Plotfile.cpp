@@ -35,8 +35,8 @@ fill_nodal_z_displacement (MultiFab& mf_nd, const MultiFab& z_phys_nd, const Geo
             const int k = kf / rz;
             const int r = kf - k * rz;
             Real z = zp(i,j,k);
-            // z_phys_nd has one z ghost but only k = -1 is filled, so k+1 is read only when
-            // its weight is nonzero, which keeps it at or below the top node.
+            // z_phys_nd's z ghost layers are not filled, so k+1 is read only when its weight
+            // is nonzero, which keeps it at or below the top node.
             if (r > 0) { z += (Real(r) / Real(rz)) * (zp(i,j,k+1) - zp(i,j,k)); }
             nu(i,j,kf,2) = z - (zlo + Real(kf) * dz);
         });
@@ -149,6 +149,19 @@ REMORA::WritePlotFile (int istep_for_plot)
          if (plot_name == "srflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "shflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "mask_rho") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         // Spherical coordinates and grid angle exist only when the grid file carried them,
+         // which is known only after the grid is read, so an unavailable one is warned
+         // about and dropped here, as set2DPlotVariables does for the names it can check.
+         if (plot_name == "lon_rho" || plot_name == "lat_rho" || plot_name == "angle") {
+             const bool available = (plot_name == "angle") ? (vec_angler[0] != nullptr)
+                                                            : (vec_lonr[0] != nullptr);
+             if (available) {
+                 varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;
+             } else if (ParallelDescriptor::IOProcessor()) {
+                 Warning("\nWARNING: Requested to plot variable '" + plot_name +
+                         "' in 2D list but the grid carries no " + plot_name);
+             }
+         }
          if (plot_name == "ubar" ) {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "sustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "bustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
@@ -169,6 +182,13 @@ REMORA::WritePlotFile (int istep_for_plot)
         FillPatchNoBC(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,false);
         FillPatchNoBC(lev, t_new[lev], *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), BdyVars::null,0,true,false);
         FillPatchNoBC(lev, t_new[lev], *vec_diff2[lev],   GetVecOfPtrs(vec_diff2),   BdyVars::null,0,true,false);
+    }
+
+    // Check every level can be written before any file is moved aside or started
+    if (plotfile_type == PlotfileType::netcdf) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            netcdf_subdomain(lev);
+        }
     }
 
     // omega and w are built from u and v, so they have to be computed before the land
@@ -242,7 +262,6 @@ REMORA::WritePlotFile (int istep_for_plot)
         for (int lev = 0; lev <= finest_level; ++lev) {
             BoxArray nodal_grids(grids[lev]); nodal_grids.surroundingNodes();
             mf_nd[lev].define(nodal_grids, dmap[lev], AMREX_SPACEDIM, 0);
-            mf_nd[lev].setVal(zero);
         }
     }
 
@@ -393,6 +412,18 @@ REMORA::WritePlotFile (int istep_for_plot)
         }
         if (plot_name == "mask_rho" ) {
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_mskr[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "lon_rho" || plot_name == "lat_rho" || plot_name == "angle") {
+            const auto& src = (plot_name == "lon_rho") ? vec_lonr
+                            : (plot_name == "lat_rho") ? vec_latr : vec_angler;
+            for (int lev = 0; lev <= finest_level; ++lev) {
+                // Registered above only when level 0 has it, and every finer level follows
+                // level 0, so this cannot fire; it keeps a null from reaching the copy.
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(src[lev] != nullptr,
+                    "Plot variable " + plot_name + " is missing on a refined level");
+                MultiFab::Copy(mf_2d_rho[lev],*src[lev],0,icomp_rho,1,0);
+            }
             icomp_rho++;
         }
     }
@@ -699,7 +730,6 @@ REMORA::WritePlotFile (int istep_for_plot)
                     if (plot_nodal_data) {
                         BoxArray nodal2(mf2[lev].boxArray()); nodal2.surroundingNodes();
                         mf_nd2[lev].define(nodal2, dmap[lev], AMREX_SPACEDIM, 0);
-                        mf_nd2[lev].setVal(zero);
                         fill_nodal_xy_displacement(mf_nd2[lev], mf_xy[lev], g2[lev]);
                         fill_nodal_z_displacement(mf_nd2[lev], *vec_z_phys_nd[lev], g2[lev], rz);
                         nd2_ptrs[lev] = &mf_nd2[lev];
@@ -1410,6 +1440,47 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 }
 
 /**
+ * The region of a level that its NetCDF output covers: the whole domain on level 0,
+ * and on a refined level the box of a refinement indicator whose max_level is that
+ * level (in_box_lo/in_box_hi or their _indices forms). The box is stored only at its
+ * indicator's max_level, so a level made by field-based tagging, or by a box
+ * reaching a finer level, has none. The level's grids must also cover the box, which
+ * they don't when a time window has stopped refining it or it only limits where a
+ * field-based criterion tags. Either case aborts rather than writing cells the
+ * level doesn't hold.
+ *
+ * @param lev               level being written
+ * @param which_subdomain   which box at that level
+ * @return                  the region the NetCDF file covers
+ */
+Box
+REMORA::netcdf_subdomain (int lev, int which_subdomain) const
+{
+    if (lev == 0) {
+        return geom[lev].Domain();
+    }
+    const std::string where = "NetCDF output of level " + std::to_string(lev);
+    const int nbox = static_cast<int>(boxes_at_level[lev].size());
+    if (which_subdomain < 0 || which_subdomain >= nbox) {
+        Abort(where + " covers the box of a refinement indicator with in_box_lo/in_box_hi"
+              " (or their _indices forms) and max_level = " + std::to_string(lev) +
+              ", and there is none. A level made by field-based tagging, or by a box whose"
+              " max_level is a finer level, can't be written to NetCDF; use"
+              " remora.plotfile_type = amrex.");
+    }
+    const Box& bx = boxes_at_level[lev][which_subdomain];
+    if (!grids[lev].contains(bx)) {
+        std::ostringstream msg;
+        msg << where << " covers the refinement box " << bx << ", but the level's grids"
+            << " don't cover all of it: a start_time/end_time window has stopped refining"
+            << " it, or it only limits where a field-based criterion tags. Use"
+            << " remora.plotfile_type = amrex.";
+        Abort(msg.str());
+    }
+    return bx;
+}
+
+/**
  * omega and w for the NetCDF writer, on the s_w points ROMS writes them at.
  *
  * Both are diagnosed from the current velocities, as ROMS does just before it writes a
@@ -1445,11 +1516,11 @@ REMORA::compute_omega_and_w (int lev, MultiFab* mf_omega, MultiFab* mf_wvel)
         }
     }
 
-    // The NetCDF writer adds one ghost column around the subdomain it writes, which on a
-    // refined level is the first of boxes_at_level. A side of it is copied from the
-    // interior unless it is a periodic domain edge, which FillBoundary has filled.
+    // The NetCDF writer adds one ghost column around the subdomain it writes. A side of
+    // it is copied from the interior unless it is a periodic domain edge, which
+    // FillBoundary has filled.
     const Box& dom = Geom(lev).Domain();
-    const Box  sub = (lev == 0) ? dom : boxes_at_level[lev][0];
+    const Box  sub = netcdf_subdomain(lev);
     const IntVect slo = sub.smallEnd();
     const IntVect shi = sub.bigEnd();
     GpuArray<bool,2> copy_lo, copy_hi;

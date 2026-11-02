@@ -839,23 +839,101 @@ REMORA::set_grid_vars_averaged_down (int lev) {
         mf->EnforcePeriodicity(geom[lev].periodicity());
         extrapolate_metric_to_physical_boundaries(*mf, geom[lev]);
     }
+
+    // Spherical rho coordinates and grid angle, when the high-resolution file carried them.
+    // The ghost rows beyond the domain's ring continue the coordinates, as on a level read
+    // directly from a grid file; the angle is copied outward like a metric.
+    struct Coord { Vector<std::unique_ptr<MultiFab>>* vec; Vector<std::unique_ptr<MultiFab>>* full;
+                   bool linear; Real wrap; };
+    for (const Coord& c : { Coord{&vec_lonr,   &vec_lonr_full_domain,   true,  Real(360.0)},
+                            Coord{&vec_latr,   &vec_latr_full_domain,   true,  Real(0.0)},
+                            Coord{&vec_angler, &vec_angler_full_domain, false, Real(0.0)} })
+    {
+        if (lev >= static_cast<int>(c.full->size()) || (*c.full)[lev] == nullptr) {
+            (*c.vec)[lev].reset();
+            continue;
+        }
+        const MultiFab& full = *(*c.full)[lev];
+        (*c.vec)[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
+                                         1, vec_xr[lev]->nGrowVect()));
+        MultiFab& mf = *(*c.vec)[lev];
+        mf.ParallelCopy(full, 0, 0, 1, full.nGrowVect(), mf.nGrowVect());
+        mf.FillBoundary(geom[lev].periodicity());
+        extrapolate_metric_to_physical_boundaries(mf, geom[lev], c.linear, c.wrap);
+    }
 }
 
+namespace {
+
 /**
- * Copy the outermost in-domain ghost row of a cell-centred field outward over the
- * remaining ghost rows at the physical boundaries. Used for grid metrics and bathymetry
- * in every build, so it lives here rather than in the NetCDF-only initialisation.
+ * Fill one strip of ghost cells beyond the ring along dir, from the ring index and, when
+ * linear, the in-domain index beside it. A named function rather than a lambda inside
+ * the caller: a device lambda defined inside another lambda is not allowed by CUDA.
  *
- * @param[inout] mf    multifab of data to extrapolate on
- * @param[in   ] geom  geometry
+ * @param[in   ] gbx     cells to fill
+ * @param[inout] arr     the field
+ * @param[in   ] dir     direction of the strip (0 or 1)
+ * @param[in   ] ring    index of the ring row along dir
+ * @param[in   ] inner   index of the first in-domain row along dir
+ * @param[in   ] linear  extend linearly instead of copying
+ * @param[in   ] wrap    period to take the linear step modulo, 0 for none
  */
 void
-REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry& geom)
+extrapolate_strip (const Box& gbx, const Array4<Real>& arr, int dir, int ring, int inner,
+                   bool linear, Real wrap)
+{
+    if (!gbx.ok()) { return; }
+    if (linear) {
+        ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            const int  idx   = (dir == 0) ? i : j;
+            const Real dist  = static_cast<Real>((idx > ring) ? idx - ring : ring - idx);
+            const Real vring = (dir == 0) ? arr(ring,j,k,0)  : arr(i,ring,k,0);
+            const Real vin   = (dir == 0) ? arr(inner,j,k,0) : arr(i,inner,k,0);
+            Real step = vring - vin;
+            if (wrap > Real(0.0)) { step -= wrap * std::round(step / wrap); }
+            arr(i,j,k,0) = vring + dist * step;
+        });
+    } else {
+        ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            arr(i,j,k,0) = (dir == 0) ? arr(ring,j,k,0) : arr(i,ring,k,0);
+        });
+    }
+}
+
+} // namespace
+
+/**
+ * Fill the ghost rows beyond the outermost in-domain ghost row of a cell-centred field
+ * at the physical boundaries: by copying that row outward (the default, right for grid
+ * metrics and bathymetry), or with linear by extending it from the row inside it (for
+ * coordinates, which keep growing past the edge). Used in every build, so it lives here
+ * rather than in the NetCDF-only initialisation.
+ *
+ * The x passes run first; the y passes then cover every column, including the x strips
+ * just filled, which takes care of the corners. The linear mode leaves a periodic
+ * direction alone, where FillBoundary has already put the wrapped values in the ghost
+ * cells, and its x passes read two columns, so unless y is periodic they are limited to
+ * the rows those columns hold data in (the domain and its ring). The copy mode is what it
+ * always was: it reads only the ring and covers the full extent in every direction.
+ *
+ * @param[inout] mf      multifab of data to extrapolate on
+ * @param[in   ] geom    geometry
+ * @param[in   ] linear  extend linearly instead of copying
+ * @param[in   ] wrap    period to take the linear step modulo (360 for a longitude), 0 for none
+ */
+void
+REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry& geom, bool linear,
+                                                   Real wrap)
 {
     const IntVect ng = mf.nGrowVect();
 
     const auto& dom_lo = amrex::lbound(geom.Domain());
     const auto& dom_hi = amrex::ubound(geom.Domain());
+
+    const bool do_x = !(linear && geom.isPeriodic(0));
+    const bool do_y = !(linear && geom.isPeriodic(1));
 
     for ( MFIter mfi(mf); mfi.isValid(); ++mfi )
     {
@@ -868,29 +946,20 @@ REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry&
         Box gbx_loy = adjCellLo(bx,1,ng[1]); gbx_loy.grow(0,ng[0]); gbx_loy.setBig  (1,dom_lo.y-2);
         Box gbx_hiy = adjCellHi(bx,1,ng[1]); gbx_hiy.grow(0,ng[0]); gbx_hiy.setSmall(1,dom_hi.y+2);
 
-        if (gbx_lox.ok()) {
-            ParallelFor(gbx_lox, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(dom_lo.x-1,j,k,0);
-            });
+        if (linear && !geom.isPeriodic(1)) {
+            for (Box* gbx : {&gbx_lox, &gbx_hix}) {
+                gbx->setSmall(1, std::max(gbx->smallEnd(1), dom_lo.y-1));
+                gbx->setBig  (1, std::min(gbx->bigEnd(1),   dom_hi.y+1));
+            }
         }
-        if (gbx_hix.ok()) {
-            ParallelFor(gbx_hix, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(dom_hi.x+1,j,k,0);
-            });
+
+        if (do_x) {
+            extrapolate_strip(gbx_lox, mf_arr, 0, dom_lo.x-1, dom_lo.x, linear, wrap);
+            extrapolate_strip(gbx_hix, mf_arr, 0, dom_hi.x+1, dom_hi.x, linear, wrap);
         }
-        if (gbx_loy.ok()) {
-            ParallelFor(gbx_loy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(i,dom_lo.y-1,k,0);
-            });
-        }
-        if (gbx_hiy.ok()) {
-            ParallelFor(gbx_hiy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(i,dom_hi.y+1,k,0);
-            });
+        if (do_y) {
+            extrapolate_strip(gbx_loy, mf_arr, 1, dom_lo.y-1, dom_lo.y, linear, wrap);
+            extrapolate_strip(gbx_hiy, mf_arr, 1, dom_hi.y+1, dom_hi.y, linear, wrap);
         }
     } // mfi
 }
@@ -924,6 +993,8 @@ REMORA::set_init_data_averaged_down (int lev) {
 }
 
 /**
+ * Set the Coriolis parameter f on a level, or zero it when Coriolis is off.
+ *
  * @param[in   ] lev    level to operate on
  */
 void
@@ -952,6 +1023,10 @@ REMORA::set_coriolis(int lev) {
         Real time = zero;
         FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor), foextrap_bc());
         vec_fcor[lev]->EnforcePeriodicity(geom[lev].periodicity());
+    } else {
+        // Without Coriolis f is still written to plotfiles, so it is zero rather than
+        // whatever memory a new or remade level's MultiFab was allocated with
+        vec_fcor[lev]->setVal(zero);
     }
 }
 
@@ -1713,11 +1788,117 @@ REMORA::set_smflux(int lev)
         prob->init_analytic_smflux(lev, geom[lev], solverChoice, *this,*vec_sustr[lev], *vec_svstr[lev]);
     } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
 #ifdef REMORA_USE_NETCDF
-        sustr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_sustr[lev].get(), geom, ref_ratio);
-        svstr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_svstr[lev].get(), geom, ref_ratio);
+        if (stress_on_rho) {
+            // On a lat-lon grid the file gives the stress east and north at rho points: rotate
+            // it there onto the grid's axes, then average to the faces.
+            ensure_stress_rho_arrays(lev);
+            sustr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_sustr_rho[lev].get(), geom, ref_ratio);
+            svstr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_svstr_rho[lev].get(), geom, ref_ratio);
+            if (frc_regrid_options.rotate && vec_angler[lev] != nullptr) {
+                rotate_to_grid_axes(*vec_sustr_rho[lev], *vec_svstr_rho[lev], *vec_angler[lev]);
+            }
+            // The face average reads the first ghost cell. On level 0 the interpolation set it,
+            // the boundary ring included, and a FillPatch would only copy the edge over the
+            // ring. A finer level's ghost cells come from the coarser level (rotated already,
+            // so this follows the rotation) and, outside the domain, from the boundary fill.
+            if (lev > 0) {
+                FillPatch(lev, t_old[lev], *vec_sustr_rho[lev], GetVecOfPtrs(vec_sustr_rho), foextrap_periodic_bc(), BdyVars::null,0,false,false);
+                FillPatch(lev, t_old[lev], *vec_svstr_rho[lev], GetVecOfPtrs(vec_svstr_rho), foextrap_periodic_bc(), BdyVars::null,0,false,false);
+            }
+            average_stress_to_faces(lev, *vec_sustr_rho[lev], *vec_svstr_rho[lev]);
+        } else {
+            sustr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_sustr[lev].get(), geom, ref_ratio);
+            svstr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_svstr[lev].get(), geom, ref_ratio);
+        }
         FillPatch(lev, t_old[lev], *vec_sustr[lev], GetVecOfPtrs(vec_sustr), foextrap_periodic_bc(), BdyVars::null,0,false,false);
         FillPatch(lev, t_old[lev], *vec_svstr[lev], GetVecOfPtrs(vec_svstr), foextrap_periodic_bc(), BdyVars::null,0,false,false);
 #endif
+    }
+}
+
+#ifdef REMORA_USE_NETCDF
+/**
+ * The rho-point stress arrays of a level, laid out like its rho points, which a regrid may
+ * have changed since they were last made.
+ *
+ * @param[in   ] lev    level
+ */
+void
+REMORA::ensure_stress_rho_arrays (int lev)
+{
+    const BoxArray rho_ba = amrex::convert(vec_sustr[lev]->boxArray(), IntVect(0,0,0));
+    const DistributionMapping& dm = vec_sustr[lev]->DistributionMap();
+    for (auto* vec : {&vec_sustr_rho, &vec_svstr_rho}) {
+        if (static_cast<int>(vec->size()) <= lev) { vec->resize(lev+1); }
+        if ((*vec)[lev] == nullptr || (*vec)[lev]->boxArray() != rho_ba ||
+            (*vec)[lev]->DistributionMap() != dm) {
+            (*vec)[lev] = std::make_unique<MultiFab>(rho_ba, dm, 1, IntVect(NGROW,NGROW,0));
+        }
+    }
+}
+#endif
+
+/**
+ * The xi axis is at angle a from east, counterclockwise (ROMS's `angle`), so a vector with
+ * east and north components (E, N) has, along the grid axes,
+ *     xi  =  E cos a + N sin a,
+ *     eta = -E sin a + N cos a,
+ * as ROMS's set_data rotates interpolated winds and stresses.
+ *
+ * @param[inout] u_east   east component on input, xi component on output
+ * @param[inout] v_north  north component on input, eta component on output
+ * @param[in   ] angle    grid angle on rho points, radians
+ */
+void
+REMORA::rotate_to_grid_axes (MultiFab& u_east, MultiFab& v_north, const MultiFab& angle)
+{
+    // The valid cells and the first ghost cell: what the forcing read fills on level 0 (the
+    // ghost fill that follows sets the rest), and what the face average reads.
+    const IntVect ng = amrex::min(amrex::min(u_east.nGrowVect(), angle.nGrowVect()), IntVect(1,1,0));
+    for (MFIter mfi(u_east, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const Box bx = mfi.growntilebox(ng);
+        auto const& u = u_east.array(mfi);
+        auto const& v = v_north.array(mfi);
+        auto const& a = angle.const_array(mfi);
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            const Real c = std::cos(a(i,j,0));
+            const Real s = std::sin(a(i,j,0));
+            const Real e = u(i,j,k), n = v(i,j,k);
+            u(i,j,k) =  e * c + n * s;
+            v(i,j,k) = -e * s + n * c;
+        });
+    }
+}
+
+/**
+ * Each u face takes the mean of the rho points either side of it in x, each v face the
+ * mean of those either side in y. The faces on the domain edge use the boundary ring.
+ *
+ * @param[in   ] lev          level
+ * @param[in   ] tau_xi_rho   xi stress on rho points, with at least one ghost cell filled
+ * @param[in   ] tau_eta_rho  eta stress on rho points, likewise
+ */
+void
+REMORA::average_stress_to_faces (int lev, const MultiFab& tau_xi_rho, const MultiFab& tau_eta_rho)
+{
+    // Over the rho layout, which shares its box indices and distribution with the faces',
+    // so that nodaltilebox gives each face box
+    for (MFIter mfi(tau_xi_rho, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const Box ubx = mfi.nodaltilebox(0);
+        const Box vbx = mfi.nodaltilebox(1);
+        auto const& su = vec_sustr[lev]->array(mfi);
+        auto const& sv = vec_svstr[lev]->array(mfi);
+        auto const& tx = tau_xi_rho.const_array(mfi);
+        auto const& ty = tau_eta_rho.const_array(mfi);
+        ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            su(i,j,k) = Real(0.5) * (tx(i-1,j,k) + tx(i,j,k));
+        });
+        ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            sv(i,j,k) = Real(0.5) * (ty(i,j-1,k) + ty(i,j,k));
+        });
     }
 }
 
@@ -1736,18 +1917,45 @@ REMORA::set_surface_state (int lev)
     // driver withholds still get this deck's forcing.
 
 #ifdef REMORA_USE_NETCDF
-    auto update_from_netcdf = [&](std::unique_ptr<NCTimeSeries>& data_from_file,
-                                  Vector<std::unique_ptr<MultiFab>>& mf_vec) {
+    // Read a field for this level, then fill its ghost cells; split so that the winds can
+    // be rotated in between.
+    auto read_from_netcdf = [&](std::unique_ptr<NCTimeSeries>& data_from_file,
+                                Vector<std::unique_ptr<MultiFab>>& mf_vec) {
         data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, mf_vec[lev].get(), geom, ref_ratio);
+    };
+    auto fill_ghosts = [&](Vector<std::unique_ptr<MultiFab>>& mf_vec) {
         FillPatch(lev, t_old[lev], *mf_vec[lev], GetVecOfPtrs(mf_vec),
                   foextrap_periodic_bc(), BdyVars::null, 0, false);
     };
+    auto update_from_netcdf = [&](std::unique_ptr<NCTimeSeries>& data_from_file,
+                                  Vector<std::unique_ptr<MultiFab>>& mf_vec) {
+        read_from_netcdf(data_from_file, mf_vec);
+        fill_ghosts(mf_vec);
+    };
 
-    if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Uwind]) {
-        update_from_netcdf(Uwind_data_from_file, vec_uwind);
+    // Winds from a lat-lon file are east and north and are rotated onto the grid's axes,
+    // between the read and the ghost fill: rotating after the fill would rotate a second
+    // time the ghost cells it takes from the coarser level, already rotated there.
+    const bool rotate_winds = winds_need_rotation() && vec_angler[lev] != nullptr;
+    if (rotate_winds && driver_atmos_state_from_driver[AtmosState::Uwind] !=
+                        driver_atmos_state_from_driver[AtmosState::Vwind]) {
+        amrex::Abort("The coupled driver supplies one wind component and the lat-lon forcing "
+                     "file the other, so the file's component cannot be rotated onto the grid. "
+                     "Take both winds from the driver or both from the file.");
     }
-    if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Vwind]) {
-        update_from_netcdf(Vwind_data_from_file, vec_vwind);
+    if (rotate_winds && !driver_atmos_state_from_driver[AtmosState::Uwind]) {
+        read_from_netcdf(Uwind_data_from_file, vec_uwind);
+        read_from_netcdf(Vwind_data_from_file, vec_vwind);
+        rotate_to_grid_axes(*vec_uwind[lev], *vec_vwind[lev], *vec_angler[lev]);
+        fill_ghosts(vec_uwind);
+        fill_ghosts(vec_vwind);
+    } else {
+        if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Uwind]) {
+            update_from_netcdf(Uwind_data_from_file, vec_uwind);
+        }
+        if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Vwind]) {
+            update_from_netcdf(Vwind_data_from_file, vec_vwind);
+        }
     }
 
     if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Tair]) {
@@ -1959,107 +2167,6 @@ REMORA::init_only (int lev, Real time)
         amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
     }
 
-    // This will be a non-op if forcings specified analytically
-    if (solverChoice.smflux_type == SMFluxType::netcdf) {
-        if (lev==0) {
-            if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
-                amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
-            }
-            sustr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),vec_sustr[lev].get(), true, false, solverChoice.time_ref));
-            svstr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),vec_svstr[lev].get(), true, false, solverChoice.time_ref));
-            sustr_data_from_file->Initialize();
-            svstr_data_from_file->Initialize();
-        } else {
-            FillCoarsePatch(lev, time, vec_sustr[lev].get(), vec_sustr[lev-1].get(), foextrap_bc());
-            FillCoarsePatch(lev, time, vec_svstr[lev].get(), vec_svstr[lev-1].get(), foextrap_bc());
-        }
-    }
-
-    // Conditionally load atmospheric forcing fields from NetCDF based on source type.
-    const auto& bulk_flux_type = solverChoice.bulk_flux_type;
-    bool any_bulk_netcdf = false;
-    for (int idx = 0; idx < BulkFlux::NumTypes; ++idx) {
-        any_bulk_netcdf = any_bulk_netcdf || bulk_flux_type[idx] == BulkForcingType::netcdf;
-    }
-    if (lev == 0 && any_bulk_netcdf && (nc_frc_file.empty() || nc_frc_file[0].empty())) {
-        amrex::Error("NetCDF forcing file name must be provided via input for bulk-flux atmospheric forcing");
-    }
-
-    if (lev==0) {
-        if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf) {
-            Uwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false, solverChoice.time_ref));
-            Uwind_data_from_file->Initialize();
-        }
-        if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf) {
-            Vwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false, solverChoice.time_ref));
-            Vwind_data_from_file->Initialize();
-        }
-        if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf) {
-            Tair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Tair", frc_time_varname, geom[lev].Domain(),vec_Tair[lev].get(), true, false, solverChoice.time_ref));
-            Tair_data_from_file->Initialize();
-        }
-        if (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::netcdf) {
-            qair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "qair", frc_time_varname, geom[lev].Domain(),vec_qair[lev].get(), true, false, solverChoice.time_ref));
-            qair_data_from_file->Initialize();
-        }
-        if (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::netcdf) {
-            Pair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Pair", frc_time_varname, geom[lev].Domain(),vec_Pair[lev].get(), true, false, solverChoice.time_ref));
-            Pair_data_from_file->Initialize();
-        }
-        if (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::netcdf) {
-            srflx_data_from_file.reset(new NCTimeSeries(nc_frc_file, "swrad", frc_time_varname, geom[lev].Domain(),vec_srflx[lev].get(), true, false, solverChoice.time_ref));
-            srflx_data_from_file->Initialize();
-        }
-        if (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::netcdf) {
-            rain_data_from_file.reset(new NCTimeSeries(nc_frc_file, "rain", frc_time_varname, geom[lev].Domain(),vec_rain[lev].get(), true, false, solverChoice.time_ref));
-            rain_data_from_file->Initialize();
-        }
-        if (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::netcdf) {
-            cloud_data_from_file.reset(new NCTimeSeries(nc_frc_file, "cloud", frc_time_varname, geom[lev].Domain(),vec_cloud[lev].get(), true, false, solverChoice.time_ref));
-            cloud_data_from_file->Initialize();
-        }
-        if (bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::netcdf) {
-            EminusP_data_from_file.reset(new NCTimeSeries(nc_frc_file, "EminusP", frc_time_varname, geom[lev].Domain(),vec_EminusP[lev].get(), true, false, solverChoice.time_ref));
-            EminusP_data_from_file->Initialize();
-        }
-        if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::netcdf) {
-            longwave_down_data_from_file.reset(new NCTimeSeries(nc_frc_file, solverChoice.longwave_netcdf_varname, frc_time_varname,
-                                                                geom[lev].Domain(), vec_longwave_down[lev].get(), true, false, solverChoice.time_ref));
-            longwave_down_data_from_file->Initialize();
-        }
-    } else {
-        if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf) {
-            FillCoarsePatch(lev, time, vec_uwind[lev].get(), vec_uwind[lev-1].get(), foextrap_bc());
-        }
-        if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf) {
-            FillCoarsePatch(lev, time, vec_vwind[lev].get(), vec_vwind[lev-1].get(), foextrap_bc());
-        }
-        if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf) {
-            FillCoarsePatch(lev, time, vec_Tair[lev].get(), vec_Tair[lev-1].get(), foextrap_bc());
-        }
-        if (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::netcdf) {
-            FillCoarsePatch(lev, time, vec_qair[lev].get(), vec_qair[lev-1].get(), foextrap_bc());
-        }
-        if (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::netcdf) {
-            FillCoarsePatch(lev, time, vec_Pair[lev].get(), vec_Pair[lev-1].get(), foextrap_bc());
-        }
-        if (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::netcdf) {
-            FillCoarsePatch(lev, time, vec_srflx[lev].get(), vec_srflx[lev-1].get(), foextrap_bc());
-        }
-        if (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::netcdf) {
-            FillCoarsePatch(lev, time, vec_rain[lev].get(), vec_rain[lev-1].get(), foextrap_bc());
-        }
-        if (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::netcdf) {
-            FillCoarsePatch(lev, time, vec_cloud[lev].get(), vec_cloud[lev-1].get(), foextrap_bc());
-        }
-        if (bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::netcdf) {
-            FillCoarsePatch(lev, time, vec_EminusP[lev].get(), vec_EminusP[lev-1].get(), foextrap_bc());
-        }
-        if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::netcdf) {
-            FillCoarsePatch(lev, time, vec_longwave_down[lev].get(), vec_longwave_down[lev-1].get(), foextrap_bc());
-        }
-    }
-
     // Only need to read in rivers on level 0
     // Will need to be on higher levels eventually
     if (solverChoice.do_rivers) {
@@ -2112,6 +2219,183 @@ REMORA::init_only (int lev, Real time)
 #endif
 
     set_bathymetry(lev);
+
+    // Surface forcing from NetCDF. After set_bathymetry, which reads the grid, because a
+    // forcing field on a lat-lon grid is interpolated onto the lon_rho and lat_rho read there.
+#ifdef REMORA_USE_NETCDF
+    // This will be a non-op if forcings specified analytically
+    if (solverChoice.smflux_type == SMFluxType::netcdf) {
+        if (lev==0) {
+            if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
+                amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
+            }
+            // On the model grid the stress lives on the u and v faces. On a lat-lon grid it is
+            // east and north at rho points, read into rho arrays and turned into face values
+            // in set_smflux. A component given as one value per time can go either way.
+            using Kind = NCTimeSeries::SourceGridKind;
+            const Kind u_kind = NCTimeSeries::source_grid(nc_frc_file, "sustr", geom[lev].Domain(),
+                                                          vec_sustr[lev]->ixType(), true);
+            const Kind v_kind = NCTimeSeries::source_grid(nc_frc_file, "svstr", geom[lev].Domain(),
+                                                          vec_svstr[lev]->ixType(), true);
+            stress_on_rho = frc_regrid_options.enabled && (u_kind == Kind::latlon || v_kind == Kind::latlon);
+            if (stress_on_rho && (u_kind == Kind::model || v_kind == Kind::model)) {
+                amrex::Abort("One of sustr and svstr in the forcing files is on the model grid's u or v "
+                             "points and the other on a lat-lon grid; give both on one kind of grid.");
+            }
+            MultiFab* sustr_target = vec_sustr[lev].get();
+            MultiFab* svstr_target = vec_svstr[lev].get();
+            if (stress_on_rho) {
+                ensure_stress_rho_arrays(lev);
+                sustr_target = vec_sustr_rho[lev].get();
+                svstr_target = vec_svstr_rho[lev].get();
+            }
+            sustr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),sustr_target, true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            svstr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),svstr_target, true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            sustr_data_from_file->Initialize();
+            svstr_data_from_file->Initialize();
+            // A component read on rho points must have come from a lat-lon grid (or be uniform).
+            // One that matched the rho shape instead is a model-grid file with the stress on
+            // the wrong points.
+            if (stress_on_rho) {
+                for (const auto* series : {sustr_data_from_file.get(), svstr_data_from_file.get()}) {
+                    if (!series->regridded() && !series->spatially_uniform()) {
+                        const Box& d = geom[lev].Domain();
+                        amrex::Abort("Surface stress in the forcing files has the shape of the model grid's "
+                                     "rho points. On the model grid, sustr is on u points, (eta_rho, xi_u) = (" +
+                                     std::to_string(d.length(1)+2) + ", " + std::to_string(d.length(0)+1) +
+                                     "), and svstr on v points, (eta_v, xi_rho) = (" + std::to_string(d.length(1)+1) +
+                                     ", " + std::to_string(d.length(0)+2) + "); a lat-lon stress file needs "
+                                     "longitude and latitude axes.");
+                    }
+                }
+            }
+            if (stress_on_rho && frc_regrid_options.rotate && vec_angler[0] == nullptr) {
+                amrex::Print() << "WARNING: sustr and svstr come from a lat-lon grid, but the grid file has "
+                               << "no angle, so they are applied unrotated, as if the grid were not rotated."
+                               << std::endl;
+            }
+        } else {
+            FillCoarsePatch(lev, time, vec_sustr[lev].get(), vec_sustr[lev-1].get(), foextrap_bc());
+            FillCoarsePatch(lev, time, vec_svstr[lev].get(), vec_svstr[lev-1].get(), foextrap_bc());
+        }
+    }
+
+    // Conditionally load atmospheric forcing fields from NetCDF based on source type.
+    const auto& bulk_flux_type = solverChoice.bulk_flux_type;
+    bool any_bulk_netcdf = false;
+    for (int idx = 0; idx < BulkFlux::NumTypes; ++idx) {
+        any_bulk_netcdf = any_bulk_netcdf || bulk_flux_type[idx] == BulkForcingType::netcdf;
+    }
+    if (lev == 0 && any_bulk_netcdf && (nc_frc_file.empty() || nc_frc_file[0].empty())) {
+        amrex::Error("NetCDF forcing file name must be provided via input for bulk-flux atmospheric forcing");
+    }
+
+    if (lev==0) {
+        if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf) {
+            Uwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            Uwind_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf) {
+            Vwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            Vwind_data_from_file->Initialize();
+        }
+        // A wind from a lat-lon grid is east/north and is rotated onto the grid's axes, which
+        // takes both components from the same kind of file.
+        // A component given as one value per time pairs with either kind.
+        const bool u_ll = Uwind_data_from_file && Uwind_data_from_file->regridded();
+        const bool v_ll = Vwind_data_from_file && Vwind_data_from_file->regridded();
+        const bool u_ok = u_ll || (Uwind_data_from_file && Uwind_data_from_file->spatially_uniform());
+        const bool v_ok = v_ll || (Vwind_data_from_file && Vwind_data_from_file->spatially_uniform());
+        if ((u_ll || v_ll) && !(u_ok && v_ok) && frc_regrid_options.rotate) {
+            amrex::Abort("One wind component comes from a lat-lon forcing grid and the other from "
+                         "the model grid or from the inputs, so the winds cannot be rotated onto the "
+                         "model grid. Give Uwind and Vwind the same source, or set "
+                         "remora.frc_rotate = off if the file's winds are already along the grid axes.");
+        }
+        if ((u_ll || v_ll) && frc_regrid_options.rotate && vec_angler[0] == nullptr) {
+            amrex::Print() << "WARNING: Uwind and Vwind come from a lat-lon grid, but the grid file has "
+                           << "no angle, so they are applied unrotated, as if the grid were not rotated."
+                           << std::endl;
+        }
+        if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf) {
+            Tair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Tair", frc_time_varname, geom[lev].Domain(),vec_Tair[lev].get(), true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            Tair_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::netcdf) {
+            qair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "qair", frc_time_varname, geom[lev].Domain(),vec_qair[lev].get(), true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            qair_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::netcdf) {
+            Pair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Pair", frc_time_varname, geom[lev].Domain(),vec_Pair[lev].get(), true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            Pair_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::netcdf) {
+            srflx_data_from_file.reset(new NCTimeSeries(nc_frc_file, "swrad", frc_time_varname, geom[lev].Domain(),vec_srflx[lev].get(), true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            srflx_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::netcdf) {
+            rain_data_from_file.reset(new NCTimeSeries(nc_frc_file, "rain", frc_time_varname, geom[lev].Domain(),vec_rain[lev].get(), true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            rain_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::netcdf) {
+            cloud_data_from_file.reset(new NCTimeSeries(nc_frc_file, "cloud", frc_time_varname, geom[lev].Domain(),vec_cloud[lev].get(), true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            cloud_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::netcdf) {
+            EminusP_data_from_file.reset(new NCTimeSeries(nc_frc_file, "EminusP", frc_time_varname, geom[lev].Domain(),vec_EminusP[lev].get(), true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            EminusP_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::netcdf) {
+            longwave_down_data_from_file.reset(new NCTimeSeries(nc_frc_file, solverChoice.longwave_netcdf_varname, frc_time_varname,
+                                                                geom[lev].Domain(), vec_longwave_down[lev].get(), true, false, solverChoice.time_ref,
+                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            longwave_down_data_from_file->Initialize();
+        }
+    } else {
+        if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_uwind[lev].get(), vec_uwind[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_vwind[lev].get(), vec_vwind[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_Tair[lev].get(), vec_Tair[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_qair[lev].get(), vec_qair[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_Pair[lev].get(), vec_Pair[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_srflx[lev].get(), vec_srflx[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_rain[lev].get(), vec_rain[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_cloud[lev].get(), vec_cloud[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_EminusP[lev].get(), vec_EminusP[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_longwave_down[lev].get(), vec_longwave_down[lev-1].get(), foextrap_bc());
+        }
+    }
+#endif
+
     // Has to follow set_bathymetry: the mask's hires_grid_level path needs the
     // full-domain data read just above, and an analytic mask needs the grid
     // coordinates that set_bathymetry -> set_grid_scale fills on the netcdf path.
@@ -2577,6 +2861,36 @@ REMORA::ReadParameters ()
     }
 
     pp.queryAdd("frc_time_varname",frc_time_varname);
+
+#ifdef REMORA_USE_NETCDF
+    // Forcing on a lat-lon grid rather than the model grid (see LatLonRegrid)
+    {
+        std::string frc_regrid = "auto";
+        pp.queryAdd("frc_regrid", frc_regrid);
+        if (frc_regrid == "auto") {
+            frc_regrid_options.enabled = true;
+        } else if (frc_regrid == "off") {
+            frc_regrid_options.enabled = false;
+        } else {
+            amrex::Abort("remora.frc_regrid must be auto or off, not " + frc_regrid);
+        }
+        pp.queryAdd("frc_lon_varname", frc_regrid_options.lon_name);
+        pp.queryAdd("frc_lat_varname", frc_regrid_options.lat_name);
+        pp.queryAdd("frc_fill_max_rings", frc_regrid_options.fill_max_rings);
+        if (frc_regrid_options.fill_max_rings < 0) {
+            amrex::Abort("remora.frc_fill_max_rings must be at least 0");
+        }
+        std::string frc_rotate = "auto";
+        pp.queryAdd("frc_rotate", frc_rotate);
+        if (frc_rotate == "auto") {
+            frc_regrid_options.rotate = true;
+        } else if (frc_rotate == "off") {
+            frc_regrid_options.rotate = false;
+        } else {
+            amrex::Abort("remora.frc_rotate must be auto or off, not " + frc_rotate);
+        }
+    }
+#endif
 
     pp.queryAdd("riv_time_varname",riv_time_varname);
 

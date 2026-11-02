@@ -171,6 +171,13 @@ public:
     void GetAtmosToOceanPsiLonLat (const amrex::MultiFab*& lon_psi,
                                    const amrex::MultiFab*& lat_psi) const;
 
+    // Returns pointers to level-0 rho-point spherical coordinate MultiFabs
+    // (vec_lonr/vec_latr, degrees east/north): the cell centers a forcing field
+    // given on another grid is interpolated to. Sets both to nullptr when the
+    // grid file carried no lon_rho/lat_rho rather than aborting.
+    void GetRhoLonLat (const amrex::MultiFab*& lon_rho,
+                       const amrex::MultiFab*& lat_rho) const;
+
     // Returns the level-0 wet/dry masks (1 = wet, 0 = land) at rho, u-face,
     // and v-face points, used by the driver to exclude land cells from
     // remap destination stencils. Sets pointers to nullptr if unavailable.
@@ -664,6 +671,24 @@ public:
      *         grid NetCDF file carries lat_psi */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_latp;
 
+    /** \brief longitude on rho-points (2D, degrees east); only filled when the
+     *         grid NetCDF file carries lon_rho */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lonr;
+    /** \brief latitude on rho-points (2D, degrees north); only filled when the
+     *         grid NetCDF file carries lat_rho */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_latr;
+    /** \brief angle from east to the local xi axis on rho-points (2D, radians,
+     *         positive counterclockwise: ROMS's `angle`); only filled when the
+     *         grid NetCDF file carries angle */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_angler;
+    /** \brief lon_rho on the whole domain, levels up to hires_grid_level; only filled when
+     *         remora.nc_grid_file_hires carries it */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lonr_full_domain;
+    /** \brief lat_rho on the whole domain, as vec_lonr_full_domain */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_latr_full_domain;
+    /** \brief angle on the whole domain, as vec_lonr_full_domain */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_angler_full_domain;
+
     /** \brief d(1/n)/d(xi) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_dndx;
     /** \brief d(1/m)/d(eta) */
@@ -1050,6 +1075,9 @@ public:
     /** \brief As compute_wvel, from an omega already computed by compute_diagnostic_omega */
     void compute_wvel (int lev, amrex::MultiFab& mf_w, const amrex::MultiFab& mf_omega);
 
+    /** \brief Region of a level that its NetCDF output covers */
+    amrex::Box netcdf_subdomain (int lev, int which_subdomain = 0) const;
+
     /** \brief omega and w on the s_w points of the NetCDF output, ghost columns filled and masked */
     void compute_omega_and_w (int lev, amrex::MultiFab* mf_omega, amrex::MultiFab* mf_wvel);
 
@@ -1304,6 +1332,30 @@ public:
     /** \brief Initialize or calculate wind speed and other surface state vars from file or analytic */
     void set_surface_state (int lev);
 
+#ifdef REMORA_USE_NETCDF
+    /** \brief Make or remake the rho-point stress arrays of a level */
+    void ensure_stress_rho_arrays (int lev);
+#endif
+
+    /** \brief Rotate a vector given as east and north components on rho points onto the
+     *         grid's xi and eta axes, in place, over the valid cells and first ghost cell */
+    void rotate_to_grid_axes (amrex::MultiFab& u_east, amrex::MultiFab& v_north,
+                              const amrex::MultiFab& angle);
+
+#ifdef REMORA_USE_NETCDF
+    /** \brief Whether the winds come from a lat-lon file and are to be rotated; the other
+     *         component then comes from one too, or is uniform (checked at startup) */
+    bool winds_need_rotation () const {
+        return frc_regrid_options.rotate &&
+               ((Uwind_data_from_file && Uwind_data_from_file->regridded()) ||
+                (Vwind_data_from_file && Vwind_data_from_file->regridded()));
+    }
+#endif
+
+    /** \brief Average rho-point stress components to the u and v faces */
+    void average_stress_to_faces (int lev, const amrex::MultiFab& tau_xi_rho,
+                                  const amrex::MultiFab& tau_eta_rho);
+
     /** \brief Initialize horizontal mixing coefficients */
     void set_hmixcoef (int lev);
 
@@ -1470,8 +1522,15 @@ public:
     /** \brief Full domain high-res grid variable initialization from NetCDF file */
     void init_grid_vars_full_domain_from_netcdf ();
 
-    /** \brief Extrapolate grid metrics to edge of MultiFab */
-    void extrapolate_metric_to_physical_boundaries(amrex::MultiFab& mf, const amrex::Geometry& geom);
+    /** \brief Extrapolate grid metrics to edge of MultiFab, copying the outermost
+     *         in-domain ghost row outward or, with linear, extending it linearly
+     *         (steps taken modulo wrap when wrap > 0, for a longitude) */
+    void extrapolate_metric_to_physical_boundaries(amrex::MultiFab& mf, const amrex::Geometry& geom,
+                                                   bool linear = false, amrex::Real wrap = amrex::Real(0.0));
+
+    /** \brief Fill a refined level's coordinate array (lon, lat, angle) from the coarser
+     *         level, including the ghost cells outside the domain */
+    void interp_grid_coords_from_coarse (int lev, amrex::MultiFab& fine, const amrex::MultiFab& crse);
 
     /** \brief Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);
@@ -1666,6 +1725,13 @@ private:
     std::unique_ptr<NCTimeSeries> sustr_data_from_file;
     /** \brief Data container for v-component surface momentum flux read from file */
     std::unique_ptr<NCTimeSeries> svstr_data_from_file;
+    /** \brief Surface stress from a lat-lon file, east and north components on rho points
+     *  before it is rotated onto the grid and averaged to the u and v faces; one per level,
+     *  unallocated when the stress file is on the model grid */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sustr_rho;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_svstr_rho;
+    /** \brief Whether the surface stress is read on rho points, from a lat-lon grid */
+    bool stress_on_rho = false;
     /** \brief Data container for u-direction wind read from file */
     std::unique_ptr<NCTimeSeries> Uwind_data_from_file;
     /** \brief Data container for v-direction wind read from file */
@@ -2112,10 +2178,7 @@ private:
                              const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& );
 
     /** \brief Evolve tracers and hydro particles */
-    void evolveTracers( int lev,
-                        amrex::Real dt,
-                        amrex::Vector<amrex::MultiFab const*>& flow_vel,
-                        const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& );
+    void evolveTracers (int lev, amrex::Real dt);
 
 #endif
     /** \brief Verbosity level of output */
@@ -2192,6 +2255,10 @@ private:
     std::string riv_time_varname = "river_time";
     /** \brief Name of time field for forcing data */
     std::string frc_time_varname = "";
+#ifdef REMORA_USE_NETCDF
+    /** \brief How forcing on a lat-lon grid is interpolated (remora.frc_regrid and friends) */
+    LatLonRegridOptions frc_regrid_options;
+#endif
 
     /** \brief Set refinement criteria */
     void refinement_criteria_setup();

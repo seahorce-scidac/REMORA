@@ -8,6 +8,8 @@
 
 #include <AMReX_AmrCore.H>
 
+#include "REMORA_LatLonRegrid.H"
+
 /** \brief A class to hold and interpolate time series data read from a NetCDF file
  *
  * The class only ever holds the two time steps necessary to interpoplate to the current
@@ -23,7 +25,31 @@ class NCTimeSeries
                       const amrex::Box& a_domain,
                       amrex::MultiFab* a_mf_var,
                       bool a_is2d, bool a_save_interpolated,
-                      double a_time_ref);
+                      double a_time_ref,
+                      const LatLonRegridOptions* a_regrid_options = nullptr,
+                      const amrex::MultiFab* a_target_lon = nullptr,
+                      const amrex::MultiFab* a_target_lat = nullptr);
+
+        /** \brief Whether the field is interpolated from a lat-lon grid rather than read
+         *         on the model grid */
+        bool regridded () const { return regrid != nullptr; }
+
+        /** \brief Whether every file stores the field as one value per time */
+        bool spatially_uniform () const;
+
+        /** \brief Where a series' files store a field */
+        enum class SourceGridKind {
+            model,    ///< on the model grid at the given index type (some files may be uniform)
+            uniform,  ///< one value per time in every file
+            latlon    ///< on a lat-lon grid in at least one file
+        };
+
+        /** \brief Classify the files of a series, by the rule Initialize applies to each.
+         *         A variable that is missing counts as on the model grid, so that Initialize
+         *         reports it. Collective. */
+        static SourceGridKind source_grid (const amrex::Vector<std::string>& file_names,
+                                           const std::string& field_name, const amrex::Box& domain,
+                                           amrex::IndexType ixtype, bool is2d);
 
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
@@ -49,6 +75,17 @@ class NCTimeSeries
         amrex::Vector<std::string> file_names;
         /// Whether each file stores this field as one value per time record
         amrex::Vector<int> file_is_spatially_uniform;
+        /// Whether each file stores this field on a lat-lon grid, to be interpolated
+        amrex::Vector<int> file_is_regridded;
+
+        /** How a field on another grid is interpolated (remora.frc_*), or null when this
+         *  series is never interpolated from another grid */
+        const LatLonRegridOptions* regrid_options = nullptr;
+        /// Level 0 rho-point longitude and latitude, the interpolation targets
+        const amrex::MultiFab* target_lon = nullptr;
+        const amrex::MultiFab* target_lat = nullptr;
+        /// Interpolation from the files' lat-lon grid, when they are on one
+        std::unique_ptr<LatLonRegrid> regrid;
         /// Field name in netcdf file
         std::string field_name;
         /// Field name for time series in netcdf file
