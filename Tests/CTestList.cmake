@@ -918,6 +918,13 @@ add_test_layout(DogboneAnalytic_drop_ghosts DogboneAnalytic_landlayout "remora_e
                 "plt00020" "none" ""
                 "remora.drop_dry_boxes=true remora.dry_ghost_test=2 remora.dry_ghost_value=7")
 add_test_restart_exact(DogboneAnalytic_drop_restart "remora_exec" "plt00010" "chk00005")
+# Bulk fluxes work on the box grown by two cells, so on the ghost cells in dropped boxes too,
+# with the logs, powers and divisions by air pressure of the COARE scheme; what they compute
+# there has to stay finite. (NetCDF forcing, which CI does not build, was checked by hand.)
+set(DROP_BULK "remora.bulk_fluxes=true remora.uwind_type=constant remora.vwind_type=constant remora.uwind=5.0 remora.vwind=2.0 remora.air_temperature=23.567 remora.air_humidity=0.776 remora.air_pressure=1013.48 remora.surface_radiation_flux=300.0 remora.rain=1.0e-5")
+add_test_layout(DogboneAnalytic_drop_bulk DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "chk00020" "${DROP_BULK}" "${DROP_BULK} remora.drop_dry_boxes=true"
+                "level 0 keeps 24 of 32 boxes")
 
 #=============================================================================
 # Boxes hold whole water columns. A small amr.max_grid_size cuts the domain in x and y only,
