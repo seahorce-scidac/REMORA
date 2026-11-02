@@ -60,7 +60,9 @@ List of Parameters
 |                                        |                                   |                       |            |
 |                                        | ``swrad``, ``evaporation``,       |                       |            |
 |                                        |                                   |                       |            |
-|                                        | ``rain``                          |                       |            |
+|                                        | ``rain``; without bulk fluxes     |                       |            |
+|                                        |                                   |                       |            |
+|                                        | only ``qnet`` and ``ssflux``      |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.chunk_history_file**          | do we divide netcdf history       | false or true         | false      |
 |                                        |                                   |                       |            |

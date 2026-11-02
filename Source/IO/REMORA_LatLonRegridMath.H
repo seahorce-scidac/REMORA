@@ -141,12 +141,18 @@ inline void unwrap_longitudes (std::vector<double>& lon)
     }
 }
 
+/** The span in degrees of an increasing, continuous longitude axis */
+inline double longitude_span (const std::vector<double>& lon_inc)
+{
+    return lon_inc.empty() ? 0.0 : lon_inc.back() - lon_inc.front();
+}
+
 /** Whether an increasing, continuous longitude axis closes the circle: its span plus one
  *  spacing is 360 degrees */
 inline bool is_periodic (const std::vector<double>& lon_inc)
 {
     if (lon_inc.size() < 2) { return false; }
-    const double span = lon_inc.back() - lon_inc.front();
+    const double span = longitude_span(lon_inc);
     const double dlon = span / static_cast<double>(lon_inc.size() - 1);
     return std::abs(span + dlon - 360.0) < 1.e-3 * dlon;
 }

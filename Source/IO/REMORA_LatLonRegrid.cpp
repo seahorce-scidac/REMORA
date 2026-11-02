@@ -253,7 +253,7 @@ LatLonRegrid::define (const std::string& file_name, const std::string& field_nam
     }
 
     // A longitude axis whose spacing closes the circle covers the globe
-    const double span = lon_inc.back() - lon_inc.front();
+    const double span = latlon_regrid::longitude_span(lon_inc);
     periodic_lon = latlon_regrid::is_periodic(lon_inc);
     if (span > 360.0 + 1.e-9) {
         Abort("Cannot interpolate " + where + ": its longitude axis spans " + std::to_string(span) +

@@ -9,7 +9,8 @@
 #   python3 Tests/tools/make_latlon_forcing_test_data.py check plt_latlon_his_d01.nc
 #
 # With remora.bulk_fluxes = false and remora.smflux_type = "netcdf" in place of wind_type and
-# tair_type, sustr and svstr are read from the same file instead; check them with --stress.
+# tair_type, sustr and svstr are read from the same file instead; check them with --stress
+# (the history file then has no winds or Tair to check, which --stress allows).
 remora.prob_name = IdealMiniGrid
 
 remora.max_step = 10

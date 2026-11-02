@@ -61,8 +61,12 @@ def fields(L, P):
 
 def make(args):
     grid = netCDF4.Dataset(args.grid)
-    lon_rho = np.asarray(grid["lon_rho"][:])
-    lat_rho = np.asarray(grid["lat_rho"][:])
+    # Extents from the points that hold coordinates: a fill value would otherwise be taken
+    # for one
+    lon_rho = np.ma.masked_invalid(grid["lon_rho"][:]).compressed()
+    lat_rho = np.ma.masked_invalid(grid["lat_rho"][:]).compressed()
+    if lon_rho.size == 0 or lat_rho.size == 0:
+        sys.exit(f"{args.grid} has no valid lon_rho/lat_rho")
     center = float(np.mean(lon_rho))
     L_grid = continuous_lon(lon_rho, center)
 
@@ -96,19 +100,30 @@ def make(args):
           f"lon {lon_store[0]:g} to {lon_store[-1]:g}, lat {lat[0]:g} to {lat[-1]:g}")
 
     if args.rotated_grid:
-        ny, nx = lon_rho.shape
+        ny, nx = grid["lon_rho"].shape
         J, I = np.meshgrid(np.arange(ny), np.arange(nx), indexing="ij")
         angle = 0.1 + 0.01 * I + 0.02 * J
         rot = netCDF4.Dataset(args.rotated_grid, "w", format="NETCDF3_64BIT_OFFSET")
+        rot.setncatts({a: grid.getncattr(a) for a in grid.ncattrs()})
         for name, dim in grid.dimensions.items():
             rot.createDimension(name, None if dim.isunlimited() else len(dim))
         for name, var in grid.variables.items():
+            # A faithful copy: raw values, char arrays as characters, scalars as scalars
+            var.set_auto_maskandscale(False)
+            var.set_auto_chartostring(False)
             fill = var.getncattr("_FillValue") if "_FillValue" in var.ncattrs() else None
             o = rot.createVariable(name, var.dtype, var.dimensions, fill_value=fill)
+            o.set_auto_maskandscale(False)
+            o.set_auto_chartostring(False)
             for a in var.ncattrs():
                 if a != "_FillValue":
                     o.setncattr(a, var.getncattr(a))
-            o[:] = angle if name == "angle" else var[:]
+            if name == "angle":
+                o[:] = angle
+            elif var.ndim == 0:
+                o.assignValue(var.getValue())
+            else:
+                o[:] = var[:]
         if "angle" not in grid.variables:
             o = rot.createVariable("angle", "f8", ("eta_rho", "xi_rho"))
             o[:] = angle
@@ -155,8 +170,10 @@ def check(args):
     if not lines:
         sys.exit(f"{args.history} holds none of Tair, Uwind/Vwind (set remora.output_forcing = true)")
     print("\n".join(lines))
-    ok = worst <= args.tol
-    print(("PASS" if ok else "FAIL") + f": worst relative error {worst:.1e} (tolerance {args.tol:g})")
+    # Roundoff of the precision REMORA ran in, which the history file is written in
+    tol = args.tol if args.tol is not None else 1000 * float(np.finfo(h["lon_rho"].dtype).eps)
+    ok = worst <= tol
+    print(("PASS" if ok else "FAIL") + f": worst relative error {worst:.1e} (tolerance {tol:.1e})")
     sys.exit(0 if ok else 1)
 
 
@@ -178,7 +195,9 @@ def main():
     pc.add_argument("history", help="REMORA NetCDF history file (remora.output_forcing = true)")
     pc.add_argument("--record", type=int, default=-1, help="history record to check (default last)")
     pc.add_argument("--stress", action="store_true", help="also check sustr and svstr")
-    pc.add_argument("--tol", type=float, default=1e-12, help="largest relative error to accept")
+    pc.add_argument("--tol", type=float, default=None,
+                    help="largest relative error to accept (default 1000 machine epsilons of the "
+                         "history file's precision: 2e-13 in double, 1e-4 in single)")
     pc.set_defaults(func=check)
 
     args = p.parse_args()
