@@ -257,12 +257,18 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
 
     auto nodality = mf_interp_lev0->ixType();
 
+    // Everywhere the file holds data: the domain plus the ROMS ring outside a non-nodal edge.
+    // That includes every ghost cell inside the domain, which the FillPatch after this would
+    // refill with the same values from the neighbouring box, except where no box is there
+    // (remora.drop_dry_boxes): those cells would otherwise keep whatever mf_interp_lev0 held.
+    const amrex::Box data_box = amrex::grow(amrex::convert(domain, nodality),
+                                            amrex::IntVect(1-nodality[0],1-nodality[1],0));
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
     for (amrex::MFIter mfi(*mf_interp_lev0,true); mfi.isValid(); ++mfi) {
-        // Adjust box to match ROMS grid
-        amrex::Box bx = mfi.growntilebox(amrex::IntVect(1-nodality[0],1-nodality[1],0));
+        amrex::Box bx = mfi.growntilebox() & data_box;
 
 
         // Temporal interpolation is done once on level 0.
