@@ -15,7 +15,7 @@
 #                A  dropped vs full answers, bitwise (CPU 128x1 and 16x8, GPU)
 #                B  CPU time, full vs dropped, boxes 32/64/128 x mixes 128x1/32x4/16x8
 #                C  CPU land weight 1/0.5/0 with dropped boxes (box size -b)
-#                D  GPU time, boxes 256/128/64, full vs dropped
+#                D  GPU time, boxes 512/256/128/64, full vs dropped
 #   -b n         box size for stage C                               [64]
 #   -j n         make -j                                            [16]
 #   -q qos       Slurm QOS (each job is under 30 minutes)           [debug]
@@ -238,9 +238,8 @@ C)  # land weighting with dropped boxes
         done
       done; } | write_job cpu C
     ;;
-D)  # GPU: large boxes full vs smaller boxes with and without dropping
-    { echo "run D_gpu_b256_full $GPU_LAUNCH -- $XG amr.max_grid_size_x=256 amr.max_grid_size_y=256 amrex.use_gpu_aware_mpi=1"
-      for b in 128 64; do
+D)  # GPU: full vs dropped at every box size, largest first
+    { for b in 512 256 128 64; do
         echo "run D_gpu_b${b}_full $GPU_LAUNCH -- $XG amr.max_grid_size_x=$b amr.max_grid_size_y=$b amrex.use_gpu_aware_mpi=1"
         echo "run D_gpu_b${b}_drop $GPU_LAUNCH -- $XG amr.max_grid_size_x=$b amr.max_grid_size_y=$b amrex.use_gpu_aware_mpi=1 remora.drop_dry_boxes=1"
       done; } | write_job gpu D
