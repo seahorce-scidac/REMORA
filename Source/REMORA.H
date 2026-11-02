@@ -1640,11 +1640,7 @@ private:
                                 bool is_history, long long history_record = 0);
 
     /** \brief NetCDF file a level's output goes to at this output step */
-    std::string netcdf_plot_path (int which_step, int lev, int& which_step_in_chunk,
-                                  int segment = 0) const;
-
-    /** \brief History segment a restarted run continues for a level */
-    int history_restart_segment (int which_step, int lev, bool& resume) const;
+    std::string netcdf_plot_path (int which_step, int lev, int& which_step_in_chunk) const;
 
     /** \brief Record at which a restarted run continues a history file */
     long long history_restart_record (int lev, const std::string& path);
@@ -2040,12 +2036,6 @@ private:
     struct NCHistoryFile {
         //! File this run last wrote to, empty before the level's first write
         std::string path;
-        //! Segment-0 file of the current chunk, which the segments are numbered from
-        std::string base;
-        //! Region the file holds
-        amrex::Box extent;
-        //! How many times the level has moved within the chunk, numbering its _seg files
-        int segment = 0;
         //! Next record to write. A level counts its own records, since a level made by
         //! tagging may appear, vanish and reappear while history_count counts every output.
         long long next_record = 0;

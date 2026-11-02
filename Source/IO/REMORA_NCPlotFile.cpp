@@ -212,11 +212,12 @@ bool fits_level (const ncutils::NCFile& ncf, const amrex::Box& subdomain)
  */
 void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
                              MultiFab const* mf_omega, MultiFab const* mf_wvel) {
-    // A refined level is written to its own file, _d02 and up, the way ROMS names a nested
-    // grid. Its dimensions come from netcdf_subdomain, so a level covering nx by ny cells
-    // gets xi_rho = nx+2, xi_u = nx+1 and so on, exactly as ROMS shapes a child grid.
+    // Each level is written to its own file, _d02 and up for the refined levels, the way
+    // ROMS names a nested grid. Every level's file covers the whole domain at that level's
+    // resolution, so a level covering nx by ny cells gets xi_rho = nx+2, xi_u = nx+1 and
+    // so on; a refined level's cells outside its grids hold the fill value.
     int which_step_in_chunk = -1;
-    std::string FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk);
+    const std::string FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk);
 
     if (!REMORA::write_history_file) {
         move_aside(FullPath, "exists");
@@ -230,52 +231,20 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
         history_files.resize(lev+1);
     }
     NCHistoryFile& hf = history_files[lev];
-    const Box extent = netcdf_subdomain(lev);
 
-    // A history file holds one extent per level, while regridding can move a level made
-    // by field-based tagging. When it moves, the level's history goes on in a new
-    // segment, _seg0001 and up; a new chunk starts again at segment 0. A restarted run
-    // continues each level's first file at the restart time.
-    const bool restarting = !restart_chkfile.empty() && hf.path.empty();
-    bool resume = false;
-    if (FullPath != hf.base) {
-        hf.base = FullPath;
-        hf.segment = restarting ? history_restart_segment(which_step, lev, resume) : 0;
-    } else if (extent != hf.extent) {
-        ++hf.segment;
-        amrex::Print() << "Level " << lev << " now covers " << extent << ", not "
-                       << hf.extent << "; its history continues in segment "
-                       << hf.segment << std::endl;
-    }
-    FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk, hf.segment);
-
-    // On this run's first write to a file, fix where its records start. A file already
-    // there that isn't being resumed is from an earlier run, as when a refined level
-    // first appears after the first output or moves into a new segment, and is moved
-    // aside, along with the chunk's later segments, so a restart can only find this
-    // run's own.
+    // On this run's first write to a file, fix where its records start. A restarted run
+    // continues each level's first file at the restart time. Any other file already
+    // there is from an earlier run, as when a refined level first appears after the
+    // first output, and is moved aside.
     if (FullPath != hf.path) {
+        const bool resume = !restart_chkfile.empty() && hf.path.empty();
         hf.path = FullPath;
-        hf.extent = extent;
         hf.next_record = 0;
         if (resume && amrex::FileExists(FullPath)) {
             hf.next_record = history_restart_record(lev, FullPath);
         } else {
             move_aside(FullPath, "exists");
         }
-        if (amrex::ParallelDescriptor::IOProcessor()) {
-            for (int s = hf.segment + 1; ; ++s) {
-                const std::string later = netcdf_plot_path(which_step, lev, which_step_in_chunk, s);
-                if (!amrex::FileExists(later)) { break; }
-                std::string newoldname(later + ".old." + amrex::UniqueString());
-                amrex::Print() << "WriteNCPlotFile:  " << later << " is a later segment"
-                               << " of an earlier run.  Renaming to:  " << newoldname << std::endl;
-                if (std::rename(later.c_str(), newoldname.c_str())) {
-                    amrex::Abort("WriteNCPlotfile:: std::rename failed");
-                }
-            }
-        }
-        ParallelDescriptor::Barrier();
     }
     const long long record = hf.next_record++;
     const bool write_header = !(amrex::FileExists(FullPath));
@@ -297,12 +266,9 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
  *                                step gets its own
  * @param lev                     level being written
  * @param[out] which_step_in_chunk  record within a chunked history file, else -1
- * @param segment                 history segment of the level, counting the times it
- *                                has moved; segment 0 has no _seg part
  * @return                        path of the file
  */
-std::string REMORA::netcdf_plot_path (int which_step, int lev, int& which_step_in_chunk,
-                                      int segment) const
+std::string REMORA::netcdf_plot_path (int which_step, int lev, int& which_step_in_chunk) const
 {
     which_step_in_chunk = -1;
     std::string plotfilename;
@@ -317,56 +283,7 @@ std::string REMORA::netcdf_plot_path (int which_step, int lev, int& which_step_i
         plotfilename = Concatenate(plotfilename, which_chunk, file_min_digits);
         which_step_in_chunk = history_count - which_chunk * REMORA::steps_per_history_file;
     }
-    if (REMORA::write_history_file && segment > 0) {
-        plotfilename = Concatenate(plotfilename + "_seg", segment, 4);
-    }
     return plotfilename + amrex::Concatenate("_d", lev + 1, 2) + ".nc";
-}
-
-/**
- * The history segment a restarted run continues for a level: the last existing one
- * whose first record is at or before the current time, as a later one is from after
- * the restart. If a refined level no longer fits that segment's file, the run starts
- * the next one instead, leaving the earlier records in place.
- *
- * @param which_step   step being written
- * @param lev          level being written
- * @param[out] resume  whether the segment's existing file is continued
- * @return             segment to write to
- */
-int REMORA::history_restart_segment (int which_step, int lev, bool& resume) const
-{
-    const Box subdomain = netcdf_subdomain(lev);
-    const double t = model_time(t_new[lev]);
-    const double slack = 0.5 * static_cast<double>(dt[lev]);
-    int which_step_in_chunk;
-    int segment = 0;
-    bool fits = true;
-    for (int s = 0; ; ++s) {
-        const std::string path = netcdf_plot_path(which_step, lev, which_step_in_chunk, s);
-        if (!amrex::FileExists(path)) {
-            break;
-        }
-        auto ncf = ncutils::NCFile::open(
-            path, NC_NOWRITE, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
-        double first_time = std::numeric_limits<double>::max();
-        if (ncf.has_var("ocean_time") && ncf.dim("ocean_time").len() > 0) {
-            ncf.var("ocean_time").get_all(&first_time, {0}, {1});
-        }
-        const bool later = s > 0 && first_time > t + slack;
-        if (!later) {
-            fits = fits_level(ncf, subdomain);
-            segment = s;
-        }
-        ncf.close();
-        if (later) {
-            break;
-        }
-    }
-    // Level 0 never moves, so a file it doesn't fit is from another setup, and
-    // history_restart_record moves it aside as before
-    resume = fits || lev == 0;
-    return resume ? segment : segment + 1;
 }
 
 /**
@@ -442,15 +359,17 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
 
     const Box subdomain = netcdf_subdomain(lev);
 
-    // Where a refined level's grids leave gaps in the file's rectangle, the cells there
-    // are never written, so every variable there, the masks included, holds the fill
-    // value. PnetCDF fills fixed-size variables when the header is written, which costs
-    // a pass over each, so they get a _FillValue only when this level has gaps; they
-    // are written with the header, so later records don't matter. Records are filled
-    // only on request, below, so the record variables of every refined level get one,
-    // since a history file's later records may have gaps its first didn't. Level 0,
-    // which has none, keeps them without.
+    // A refined level's file covers the whole domain at its resolution, and the cells its
+    // grids don't cover are never written, so every variable there, the masks included,
+    // holds the fill value. PnetCDF fills fixed-size variables when the header is
+    // written, which costs a pass over each, so they get a _FillValue only when this
+    // level has gaps then; a level covering the domain writes them all with the header.
+    // Records are filled only on request, below, so the record variables of every
+    // refined level get one. Level 0, which has no gaps, keeps them without.
     const bool has_gaps = netcdf_subdomain_has_gaps(lev);
+    // The fixed grid variables are written with the header, and again with each record
+    // of a level with gaps, so a level that moves fills in the cells it reaches later
+    const bool write_grid = write_header || has_gaps;
     auto def_grid_var = [&] (const std::string& name, nc_type dtype,
                              const std::vector<std::string>& dims) {
         const bool is_record = !dims.empty() && dims[0] == "ocean_time";
@@ -1081,15 +1000,17 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
     long long local_start_nt = is_history ? history_record : 0;
     long long local_nt = 1; // We write data for only one time
 
+    // Fill the record first, so everything written below lands on top of it
+    if (has_gaps) {
+        ncf.fill_record(local_start_nt);
+    }
+
     // ocean_time is on the model clock, in double. Written here rather than staged,
     // since the collector holds Real; collective, with only the IO rank contributing.
     {
         const double ocean_time = model_time(t_new[lev]);
         const long long nt_count = amrex::ParallelDescriptor::IOProcessor() ? local_nt : 0;
         ncf.var("ocean_time").put_all(&ocean_time, { local_start_nt }, { nt_count });
-    }
-    if (has_gaps) {
-        ncf.fill_record(local_start_nt);
     }
 
     // Check whether there are any nans or infs in variables that we will write out
@@ -1170,7 +1091,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1] + 1);
             long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2] - subdomain.smallEnd()[2]);
 
-            if (write_header) {
+            if (write_grid) {
                 // The vertical coordinates are written once, by the rank owning the
                 // first grid: no grid need hold the file's corner when the level has gaps
                 if (mfi.index() == 0)
@@ -1577,7 +1498,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             // Horizontal mixing coefficients (scaled_to_grid):
             // vertically homogeneous and time-invariant -> write static 2D fields once.
             // **************************************************************************
-            if ((solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) && write_header) {
+            if ((solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) && write_grid) {
                 { // visc2
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
@@ -1638,7 +1559,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1] + 1);
             long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2] - subdomain.smallEnd()[2]);
 
-            if (write_header) {
+            if (write_grid) {
                 {
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
@@ -1736,7 +1657,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1]);
             long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2] - subdomain.smallEnd()[2]);
 
-            if (write_header) {
+            if (write_grid) {
                 {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
@@ -1828,7 +1749,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0] - subdomain.smallEnd()[0]);
             long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1]);
 
-            if (write_header) {
+            if (write_grid) {
             {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());

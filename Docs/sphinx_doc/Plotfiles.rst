@@ -145,18 +145,12 @@ Notes
    - Each level's history file in the run directory is continued from its first record at
      or after the restart time. Later records from the earlier run are written over as the
      new run reaches them; any it does not reach stay at the end of the file.
-   - For a refined level whose history is split into segments (see below), the run continues
-     the last segment that began at or before the restart. If the level no longer fits that
-     file, the run starts the next segment instead, and the earlier records stay where they
-     are. Any later segments of the earlier run are renamed aside when the new run first
-     writes to the level.
-   - With no history file, a new one is started. A level 0 file for a different grid is
-     renamed aside first. Chunked history files keep the numbering from the checkpoint.
+   - With no history file, a new one is started. A file for a different grid is renamed
+     aside first. Chunked history files keep the numbering from the checkpoint.
 
 -  A run that is not a restart never adds to a history file it finds in the run directory.
-   It renames the file aside when it first writes to that name, as it does any later
-   segments of the same level and chunk. This also applies to a refined level that first
-   appears partway through the run.
+   It renames the file aside when it first writes to that name. This also applies to a
+   refined level that first appears partway through the run.
 
 -  REMORA writes CDF-5 files, which have no practical size limit. Some MPI builds still fail on writes
    larger than 2 GB — a limit of the MPI-IO layer, not the file format. If a large write crashes, see the
@@ -307,25 +301,18 @@ Examples of Usage
    *out/plt_run_his00000_d01.nc*; and with ``remora.write_history_file = false``
    there is one file per output step, as in *out/plt_run00010_d01.nc*.
 
-   A refined level's NetCDF file covers the smallest rectangle holding all of the
-   level's grids, however the level was made: by static refinement boxes, by
-   field-based tagging, or both. Cells of that rectangle the grids don't cover,
-   as when field-based tagging refines an irregular region, hold the fill value
-   ``remora.netcdf_fill_value`` in every variable, the masks included, so they
-   read as missing rather than as land. For this reason the time-varying variables
-   of a refined level, the masks included, carry a ``_FillValue`` attribute, and so
-   do its fixed grid variables (``h``, ``pm``, ``x_rho`` and the like) when the
-   file's first record has gaps; level 0's variables do not.
-
-   A history file holds one extent per level, while regridding can move a level
-   made by field-based tagging. When a level's extent changes, its history goes on
-   in a new file, a segment numbered from 1 before the level suffix, as in
-   *out/plt_run_his_seg0001_d02.nc*, then ``_seg0002`` and so on; level 0 never
-   moves. Each segment holds the records written while the level had that extent,
-   so reading a moving level's history means reading its segments in turn. With
-   ``remora.chunk_history_file = true`` each chunk starts again without a segment
-   number, as in *out/plt_run_his00001_d02.nc*. Restarts are described under the
-   notes above.
+   Every level's NetCDF file covers the whole domain at that level's resolution,
+   however the level was made (by static refinement boxes, by field-based tagging,
+   or both) and wherever regridding moves it. A level 1 file with refinement ratio
+   2 therefore has twice as many points in each horizontal direction as the level 0
+   file. Cells the level's grids don't cover hold the fill value
+   ``remora.netcdf_fill_value`` in every variable, the masks included, so they read
+   as missing rather than as land. For this reason a refined level's time-varying
+   variables carry a ``_FillValue`` attribute. So do its fixed grid variables
+   (``h``, ``pm``, ``x_rho`` and the like) unless the level covers the whole domain.
+   Level 0's variables do not. On a level that doesn't cover the domain, the grid
+   variables are written again with each record, so they gain the cells the level
+   moves over.
 
    A refined level's history holds a record only for the outputs at which the level
    exists. If tagging creates the level partway through the run, or the level

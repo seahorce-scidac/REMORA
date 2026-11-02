@@ -1428,9 +1428,10 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 }
 
 /**
- * The region of a level that its NetCDF output covers: the whole domain on level 0,
- * and on a refined level the smallest box holding all of the level's grids, so the
- * file follows the level however it was made and wherever regridding has moved it.
+ * The region of a level that its NetCDF output covers: the whole domain at that
+ * level's resolution, so a refined level's file has one shape however the level was
+ * made and wherever regridding moves it. Cells the level's grids don't cover hold
+ * the fill value.
  *
  * @param lev   level being written
  * @return      the region the NetCDF file covers
@@ -1438,12 +1439,12 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 Box
 REMORA::netcdf_subdomain (int lev) const
 {
-    return (lev == 0) ? geom[lev].Domain() : grids[lev].minimalBox();
+    return geom[lev].Domain();
 }
 
 /**
- * Whether a level's grids leave cells of its NetCDF region uncovered, as field-based
- * tagging of an irregular region does. Those cells are written as the fill value.
+ * Whether a level's grids leave cells of its NetCDF region uncovered, as any refined
+ * level that doesn't span the domain does. Those cells are written as the fill value.
  *
  * @param lev   level being written
  * @return      whether the grids miss any cell of netcdf_subdomain(lev)
