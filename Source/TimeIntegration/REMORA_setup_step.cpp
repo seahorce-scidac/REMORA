@@ -250,6 +250,30 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         }
     }
 
+    // The logarithmic drag coefficient is formed in a loop of its own: the stress at a
+    // tile's low face reads it at i-1 (j-1), which another tile, possibly on another
+    // thread, writes.
+    if (solverChoice.bottom_stress_type == BottomStressType::logarithmic) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+        {
+            Array4<Real      > const& logdrg_tmp = mf_logdrg_tmp.array(mfi);
+            Array4<Real const> const& z_r   = mf_z_r->const_array(mfi);
+            Array4<Real const> const& z_w   = mf_z_w->const_array(mfi);
+            Array4<Real const> const& ZoBot = mf_ZoBot->const_array(mfi);
+            Box gbx2D = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+            gbx2D.makeSlab(2,0);
+            ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                Real logz = one / (std::log((z_r(i,j,0) - z_w(i,j,0)) / ZoBot(i,j,0)));
+                Real cff = vonKar * vonKar * logz * logz;
+                logdrg_tmp(i,j,0) = std::min(Cdb_max,std::max(Cdb_min,cff));
+            });
+        }
+    }
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -259,13 +283,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real      > const& bvstr = mf_bvstr->array(mfi);
         Array4<Real const> const& uold  = U_old.const_array(mfi);
         Array4<Real const> const& vold  = V_old.const_array(mfi);
-        Array4<Real      > const& logdrg_tmp = mf_logdrg_tmp.array(mfi);
-        Array4<Real const> const& z_r   = mf_z_r->const_array(mfi);
-        Array4<Real const> const& z_w   = mf_z_w->const_array(mfi);
+        Array4<Real const> const& logdrg_tmp = mf_logdrg_tmp.const_array(mfi);
 
-        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-        Box gbx2D = gbx2;
-        gbx2D.makeSlab(2,0);
         Box ubx1 = mfi.grownnodaltilebox(0,IntVect(NGROW-1,NGROW-1,0));
         Box ubx1D = ubx1;
         ubx1D.makeSlab(2,0);
@@ -298,13 +317,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
                 bvstr(i,j,0) = Real(0.5) * (rdrag2(i,j-1,0) + rdrag2(i,j,0)) * vold(i,j,0) * vel_mag;
             });
         } else if (solverChoice.bottom_stress_type == BottomStressType::logarithmic) {
-            Array4<Real const> const& ZoBot = mf_ZoBot->const_array(mfi);
-            ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
-            {
-                Real logz = one / (std::log((z_r(i,j,0) - z_w(i,j,0)) / ZoBot(i,j,0)));
-                Real cff = vonKar * vonKar * logz * logz;
-                logdrg_tmp(i,j,0) = std::min(Cdb_max,std::max(Cdb_min,cff));
-            });
             ParallelFor(ubx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 Real avg_v = Real(0.25) * (vold(i,j,0) + vold(i,j+1,0) + vold(i-1,j,0) + vold(i-1,j+1,0));
