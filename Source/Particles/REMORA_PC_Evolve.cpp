@@ -161,7 +161,7 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
                 // discretization can carry a particle past them: reflect it back
                 if (s_new < zero) { s_new = -s_new; }
                 if (s_new > static_cast<Real>(nz)) { s_new = Real(2*nz) - s_new; }
-                s_new = amrex::max(zero, amrex::min(static_cast<Real>(nz), s_new));
+                s_new = amrex::max(Real(0.0), amrex::min(static_cast<Real>(nz), s_new));
 
                 p.pos(2) = level_index_to_height(p.pos(0), p.pos(1), s_new, nz,
                                                  plo, dxi, zheight);

@@ -140,7 +140,7 @@ amrex::Real height_to_level_index ( amrex::ParticleReal a_x, amrex::ParticleReal
         zhi = zlo;
         zlo = level_height(a_x, a_y, k, a_plo, a_dxi, a_z_nd);
     }
-    const amrex::Real f = amrex::max(zero, amrex::min(one, (z - zlo) / (zhi - zlo)));
+    const amrex::Real f = amrex::max(amrex::Real(0.0), amrex::min(amrex::Real(1.0), (z - zlo) / (zhi - zlo)));
     if (a_kcell) {
         *a_kcell = k;
         *a_dz = zhi - zlo;
@@ -193,7 +193,7 @@ amrex::Real interpolate_to_level_index ( amrex::ParticleReal a_x, amrex::Particl
     const amrex::Real sy[] = {one - (ly - static_cast<amrex::Real>(j0)), ly - static_cast<amrex::Real>(j0)};
 
     const int kmax = a_nodal[2] ? a_nz : a_nz-1;
-    const amrex::Real lz = amrex::max(zero, amrex::min(static_cast<amrex::Real>(kmax),
+    const amrex::Real lz = amrex::max(amrex::Real(0.0), amrex::min(static_cast<amrex::Real>(kmax),
                                       a_s - static_cast<amrex::Real>(!a_nodal[2]) * myhalf));
     const int k0 = amrex::min(static_cast<int>(amrex::Math::floor(lz)), amrex::max(kmax-1, 0));
     const int k1 = amrex::min(k0+1, kmax);
