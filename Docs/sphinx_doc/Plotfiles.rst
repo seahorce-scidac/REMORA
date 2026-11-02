@@ -46,6 +46,22 @@ List of Parameters
 |                                        | for                               |                       |            |
 |                                        | all timesteps?                    |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
+| **remora.output_forcing**              | also write the surface forcing    | false or true         | false      |
+|                                        |                                   |                       |            |
+|                                        | to NetCDF plotfiles: ``Uwind``,   |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``Vwind`` (along the grid axes),  |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``Tair``, ``Pair``, ``qnet``,     |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``ssflux``, ``latent``,           |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``sensible``, ``lwrad``,          |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``swrad``, ``evaporation``,       |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``rain``                          |                       |            |
++----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.chunk_history_file**          | do we divide netcdf history       | false or true         | false      |
 |                                        |                                   |                       |            |
 |                                        | files so that each file contains  |                       |            |
@@ -263,13 +279,13 @@ the tracers are advected with. All velocities are averaged to cell centers in AM
 +--------------------------------+------------------------------------+
 | **lon_rho**                    | rho-point longitude [degrees east],|
 |                                | when the grid file carries it      |
+|                                | (otherwise dropped with a warning) |
 +--------------------------------+------------------------------------+
 | **lat_rho**                    | rho-point latitude [degrees north],|
-|                                | when the grid file carries it      |
+|                                | likewise                           |
 +--------------------------------+------------------------------------+
 | **angle**                      | angle from east to the xi axis     |
-|                                | [radians], when the grid file      |
-|                                | carries it                         |
+|                                | [radians], likewise                |
 +--------------------------------+------------------------------------+
 
 .. _examples-of-usage-8:
