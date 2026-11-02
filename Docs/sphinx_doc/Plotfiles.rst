@@ -306,11 +306,15 @@ Examples of Usage
    level carry a ``_FillValue`` attribute for this reason; level 0's do not.
 
    A history file holds one extent per level, while regridding can move a level
-   made by field-based tagging. A write that would add a record of a different
-   extent to a level's history file aborts the run, before any file is written for
-   that step. Set ``remora.write_history_file = false`` to write a file per output
-   step instead, or fix the level with a static refinement box. A new history
-   chunk (``remora.chunk_history_file = true``) may start at a new extent.
+   made by field-based tagging. When a level's extent changes, its history goes on
+   in a new file, a segment numbered from 1 before the level suffix, as in
+   *out/plt_run_his_seg0001_d02.nc*, then ``_seg0002`` and so on; level 0 never
+   moves. Each segment holds the records written while the level had that extent,
+   so reading a moving level's history means reading its segments in turn. With
+   ``remora.chunk_history_file = true`` each chunk starts again without a segment
+   number, as in *out/plt_run_his00001_d02.nc*. A restarted run continues the last
+   segment that began at or before the restart, or starts the next one if the level
+   no longer fits it.
 
 -  **remora.plot_nodal_data** = *false*
 

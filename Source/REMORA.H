@@ -1640,10 +1640,11 @@ private:
                                 bool is_history, long long history_record = 0);
 
     /** \brief NetCDF file a level's output goes to at this output step */
-    std::string netcdf_plot_path (int which_step, int lev, int& which_step_in_chunk) const;
+    std::string netcdf_plot_path (int which_step, int lev, int& which_step_in_chunk,
+                                  int segment = 0) const;
 
-    /** \brief Abort if a level would add a record to a history file of a different extent */
-    void check_netcdf_history_extents (int which_step) const;
+    /** \brief History segment a restarted run continues for a level */
+    int history_restart_segment (int which_step, int lev) const;
 
     /** \brief Record at which a restarted run continues a history file */
     long long history_restart_record (int lev, const std::string& path);
@@ -2043,6 +2044,11 @@ private:
     amrex::Vector<long long> history_next_record;
     /** \brief Per level, the region of the history file in use */
     amrex::Vector<amrex::Box> history_extent;
+    /** \brief Per level, how many times the level has moved within the current
+     *  history chunk, numbering its _seg files */
+    amrex::Vector<int> history_segment;
+    /** \brief Per level, the history file the current segments are numbered from */
+    amrex::Vector<std::string> history_base_in_use;
 
     /** \brief Names of 3D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_3d;

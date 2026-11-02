@@ -184,13 +184,6 @@ REMORA::WritePlotFile (int istep_for_plot)
         FillPatchNoBC(lev, t_new[lev], *vec_diff2[lev],   GetVecOfPtrs(vec_diff2),   BdyVars::null,0,true,false);
     }
 
-#ifdef REMORA_USE_NETCDF
-    // Check every level can be written before any file is moved aside or started
-    if (plotfile_type == PlotfileType::netcdf) {
-        check_netcdf_history_extents(istep_for_plot);
-    }
-#endif
-
     // omega and w are built from u and v, so they have to be computed before the land
     // faces of u and v are overwritten with the fill value below
     Vector<MultiFab> nc_omega(finest_level+1);

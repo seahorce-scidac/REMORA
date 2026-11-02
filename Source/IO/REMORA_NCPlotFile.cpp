@@ -178,7 +178,33 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
     // grid. Its dimensions come from netcdf_subdomain, so a level covering nx by ny cells
     // gets xi_rho = nx+2, xi_u = nx+1 and so on, exactly as ROMS shapes a child grid.
     int which_step_in_chunk = -1;
-    const std::string FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk);
+    std::string FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk);
+
+    // A history file holds one extent per level, while regridding can move a level made
+    // by field-based tagging. When it moves, the level's history goes on in a new
+    // segment, _seg0001 and up; a new chunk starts again at segment 0.
+    if (REMORA::write_history_file) {
+        if (history_file_in_use.size() <= lev) {
+            history_file_in_use.resize(lev+1);
+            history_next_record.resize(lev+1, 0);
+            history_extent.resize(lev+1);
+            history_segment.resize(lev+1, 0);
+            history_base_in_use.resize(lev+1);
+        }
+        if (FullPath != history_base_in_use[lev]) {
+            history_base_in_use[lev] = FullPath;
+            history_segment[lev] = (!restart_chkfile.empty() && history_file_in_use[lev].empty())
+                                 ? history_restart_segment(which_step, lev) : 0;
+        }
+        FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk, history_segment[lev]);
+        if (FullPath == history_file_in_use[lev] && netcdf_subdomain(lev) != history_extent[lev]) {
+            ++history_segment[lev];
+            FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk, history_segment[lev]);
+            amrex::Print() << "Level " << lev << " now covers " << netcdf_subdomain(lev)
+                           << ", not " << history_extent[lev] << "; its history continues in "
+                           << FullPath << std::endl;
+        }
+    }
 
     //
     // Check if this file/directory already exists and if so,
@@ -204,21 +230,17 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
     if (REMORA::write_history_file) {
         is_history = true;
 
-        if (history_file_in_use.size() <= lev) {
-            history_file_in_use.resize(lev+1);
-            history_next_record.resize(lev+1, 0);
-            history_extent.resize(lev+1);
-        }
-
         // On this run's first write to a file, fix where its records start. A
-        // restarted run continues an existing file at the restart time. Otherwise
-        // any file already there is from an earlier run, as when a refined level
-        // first appears after the first output, and is moved aside.
+        // restarted run continues each level's first file at the restart time.
+        // Otherwise any file already there is from an earlier run, as when a refined
+        // level first appears after the first output or moves into a new segment, and
+        // is moved aside.
         if (FullPath != history_file_in_use[lev]) {
+            const bool continuing = !restart_chkfile.empty() && history_file_in_use[lev].empty();
             history_file_in_use[lev] = FullPath;
             history_extent[lev] = netcdf_subdomain(lev);
             long long start = 0;
-            if (!restart_chkfile.empty() && amrex::FileExists(FullPath)) {
+            if (continuing && amrex::FileExists(FullPath)) {
                 start = history_restart_record(lev, FullPath);
             } else {
                 if (amrex::ParallelDescriptor::IOProcessor() && amrex::FileExists(FullPath)) {
@@ -265,9 +287,12 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
  *                                step gets its own
  * @param lev                     level being written
  * @param[out] which_step_in_chunk  record within a chunked history file, else -1
+ * @param segment                 history segment of the level, counting the times it
+ *                                has moved; segment 0 has no _seg part
  * @return                        path of the file
  */
-std::string REMORA::netcdf_plot_path (int which_step, int lev, int& which_step_in_chunk) const
+std::string REMORA::netcdf_plot_path (int which_step, int lev, int& which_step_in_chunk,
+                                      int segment) const
 {
     which_step_in_chunk = -1;
     std::string plotfilename;
@@ -282,37 +307,59 @@ std::string REMORA::netcdf_plot_path (int which_step, int lev, int& which_step_i
         plotfilename = Concatenate(plotfilename, which_chunk, file_min_digits);
         which_step_in_chunk = history_count - which_chunk * REMORA::steps_per_history_file;
     }
+    if (REMORA::write_history_file && segment > 0) {
+        plotfilename = Concatenate(plotfilename + "_seg", segment, 4);
+    }
     return plotfilename + amrex::Concatenate("_d", lev + 1, 2) + ".nc";
 }
 
 /**
- * Abort before anything is written if a level would add a record to a history file
- * holding a different extent: field-based tagging moves a refined level when it
- * regrids, and a file has one extent.
+ * The history segment a restarted run continues for a level: the last existing one
+ * whose first record is at or before the current time, as a later one is from after
+ * the restart. If the level no longer fits that segment's file, the run starts the
+ * next one, leaving the earlier records in place.
  *
  * @param which_step   step being written
+ * @param lev          level being written
+ * @return             segment to write to
  */
-void REMORA::check_netcdf_history_extents (int which_step) const
+int REMORA::history_restart_segment (int which_step, int lev) const
 {
-    if (!write_history_file) {
-        return;
-    }
-    for (int lev = 1; lev <= finest_level; ++lev) {
-        if (lev >= static_cast<int>(history_file_in_use.size())) {
+    const Box subdomain = netcdf_subdomain(lev);
+    const double t = model_time(t_new[lev]);
+    const double slack = 0.5 * static_cast<double>(dt[lev]);
+    int which_step_in_chunk;
+    int segment = 0;
+    bool fits = true;
+    for (int s = 0; ; ++s) {
+        const std::string path = netcdf_plot_path(which_step, lev, which_step_in_chunk, s);
+        if (!amrex::FileExists(path)) {
             break;
         }
-        int which_step_in_chunk;
-        const std::string path = netcdf_plot_path(which_step, lev, which_step_in_chunk);
-        const Box now = netcdf_subdomain(lev);
-        if (path == history_file_in_use[lev] && now != history_extent[lev]) {
-            std::ostringstream msg;
-            msg << "Level " << lev << " now covers " << now << ", but its NetCDF history file "
-                << path << " holds " << history_extent[lev] << ". A history file has one extent"
-                << " per level; set remora.write_history_file = false to write a file per"
-                << " output step, or fix the level with a static refinement box.";
-            Abort(msg.str());
+        auto ncf = ncutils::NCFile::open(
+            path, NC_NOWRITE, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
+        double first_time = std::numeric_limits<double>::max();
+        if (ncf.has_var("ocean_time") && ncf.dim("ocean_time").len() > 0) {
+            ncf.var("ocean_time").get_all(&first_time, {0}, {1});
         }
+        if (s > 0 && first_time > t + slack) {
+            ncf.close();
+            break;
+        }
+        auto dim_is = [&] (const std::string& name, long long len) {
+            return ncf.has_dim(name) && ncf.dim(name).len() == len;
+        };
+        fits = dim_is("xi_rho", subdomain.length(0) + 2) &&
+               dim_is("eta_rho", subdomain.length(1) + 2);
+        segment = s;
+        ncf.close();
     }
+    // Level 0 never moves, so a file it doesn't fit is from another setup, and
+    // history_restart_record moves it aside as before
+    if (!fits && lev > 0) {
+        ++segment;
+    }
+    return segment;
 }
 
 /**
