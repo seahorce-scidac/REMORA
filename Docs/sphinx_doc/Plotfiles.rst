@@ -301,6 +301,15 @@ Examples of Usage
    *out/plt_run_his00000_d01.nc*; and with ``remora.write_history_file = false``
    there is one file per output step, as in *out/plt_run00010_d01.nc*.
 
+   .. note::
+
+      NetCDF output is not recommended for runs with mesh refinement. Each refined
+      level is written over the whole domain at its own resolution, so the files are
+      large and slow to write, and most of each one is fill. For speed and disk space,
+      we recommend AMReX plotfiles (``remora.plotfile_type = amrex``) for these runs.
+      :ref:`xamrex<sec:xamrex>` reads them into Python with xarray, including time
+      series and multiple levels.
+
    Every level's NetCDF file covers the whole domain at that level's resolution,
    however the level was made (by static refinement boxes, by field-based tagging,
    or both) and wherever regridding moves it. A level 1 file with refinement ratio
