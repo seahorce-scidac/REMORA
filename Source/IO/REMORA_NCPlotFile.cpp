@@ -165,6 +165,44 @@ private:
 };
 } // namespace
 
+namespace {
+/**
+ * Move a file aside, if there is one, so a new file can take its name.
+ *
+ * @param path   file to move
+ * @param why    what is wrong with it, for the message
+ */
+void move_aside (const std::string& path, const std::string& why)
+{
+    if (amrex::ParallelDescriptor::IOProcessor() && amrex::FileExists(path)) {
+        std::string newoldname(path + ".old." + amrex::UniqueString());
+        amrex::Print() << "WriteNCPlotFile:  " << path << " " << why
+                       << ".  Renaming to:  " << newoldname << std::endl;
+        if (std::rename(path.c_str(), newoldname.c_str())) {
+            amrex::Abort("WriteNCPlotfile:: std::rename failed");
+        }
+    }
+    amrex::ParallelDescriptor::Barrier();
+}
+
+/**
+ * Whether a history file is shaped for a level's NetCDF region and has records.
+ *
+ * @param ncf         open history file
+ * @param subdomain   the level's NetCDF region
+ */
+bool fits_level (const ncutils::NCFile& ncf, const amrex::Box& subdomain)
+{
+    auto dim_is = [&] (const std::string& name, long long len) {
+        return ncf.has_dim(name) && ncf.dim(name).len() == len;
+    };
+    return dim_is("xi_rho", subdomain.length(0) + 2) &&
+           dim_is("eta_rho", subdomain.length(1) + 2) &&
+           dim_is("s_rho", subdomain.length(2)) &&
+           ncf.has_var("ocean_time");
+}
+} // namespace
+
 /**
  * @param which_step   current step for output
  * @param plotMF       cell-centered plot variables at this level
@@ -180,104 +218,76 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
     int which_step_in_chunk = -1;
     std::string FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk);
 
-    // A history file holds one extent per level, while regridding can move a level made
-    // by field-based tagging. When it moves, the level's history goes on in a new
-    // segment, _seg0001 and up; a new chunk starts again at segment 0.
-    if (REMORA::write_history_file) {
-        if (history_file_in_use.size() <= lev) {
-            history_file_in_use.resize(lev+1);
-            history_next_record.resize(lev+1, 0);
-            history_extent.resize(lev+1);
-            history_segment.resize(lev+1, 0);
-            history_base_in_use.resize(lev+1);
-        }
-        if (FullPath != history_base_in_use[lev]) {
-            history_base_in_use[lev] = FullPath;
-            history_segment[lev] = (!restart_chkfile.empty() && history_file_in_use[lev].empty())
-                                 ? history_restart_segment(which_step, lev) : 0;
-        }
-        FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk, history_segment[lev]);
-        if (FullPath == history_file_in_use[lev] && netcdf_subdomain(lev) != history_extent[lev]) {
-            ++history_segment[lev];
-            FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk, history_segment[lev]);
-            amrex::Print() << "Level " << lev << " now covers " << netcdf_subdomain(lev)
-                           << ", not " << history_extent[lev] << "; its history continues in "
-                           << FullPath << std::endl;
-        }
+    if (!REMORA::write_history_file) {
+        move_aside(FullPath, "exists");
+        auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
+        amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << std::endl;
+        WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, true, ncf, false);
+        return;
     }
 
-    //
-    // Check if this file/directory already exists and if so,
-    //       have the IOProcessor move the existing
-    //       file/directory to filename.old
-    //
-    if ((!REMORA::write_history_file) || (history_count == 0) ||
-        (which_step_in_chunk == 0)) {
+    if (history_files.size() <= lev) {
+        history_files.resize(lev+1);
+    }
+    NCHistoryFile& hf = history_files[lev];
+    const Box extent = netcdf_subdomain(lev);
+
+    // A history file holds one extent per level, while regridding can move a level made
+    // by field-based tagging. When it moves, the level's history goes on in a new
+    // segment, _seg0001 and up; a new chunk starts again at segment 0. A restarted run
+    // continues each level's first file at the restart time.
+    const bool restarting = !restart_chkfile.empty() && hf.path.empty();
+    bool resume = false;
+    if (FullPath != hf.base) {
+        hf.base = FullPath;
+        hf.segment = restarting ? history_restart_segment(which_step, lev, resume) : 0;
+    } else if (extent != hf.extent) {
+        ++hf.segment;
+        amrex::Print() << "Level " << lev << " now covers " << extent << ", not "
+                       << hf.extent << "; its history continues in segment "
+                       << hf.segment << std::endl;
+    }
+    FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk, hf.segment);
+
+    // On this run's first write to a file, fix where its records start. A file already
+    // there that isn't being resumed is from an earlier run, as when a refined level
+    // first appears after the first output or moves into a new segment, and is moved
+    // aside, along with the chunk's later segments, so a restart can only find this
+    // run's own.
+    if (FullPath != hf.path) {
+        hf.path = FullPath;
+        hf.extent = extent;
+        hf.next_record = 0;
+        if (resume && amrex::FileExists(FullPath)) {
+            hf.next_record = history_restart_record(lev, FullPath);
+        } else {
+            move_aside(FullPath, "exists");
+        }
         if (amrex::ParallelDescriptor::IOProcessor()) {
-            if (amrex::FileExists(FullPath)) {
-                std::string newoldname(FullPath + ".old." + amrex::UniqueString());
-                amrex::Print() << "WriteNCPlotFile:  " << FullPath << " exists.  Renaming to:  " << newoldname << std::endl;
-                if (std::rename(FullPath.c_str(), newoldname.c_str())) {
+            for (int s = hf.segment + 1; ; ++s) {
+                const std::string later = netcdf_plot_path(which_step, lev, which_step_in_chunk, s);
+                if (!amrex::FileExists(later)) { break; }
+                std::string newoldname(later + ".old." + amrex::UniqueString());
+                amrex::Print() << "WriteNCPlotFile:  " << later << " is a later segment"
+                               << " of an earlier run.  Renaming to:  " << newoldname << std::endl;
+                if (std::rename(later.c_str(), newoldname.c_str())) {
                     amrex::Abort("WriteNCPlotfile:: std::rename failed");
                 }
             }
         }
         ParallelDescriptor::Barrier();
     }
+    const long long record = hf.next_record++;
+    const bool write_header = !(amrex::FileExists(FullPath));
 
-    bool is_history;
+    auto ncf =
+            write_header ?
+                    ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
+                    ncutils::NCFile::open(FullPath, NC_WRITE, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
 
-    if (REMORA::write_history_file) {
-        is_history = true;
+    amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
 
-        // On this run's first write to a file, fix where its records start. A
-        // restarted run continues each level's first file at the restart time.
-        // Otherwise any file already there is from an earlier run, as when a refined
-        // level first appears after the first output or moves into a new segment, and
-        // is moved aside.
-        if (FullPath != history_file_in_use[lev]) {
-            const bool continuing = !restart_chkfile.empty() && history_file_in_use[lev].empty();
-            history_file_in_use[lev] = FullPath;
-            history_extent[lev] = netcdf_subdomain(lev);
-            long long start = 0;
-            if (continuing && amrex::FileExists(FullPath)) {
-                start = history_restart_record(lev, FullPath);
-            } else {
-                if (amrex::ParallelDescriptor::IOProcessor() && amrex::FileExists(FullPath)) {
-                    std::string newoldname(FullPath + ".old." + amrex::UniqueString());
-                    amrex::Print() << "WriteNCPlotFile:  " << FullPath << " exists.  Renaming to:  " << newoldname << std::endl;
-                    if (std::rename(FullPath.c_str(), newoldname.c_str())) {
-                        amrex::Abort("WriteNCPlotfile:: std::rename failed");
-                    }
-                }
-                ParallelDescriptor::Barrier();
-            }
-            history_next_record[lev] = start;
-        }
-        const long long record = history_next_record[lev]++;
-        bool write_header = !(amrex::FileExists(FullPath));
-
-        auto ncf =
-                write_header ?
-                        ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
-                        ncutils::NCFile::open(FullPath, NC_WRITE, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
-
-        amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
-
-        WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, write_header, ncf,
-                              is_history, record);
-
-    } else {
-
-        is_history = false;
-        bool write_header = true;
-
-        // Open new netcdf file to write data
-        auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
-        amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << std::endl;
-
-        WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, write_header, ncf, is_history);
-    }
+    WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, write_header, ncf, true, record);
 }
 
 /**
@@ -316,14 +326,15 @@ std::string REMORA::netcdf_plot_path (int which_step, int lev, int& which_step_i
 /**
  * The history segment a restarted run continues for a level: the last existing one
  * whose first record is at or before the current time, as a later one is from after
- * the restart. If the level no longer fits that segment's file, the run starts the
- * next one, leaving the earlier records in place.
+ * the restart. If a refined level no longer fits that segment's file, the run starts
+ * the next one instead, leaving the earlier records in place.
  *
  * @param which_step   step being written
  * @param lev          level being written
+ * @param[out] resume  whether the segment's existing file is continued
  * @return             segment to write to
  */
-int REMORA::history_restart_segment (int which_step, int lev) const
+int REMORA::history_restart_segment (int which_step, int lev, bool& resume) const
 {
     const Box subdomain = netcdf_subdomain(lev);
     const double t = model_time(t_new[lev]);
@@ -342,24 +353,20 @@ int REMORA::history_restart_segment (int which_step, int lev) const
         if (ncf.has_var("ocean_time") && ncf.dim("ocean_time").len() > 0) {
             ncf.var("ocean_time").get_all(&first_time, {0}, {1});
         }
-        if (s > 0 && first_time > t + slack) {
-            ncf.close();
+        const bool later = s > 0 && first_time > t + slack;
+        if (!later) {
+            fits = fits_level(ncf, subdomain);
+            segment = s;
+        }
+        ncf.close();
+        if (later) {
             break;
         }
-        auto dim_is = [&] (const std::string& name, long long len) {
-            return ncf.has_dim(name) && ncf.dim(name).len() == len;
-        };
-        fits = dim_is("xi_rho", subdomain.length(0) + 2) &&
-               dim_is("eta_rho", subdomain.length(1) + 2);
-        segment = s;
-        ncf.close();
     }
     // Level 0 never moves, so a file it doesn't fit is from another setup, and
     // history_restart_record moves it aside as before
-    if (!fits && lev > 0) {
-        ++segment;
-    }
-    return segment;
+    resume = fits || lev == 0;
+    return resume ? segment : segment + 1;
 }
 
 /**
@@ -382,13 +389,7 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
         auto ncf = ncutils::NCFile::open(
             path, NC_NOWRITE, amrex::ParallelContext::CommunicatorSub(),
             MPI_INFO_NULL);
-        auto dim_is = [&] (const std::string& name, long long len) {
-            return ncf.has_dim(name) && ncf.dim(name).len() == len;
-        };
-        fits = dim_is("xi_rho", subdomain.length(0) + 2) &&
-               dim_is("eta_rho", subdomain.length(1) + 2) &&
-               dim_is("s_rho", subdomain.length(2)) &&
-               ncf.has_var("ocean_time");
+        fits = fits_level(ncf, subdomain);
         if (fits) {
             nrec = ncf.dim("ocean_time").len();
             std::vector<double> times(nrec);
@@ -403,16 +404,7 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
     }
 
     if (!fits) {
-        if (amrex::ParallelDescriptor::IOProcessor()) {
-            std::string newoldname(path + ".old." + amrex::UniqueString());
-            amrex::Print() << "WriteNCPlotFile:  " << path
-                           << " does not match level " << lev
-                           << ".  Renaming to:  " << newoldname << std::endl;
-            if (std::rename(path.c_str(), newoldname.c_str())) {
-                amrex::Abort("WriteNCPlotfile:: std::rename failed");
-            }
-        }
-        ParallelDescriptor::Barrier();
+        move_aside(path, "does not match level " + std::to_string(lev));
         return 0;
     }
 

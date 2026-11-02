@@ -302,8 +302,10 @@ Examples of Usage
    field-based tagging, or both. Cells of that rectangle the grids don't cover,
    as when field-based tagging refines an irregular region, hold the fill value
    ``remora.netcdf_fill_value`` in every variable, the masks included, so they
-   read as missing rather than as land. The grid variables and masks of a refined
-   level carry a ``_FillValue`` attribute for this reason; level 0's do not.
+   read as missing rather than as land. For this reason the time-varying variables
+   of a refined level, the masks included, carry a ``_FillValue`` attribute, and so
+   do its fixed grid variables (``h``, ``pm``, ``x_rho`` and the like) when the
+   file's first record has gaps; level 0's variables do not.
 
    A history file holds one extent per level, while regridding can move a level
    made by field-based tagging. When a level's extent changes, its history goes on

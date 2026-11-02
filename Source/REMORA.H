@@ -1644,7 +1644,7 @@ private:
                                   int segment = 0) const;
 
     /** \brief History segment a restarted run continues for a level */
-    int history_restart_segment (int which_step, int lev) const;
+    int history_restart_segment (int which_step, int lev, bool& resume) const;
 
     /** \brief Record at which a restarted run continues a history file */
     long long history_restart_record (int lev, const std::string& path);
@@ -2036,19 +2036,22 @@ private:
     int steps_per_history_file = -1;
     /** \brief Counter for which time index we are writing to in the netcdf history file */
     int history_count = 0;
-    /** \brief Per level, the history file this run last wrote to */
-    amrex::Vector<std::string> history_file_in_use;
-    /** \brief Per level, the next record to write in the history file in use. A
-     *  level counts its own records, since a level made by tagging may appear,
-     *  vanish and reappear while history_count counts every output. */
-    amrex::Vector<long long> history_next_record;
-    /** \brief Per level, the region of the history file in use */
-    amrex::Vector<amrex::Box> history_extent;
-    /** \brief Per level, how many times the level has moved within the current
-     *  history chunk, numbering its _seg files */
-    amrex::Vector<int> history_segment;
-    /** \brief Per level, the history file the current segments are numbered from */
-    amrex::Vector<std::string> history_base_in_use;
+    /** \brief The NetCDF history file a level is writing to */
+    struct NCHistoryFile {
+        //! File this run last wrote to, empty before the level's first write
+        std::string path;
+        //! Segment-0 file of the current chunk, which the segments are numbered from
+        std::string base;
+        //! Region the file holds
+        amrex::Box extent;
+        //! How many times the level has moved within the chunk, numbering its _seg files
+        int segment = 0;
+        //! Next record to write. A level counts its own records, since a level made by
+        //! tagging may appear, vanish and reappear while history_count counts every output.
+        long long next_record = 0;
+    };
+    /** \brief Per level, the history file it is writing to */
+    amrex::Vector<NCHistoryFile> history_files;
 
     /** \brief Names of 3D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_3d;
