@@ -993,6 +993,8 @@ REMORA::set_init_data_averaged_down (int lev) {
 }
 
 /**
+ * Set the Coriolis parameter f on a level, or zero it when Coriolis is off.
+ *
  * @param[in   ] lev    level to operate on
  */
 void
@@ -1021,6 +1023,10 @@ REMORA::set_coriolis(int lev) {
         Real time = zero;
         FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor), foextrap_bc());
         vec_fcor[lev]->EnforcePeriodicity(geom[lev].periodicity());
+    } else {
+        // Without Coriolis f is still written to plotfiles, so it is zero rather than
+        // whatever memory a new or remade level's MultiFab was allocated with
+        vec_fcor[lev]->setVal(zero);
     }
 }
 
