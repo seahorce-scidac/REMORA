@@ -7,6 +7,83 @@ using namespace amrex;
 
 PhysBCFunctNoOp null_bc;
 
+namespace {
+/**
+ * FillBoundary, and also make the ghost cells beyond a non-periodic domain face agree with
+ * their periodic images.
+ *
+ * FillBoundary copies only from valid cells, so a ghost cell that lies outside the domain in
+ * a non-periodic direction and beyond a periodic edge -- a corner where a periodic seam meets
+ * a wall, or the vertical ghosts at a seam -- keeps whatever the boundary conditions put there,
+ * which need not match the cell it images. That matters wherever those ghosts are copied with
+ * periodicity, as InterpFromCoarseLevel does: such a cell then has two sources, the box's own
+ * ghost and its periodic image. ParallelCopy does not say which one wins. On a CPU the order is
+ * fixed, but on a GPU whichever thread gets there first wins, so the result varies from run to
+ * run.
+ *
+ * Here each box is extended outward across its non-periodic domain faces, so those ghosts
+ * become valid cells of a temporary, and the temporary's FillBoundary fills their periodic
+ * images. Copying it back leaves every image pair equal.
+ *
+ * @param[inout] mf    data whose ghost cells to fill
+ * @param[in   ] geom  geometry of mf's level
+ */
+void
+FillBoundaryPeriodicOutside (MultiFab& mf, const Geometry& geom)
+{
+    mf.FillBoundary(geom.periodicity());
+
+    const IntVect ng = mf.nGrowVect();
+    bool any_periodic = false;
+    bool any_outside  = false;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (geom.isPeriodic(d)) {
+            any_periodic = any_periodic || ng[d] > 0;
+        } else {
+            any_outside  = any_outside  || ng[d] > 0;
+        }
+    }
+    if (!any_periodic || !any_outside) { return; }
+
+    const Box dom = amrex::convert(geom.Domain(), mf.ixType());
+    const BoxArray& ba = mf.boxArray();
+    BoxList bl(mf.ixType());
+    IntVect per_ng(0);
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (geom.isPeriodic(d)) { per_ng[d] = ng[d]; }
+    }
+    for (int i = 0; i < ba.size(); ++i) {
+        Box b = ba[i];
+        for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+            if (geom.isPeriodic(d)) { continue; }
+            if (b.smallEnd(d) <= dom.smallEnd(d)) { b.growLo(d, ng[d]); }
+            if (b.bigEnd(d)   >= dom.bigEnd(d))   { b.growHi(d, ng[d]); }
+        }
+        bl.push_back(b);
+    }
+
+    MultiFab ext(BoxArray(std::move(bl)), mf.DistributionMap(), mf.nComp(), per_ng);
+    const int ncomp = mf.nComp();
+    for (MFIter mfi(ext); mfi.isValid(); ++mfi) {
+        const auto& e = ext.array(mfi);
+        const auto& a = mf.const_array(mfi);
+        ParallelFor(mfi.validbox(), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            e(i,j,k,n) = a(i,j,k,n);
+        });
+    }
+    ext.FillBoundary(geom.periodicity());
+    for (MFIter mfi(ext); mfi.isValid(); ++mfi) {
+        const auto& e = ext.const_array(mfi);
+        const auto& a = mf.array(mfi);
+        ParallelFor(mfi.fabbox(), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            a(i,j,k,n) = e(i,j,k,n);
+        });
+    }
+}
+} // namespace
+
 /**
  * Fill valid and ghost data in the MultiFab "mf"
  * This version fills the MultiFab mf_to_fill in valid regions with
@@ -535,7 +612,12 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
         }
     }
 
-    mf_crse->FillBoundary(geom[lev-1].periodicity());
+    // InterpFromCoarseLevel copies the coarse ghost cells with periodicity. When the levels
+    // are first made the parent has had no FillPatch yet, so its ghosts beyond a wall and
+    // beyond a periodic edge still hold initial values rather than their periodic images.
+    // Where the new patch touches the seam the two then compete for one cell of the copy,
+    // and on a GPU the winner varies from run to run (Channel_Test_ML_seam, issue #768).
+    FillBoundaryPeriodicOutside(*mf_crse, geom[lev-1]);
     amrex::InterpFromCoarseLevel(*mf_to_fill, mf_to_fill->nGrowVect(), IntVect(0,0,0),
             *mf_crse, 0, icomp, ncomp, geom[lev-1], geom[lev],
                                  refRatio(lev-1),
