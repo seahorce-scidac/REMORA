@@ -62,12 +62,16 @@ FillBoundaryPeriodicOutside (MultiFab& mf, const Geometry& geom)
         bl.push_back(b);
     }
 
+    // Start the temporary's ghosts from mf's as well. FillBoundary leaves alone a ghost with no
+    // valid cell to copy from -- one at a coarse-fine interface of a level that does not span
+    // the domain -- and copying it back must then return what was there, not uninitialized
+    // memory.
     MultiFab ext(BoxArray(std::move(bl)), mf.DistributionMap(), mf.nComp(), per_ng);
     const int ncomp = mf.nComp();
     for (MFIter mfi(ext); mfi.isValid(); ++mfi) {
         const auto& e = ext.array(mfi);
         const auto& a = mf.const_array(mfi);
-        ParallelFor(mfi.validbox(), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        ParallelFor(mfi.fabbox(), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
         {
             e(i,j,k,n) = a(i,j,k,n);
         });
