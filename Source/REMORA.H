@@ -1636,11 +1636,12 @@ private:
                                 amrex::MultiFab const* plotMF,
                                 amrex::MultiFab const* mf_omega,
                                 amrex::MultiFab const* mf_wvel,
-                                bool write_header, ncutils::NCFile& ncf,
+                                bool write_header, bool write_grid,
+                                ncutils::NCFile& ncf,
                                 bool is_history, long long history_record = 0);
 
     /** \brief NetCDF file a level's output goes to at this output step */
-    std::string netcdf_plot_path (int which_step, int lev, int& which_step_in_chunk) const;
+    std::string netcdf_plot_path (int which_step, int lev) const;
 
     /** \brief Record at which a restarted run continues a history file */
     long long history_restart_record (int lev, const std::string& path);
@@ -2039,6 +2040,9 @@ private:
         //! Next record to write. A level counts its own records, since a level made by
         //! tagging may appear, vanish and reappear while history_count counts every output.
         long long next_record = 0;
+        //! Grids the fixed grid variables were last written for, so they are written
+        //! again only when the level has moved
+        amrex::BoxArray grids_written;
     };
     /** \brief Per level, the history file it is writing to */
     amrex::Vector<NCHistoryFile> history_files;

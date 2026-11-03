@@ -316,12 +316,12 @@ Examples of Usage
    2 therefore has twice as many points in each horizontal direction as the level 0
    file. Cells the level's grids don't cover hold the fill value
    ``remora.netcdf_fill_value`` in every variable, the masks included, so they read
-   as missing rather than as land. For this reason a refined level's time-varying
-   variables carry a ``_FillValue`` attribute. So do its fixed grid variables
-   (``h``, ``pm``, ``x_rho`` and the like) unless the level covers the whole domain.
-   Level 0's variables do not. On a level that doesn't cover the domain, the grid
-   variables are written again with each record, so they gain the cells the level
-   moves over.
+   as missing rather than as land. For this reason every variable of a refined level
+   carries a ``_FillValue`` attribute, including the fixed grid variables (``h``,
+   ``pm``, ``x_rho`` and the like) and the masks. On level 0, which has no gaps, the
+   grid variables and masks carry none. In a history file, the grid variables are
+   written again whenever the level's grids have changed since the last record, so
+   they gain the cells the level moves over.
 
    A refined level's history holds a record only for the outputs at which the level
    exists. If tagging creates the level partway through the run, or the level

@@ -186,7 +186,8 @@ void move_aside (const std::string& path, const std::string& why)
 }
 
 /**
- * Whether a history file is shaped for a level's NetCDF region and has records.
+ * Whether a history file is shaped for a level's NetCDF region and has a time
+ * variable (it may have no records yet).
  *
  * @param ncf         open history file
  * @param subdomain   the level's NetCDF region
@@ -216,14 +217,13 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
     // ROMS names a nested grid. Every level's file covers the whole domain at that level's
     // resolution, so a level covering nx by ny cells gets xi_rho = nx+2, xi_u = nx+1 and
     // so on; a refined level's cells outside its grids hold the fill value.
-    int which_step_in_chunk = -1;
-    const std::string FullPath = netcdf_plot_path(which_step, lev, which_step_in_chunk);
+    const std::string FullPath = netcdf_plot_path(which_step, lev);
 
     if (!REMORA::write_history_file) {
         move_aside(FullPath, "exists");
         auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
         amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << std::endl;
-        WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, true, ncf, false);
+        WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, true, true, ncf, false);
         return;
     }
 
@@ -240,6 +240,7 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
         const bool resume = !restart_chkfile.empty() && hf.path.empty();
         hf.path = FullPath;
         hf.next_record = 0;
+        hf.grids_written = BoxArray();
         if (resume && amrex::FileExists(FullPath)) {
             hf.next_record = history_restart_record(lev, FullPath);
         } else {
@@ -249,6 +250,12 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
     const long long record = hf.next_record++;
     const bool write_header = !(amrex::FileExists(FullPath));
 
+    // The fixed grid variables are written with the header, and again whenever the
+    // level's grids have changed since this run last wrote the file, so a level that
+    // moves or grows fills in the cells it reaches
+    const bool write_grid = write_header || grids[lev] != hf.grids_written;
+    hf.grids_written = grids[lev];
+
     auto ncf =
             write_header ?
                     ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
@@ -256,21 +263,20 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
 
     amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
 
-    WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, write_header, ncf, true, record);
+    WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, write_header, write_grid, ncf,
+                          true, record);
 }
 
 /**
  * The NetCDF file a level's output goes to at this output step.
  *
- * @param which_step              step being written, naming the file when each output
- *                                step gets its own
- * @param lev                     level being written
- * @param[out] which_step_in_chunk  record within a chunked history file, else -1
- * @return                        path of the file
+ * @param which_step   step being written, naming the file when each output step gets
+ *                     its own
+ * @param lev          level being written
+ * @return             path of the file
  */
-std::string REMORA::netcdf_plot_path (int which_step, int lev, int& which_step_in_chunk) const
+std::string REMORA::netcdf_plot_path (int which_step, int lev) const
 {
-    which_step_in_chunk = -1;
     std::string plotfilename;
     if (REMORA::write_history_file) {
         plotfilename = plot_file_name + "_his";
@@ -281,7 +287,6 @@ std::string REMORA::netcdf_plot_path (int which_step, int lev, int& which_step_i
     if (REMORA::write_history_file and REMORA::chunk_history_file) {
         int which_chunk = history_count / REMORA::steps_per_history_file;
         plotfilename = Concatenate(plotfilename, which_chunk, file_min_digits);
-        which_step_in_chunk = history_count - which_chunk * REMORA::steps_per_history_file;
     }
     return plotfilename + amrex::Concatenate("_d", lev + 1, 2) + ".nc";
 }
@@ -342,13 +347,14 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
  * @param mf_omega          omega at w points, or nullptr when it is not plotted
  * @param mf_wvel           w at w points, or nullptr when it is not plotted
  * @param write_header      whether to write a header
+ * @param write_grid        whether to write the fixed grid variables
  * @param ncf               netcdf file object
  * @param is_history        whether the file being written is a history file
  * @param history_record    record of the history file to write to
  */
 void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
                                    MultiFab const* mf_omega, MultiFab const* mf_wvel,
-                                   bool write_header, ncutils::NCFile &ncf,
+                                   bool write_header, bool write_grid, ncutils::NCFile &ncf,
                                    bool is_history, long long history_record)
 {
     // Number of cells in this "domain" at this level
@@ -361,19 +367,14 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
 
     // A refined level's file covers the whole domain at its resolution, and the cells its
     // grids don't cover are never written, so every variable there, the masks included,
-    // holds the fill value. PnetCDF fills fixed-size variables when the header is
-    // written, which costs a pass over each, so they get a _FillValue only when this
-    // level has gaps then; a level covering the domain writes them all with the header.
-    // Records are filled only on request, below, so the record variables of every
-    // refined level get one. Level 0, which has no gaps, keeps them without.
+    // holds the fill value. Every refined-level variable gets a _FillValue, since a level
+    // may cover the domain at the header and shrink later. PnetCDF fills fixed-size
+    // variables when the header is written, and records only on request, below. Level 0
+    // has no gaps, so its grid variables and masks keep no _FillValue.
     const bool has_gaps = netcdf_subdomain_has_gaps(lev);
-    // The fixed grid variables are written with the header, and again with each record
-    // of a level with gaps, so a level that moves fills in the cells it reaches later
-    const bool write_grid = write_header || has_gaps;
     auto def_grid_var = [&] (const std::string& name, nc_type dtype,
                              const std::vector<std::string>& dims) {
-        const bool is_record = !dims.empty() && dims[0] == "ocean_time";
-        if (is_record ? lev > 0 : has_gaps) {
+        if (lev > 0) {
             ncf.def_var_fill(name, dtype, dims, &netcdf_fill_value);
         } else {
             ncf.def_var(name, dtype, dims);
