@@ -25,10 +25,11 @@ flattens dual-form continuations, and replaces set_bounds.h with explicit tile
 bounds. No equations, process order, clipping or reference constants change.
 The unused caldate result is stubbed because atmospheric pCO2 is constant.
 
-The Fortran compiler runs with -O0 -fcheck=all. It emits 20 independent cases
+The Fortran compiler runs with -O0 -fcheck=all. It emits 24 independent cases
 covering 2/3/8/16 layers, 0/1/2/3 iterations, day/night, wind/surface stress,
 zero/partial/full resuspension, low oxygen, low nutrients, TIC constraints,
-and dry/fractional wet masks. Incoming weighted state includes an offset of
+and dry/fractional wet masks. Long steps also exercise characteristics that
+cross multiple layers and clear a whole column. Incoming weighted state includes an offset of
 7 in every component, so overwriting it with scratch concentrations fails.
 Refractory DON/DOC and calcium have zero biological increments in this source.
 

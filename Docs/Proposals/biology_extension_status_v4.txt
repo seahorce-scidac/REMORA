@@ -9,10 +9,10 @@ PR #745 supplies Biology/FennelBiology/NoBiology, a single factory, explicit
 contexts, model-owned parameters/kernels and declaration-based output
 aliases. Review follow-up fixes parameter attribution, configuration namespace,
 designated initializers and diagnostics compilation. The latest follow-up
-(35f21b7b) moves analytic
-profiles back to Problem and adds declaration-based component lookup; the
+(35f21b7b) moves analytic profiles back to Problem and adds declaration-based component lookup; the
 ECB port follows that API and adds an explicit uniform application profile.
-The earlier review follow-up reports 68/68 CI tests passing. Earlier local exact comparisons cover seven Fennel paths,
+The earlier review follow-up reports 68/68 CI tests passing. Earlier local
+exact comparisons cover seven Fennel paths,
 restart, aliases and high-resolution initialization. This next branch is based
 on that PR and must follow its merge; it does not claim Stage A is upstream.
 
@@ -25,12 +25,13 @@ reference intermediate values, process order and source-update semantics.
 
 The real second ecosystem needs bottom stress for reference resuspension.
 Add two explicit views to BiologyAdvanceContext and populate them once in the
-common solver path. The model owns its kernel, parameter parsing and output alias. Uniform
+common solver path. The model owns its kernel, parameter parsing and output
+alias. Uniform
 initialization belongs to Problem; the model has no initialization virtual.
 Factory/build registration is the only
 new ecosystem selection. No shared call site downcasts or selects ECB/Fennel.
 
-Source snapshots, hashes and options accompany 20 Fortran-generated reference
+Pinned source hashes and options accompany 24 Fortran-generated reference
 column fixtures. The fixtures are reproducible from git objects, independent
 of modified working files. Native tests use no Fortran dependency. The full
 solver has an analytic ECB integration/restart case. Generic checkpoint
@@ -40,8 +41,9 @@ legacy Fennel/none checkpoints retain their existing compatibility path.
 Validation for this delivery (serial Release double precision, macOS arm64):
 - Full CMake solver and native biology test target build with the existing
   optional Fennel Fortran bridge and diagnostics enabled.
-- DateClock, BiologyInterface and Upwelling_ECB pass (3/3 targeted CTests).
-- Twenty clean-ROMS column fixtures have maximum scaled error 2.12e-16.
+- DateClock, BiologyInterface, LatLonRegrid and Upwelling_ECB pass
+  (4/4 targeted CTests), after merging development and its AMReX revision.
+- Twenty-four clean-ROMS column fixtures have maximum scaled error 2.12e-16.
 - ECB restart and output aliases agree at zero tolerance; identity/order
   mismatches and missing ECB identity metadata fail as expected.
 - Seven prior Fennel/none/native/Fortran runs match original arrays and

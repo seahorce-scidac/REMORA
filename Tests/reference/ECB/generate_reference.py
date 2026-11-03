@@ -182,11 +182,11 @@ def main():
             array = np.ctypeslib.ndpointer(dtype=np.float64, flags='F_CONTIGUOUS')
             function.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_double,
                                  array, array, array, array, array] + [ctypes.c_double]*6
-            for case in range(10):
-                nz = [2,3,8,16,8,8,8,8,8,8][case]
-                iterations = [1,3,1,2,3,1,2,3,1,0][case]
-                seconds = [300.,3600.,60.,900.,1800.,300.,300.,300.,300.,300.][case]
-                light = 0. if case in [1,4] else 150./(1025.*3985.)
+            for case in range(12):
+                nz = [2,3,8,16,8,8,8,8,8,8,8,2][case]
+                iterations = [1,3,1,2,3,1,2,3,1,0,1,1][case]
+                seconds = [300.,3600.,60.,900.,1800.,300.,300.,300.,300.,300.,86400.,172800.][case]
+                light = 0. if case in [1,4,10] else 150./(1025.*3985.)
                 stress = 0.0001 if case%2 else 0.
                 bottom = [0.,1.e-6,1.e-4][case%3]
                 wind = 5. if case%2 else 0.
