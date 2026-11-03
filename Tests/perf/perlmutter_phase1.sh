@@ -26,8 +26,9 @@
 #
 # Each job runs every revision back to back on the same node(s), one configuration at a
 # time, so they always share hardware. CPU jobs sweep ranks x threads on one 128-core node;
-# the baseline is also run with the current tile default (`<base>_j16`) so the tiling and
-# the threading effects separate. GPU jobs use one node with four GPUs. After the runs the
+# the baseline is also run with 16-row tiles (`<base>_j16`), so the tiling and
+# the threading effects separate; use -T "16x16" to run every revision at the current
+# CPU default (16x16 columns). GPU jobs use one node with four GPUs. After the runs the
 # job compares every revision's last plotfile with the baseline's using amrex fcompare.
 # Summarise with
 #   python3 Tests/perf/summarize.py <workdir>/runs
