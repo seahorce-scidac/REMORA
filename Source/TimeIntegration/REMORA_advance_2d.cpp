@@ -500,11 +500,12 @@ REMORA::advance_2d (int lev,
             {
                 Real cff=cff1*((DUon(i,j,0)-DUon(i+1,j,0))+
                                (DVom(i,j,0)-DVom(i,j+1,0)));
-                zeta_new(i,j,0)=zeta(i,j,0,kstp)+
+                // One store: tbxp1 overlaps the neighbouring tiles, which read zeta_new
+                // there, so it must never hold the unmasked value.
+                zeta_new(i,j,0) = (zeta(i,j,0,kstp)+
                     pm(i,j,0)*pn(i,j,0)*(cff+
                                          cff2*rzeta(i,j,0,kstp)-
-                                         cff3*rzeta(i,j,0,ptsk));
-                zeta_new(i,j,0) *= mskr(i,j,0);
+                                         cff3*rzeta(i,j,0,ptsk))) * mskr(i,j,0);
                 Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
                 //Pressure gradient terms
                 zwrk(i,j,0)=cff5*zeta_new(i,j,0)+cff4*zeta(i,j,0,krhs);
