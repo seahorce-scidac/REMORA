@@ -237,7 +237,8 @@ the tracers are advected with. All velocities are averaged to cell centers in AM
 +--------------------------------+------------------------------------+
 | **h**                          |                                    |
 +--------------------------------+------------------------------------+
-| **f**                          | Coriolis parameter                 |
+| **f**                          | Coriolis parameter, zero when      |
+|                                | ``remora.use_coriolis = false``    |
 +--------------------------------+------------------------------------+
 | **visc2**                      | horizontal viscosity               |
 +--------------------------------+------------------------------------+
