@@ -20,6 +20,8 @@
 #   -c "RxT ..."   CPU ranks x threads configurations        ["128x1 64x2 32x4"]
 #   -T "spec ..."  extra CPU tile sizes for every revision      []
 #   -F mode        -ffp-contract for every CPU build (off|on|fast) [off]
+#   -x "k=v ..."   extra inputs added to every run, e.g. a mixing scheme  []
+#                  (-x "$(cat Tests/perf/inputs/gls.in)" turns GLS on)
 #   -q qos         Slurm QOS                                [debug]
 #   -j n           make -j                                  [16]
 #   -S             build only, do not submit
@@ -36,12 +38,13 @@ set -euo pipefail
 
 ACCOUNT=""; ARCH=both; REVS=""; BASE=""; NEW=""; WORK=""; GULF=""; SIZE="512 1024 40"
 NSTEP=10; QOS=debug; JOBS=16; SUBMIT=1; CPU_CFGS="128x1 64x2 32x4"; TILES=""; FPCONTRACT=off
-while getopts "A:a:r:b:n:w:g:s:t:q:j:Sc:T:F:" opt; do
+XINPUTS=""
+while getopts "A:a:r:b:n:w:g:s:t:q:j:Sc:T:F:x:" opt; do
     case $opt in
         A) ACCOUNT=$OPTARG;; a) ARCH=$OPTARG;; r) REVS=$OPTARG;; b) BASE=$OPTARG;; n) NEW=$OPTARG;;
         w) WORK=$OPTARG;; g) GULF=$OPTARG;; s) SIZE=$OPTARG;; t) NSTEP=$OPTARG;;
         q) QOS=$OPTARG;; j) JOBS=$OPTARG;; S) SUBMIT=0;; c) CPU_CFGS=$OPTARG;; T) TILES=$OPTARG;;
-        F) FPCONTRACT=$OPTARG;;
+        F) FPCONTRACT=$OPTARG;; x) XINPUTS=$OPTARG;;
         *) echo "unknown option"; exit 1;;
     esac
 done
@@ -210,6 +213,7 @@ common_body () {
 cat <<EOF
 FC=$WORK/bin/fcompare
 BASE_LABEL=$BASE_LABEL
+XINPUTS="$XINPUTS"
 CPU_VARIANTS="$CPU_VARIANTS"
 GPU_VARIANTS="$GPU_VARIANTS"
 run_set () {
@@ -223,7 +227,7 @@ run_set () {
         local extra=""; [ -n "\$tile" ] && extra="remora.omp_tile_size=\${tile//_/ }"
         local out=$WORK/runs/\${arch}_\${case}_\${cfg}_\$v; mkdir -p \$out
         echo "=== \$arch \$case \$cfg \$v  \$(date +%T)"
-        \$srun_prefix \$bin \$inp remora.plot_file=\$out/plt \$extra "\$@" > \$out/log 2>&1 \\
+        \$srun_prefix \$bin \$inp remora.plot_file=\$out/plt \$XINPUTS \$extra "\$@" > \$out/log 2>&1 \\
             || echo "RUN FAILED: \$out"
         grep -m1 "TinyProfiler total time" \$out/log | sed "s/^/   /"
         awk '/Incl\\. Min/ {incl=1} incl && v == "" && /^REMORA::Evolve\\(\\)/ {v=\$(NF-1)}
