@@ -1613,6 +1613,10 @@ amrex.fpe_trap_overflow = false
 # type=unknown; method=queryAdd
 amrex.fpe_trap_zero = <UNKNOWN_DEFAULT>
 
+# independent of signal_handling; we undo this at the end of Finalize
+# type=unknown; method=queryAdd
+amrex.handle_crt_reports = <UNKNOWN_DEFAULT>
+
 # source: Src/Base/AMReX.cpp
 # type=unknown; method=queryAdd
 amrex.handle_sigabrt = <UNKNOWN_DEFAULT>
