@@ -205,6 +205,11 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
     if (containerHasElement(plot_var_names_2d, "mask_u")) tmp_plot_names.push_back("mask_u");
     if (containerHasElement(plot_var_names_2d, "mask_v")) tmp_plot_names.push_back("mask_v");
 
+    // Spherical grid coordinates and rotation angle, when the grid file carries them
+    if (containerHasElement(plot_var_names_2d, "lon_rho")) tmp_plot_names.push_back("lon_rho");
+    if (containerHasElement(plot_var_names_2d, "lat_rho")) tmp_plot_names.push_back("lat_rho");
+    if (containerHasElement(plot_var_names_2d, "angle"))   tmp_plot_names.push_back("angle");
+
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_2d) {
       if (!containerHasElement(tmp_plot_names, plot_name) && ParallelDescriptor::IOProcessor()) {

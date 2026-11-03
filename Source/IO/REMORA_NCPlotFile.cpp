@@ -311,8 +311,7 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
  */
 long long REMORA::history_restart_record (int lev, const std::string& path)
 {
-    const Box subdomain = (lev == 0) ? geom[lev].Domain()
-                                     : boxes_at_level[lev][0];
+    const Box subdomain = netcdf_subdomain(lev);
     const double t = model_time(t_new[lev]);
     long long nrec = 0;
     long long first = 0;
@@ -388,12 +387,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     // One level per file, so the geometry records below describe just this level.
     int flev = lev + 1;
 
-    Box subdomain;
-    if (lev == 0) {
-        subdomain = geom[lev].Domain();
-    } else {
-        subdomain = boxes_at_level[lev][which_subdomain];
-    }
+    const Box subdomain = netcdf_subdomain(lev, which_subdomain);
 
     int nx = subdomain.length(0);
     int ny = subdomain.length(1);
@@ -534,6 +528,27 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("y_rho").put_attr("long_name","y-locations of RHO-points");
         ncf.var("y_rho").put_attr("units","meter");
         ncf.var("y_rho").put_attr("field","y_rho, scalar");
+
+        // Spherical coordinates and rotation angle, as ROMS writes them, when the grid
+        // file carried them
+        if (vec_lonr[lev] != nullptr) {
+            ncf.def_var("lon_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            ncf.var("lon_rho").put_attr("long_name","longitude of RHO-points");
+            ncf.var("lon_rho").put_attr("units","degree_east");
+            ncf.var("lon_rho").put_attr("field","lon_rho, scalar");
+
+            ncf.def_var("lat_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            ncf.var("lat_rho").put_attr("long_name","latitude of RHO-points");
+            ncf.var("lat_rho").put_attr("units","degree_north");
+            ncf.var("lat_rho").put_attr("field","lat_rho, scalar");
+        }
+        if (vec_angler[lev] != nullptr) {
+            ncf.def_var("angle",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            ncf.var("angle").put_attr("long_name","angle between XI-axis and EAST");
+            ncf.var("angle").put_attr("units","radians");
+            ncf.var("angle").put_attr("coordinates","x_rho y_rho");
+            ncf.var("angle").put_attr("field","angle, scalar");
+        }
 
         ncf.def_var("x_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
         ncf.var("x_u").put_attr("long_name","x-locations of U-points");
@@ -794,6 +809,20 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var(nm).put_attr("field", nm + ", scalar, series");
         }
 
+        if (solverChoice.output_forcing && vec_uwind[lev] != nullptr) {
+            // Surface winds, along the grid axes as the model uses them
+            for (const auto& [nm, long_name] : { std::make_pair("Uwind", "surface u-wind component"),
+                                                 std::make_pair("Vwind", "surface v-wind component") }) {
+                ncf.def_var(nm, ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+                ncf.var(nm).put_attr("long_name", long_name);
+                ncf.var(nm).put_attr("units","meter second-1");
+                ncf.var(nm).put_attr("time","ocean_time");
+                ncf.var(nm).put_attr("grid","grid");
+                ncf.var(nm).put_attr("location","face");
+                ncf.var(nm).put_attr("coordinates","x_rho y_rho ocean_time");
+                ncf.var(nm).put_attr("field", std::string(nm) + ", scalar, series");
+            }
+        }
         if (solverChoice.output_forcing) {
             // Surface air temperature (Celsius)
             ncf.def_var("Tair", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
@@ -1256,6 +1285,21 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     //nc_plot_var.par_access(NC_INDEPENDENT);
                     nc_plot_var.put(tmp_yr.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
+
+                for (const auto& [name, vec] : { std::make_pair("lon_rho", &vec_lonr),
+                                                 std::make_pair("lat_rho", &vec_latr),
+                                                 std::make_pair("angle",   &vec_angler) })
+                {
+                    if ((*vec)[lev] == nullptr) { continue; }
+                    FArrayBox tmp_sph;
+                    tmp_sph.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+
+                    tmp_sph.template copy<RunOn::Device>((*(*vec)[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_plot_var = collector.var(ncf, name);
+                    nc_plot_var.put(tmp_sph.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
+                }
             }
 
             {
@@ -1297,6 +1341,19 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             if (solverChoice.output_forcing)
             {
                 const Real Hscale = solverChoice.rho0 * Cp;
+                // Uwind, Vwind
+                if (vec_uwind[lev] != nullptr) {
+                    for (const auto& [nm, mf] : { std::make_pair("Uwind", vec_uwind[lev].get()),
+                                                  std::make_pair("Vwind", vec_vwind[lev].get()) }) {
+                        FArrayBox tmp_wind;
+                        tmp_wind.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                        tmp_wind.template copy<RunOn::Device>((*mf)[mfi.index()], 0, 0, 1);
+                        Gpu::streamSynchronize();
+
+                        auto nc_plot_var = collector.var(ncf, nm);
+                        nc_plot_var.put(tmp_wind.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
+                    }
+                }
                 // The copy and the mult below are both async on the same stream, so the
                 // sync has to follow the last of them and precede the host-side put().
                 // Tair

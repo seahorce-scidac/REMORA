@@ -261,6 +261,16 @@ the tracers are advected with. All velocities are averaged to cell centers in AM
 +--------------------------------+------------------------------------+
 | **mask_v**                     | v-point mask (sea = 1, land = 0)   |
 +--------------------------------+------------------------------------+
+| **lon_rho**                    | rho-point longitude [degrees east],|
+|                                | when the grid file carries it      |
++--------------------------------+------------------------------------+
+| **lat_rho**                    | rho-point latitude [degrees north],|
+|                                | when the grid file carries it      |
++--------------------------------+------------------------------------+
+| **angle**                      | angle from east to the xi axis     |
+|                                | [radians], when the grid file      |
+|                                | carries it                         |
++--------------------------------+------------------------------------+
 
 .. _examples-of-usage-8:
 
@@ -291,8 +301,13 @@ Examples of Usage
    refinement boxes (``in_box_lo``/``in_box_hi`` or their ``_indices`` forms), not
    from the level's actual grids, and only the first such box at that level is
    written. NetCDF output of a refined level therefore requires the level to be
-   defined by a static box; levels created only by field-based tagging are not
-   supported.
+   defined by a static box, given by an indicator whose ``max_level`` is that
+   level, and the level's grids must cover the whole box. A write aborts the run
+   otherwise: for a level created only by field-based tagging, for a level created
+   by a box whose ``max_level`` is a finer level, for a box that only limits where a
+   field-based criterion tags, and for a box that a ``start_time``/``end_time``
+   window has stopped refining. Cells that field-based tagging adds to a level
+   outside its first static box are not written.
 
 -  **remora.plot_nodal_data** = *false*
 
