@@ -824,6 +824,11 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             }
         }
         if (solverChoice.output_forcing) {
+            // The atmospheric fields and bulk fluxes exist only with bulk fluxes on (they
+            // are allocated together); qnet and ssflux come from the surface tracer flux,
+            // which always does.
+            const bool have_bulk = (vec_Tair[lev] != nullptr);
+            if (have_bulk) {
             // Surface air temperature (Celsius)
             ncf.def_var("Tair", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("Tair").put_attr("long_name","surface air temperature");
@@ -843,6 +848,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("Pair").put_attr("location","face");
             ncf.var("Pair").put_attr("coordinates","x_rho y_rho ocean_time");
             ncf.var("Pair").put_attr("field","Pair, scalar, series");
+            } // have_bulk
 
             // Surface net heat flux (W/m2)
             ncf.def_var("qnet", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
@@ -864,6 +870,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("ssflux").put_attr("coordinates","x_rho y_rho ocean_time");
             ncf.var("ssflux").put_attr("field","surface net salt flux, scalar, series");
 
+            if (have_bulk) {
             // Latent heat flux (W/m2)
             ncf.def_var("latent", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("latent").put_attr("long_name","net latent heat flux");
@@ -923,6 +930,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("rain").put_attr("location","face");
             ncf.var("rain").put_attr("coordinates","x_rho y_rho ocean_time");
             ncf.var("rain").put_attr("field","rain, scalar, series");
+            } // have_bulk
         }
         // Right now this is hard-wired to {temp, salt, tracer, u, v}
         ncf.put_attr("space_dimension", std::vector<int> { AMREX_SPACEDIM });
@@ -1341,6 +1349,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             if (solverChoice.output_forcing)
             {
                 const Real Hscale = solverChoice.rho0 * Cp;
+                // Defined only with bulk fluxes on, as above
+                const bool have_bulk = (vec_Tair[lev] != nullptr);
                 // Uwind, Vwind
                 if (vec_uwind[lev] != nullptr) {
                     for (const auto& [nm, mf] : { std::make_pair("Uwind", vec_uwind[lev].get()),
@@ -1357,7 +1367,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 // The copy and the mult below are both async on the same stream, so the
                 // sync has to follow the last of them and precede the host-side put().
                 // Tair
-                {
+                if (have_bulk) {
                     FArrayBox tmp_Tair;
                     tmp_Tair.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp_Tair.template copy<RunOn::Device>((*vec_Tair[lev])[mfi.index()], 0, 0, 1);
@@ -1367,7 +1377,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     nc_plot_var.put(tmp_Tair.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
                 }
                 // Pair
-                {
+                if (have_bulk) {
                     FArrayBox tmp_Pair;
                     tmp_Pair.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp_Pair.template copy<RunOn::Device>((*vec_Pair[lev])[mfi.index()], 0, 0, 1);
@@ -1420,7 +1430,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                             { local_nt,       local_ny,       local_nx });
                 }
                 // latent  (stored °C m/s → write W/m²)
-                {
+                if (have_bulk) {
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_lhflx[lev])[mfi.index()], 0, 0, 1);
@@ -1436,7 +1446,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                             { local_nt,       local_ny,       local_nx });
                 }
                 // sensible  (stored °C m/s → write W/m²)
-                {
+                if (have_bulk) {
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_shflx[lev])[mfi.index()], 0, 0, 1);
@@ -1452,7 +1462,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                             { local_nt,       local_ny,       local_nx });
                 }
                 // lwrad  (stored °C m/s → write W/m²)
-                {
+                if (have_bulk) {
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_lrflx[lev])[mfi.index()], 0, 0, 1);
@@ -1468,7 +1478,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                             { local_nt,       local_ny,       local_nx });
                 }
                 // swrad, note this is stored explicitly as W/m², not degC m/s in REMORA.bulk_flux.cpp
-                {
+                if (have_bulk) {
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_srflx[lev])[mfi.index()], 0, 0, 1);
@@ -1480,7 +1490,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                             { local_nt,       local_ny,       local_nx });
                 }
                 // evaporation
-                {
+                if (have_bulk) {
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_evap[lev])[mfi.index()], 0, 0, 1);
@@ -1492,7 +1502,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                             { local_nt,       local_ny,       local_nx });
                 }
                 // rain
-                {
+                if (have_bulk) {
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_rain[lev])[mfi.index()], 0, 0, 1);

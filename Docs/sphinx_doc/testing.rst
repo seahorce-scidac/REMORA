@@ -170,17 +170,26 @@ condition with no time stepper in the way.
 Unit tests
 ~~~~~~~~~~
 
-Unit tests that exercise individual functions live in ``Tests/Unit``, built as ``remora_unit_tests`` and
+Unit tests that exercise individual functions live in ``Tests/Unit``, each built as its own executable and
 labelled ``unit`` so ``ctest -L unit`` runs them alone and ``ctest -LE unit`` skips them.
 
 There is no framework: a unit test is a ``main()`` that checks answers, prints a line per failure, and
 returns nonzero. To add one, add a ``.cpp``
-beside the existing test and list it in ``Tests/Unit/CMakeLists.txt``. The target links AMReX, so a test
+beside the existing tests and list it in ``Tests/Unit/CMakeLists.txt``. The targets link AMReX, so a test
 sees the same precision as the build around it; a case that only holds in double has to be gated on that
 rather than assumed.
 
-The unit test ``REMORA_DateClock_test.cpp`` tests that the date and calendar functions in
-``REMORA_DateClock.H`` match ROMS's ``dateclock.F``.
+- ``REMORA_DateClock_test.cpp`` (ctest ``DateClock``) tests that the date and calendar functions in
+  ``REMORA_DateClock.H`` match ROMS's ``dateclock.F``.
+- ``REMORA_LatLonRegrid_test.cpp`` (ctest ``LatLonRegrid``) tests the arithmetic of interpolating forcing
+  from a lat-lon grid and rotating it onto the grid axes, in ``REMORA_LatLonRegridMath.H``: axis
+  bracketing, longitude wrapping and unwrapping, global grids, bilinear weights (a partition of unity
+  that reproduces bilinear fields exactly), decreasing axes, and the rotation. It needs no NetCDF, so it
+  runs in every build.
+
+The forcing interpolation as a whole needs PnetCDF and data files, so it is not in ctest; the developer
+lane ``Exec/IdealMiniGrid/inputs_frc_latlon`` and ``Tests/tools/make_latlon_forcing_test_data.py``
+make a lat-lon forcing file and a rotated grid, run, and check the result exactly.
 
 Regenerating gold files
 ~~~~~~~~~~~~~~~~~~~~~~~

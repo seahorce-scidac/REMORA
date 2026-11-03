@@ -236,7 +236,9 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   | in forcing file                   |                 | ``sms_time`` for surface        |
 |                                   |                                   |                 |                                 |
-|                                   |                                   |                 | momentum stress                 |
+|                                   |                                   |                 | momentum stress,                |
+|                                   |                                   |                 |                                 |
+|                                   |                                   |                 | ``ocean_time`` for the rest     |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.frc_regrid**             | interpolate forcing given on a    | ``auto`` or     | ``auto``                        |
 |                                   |                                   |                 |                                 |
@@ -1887,9 +1889,10 @@ come from ``remora.nc_grid_file_0`` (or ``remora.nc_grid_file_hires``). The rule
 -  The lat-lon grid must contain every rho point of level 0 and its boundary ring;
    otherwise the run stops at startup and prints both extents.
 -  Source values exactly equal to the variable's ``_FillValue`` or ``missing_value``
-   (compared before unpacking, as CF defines them), or not finite, are left out and the remaining interpolation weights renormalized. A point
-   whose four surrounding source values are all missing takes the nearest valid one
-   within **remora.frc_fill_max_rings** source cells; if there is none the run stops.
+   (compared before unpacking, as CF defines them), or not finite, are left out and the
+   remaining interpolation weights renormalized. A point whose four surrounding source
+   values are all missing takes the nearest valid one within
+   **remora.frc_fill_max_rings** source cells; if there is none the run stops.
 -  Every file of one variable's series must be on the same lat-lon grid. Different
    variables may be on different grids.
 -  The bulk-flux fields above and the surface stress (``sustr``, ``svstr``) can be on a
@@ -1899,14 +1902,21 @@ come from ``remora.nc_grid_file_0`` (or ``remora.nc_grid_file_hires``). The rule
    :math:`a` (radians from east to xi, counterclockwise), as ROMS does:
    :math:`u_\xi = u_E\cos a + v_N\sin a`, :math:`v_\eta = -u_E\sin a + v_N\cos a`.
    Surface stress is interpolated, rotated at rho points and then averaged to the u and
-   v faces. Both components of a vector must come from the same kind of file, and a grid
-   file without ``angle`` gets a warning and no rotation. Set **remora.frc_rotate** to
+   v faces. Both components of a vector must come from the same kind of file, except that
+   a component given as one value per time pairs with a lat-lon one (and is then taken to
+   be east or north too); a model-grid or ``constant`` component paired with a lat-lon one
+   is an error. A grid file without ``angle`` gets a warning and no rotation. Set **remora.frc_rotate** to
    ``off`` for a file whose components are already along the grid axes. Winds and
    stresses on the model grid are never rotated.
 
 Each interpolated variable is reported at startup with its source grid. Setting
 **remora.frc_regrid** to ``off`` turns the interpolation off, so that a variable not on
 the model grid is an error.
+
+``Tests/tools/make_latlon_forcing_test_data.py`` writes a lat-lon forcing file for a given
+grid file, and a rotated copy of the grid, with fields the interpolation and rotation
+reproduce exactly; it also checks a run's history file against them. It is a useful
+template for preparing real forcing, and ``Exec/IdealMiniGrid/inputs_frc_latlon`` runs it.
 
 The legacy boolean inputs **Tair_from_netcdf**, **qair_from_netcdf**,
 **Pair_from_netcdf**, **srflx_from_netcdf**, **longwave_down_from_netcdf**,

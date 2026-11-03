@@ -1,4 +1,5 @@
 #include "REMORA_LatLonRegrid.H"
+#include "REMORA_LatLonRegridMath.H"
 #include "REMORA_NCFile.H"
 
 #include <AMReX_GpuContainers.H>
@@ -200,26 +201,9 @@ find_source_grid (const std::string& file_name, const std::string& field_name,
     return g;
 }
 
-/** Largest m with a[m] <= x in an increasing array, or -1 */
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-int bracket (const Real* a, int n, Real x)
-{
-    int lo = -1, hi = n;    // a[lo] <= x < a[hi], with a[-1] = -inf and a[n] = +inf
-    while (hi - lo > 1) {
-        const int mid = (lo + hi) / 2;
-        if (a[mid] <= x) { lo = mid; } else { hi = mid; }
-    }
-    return lo;
-}
-
-/** Whether a source value is data: apply() has already turned missing-data markers to NaN */
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-bool is_valid (Real v)
-{
-    return (v == v) && std::abs(v) <= std::numeric_limits<Real>::max();
-}
-
 } // namespace
+
+using latlon_regrid::is_valid;
 
 void
 LatLonRegrid::define (const std::string& file_name, const std::string& field_name,
@@ -253,9 +237,7 @@ LatLonRegrid::define (const std::string& file_name, const std::string& field_nam
     // Longitude made continuous, so an axis crossing the branch cut (170 .. 180, -180 .. -170)
     // is monotone; then both axes put in increasing order.
     lon_inc = lon_file;
-    for (int m = 1; m < nlon; ++m) {
-        lon_inc[m] -= 360.0 * std::round((lon_inc[m] - lon_inc[m-1]) / 360.0);
-    }
+    latlon_regrid::unwrap_longitudes(lon_inc);
     lat_inc = lat_file;
     for (auto [axis, flip, name] : { std::make_tuple(&lon_inc, &flip_lon, lon_name),
                                      std::make_tuple(&lat_inc, &flip_lat, lat_name) })
@@ -271,9 +253,8 @@ LatLonRegrid::define (const std::string& file_name, const std::string& field_nam
     }
 
     // A longitude axis whose spacing closes the circle covers the globe
-    const double span = lon_inc.back() - lon_inc.front();
-    const double dlon = span / (nlon - 1);
-    periodic_lon = std::abs(span + dlon - 360.0) < 1.e-3 * dlon;
+    const double span = latlon_regrid::longitude_span(lon_inc);
+    periodic_lon = latlon_regrid::is_periodic(lon_inc);
     if (span > 360.0 + 1.e-9) {
         Abort("Cannot interpolate " + where + ": its longitude axis spans " + std::to_string(span) +
               " degrees, more than once around the globe.");
@@ -309,11 +290,7 @@ LatLonRegrid::build_weights (const MultiFab& lon, const MultiFab& lat)
     const Real* plat = d_lat.data();
     const int Nx = nlon, Ny = nlat;
     const bool periodic = periodic_lon, fx = flip_lon, fy = flip_lat;
-    // A target longitude is taken into [lon_ref, lon_ref + 360): from the axis's first point
-    // when it covers the globe, and otherwise centered on the axis, so that a point outside
-    // it is reported on the side it misses.
-    const Real lon_ref = periodic ? static_cast<Real>(lon_inc.front())
-                                  : static_cast<Real>(0.5 * (lon_inc.front() + lon_inc.back()) - 180.0);
+    const Real lon_ref = static_cast<Real>(latlon_regrid::longitude_reference(lon_inc, periodic));
     const Real tol = Real(1.e-9);
 
     ReduceOps<ReduceOpSum, ReduceOpMin, ReduceOpMax, ReduceOpMin, ReduceOpMax> reduce_op;
@@ -329,45 +306,18 @@ LatLonRegrid::build_weights (const MultiFab& lon, const MultiFab& lat)
 
         reduce_op.eval(bx, reduce_data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
         {
-            // Into the source's longitude window
-            const Real lt = lon_a(i,j,k) - Real(360.0) * std::floor((lon_a(i,j,k) - lon_ref) / Real(360.0));
+            const Real lt = latlon_regrid::wrap_longitude(lon_a(i,j,k), lon_ref);
             const Real pt = lat_a(i,j,k);
-
-            int m, m2;
-            Real p;
-            bool inside = true;
-            if (periodic) {
-                m = amrex::max(0, bracket(plon, Nx, lt));
-                m2 = (m + 1) % Nx;
-                const Real right = (m == Nx-1) ? plon[0] + Real(360.0) : plon[m+1];
-                p = (lt - plon[m]) / (right - plon[m]);
-            } else {
-                inside = (lt >= plon[0] - tol) && (lt <= plon[Nx-1] + tol);
-                m = amrex::min(amrex::max(bracket(plon, Nx, lt), 0), Nx-2);
-                m2 = m + 1;
-                p = (lt - plon[m]) / (plon[m2] - plon[m]);
-            }
-            inside = inside && (pt >= plat[0] - tol) && (pt <= plat[Ny-1] + tol);
-            const int n  = amrex::min(amrex::max(bracket(plat, Ny, pt), 0), Ny-2);
-            const int n2 = n + 1;
-            Real q = (pt - plat[n]) / (plat[n2] - plat[n]);
-            p = amrex::min(amrex::max(p, Real(0.0)), Real(1.0));
-            q = amrex::min(amrex::max(q, Real(0.0)), Real(1.0));
-
-            // Stencil in the file's own index order
-            auto fi = [=] (int a) { return fx ? Nx-1-a : a; };
-            auto fj = [=] (int b) { return fy ? Ny-1-b : b; };
-            const int    si[4] = { fi(m), fi(m2), fi(m2), fi(m)  };
-            const int    sj[4] = { fj(n), fj(n),  fj(n2), fj(n2) };
-            const Real   sw[4] = { (Real(1.0)-p)*(Real(1.0)-q), p*(Real(1.0)-q), p*q, (Real(1.0)-p)*q };
+            const latlon_regrid::Stencil st =
+                latlon_regrid::bilinear_stencil(plon, Nx, plat, Ny, periodic, fx, fy, lt, pt, tol);
             for (int s = 0; s < 4; ++s) {
-                w(i,j,k,s)       = inside ? sw[s] : Real(0.0);
-                idx(i,j,k,3*s)   = inside ? si[s] : -1;
-                idx(i,j,k,3*s+1) = inside ? sj[s] : -1;
+                w(i,j,k,s)       = st.inside ? st.w[s] : Real(0.0);
+                idx(i,j,k,3*s)   = st.inside ? st.i[s] : -1;
+                idx(i,j,k,3*s+1) = st.inside ? st.j[s] : -1;
                 idx(i,j,k,3*s+2) = 0;
             }
 
-            return { inside ? 0 : 1, lt, lt, pt, pt };
+            return { st.inside ? 0 : 1, lt, lt, pt, pt };
         });
     }
 

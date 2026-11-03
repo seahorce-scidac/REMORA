@@ -5,6 +5,7 @@ CEXE_sources += REMORA_Checkpoint.cpp
 CEXE_sources += REMORA_writeJobInfo.cpp
 
 CEXE_sources += REMORA_console_io.cpp
+CEXE_headers += REMORA_LatLonRegridMath.H
 
 ifeq ($(USE_PNETCDF), TRUE)
   CEXE_sources += REMORA_ReadFromInitNetcdf.cpp

@@ -434,16 +434,16 @@ REMORA::advance_2d (int lev,
 
         //
         //  Free-surface step and the pressure-gradient fields, on the tile grown by one.
-        //  zeta(knew) and rzeta(krhs) are stored on the whole grown tile rather than the
-        //  growntilebox the solver needs: where two tiles of a box overlap, both compute the
-        //  same value from the same exchanged fluxes, and nothing in this loop reads them --
-        //  a benign same-value overlap under OpenMP, which a race detector will still flag.
+        //  The new free surface and the predictor's right-hand side go to a buffer private
+        //  to the tile, and from there into zeta(knew) and rzeta(krhs) on the growntilebox
+        //  only, so no two tiles of a box store the same cell of the state.
         //
         Box tbxp1D = makeSlab(grow(mfi.tilebox(),IntVect(NGROW-1,NGROW-1,0)),2,0);
-        AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
-                        CompileTimeOptions<0,1>>{}, {scheme, pred},
+        FArrayBox fab_znew(tbxp1D, 2, The_Async_Arena());
+        auto znew = fab_znew.array();
+        AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>>{}, {scheme},
         [&] (auto const& f) { ParallelFor(tbxp1D, f); },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch, auto is_pred)
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch)
         {
             Real rhs_zeta = zero;
             Real zeta_new, zw;
@@ -476,13 +476,21 @@ REMORA::advance_2d (int lev,
             gzeta2(i,j,0) = gz*zw;
             gzetaSA(i,j,0) = zw*(rhoS(i,j,0)-rhoA(i,j,0));
 
-            //  Load new free-surface values into shared array at both predictor and
-            //  corrector steps, and the predictor's right-hand side.
-            zeta(i,j,0,knew) = zeta_new;
-            if (is_pred.value) {
-                rzeta(i,j,0,krhs) = rhs_zeta;
-            }
+            znew(i,j,0,0) = zeta_new;
+            znew(i,j,0,1) = rhs_zeta;
         });
+
+        //  Load the new free surface into the state at both predictor and corrector steps,
+        //  and the predictor's right-hand side.
+        {
+            Box gbx1D = makeSlab(mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0)),2,0);
+            const bool store_rhs = predictor_2d_step;
+            ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                zeta(i,j,0,knew) = znew(i,j,0,0);
+                if (store_rhs) { rzeta(i,j,0,krhs) = znew(i,j,0,1); }
+            });
+        }
 
         //
         // Momentum fluxes at the rho and psi points around the tile: horizontal advection
