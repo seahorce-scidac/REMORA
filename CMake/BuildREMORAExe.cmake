@@ -131,6 +131,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/REMORA_Tagging.cpp
        ${SRC_DIR}/Biology/REMORA_Biology.cpp
        ${SRC_DIR}/Biology/REMORA_FennelBiology.cpp
+       ${SRC_DIR}/Biology/REMORA_ECBBiology.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_cons.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_xvel.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_yvel.cpp

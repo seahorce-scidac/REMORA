@@ -1,5 +1,6 @@
 #include <REMORA_Biology.H>
 #include <REMORA_FennelBiology.H>
+#include <REMORA_ECBBiology.H>
 #include <AMReX.H>
 #include <AMReX_Utility.H>
 
@@ -9,6 +10,7 @@ namespace {
 class NoBiology final : public Biology {
 public:
     std::string name () const override { return "none"; }
+    bool accepts_legacy_checkpoint () const override { return true; }
     void configure (const std::string&) override {}
     const BiologyDeclaration& declaration () const noexcept override { return m_declaration; }
     void advance (const BiologyAdvanceContext&) const override {}
@@ -27,6 +29,9 @@ make_biology (const std::string& name)
     }
     if (lower == "fennel") {
         return std::make_unique<FennelBiology>();
+    }
+    if (lower == "ecb") {
+        return std::make_unique<ECBBiology>();
     }
     amrex::Abort("Unknown remora.biology_model: " + name);
     return {};

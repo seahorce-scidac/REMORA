@@ -170,10 +170,13 @@ void check_profiles_and_noops ()
 
 }
 
+void check_ecb_reference ();
+
 int main (int argc, char* argv[])
 {
     amrex::Initialize(argc, argv);
     {
+        check_ecb_reference();
         check_layouts();
         check_profiles_and_noops();
     }

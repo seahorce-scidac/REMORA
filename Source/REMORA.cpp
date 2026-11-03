@@ -3737,6 +3737,8 @@ REMORA::advance_biology (int lev, amrex::MultiFab const& old_state,
         .stress_u = vec_sustr[lev].get(),
         .stress_v = vec_svstr[lev].get(),
         .wind_u = vec_uwind[lev].get(),
-        .wind_v = vec_vwind[lev].get()};
+        .wind_v = vec_vwind[lev].get(),
+        .bottom_stress_u = vec_bustr[lev].get(),
+        .bottom_stress_v = vec_bvstr[lev].get()};
     m_biology->advance(context);
 }

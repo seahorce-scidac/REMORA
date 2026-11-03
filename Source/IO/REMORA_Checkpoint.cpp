@@ -127,6 +127,17 @@ REMORA::WriteCheckpointFile ()
        const int history_record = (last_plot_file_step == istep[0])
                                 ? history_count - 1 : history_count;
        HeaderFile << "history_count " << history_record << "\n";
+
+       // A component count alone cannot distinguish ecosystems or dye layouts.
+       // Keep the existing Header readable by older checkpoint consumers.
+       const std::string biology_file = checkpointname + "/BiologyHeader";
+       std::ofstream biology_header(biology_file);
+       if (!biology_header.good()) amrex::FileOpenFailed(biology_file);
+       biology_header << "REMORA_BIOLOGY 1\n" << m_biology->checkpoint_identity()
+                      << "\n" << cons_names.size() << "\n";
+       for (const auto& name : cons_names) biology_header << name << "\n";
+       biology_header.close();
+       if (!biology_header.good()) amrex::Abort("Failed writing " + biology_file);
    }
 
    // write the MultiFab data to, e.g., chk00010/Level_0/
@@ -242,6 +253,34 @@ void
 REMORA::ReadCheckpointFile ()
 {
     amrex::Print() << "Restart from checkpoint " << restart_chkfile << "\n";
+
+    const std::string biology_file = restart_chkfile + "/BiologyHeader";
+    int has_biology_header = 0;
+    if (ParallelDescriptor::IOProcessor()) {
+        std::ifstream probe(biology_file);
+        has_biology_header = probe.good();
+    }
+    ParallelDescriptor::Bcast(&has_biology_header, 1, ParallelDescriptor::IOProcessorNumber());
+    if (has_biology_header) {
+        Vector<char> buffer;
+        ParallelDescriptor::ReadAndBcastFile(biology_file, buffer);
+        std::istringstream metadata(buffer.dataPtr());
+        std::string schema, identity, name;
+        int version = 0, components = 0;
+        metadata >> schema >> version >> identity >> components;
+        if (!metadata || schema != "REMORA_BIOLOGY" || version != 1 ||
+            identity != m_biology->checkpoint_identity() || components != ncons) {
+            amrex::Abort("Checkpoint biology identity/layout differs from this run: " + biology_file);
+        }
+        for (const auto& expected : cons_names) {
+            metadata >> name;
+            if (!metadata || name != expected)
+                amrex::Abort("Checkpoint scalar ordering differs from this run: " + biology_file);
+        }
+        if (metadata >> name) amrex::Abort("Unexpected trailing checkpoint biology metadata: " + biology_file);
+    } else if (!m_biology->accepts_legacy_checkpoint()) {
+        amrex::Abort("Selected biology requires checkpoint identity metadata: " + biology_file);
+    }
 
     // Header
     std::string File(restart_chkfile + "/Header");

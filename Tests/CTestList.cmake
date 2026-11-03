@@ -782,3 +782,19 @@ add_test_equiv(DogboneAnalytic_MLmaskring_periodic DogboneAnalytic_MLmaskring_pe
 # Performance tests
 #=============================================================================
 
+
+# ECB uses the same tracer transport/output/checkpoint path as Fennel.
+function(add_test_biology_restart TEST_NAME)
+    setup_test()
+    resolve_test_exe("${TEST_DIR}" "remora_exec" TEST_EXE)
+    # MPI_COMMANDS is deliberately split into launcher arguments for this script.
+    separate_arguments(BIOLOGY_MPI_COMMANDS NATIVE_COMMAND "${MPI_COMMANDS}")
+    add_test(NAME ${TEST_NAME} COMMAND sh
+        ${CMAKE_CURRENT_SOURCE_DIR}/check_biology_restart.sh
+        ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${FCOMPARE_EXE}
+        ${BIOLOGY_MPI_COMMANDS} ${TEST_EXE})
+    set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 5400
+        PROCESSORS ${NP} WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}"
+        LABELS "regression")
+endfunction()
+add_test_biology_restart(Upwelling_ECB)

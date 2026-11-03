@@ -16,7 +16,7 @@ Common Biology Interface
 ========================
 
 REMORA owns one ``REMORABiology::Biology`` object. The factory in
-``Source/Biology/REMORA_Biology.cpp`` selects ``FennelBiology`` or the no-op
+``Source/Biology/REMORA_Biology.cpp`` selects ``FennelBiology``, ``ECBBiology`` or the no-op
 implementation for ``none``/``off``. The solver uses the same interface for
 configuration, tracer declarations, and advancement; Fennel parameters and
 kernels belong to ``REMORA_FennelBiology.H/.cpp``. Analytic initial profiles
@@ -34,10 +34,9 @@ device kernels capture ordinary views and parameters.
 
 Adding an ecosystem requires its concrete implementation, build entries, and
 one factory registration. Shared solver call sites do not select model names
-or downcast. The current implementation supports Fennel only. A second
-ecosystem and optional module composition are later stages of the extension
-plan, to be designed and validated against actual scientific implementations.
-This refactor does not add an oyster or harmful-algal-bloom model.
+or downcast. The second ecosystem is described in :ref:`sec:ECB`. Optional module
+composition follows validation of both scientific implementations.
+No oyster or harmful-algal-bloom model is included.
 
 The plot-variable group ``biology`` expands to the selected model's biological
 tracers, excluding passive dye. The existing ``fennel`` group remains available
@@ -357,6 +356,11 @@ Because the BioToy profile is a function of temperature alone, it carries over
 unchanged to any problem that stratifies temperature: add the problem's name to
 the existing BioToy branch. Its values are Fennel's, so it errors for any other
 ``remora.biology_model``.
+
+The standard application also accepts ``remora.biology_initial``, an explicit
+uniform concentration for each declared biological tracer in order. This
+problem-owned profile works with either ecosystem and has no scientific
+defaults; see :ref:`sec:ECB` for an example.
 
 The hook receives ``const REMORABiology::Biology&`` and
 ``REMORABiology::BiologyInitContext&``, not Fennel parameters or the whole

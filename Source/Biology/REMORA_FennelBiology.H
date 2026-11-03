@@ -264,6 +264,7 @@ inline int num_tracers (FennelParameters const& parameters) noexcept
 class FennelBiology final : public Biology {
 public:
     std::string name () const override { return "fennel"; }
+    bool accepts_legacy_checkpoint () const override { return true; }
     void configure (const std::string& remora_prefix) override;
     const BiologyDeclaration& declaration () const noexcept override { return m_declaration; }
     void advance (const BiologyAdvanceContext& context) const override;

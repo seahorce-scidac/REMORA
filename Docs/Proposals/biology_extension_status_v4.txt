@@ -1,0 +1,77 @@
+Biology extension v4: implementation assessment, 3 November 2026
+
+Plan evaluated: REMORA_biology_extension_plan_v4.txt (28 October 2026).
+Evidence: upstream development 08e224fd; Stage A PR #745 at 35f21b7b;
+PR #733 discussion/review and the v4 sequence A -> C -> D -> B -> D -> E.
+
+Stage A: implemented and reviewed, not yet merged into development.
+PR #745 supplies Biology/FennelBiology/NoBiology, a single factory, explicit
+contexts, model-owned parameters/kernels and declaration-based output
+aliases. Review follow-up fixes parameter attribution, configuration namespace,
+designated initializers and diagnostics compilation. The latest follow-up
+(35f21b7b) moves analytic
+profiles back to Problem and adds declaration-based component lookup; the
+ECB port follows that API and adds an explicit uniform application profile.
+The earlier review follow-up reports 68/68 CI tests passing. Earlier local exact comparisons cover seven Fennel paths,
+restart, aliases and high-resolution initialization. This next branch is based
+on that PR and must follow its merge; it does not claim Stage A is upstream.
+
+Stage C: the next planned implementation, delivered by this ECB change.
+The user's reference choice is a clean port from current ROMS trunk, not the
+modified local ROMS checkout. Pin the default develop branch at
+31cabd318c9379429c365c308b9e0f2ee166a6fc. Port one explicit, documented option
+set with its independent 18-pool inventory and 42 active parameters. Preserve
+reference intermediate values, process order and source-update semantics.
+
+The real second ecosystem needs bottom stress for reference resuspension.
+Add two explicit views to BiologyAdvanceContext and populate them once in the
+common solver path. The model owns its kernel, parameter parsing and output alias. Uniform
+initialization belongs to Problem; the model has no initialization virtual.
+Factory/build registration is the only
+new ecosystem selection. No shared call site downcasts or selects ECB/Fennel.
+
+Source snapshots, hashes and options accompany 20 Fortran-generated reference
+column fixtures. The fixtures are reproducible from git objects, independent
+of modified working files. Native tests use no Fortran dependency. The full
+solver has an analytic ECB integration/restart case. Generic checkpoint
+identity and scalar ordering checks prevent same-count semantic mismatches;
+legacy Fennel/none checkpoints retain their existing compatibility path.
+
+Validation for this delivery (serial Release double precision, macOS arm64):
+- Full CMake solver and native biology test target build with the existing
+  optional Fennel Fortran bridge and diagnostics enabled.
+- DateClock, BiologyInterface and Upwelling_ECB pass (3/3 targeted CTests).
+- Twenty clean-ROMS column fixtures have maximum scaled error 2.12e-16.
+- ECB restart and output aliases agree at zero tolerance; identity/order
+  mismatches and missing ECB identity metadata fail as expected.
+- Seven prior Fennel/none/native/Fortran runs match original arrays and
+  diagnostic records exactly. Legacy Fennel/none restarts also match exactly.
+- Strict warning syntax checks pass for the new native/test sources.
+These are targeted checks, not a full-suite or full-simulation parity claim.
+
+Stage D (validate C): begun, still required before Stage B.
+Column parity to roundoff and analytic solver/restart/output tests are focused
+acceptance evidence, not a full cross-model scientific simulation comparison.
+Remaining: matched full ROMS/REMORA runs; NetCDF initialization and external
+forcing (boundaries/rivers/climatology); AMR creation/regridding/composite
+inventories; MPI, GPU and single-precision execution; GNU Make builds and
+additional reference variants when requested. Preserve exact Fennel results
+in each matched build/decomposition. Record reproducibility parameters and
+scientific input datasets for the matched simulation.
+
+Stage B: deferred until second-ecosystem validation supports its design.
+Then implement minimal composition/binding, explicit old versus sequential
+input semantics, additive Hz-weighted updates and conservative test-only
+coupling with two ecosystem bindings. Use existing state lifecycle machinery.
+Only introduce local 3-D or surface/seabed 2-D state actually exercised by a
+fixture, with complete initialization, transfer and persistence behavior.
+Do not put nonadvected fields in the physical tracer array.
+
+Stage D (validate B): pending the module implementation.
+Test budgets, deterministic order, no-module exactness, timestep convergence,
+restart, parallel execution and the supported AMR state lifecycle, including
+history timing and column redistribution where those features are exercised.
+
+Stage E: remains separate, demand-driven scientific work.
+No NEMURO port, HAB/MARGALEX port, oyster implementation, universal state
+registry or speculative module manager belongs in this next PR.

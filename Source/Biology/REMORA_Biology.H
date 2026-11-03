@@ -78,6 +78,8 @@ struct BiologyAdvanceContext {
     const amrex::MultiFab* stress_v = nullptr;
     const amrex::MultiFab* wind_u = nullptr;
     const amrex::MultiFab* wind_v = nullptr;
+    const amrex::MultiFab* bottom_stress_u = nullptr;
+    const amrex::MultiFab* bottom_stress_v = nullptr;
 };
 
 /** \brief Common host-side ecosystem interface.
@@ -92,6 +94,10 @@ class Biology {
 public:
     virtual ~Biology () = default;
     virtual std::string name () const = 0;
+    // Identifies equations/options with persistent state semantics. Rate changes
+    // may be allowed at restart; changing inventory meanings requires migration.
+    virtual std::string checkpoint_identity () const { return name(); }
+    virtual bool accepts_legacy_checkpoint () const { return false; }
     virtual void configure (const std::string& remora_prefix) = 0;
     virtual const BiologyDeclaration& declaration () const noexcept = 0;
     virtual void advance (const BiologyAdvanceContext& context) const = 0;
