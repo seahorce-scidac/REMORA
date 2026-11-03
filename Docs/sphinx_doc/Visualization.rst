@@ -33,7 +33,7 @@ Amrvis is a tool often used by developers to quickly visualize AMReX plotfiles. 
 is similar to that of ncview for NetCDF files. Instructions for downloading and building the tool
 can be found within the `AMReX documentation`_.
 
-.. _`AMReX documentation`: https://github.com/AMReX-Codes/amrex-tutorials/tree/main/GuidedTutorials/HeatEquation
+.. _`AMReX documentation`: https://github.com/AMReX-Codes/amrex-tutorials/tree/main/Base/HeatEquation
 
 The utility can be invoked on a plotfile named ``plt00010`` by running
 
