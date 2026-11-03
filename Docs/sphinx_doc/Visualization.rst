@@ -109,7 +109,7 @@ AMReX data can also be visualized by VisIt, an open source visualization and
 analysis software. To follow along with this example, first build and run the
 first `heat equation`_ tutorial code from the AMReX tutorials.
 
-.. _`heat equation`: https://github.com/AMReX-Codes/amrex-tutorials/tree/main/GuidedTutorials/HeatEquation
+.. _`heat equation`: https://github.com/AMReX-Codes/amrex-tutorials/tree/main/Base/HeatEquation
 
 Next, download and install VisIt from
 https://sd.llnl.gov/simulation/computer-codes/visit.  To open a single
