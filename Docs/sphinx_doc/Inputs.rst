@@ -733,8 +733,8 @@ REMORA computes land cells as fully as wet ones -- the masks are multiplications
 computes all of its cells. Where the level-0 mask comes from ``remora.hires_grid_level`` it is
 not known before the level is made, and level 0 falls back to cell counts.
 
-``remora.drop_dry_boxes`` leaves out of level 0 every box that is land over its whole
-footprint: its own cells and every ghost cell of the mask, up to one cell beyond a non-periodic
+``remora.drop_dry_boxes`` (on by default) leaves out of level 0 every box that is land over
+its whole footprint: its own cells and every ghost cell of the mask, up to one cell beyond a non-periodic
 domain edge. Boxes partly wet are kept whole. The dropped cells cost neither memory nor time,
 and no rank holds them. Kept boxes keep their ghost cells in a dropped box, which no exchange
 fills, and the land stencils of a kept box read them. The nearest wet cell is at least four
@@ -761,6 +761,13 @@ has, and the masks hold 0 there. The integrated diagnostics printed at
 ``remora.v`` > 0 sum over the cells held, so their ``VOLUME`` leaves out the dropped land, which
 a full-domain run counts. The number of boxes and cells dropped is printed at startup.
 
+What dropping preserves is the solution, not every array: the state and every field on wet
+cells and wet faces are bitwise the same as in a full-domain run, but some momentum
+tendency and scratch arrays in a checkpoint (``XRHS``, ``YRHS``, their 2D forms,
+``DV_avg2``, the previous face fluxes) can differ at land faces on the edges of the dropped
+boxes. Set ``remora.drop_dry_boxes = false`` to compare against an older full-domain run
+with ``amrex_fcompare``, which needs equal BoxArrays.
+
 .. _list-of-parameters-landlayout:
 
 List of Parameters
@@ -779,7 +786,7 @@ List of Parameters
 |                                          |                                        |                        |                |
 |                                          | wet one in the box weights             |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
-| **remora.drop_dry_boxes**                | Leave out level-0 boxes that are land  | true / false           | false          |
+| **remora.drop_dry_boxes**                | Leave out level-0 boxes that are land  | true / false           | true           |
 |                                          |                                        |                        |                |
 |                                          | over their whole footprint             |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+

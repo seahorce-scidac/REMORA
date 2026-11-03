@@ -158,8 +158,8 @@ Coastal domains are often a third land or more, and REMORA computes land cells a
 wet ones. Two options use the land mask to spend less on them (details in
 :ref:`Land Layout <sec:LandLayout>`); neither changes the answer.
 
-* ``remora.drop_dry_boxes = true`` leaves out of level 0 every box that is land over its
-  footprint. The time and memory saved are proportional to the cells dropped, so it pays
+* ``remora.drop_dry_boxes`` (on by default) leaves out of level 0 every box that is land
+  over its footprint. The time and memory saved are proportional to the cells dropped, so it pays
   when the boxes are small enough to fit the coastline: a box has to be land over its own
   cells and three cells around them to go. Cut the domain into boxes of 16 to 64 columns
   (``amr.max_grid_size``) and compare the "keeps N of M boxes" line printed at startup for a
@@ -167,7 +167,11 @@ wet ones. Two options use the land mask to spend less on them (details in
   Refinement indicators that tag on a field disable it. On a 4-core workstation a dogbone of
   1 M cells in 32 x 32 boxes, 44 % land, dropped 31 % of its cells and ran 25 % faster on 1
   and on 4 ranks; a staircase coastline of 0.8 M cells in 16 x 16 boxes, 36 % land, dropped
-  23 % and ran 21 % faster.
+  23 % and ran 21 % faster. On a Perlmutter CPU node, a 52 M-cell staircase coastline with
+  36 % land ran 28 % faster (best layout against best layout; 27 to 38 % at matched box
+  sizes and rank/thread mixes). On four A100 GPUs, where large boxes matter more, it saved
+  8 to 9 % at boxes of 256 and 512 columns, and the fastest GPU layout was the largest boxes
+  with dropping.
 * ``remora.load_balance`` weighs boxes by their wet cells when assigning them to ranks. The
   default weighs a land cell like a wet one, which is right whenever land boxes are kept:
   every cell of a box costs the same, so weighing by wet cells alone

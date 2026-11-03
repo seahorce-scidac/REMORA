@@ -352,7 +352,7 @@ public:
 
     /** \brief Leave out level-0 boxes that are land over their whole footprint
      *         (remora.drop_dry_boxes) */
-    bool drop_dry_boxes = false;
+    bool drop_dry_boxes = true;
     /** \brief Debug: see poison_dry_ghost_cells */
     int dry_ghost_test = 0;
     /** \brief Physical-space region of each refinement indicator, for level0_refine_footprint */

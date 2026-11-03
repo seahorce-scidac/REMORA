@@ -898,24 +898,26 @@ add_test_equiv(DogboneAnalytic_MLmaskring_periodic DogboneAnalytic_MLmaskring_pe
 # restart, which keeps the checkpoint's BoxArray.
 #=============================================================================
 
+# drop_dry_boxes is on by default, so the reference runs ask for the full layout.
+set(FULL_LAYOUT "remora.drop_dry_boxes=false")
 add_test_layout(DogboneAnalytic_loadbalance_knapsack DogboneAnalytic_landlayout "remora_exec"
-                "plt00020" "none" "remora.load_balance=amrex"
-                "remora.load_balance=knapsack remora.load_balance_land_weight=0")
+                "plt00020" "none" "remora.load_balance=amrex ${FULL_LAYOUT}"
+                "remora.load_balance=knapsack remora.load_balance_land_weight=0 ${FULL_LAYOUT}")
 add_test_layout(DogboneAnalytic_loadbalance_roundrobin DogboneAnalytic_landlayout "remora_exec"
-                "plt00020" "none" "remora.load_balance=amrex"
-                "remora.load_balance=roundrobin remora.load_balance_land_weight=0.25")
+                "plt00020" "none" "remora.load_balance=amrex ${FULL_LAYOUT}"
+                "remora.load_balance=roundrobin remora.load_balance_land_weight=0.25 ${FULL_LAYOUT}")
 # With land from the west edge on, weighing wet cells alone moves boxes between the two ranks:
 # 11 and 21 instead of AMReX's 16 and 16. The answer must not move with them.
 add_test_layout(DogboneAnalytic_loadbalance_sfc DogboneAnalytic_landlayout "remora_exec"
-                "plt00020" "none" "remora.load_balance=amrex remora.prob.mask_x_lo=-100."
-                "remora.load_balance=sfc remora.load_balance_land_weight=0 remora.prob.mask_x_lo=-100."
+                "plt00020" "none" "remora.load_balance=amrex remora.prob.mask_x_lo=-100. ${FULL_LAYOUT}"
+                "remora.load_balance=sfc remora.load_balance_land_weight=0 remora.prob.mask_x_lo=-100. ${FULL_LAYOUT}"
                 "boxes per rank 11 to 21")
 add_test_layout(DogboneAnalytic_drop DogboneAnalytic_landlayout "remora_exec"
-                "plt00020" "chk00020" "" "remora.drop_dry_boxes=true")
+                "plt00020" "chk00020" "${FULL_LAYOUT}" "remora.drop_dry_boxes=true")
 add_test_layout(DogboneAnalytic_MLdrop DogboneAnalytic_MLlandlayout "remora_exec"
-                "plt00008" "chk00008" "" "remora.drop_dry_boxes=true")
+                "plt00008" "chk00008" "${FULL_LAYOUT}" "remora.drop_dry_boxes=true")
 add_test_layout(DogboneAnalytic_drop_ghosts DogboneAnalytic_landlayout "remora_exec"
-                "plt00020" "none" ""
+                "plt00020" "none" "${FULL_LAYOUT}"
                 "remora.drop_dry_boxes=true remora.dry_ghost_test=2 remora.dry_ghost_value=7")
 add_test_restart_exact(DogboneAnalytic_drop_restart "remora_exec" "plt00010" "chk00005")
 # Bulk fluxes work on the box grown by two cells, so on the ghost cells in dropped boxes too,
@@ -923,7 +925,7 @@ add_test_restart_exact(DogboneAnalytic_drop_restart "remora_exec" "plt00010" "ch
 # there has to stay finite. (NetCDF forcing, which CI does not build, was checked by hand.)
 set(DROP_BULK "remora.bulk_fluxes=true remora.uwind_type=constant remora.vwind_type=constant remora.uwind=5.0 remora.vwind=2.0 remora.air_temperature=23.567 remora.air_humidity=0.776 remora.air_pressure=1013.48 remora.surface_radiation_flux=300.0 remora.rain=1.0e-5")
 add_test_layout(DogboneAnalytic_drop_bulk DogboneAnalytic_landlayout "remora_exec"
-                "plt00020" "chk00020" "${DROP_BULK}" "${DROP_BULK} remora.drop_dry_boxes=true"
+                "plt00020" "chk00020" "${DROP_BULK} ${FULL_LAYOUT}" "${DROP_BULK} remora.drop_dry_boxes=true"
                 "level 0 keeps 24 of 32 boxes")
 
 #=============================================================================

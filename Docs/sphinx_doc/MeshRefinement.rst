@@ -265,7 +265,7 @@ facing them, so the coast is refined from both sides.
 How the mask itself is carried across levels, and how it weights the two-way
 average, is described in :ref:`Land/Sea Masking <sec:masking>`.
 
-With ``remora.drop_dry_boxes`` level 0 leaves out its all-land boxes (see
+With ``remora.drop_dry_boxes`` (on by default) level 0 leaves out its all-land boxes (see
 :ref:`Land Layout <sec:LandLayout>`), and a finer level must never need one: AMReX would
 clip the fine grids to stay ``amr.n_proper`` blocks away from the hole, and the coarse-fine
 fills read coarse cells around the fine grids. So a level-0 box is kept wherever a refinement

@@ -207,7 +207,7 @@ for s in $STAGES; do case $s in
 A)  # answers; also one dropped run with signalling NaNs and the invalid trap on
     { for mix in "128 1" "16 8"; do
         set -- $mix; L=$(cpu_launch $1 $2); t=${1}x$2
-        echo "run A_cpu_${t}_full $L -- $X \"$TILE\" $OUT amr.max_grid_size_x=128 amr.max_grid_size_y=128"
+        echo "run A_cpu_${t}_full $L -- $X \"$TILE\" $OUT amr.max_grid_size_x=128 amr.max_grid_size_y=128 remora.drop_dry_boxes=0"
         echo "run A_cpu_${t}_drop $L -- $X \"$TILE\" $OUT amr.max_grid_size_x=128 amr.max_grid_size_y=128 remora.drop_dry_boxes=1"
         echo "check A_cpu_${t}_plt A_cpu_${t}_drop A_cpu_${t}_full"
         echo "check A_cpu_${t}_chk A_cpu_${t}_drop A_cpu_${t}_full --chk"
@@ -215,7 +215,7 @@ A)  # answers; also one dropped run with signalling NaNs and the invalid trap on
       L=$(cpu_launch 128 1)
       echo "run A_cpu_128x1_drop_snan $L -- $X \"$TILE\" amr.max_grid_size_x=128 amr.max_grid_size_y=128 remora.drop_dry_boxes=1 amrex.init_snan=1 amrex.fpe_trap_invalid=1"
     } | write_job cpu A_cpu
-    { echo "run A_gpu_full $GPU_LAUNCH -- $XG $OUT amr.max_grid_size_x=128 amr.max_grid_size_y=128 amrex.use_gpu_aware_mpi=1"
+    { echo "run A_gpu_full $GPU_LAUNCH -- $XG $OUT amr.max_grid_size_x=128 amr.max_grid_size_y=128 remora.drop_dry_boxes=0 amrex.use_gpu_aware_mpi=1"
       echo "run A_gpu_drop $GPU_LAUNCH -- $XG $OUT amr.max_grid_size_x=128 amr.max_grid_size_y=128 amrex.use_gpu_aware_mpi=1 remora.drop_dry_boxes=1"
       echo "check A_gpu_plt A_gpu_drop A_gpu_full"
       echo "check A_gpu_chk A_gpu_drop A_gpu_full --chk"
@@ -225,7 +225,7 @@ B)  # CPU time: one job per rank/thread mix, 6 runs each
     for mix in "128 1" "32 4" "16 8"; do
         set -- $mix; L=$(cpu_launch $1 $2); t=${1}x$2
         { for b in 32 64 128; do
-            echo "run B_${t}_b${b}_full $L -- $X \"$TILE\" amr.max_grid_size_x=$b amr.max_grid_size_y=$b"
+            echo "run B_${t}_b${b}_full $L -- $X \"$TILE\" amr.max_grid_size_x=$b amr.max_grid_size_y=$b remora.drop_dry_boxes=0"
             echo "run B_${t}_b${b}_drop $L -- $X \"$TILE\" amr.max_grid_size_x=$b amr.max_grid_size_y=$b remora.drop_dry_boxes=1"
           done; } | write_job cpu B_$t
     done
@@ -240,7 +240,7 @@ C)  # land weighting with dropped boxes
     ;;
 D)  # GPU: full vs dropped at every box size, largest first
     { for b in 512 256 128 64; do
-        echo "run D_gpu_b${b}_full $GPU_LAUNCH -- $XG amr.max_grid_size_x=$b amr.max_grid_size_y=$b amrex.use_gpu_aware_mpi=1"
+        echo "run D_gpu_b${b}_full $GPU_LAUNCH -- $XG amr.max_grid_size_x=$b amr.max_grid_size_y=$b remora.drop_dry_boxes=0 amrex.use_gpu_aware_mpi=1"
         echo "run D_gpu_b${b}_drop $GPU_LAUNCH -- $XG amr.max_grid_size_x=$b amr.max_grid_size_y=$b amrex.use_gpu_aware_mpi=1 remora.drop_dry_boxes=1"
       done; } | write_job gpu D
     ;;
