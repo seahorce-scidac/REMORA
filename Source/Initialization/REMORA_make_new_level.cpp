@@ -31,10 +31,10 @@ void check_full_columns (int lev, const BoxArray& ba, const Geometry& geom)
 }
 
 /**
- * By default OpenMP threads share the boxes of a level, not tiles (see the tile-size
- * default in main.cpp), so a rank with fewer boxes than threads leaves threads idle. Say
- * so once per level, naming the knobs that fix it. With tiling on the threads share the
- * tiles of a box instead, so there is nothing to warn about.
+ * CPU builds tile in 16x16 columns by default (main.cpp), and the threads of a rank share
+ * the tiles of its boxes. When tiling is turned off (remora.omp_tile_size at least the box
+ * size), the threads share whole boxes instead, so a rank with fewer boxes than threads
+ * leaves threads idle. Say so, naming the knobs that fix it.
  */
 void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm)
 {

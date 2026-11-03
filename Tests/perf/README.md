@@ -31,7 +31,8 @@ Run it with and without the options and compare the outputs with `remora_subset_
 (built with the tests), since the BoxArrays differ.
 
 The CPU job also runs the baseline with `remora.omp_tile_size=1024000 16 1024000`
-(`<baseline>_j16`), so the effect of the tile default and of the threading can be told
+(`<baseline>_j16`, the 16-row strips that were an earlier default; the current CPU default is
+16x16 columns), so the effect of the tile shape and of the threading can be told
 apart, and `-T "8x8 16x16 j8 none"` adds runs of every revision at those tile sizes
 (`AxB` columns, `jN` rows, `iN` columns, `none` untiled) for a tile-size scan. The summary
 prints `IDENTICAL` or the largest relative difference `fcompare` reported.
