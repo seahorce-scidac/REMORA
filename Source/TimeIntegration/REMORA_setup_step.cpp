@@ -85,13 +85,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
     std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
 
-    // We need to set these because otherwise in the first call to remora_advance we may
-    //    read uninitialized data on ghost values in setting the bc's on the velocities
-    mf_rho.setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_rhoS->setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_rhoA->setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_DC.setVal(zero);
-
     FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t,0,true,true, cons_old, cons_new);
     FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u,0,true,true, xvel_old, xvel_new);
     FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v,0,true,true, yvel_old, yvel_new);
@@ -128,6 +121,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& h     = vec_h[lev]->const_array(mfi);
@@ -213,6 +209,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
 
     if (solverChoice.do_temp_flux) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Array4<Real      > const& stflx =  vec_stflx[lev]->array(mfi);
@@ -229,6 +228,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         }
     }
     if (solverChoice.do_salt_flux) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Array4<Real      > const& stflx =  vec_stflx[lev]->array(mfi);
@@ -248,19 +250,41 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         }
     }
 
+    // The logarithmic drag coefficient is formed in a loop of its own: the stress at a
+    // tile's low face reads it at i-1 (j-1), which another tile, possibly on another
+    // thread, writes.
+    if (solverChoice.bottom_stress_type == BottomStressType::logarithmic) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+        {
+            Array4<Real      > const& logdrg_tmp = mf_logdrg_tmp.array(mfi);
+            Array4<Real const> const& z_r   = mf_z_r->const_array(mfi);
+            Array4<Real const> const& z_w   = mf_z_w->const_array(mfi);
+            Array4<Real const> const& ZoBot = mf_ZoBot->const_array(mfi);
+            Box gbx2D = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+            gbx2D.makeSlab(2,0);
+            ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                Real logz = one / (std::log((z_r(i,j,0) - z_w(i,j,0)) / ZoBot(i,j,0)));
+                Real cff = vonKar * vonKar * logz * logz;
+                logdrg_tmp(i,j,0) = std::min(Cdb_max,std::max(Cdb_min,cff));
+            });
+        }
+    }
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& bustr = mf_bustr->array(mfi);
         Array4<Real      > const& bvstr = mf_bvstr->array(mfi);
         Array4<Real const> const& uold  = U_old.const_array(mfi);
         Array4<Real const> const& vold  = V_old.const_array(mfi);
-        Array4<Real      > const& logdrg_tmp = mf_logdrg_tmp.array(mfi);
-        Array4<Real const> const& z_r   = mf_z_r->const_array(mfi);
-        Array4<Real const> const& z_w   = mf_z_w->const_array(mfi);
+        Array4<Real const> const& logdrg_tmp = mf_logdrg_tmp.const_array(mfi);
 
-        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-        Box gbx2D = gbx2;
-        gbx2D.makeSlab(2,0);
         Box ubx1 = mfi.grownnodaltilebox(0,IntVect(NGROW-1,NGROW-1,0));
         Box ubx1D = ubx1;
         ubx1D.makeSlab(2,0);
@@ -293,13 +317,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
                 bvstr(i,j,0) = Real(0.5) * (rdrag2(i,j-1,0) + rdrag2(i,j,0)) * vold(i,j,0) * vel_mag;
             });
         } else if (solverChoice.bottom_stress_type == BottomStressType::logarithmic) {
-            Array4<Real const> const& ZoBot = mf_ZoBot->const_array(mfi);
-            ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
-            {
-                Real logz = one / (std::log((z_r(i,j,0) - z_w(i,j,0)) / ZoBot(i,j,0)));
-                Real cff = vonKar * vonKar * logz * logz;
-                logdrg_tmp(i,j,0) = std::min(Cdb_max,std::max(Cdb_min,cff));
-            });
             ParallelFor(ubx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 Real avg_v = Real(0.25) * (vold(i,j,0) + vold(i,j+1,0) + vold(i-1,j,0) + vold(i-1,j+1,0));
@@ -351,6 +368,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
 #endif
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(S_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& Hz    = vec_Hz[lev]->const_array(mfi);
@@ -504,6 +524,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t,0,true,true,0,0,dt_lev,*cons_old[lev]);
 
     // Don't actually want to apply boundary conditions here
-    vec_Huon[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Hvom[lev]->FillBoundary(geom[lev].periodicity());
+    amrex::FillBoundary(Vector<MultiFab*>{vec_Huon[lev].get(), vec_Hvom[lev].get()},
+                        geom[lev].periodicity());
 }

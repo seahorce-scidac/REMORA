@@ -32,6 +32,45 @@ endif
 
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs
 
+# Tune for the build machine's CPU. Off by default so a binary built on a
+# login node still runs on compute nodes of another generation. The compiler
+# files included by Make.defs assign CXXFLAGS outright, so this must follow
+# the include and go through XTRA_CXXFLAGS, which Make.defs appends. Host
+# flags do not belong on the device compilers, so GPU builds ignore it.
+ifeq ($(NATIVE_ARCH), TRUE)
+  ifneq ($(USE_CUDA), TRUE)
+    ifneq ($(USE_HIP), TRUE)
+      ifneq ($(USE_SYCL), TRUE)
+        XTRA_CXXFLAGS += -march=native
+      endif
+    endif
+  endif
+endif
+
+# Round every multiply and add as written. A compiler that fuses them into FMA
+# instructions may round the same expression differently in the vectorized body
+# of a loop and in its remainder, and the answer then depends on where tile and
+# box edges fall (Docs: Performance tuning). FP_CONTRACT=TRUE allows the fusion.
+# Host flag, so CPU builds only, through XTRA_CXXFLAGS for the reason above; it
+# reaches the AMReX sources of the same build as well.
+ifneq ($(FP_CONTRACT), TRUE)
+  ifneq ($(USE_CUDA), TRUE)
+    ifneq ($(USE_HIP), TRUE)
+      ifneq ($(USE_SYCL), TRUE)
+        ifeq ($(COMP), nvhpc)
+          XTRA_CXXFLAGS += -Mnofma
+        else ifeq ($(COMP), pgi)
+          XTRA_CXXFLAGS += -Mnofma
+        else ifeq ($(COMP), intel)
+          XTRA_CXXFLAGS += -no-fma
+        else
+          XTRA_CXXFLAGS += -ffp-contract=off
+        endif
+      endif
+    endif
+  endif
+endif
+
 EBASE = REMORA
 USE_RPATH = TRUE
 

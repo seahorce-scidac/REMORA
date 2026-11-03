@@ -12,8 +12,7 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call
     //FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t);
-    xvel_new[lev]->FillBoundary(geom[lev].periodicity());
-    yvel_new[lev]->FillBoundary(geom[lev].periodicity());
+    amrex::FillBoundary(Vector<MultiFab*>{xvel_new[lev], yvel_new[lev]}, geom[lev].periodicity());
     //FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, BCVars::zvel_bc, BdyVars::null);
 
     //FillPatch(lev, t_old[lev], *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t);
@@ -33,21 +32,23 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
                vec_msku[lev].get(), vec_mskv[lev].get(),
                N, dt_lev);
 
-    // Ideally can roll all of these into a single call
-    FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),0,false,false);
-    FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),0,false,false);
-    FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),1,false,false);
-    FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),1,false,false);
-    FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),2,false,false);
-    FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),2,false,false);
+    // All three time levels of ubar and vbar: one exchange at level 0, one two-level fill
+    // per field above it. Filling all components hands the interpolator the BCRecs of the
+    // next bccomps for components 1 and 2, which face_cons_linear_interp ignores.
+    if (lev == 0) {
+        amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get()},
+                            geom[lev].periodicity());
+    } else {
+        FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),0,true,false);
+        FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),0,true,false);
+    }
     //FillPatch(lev, t_old[lev], *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t);
 
 
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call
     // Note that we need the fine-fine and physical bc's in order to correctly move the particles
-    xvel_new[lev]->FillBoundary(geom[lev].periodicity());
-    yvel_new[lev]->FillBoundary(geom[lev].periodicity());
+    amrex::FillBoundary(Vector<MultiFab*>{xvel_new[lev], yvel_new[lev]}, geom[lev].periodicity());
     // Diagnose the true vertical velocity from the updated state; nothing in the
     // dynamics reads it
     compute_wvel(lev, *zvel_new[lev]);
