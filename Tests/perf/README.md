@@ -29,6 +29,9 @@ The CPU job also runs the baseline with `remora.omp_tile_size=1024000 16 1024000
 apart, and `-T "8x8 16x16 j8 none"` adds runs of every revision at those tile sizes
 (`AxB` columns, `jN` rows, `iN` columns, `none` untiled) for a tile-size scan. The summary
 prints `IDENTICAL` or the largest relative difference `fcompare` reported.
+`-x "k=v ..."` adds inputs to every run; `-x "$(cat Tests/perf/inputs/gls.in)"` turns on GLS
+vertical mixing (the settings of `Exec/Upwelling/inputs_gls`), the costliest kernel, and
+use a separate `-w` directory so those runs do not mix with the default ones.
 Every CPU build, the baseline included, is compiled with `-ffp-contract=off` (`-F fast` to
 allow FMA fusion in all of them instead), so a baseline that predates REMORA's default does
 not differ at roundoff for that reason alone. A source tree that is reused for another

@@ -1,0 +1,1 @@
+remora.vertical_mixing_type=gls remora.gls_stability_type=galperin remora.gls_P=3.0 remora.gls_M=1.5 remora.gls_N=-1.0 remora.gls_Kmin=7.6e-6 remora.gls_Pmin=1.0e-12 remora.gls_cmu0=0.5477 remora.gls_c1=1.44 remora.gls_c2=1.92 remora.gls_c3m=-0.4 remora.gls_c3p=1.0 remora.gls_sigk=1.0 remora.gls_sigp=1.3 remora.Akv_bak=1.0e-5 remora.Akk_bak=5.0e-6 remora.Akp_bak=5.0e-6
