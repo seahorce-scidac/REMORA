@@ -4,10 +4,50 @@
 
 #include <REMORA.H>
 #include <REMORA_prob_common.H>
+#include <AMReX_FillPatchUtil.H>
+#include <AMReX_Interpolater.H>
 
 #include <AMReX_buildInfo.H>
+#include <AMReX_OpenMP.H>
 
 using namespace amrex;
+
+namespace {
+/**
+ * CPU builds tile in 16x16 columns by default (main.cpp), and the threads of a rank share
+ * the tiles of its boxes. When tiling is turned off (remora.omp_tile_size at least the box
+ * size), the threads share whole boxes instead, so a rank with fewer boxes than threads
+ * leaves threads idle. Say so, naming the knobs that fix it.
+ */
+void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm)
+{
+#ifdef AMREX_USE_OMP
+    // Tiling is on when a tile is smaller than some box in x or y; inputs often write
+    // "1024 1024 1024" to mean no tiling, so compare with the boxes, not a fixed value.
+    const int nthreads = OpenMP::get_max_threads();
+    const IntVect& tile_size = FabArrayBase::mfiter_tile_size;
+    int nlocal = 0;
+    bool tiled = false;
+    const int myproc = ParallelDescriptor::MyProc();
+    for (int i = 0; i < ba.size(); ++i) {
+        if (dm[i] == myproc) { ++nlocal; }
+        tiled = tiled || ba[i].length(0) > tile_size[0] || ba[i].length(1) > tile_size[1];
+    }
+    // Collective: every rank reaches it, whatever its thread count
+    ParallelDescriptor::ReduceIntMin(nlocal);
+    if (nthreads > 1 && !tiled && nlocal < nthreads) {
+        amrex::Print() << "WARNING: level " << lev << " has only " << nlocal
+                       << " boxes on some rank for " << nthreads << " OpenMP threads;"
+                       << " threads beyond the box count idle. Lower amr.max_grid_size"
+                       << " (or amr.max_grid_size_x/y) to give every rank at least "
+                       << nthreads << " boxes, or set remora.omp_tile_size so the"
+                       << " threads share the tiles of a box.\n";
+    }
+#else
+    amrex::ignore_unused(lev, ba, dm);
+#endif
+}
+}
 
 /**
  * Make a new level using provided BoxArray and DistributionMapping and
@@ -32,6 +72,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     amrex::Print() << "Making level " << lev << " from coarse" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     cons_new[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
     cons_old[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
@@ -189,6 +230,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     amrex::Print() << "Remaking level " << lev << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state   = 3;
     int ngrow_vels    = 3;
@@ -365,6 +407,7 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 
     amrex::Print() << "Making level " << lev << " from scratch" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state = 3;
     int ngrow_vels  = 3;
@@ -468,6 +511,9 @@ void REMORA::resize_stuff(int lev)
     vec_alpha.resize(lev+1);
     vec_beta.resize(lev+1);
 
+    vec_DUon.resize(lev+1);
+    vec_DVom.resize(lev+1);
+    vec_scratch_2d.resize(lev+1);
     vec_DU_avg1.resize(lev+1);
     vec_DU_avg2.resize(lev+1);
     vec_DV_avg1.resize(lev+1);
@@ -515,6 +561,12 @@ void REMORA::resize_stuff(int lev)
     vec_yp.resize(lev+1);
     vec_lonp.resize(lev+1);
     vec_latp.resize(lev+1);
+    vec_lonr.resize(lev+1);
+    vec_latr.resize(lev+1);
+    vec_angler.resize(lev+1);
+    vec_lonr_full_domain.resize(hires_grid_level+1);
+    vec_latr_full_domain.resize(hires_grid_level+1);
+    vec_angler_full_domain.resize(hires_grid_level+1);
 
     vec_dndx.resize(lev+1);
     vec_dmde.resize(lev+1);
@@ -643,6 +695,11 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_bvstr[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
     //all 2d -- all associated with the 2D advance
+    // Scratch of advance_2d, rewritten on every fast step
+    vec_DUon[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_DVom[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_scratch_2d[lev].reset(new MultiFab(ba2d,dm,n_scratch_2d,IntVect(NGROW+1,NGROW+1,0)));
+
     //2d DU: sum(height[incl free surface?] * u)
     vec_DU_avg1[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
@@ -845,6 +902,21 @@ REMORA::set_grid_scale (int lev)
             FillCoarsePatch(lev,dummy_time,vec_pm[lev].get(), vec_pm[lev-1].get(), foextrap_bc());
             FillCoarsePatch(lev,dummy_time,vec_pn[lev].get(), vec_pn[lev-1].get(), foextrap_bc());
 
+            // Spherical coordinates and grid angle follow when the coarser level has them.
+            // Rebuilt on every (re)make of the level, because the layout may have changed;
+            // laid out like vec_xr.
+            for (auto* vec_ptr : { &vec_lonr, &vec_latr, &vec_angler })
+            {
+                auto& vec = *vec_ptr;
+                if (vec[lev-1] == nullptr) {
+                    vec[lev].reset();
+                    continue;
+                }
+                vec[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
+                                            1, vec_xr[lev]->nGrowVect()));
+                interp_grid_coords_from_coarse(lev, *vec[lev], *vec[lev-1]);
+            }
+
             int rrx = ref_ratio[lev-1][0];
             int rry = ref_ratio[lev-1][1];
             // pm and pn need to be rescaled by the refinement ratio
@@ -871,6 +943,37 @@ REMORA::set_grid_scale (int lev)
     if (solverChoice.use_curvilinear_grid) {
         set_curvilinear_terms_from_grid_scale(lev);
     }
+}
+
+/**
+ * Fill a refined level's coordinate array from the coarser level, ghost cells included.
+ *
+ * FillCoarsePatch would finish with the physical boundary condition pm and pn want, which
+ * copies the edge value into every ghost cell outside the domain and averages the
+ * corners; for a coordinate that puts those cells on top of the edge rather than where
+ * they are. Here the ghost cells outside the domain are interpolated like the rest, from
+ * the coarse level's own ghost cells, which hold the coordinates continued past the edge
+ * (extrapolate_metric_to_physical_boundaries with linear on level 0, and this function on
+ * the levels between). The coarse level has NGROW+1 ghost cells, enough for the stencil
+ * at any refinement ratio from 2 up. The interpolation is conservative-linear, which
+ * reproduces a linear field exactly.
+ *
+ * @param[in   ] lev    the refined level
+ * @param[inout] fine   its coordinate array
+ * @param[in   ] crse   the coarser level's
+ */
+void
+REMORA::interp_grid_coords_from_coarse (int lev, MultiFab& fine, const MultiFab& crse)
+{
+    AMREX_ASSERT(lev > 0);
+    Vector<BCRec> interior_bcs(1);
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        interior_bcs[0].setLo(dir, BCType::int_dir);
+        interior_bcs[0].setHi(dir, BCType::int_dir);
+    }
+    const IntVect ng = fine.nGrowVect();
+    amrex::InterpFromCoarseLevel(fine, ng, ng, crse, 0, 0, 1, geom[lev-1], geom[lev],
+                                 ref_ratio[lev-1], &cell_cons_interp, interior_bcs, 0);
 }
 
 /**

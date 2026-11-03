@@ -18,12 +18,7 @@ REMORA::InitMOABMesh()
     // We only do single-level mesh instances
     int flev = 1; //max_level;
 
-    Box subdomain;
-    if (lev == 0) {
-        subdomain = geom[lev].Domain();
-    } else {
-        subdomain = boxes_at_level[lev][which_subdomain];
-    }
+    const Box subdomain = netcdf_subdomain(lev, which_subdomain);
 
     int nx = subdomain.length(0);
     int ny = subdomain.length(1);

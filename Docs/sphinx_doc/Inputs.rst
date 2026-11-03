@@ -102,6 +102,8 @@ Grid and Initial Data on Refined Levels
 
 Grid and initial data files are read on level 0 only, from ``remora.nc_grid_file_0`` and ``remora.nc_init_file_0``; keys for other levels, such as ``remora.nc_grid_file_1``, are not used. By default, every field on a refined level -- bathymetry, ``pm`` and ``pn``, the land-sea mask, Coriolis, and the initial state -- is interpolated from the next coarser level.
 
+A spherical grid file also carries ``lon_rho``, ``lat_rho`` and ``angle`` (the angle in radians from east to the xi axis, as ROMS defines it). When present they are read with the other grid variables and interpolated to the refined levels; when absent the run proceeds without them. They can be written to plotfiles as the 2D variables ``lon_rho``, ``lat_rho`` and ``angle``, and the NetCDF history file carries them whenever they are available. With ``remora.hires_grid_level`` set they are read from ``remora.nc_grid_file_hires`` instead and averaged down like ``pm`` and ``pn``; longitude and angle are first made continuous across any branch cut, so a coarse cell straddling the dateline takes a longitude near 180 rather than 0, and the averaged longitude may then lie outside [-180, 180).
+
 Higher-resolution data can instead be given for the whole domain at one refined level, separately for the grid and the initial state:
 
 - ``remora.hires_grid_level`` and ``remora.nc_grid_file_hires`` supply ``h``, ``pm`` and ``pn``, plus ``mask_rho`` when ``remora.mask_type = netcdf``. ``remora.mask_type`` defaults to ``netcdf`` when ``remora.ic_type = netcdf``, so the file needs ``mask_rho`` unless the mask type is set otherwise.
@@ -234,7 +236,31 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   | in forcing file                   |                 | ``sms_time`` for surface        |
 |                                   |                                   |                 |                                 |
-|                                   |                                   |                 | momentum stress                 |
+|                                   |                                   |                 | momentum stress,                |
+|                                   |                                   |                 |                                 |
+|                                   |                                   |                 | ``ocean_time`` for the rest     |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_regrid**             | interpolate forcing given on a    | ``auto`` or     | ``auto``                        |
+|                                   |                                   |                 |                                 |
+|                                   | lat-lon grid onto the model grid  | ``off``         |                                 |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_lon_varname**        | longitude variable of lat-lon     | string          | from the variable's             |
+|                                   |                                   |                 |                                 |
+|                                   | forcing                           |                 | ``coordinates`` attribute       |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_lat_varname**        | latitude variable of lat-lon      | string          | from the variable's             |
+|                                   |                                   |                 |                                 |
+|                                   | forcing                           |                 | ``coordinates`` attribute       |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_rotate**             | rotate lat-lon winds and stresses | ``auto`` or     | ``auto``                        |
+|                                   |                                   |                 |                                 |
+|                                   | onto the grid axes                | ``off``         |                                 |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_fill_max_rings**     | how many source cells out to look | integer >= 0    | 3                               |
+|                                   |                                   |                 |                                 |
+|                                   | for a valid value where lat-lon   |                 |                                 |
+|                                   |                                   |                 |                                 |
+|                                   | forcing is missing                |                 |                                 |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 
 Notes
@@ -276,17 +302,24 @@ List of Parameters
 |                           |                 |                           |                       |
 |                           | level           |                           |                       |
 +---------------------------+-----------------+---------------------------+-----------------------+
-| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | CPU: 8 8 1024000      |
-|                           | size            |                           |                       |
-|                           |                 | {x,y,z}                   | GPU: 1024000 1024000  |
-|                           |                 |                           | 1024000               |
+| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | CPU: 16 16            |
+|                           | size            |                           | 1024000               |
+|                           |                 | {x,y,z}                   |                       |
+|                           |                 |                           | GPU: 1024000 1024000  |
+|                           |                 |                           | 1024000 (no tiling)   |
+|                           |                 |                           |                       |
 +---------------------------+-----------------+---------------------------+-----------------------+
 
 Notes
 -----
 
 -  **remora.omp_tile_size** is an alias for **fabarray.mfiter_tile_size**, which controls
-   the distribution of work by OpenMP.
+   the distribution of work by OpenMP. The results do not depend on it or on the thread
+   count: where tiles overlap on shared scratch every tile writes the same value, and the
+   coarse-fine flux correction is accumulated in a fixed order. (This holds for the default
+   build, which keeps the compiler from fusing multiply-adds; see :ref:`PerformanceTuning`.)
+   The tile shape also has a large effect on speed; :ref:`PerformanceTuning` says how to
+   choose it.
 
 -  The domain may not be tiled in the z direction. That is, the last component of **remora.omp_tile_size**
    must be greater than or equal to the number of vertical levels.
@@ -436,7 +469,11 @@ Notes
 -  **amr.regrid_int** is a single integer used at every level: each level
    below **amr.max_level** rebuilds the grids of the levels above it every
    **amr.regrid_int** of its own time steps. A value of 0 or less disables
-   regridding.
+   regridding. When every refinement indicator is a fixed box without a time
+   window the grids never change, so set **amr.regrid_int** = -1: each regrid
+   still fills the ghost cells of the level being regridded, tags and clusters
+   the cells, and checks the masks, and the grids come out the same. REMORA
+   prints a note at startup when the default is in effect in that case.
 
 -  **amr.max_grid_size** at every level must be even
 
@@ -1700,11 +1737,67 @@ When a source selector is ``netcdf``, the field is
 read from **remora.nc_frc_file** using variable names ``Uwind``, ``Vwind``,
 ``Tair``, ``qair``, ``Pair``, ``swrad``, ``rain``, ``cloud``, ``EminusP``,
 and the configured longwave variable name. Multiple files may be specified,
-in which case in which case REMORA concatenates their time axes in the
-order listed in the inputs file. Forcing variables must have the same dimensions
-as the level 0 (coarsest) model grid. Time interpolation is performed automatically
-based on the simulation time at level 0, and fields are interpoalted to finer
-AMR levels as needed.
+in which case REMORA concatenates their time axes in the
+order listed in the inputs file. A forcing variable is either on the level 0
+(coarsest) model grid, including the ROMS boundary ring -- a rho-point field is
+``(time, eta_rho, xi_rho)`` with ``xi_rho = n_cell_x + 2`` -- or on a rectilinear
+lat-lon grid, such as a reanalysis product's, in which case it is interpolated onto
+the model grid as described below. Time interpolation is performed automatically
+based on the simulation time at level 0, and fields are interpolated to finer AMR
+levels as needed.
+
+Forcing on a lat-lon grid
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A forcing variable whose horizontal shape is not the model grid's is taken to be on a
+lat-lon grid and interpolated bilinearly onto the model's ``lon_rho`` and ``lat_rho``,
+as ROMS's ``regrid`` does. This needs a spherical grid file: ``lon_rho`` and ``lat_rho``
+come from ``remora.nc_grid_file_0`` (or ``remora.nc_grid_file_hires``). The rules are:
+
+-  The variable is dimensioned ``(time, lat, lon)``. Its longitude and latitude are 1D
+   variables named by **remora.frc_lon_varname** and **remora.frc_lat_varname**, or by
+   its CF ``coordinates`` attribute (``"lon lat"``), or else the coordinate variables of
+   its last two dimensions (``longitude(longitude)``, as ERA5 writes them); each runs
+   along the matching dimension of the variable. 2D (curvilinear) source coordinates
+   are not supported.
+-  A variable whose last two dimensions carry longitude and latitude coordinate
+   variables (in degrees east and north) is interpolated even when its shape happens
+   to be the model grid's.
+-  Packed variables are unpacked with their ``scale_factor`` and ``add_offset``.
+-  Either axis may be increasing or decreasing. Longitude may be in [-180, 180) or
+   [0, 360), may cross the branch cut, and may cover the globe, in which case the grid
+   is treated as periodic in longitude.
+-  The lat-lon grid must contain every rho point of level 0 and its boundary ring;
+   otherwise the run stops at startup and prints both extents.
+-  Source values exactly equal to the variable's ``_FillValue`` or ``missing_value``
+   (compared before unpacking, as CF defines them), or not finite, are left out and the
+   remaining interpolation weights renormalized. A point whose four surrounding source
+   values are all missing takes the nearest valid one within
+   **remora.frc_fill_max_rings** source cells; if there is none the run stops.
+-  Every file of one variable's series must be on the same lat-lon grid. Different
+   variables may be on different grids.
+-  The bulk-flux fields above and the surface stress (``sustr``, ``svstr``) can be on a
+   lat-lon grid; climatology must still be on the model grid.
+-  Winds and stresses on a lat-lon grid are taken to be east and north components and
+   are rotated onto the model grid's xi and eta axes with the grid file's ``angle``
+   :math:`a` (radians from east to xi, counterclockwise), as ROMS does:
+   :math:`u_\xi = u_E\cos a + v_N\sin a`, :math:`v_\eta = -u_E\sin a + v_N\cos a`.
+   Surface stress is interpolated, rotated at rho points and then averaged to the u and
+   v faces. Both components of a vector must come from the same kind of file, except that
+   a component given as one value per time pairs with a lat-lon one (and is then taken to
+   be east or north too); a model-grid or ``constant`` component paired with a lat-lon one
+   is an error. A grid file without ``angle`` gets a warning and no rotation. Set **remora.frc_rotate** to
+   ``off`` for a file whose components are already along the grid axes. Winds and
+   stresses on the model grid are never rotated.
+
+Each interpolated variable is reported at startup with its source grid. Setting
+**remora.frc_regrid** to ``off`` turns the interpolation off, so that a variable not on
+the model grid is an error.
+
+``Tests/tools/make_latlon_forcing_test_data.py`` writes a lat-lon forcing file for a given
+grid file, and a rotated copy of the grid, with fields the interpolation and rotation
+reproduce exactly; it also checks a run's history file against them. It is a useful
+template for preparing real forcing, and ``Exec/IdealMiniGrid/inputs_frc_latlon`` runs it.
 
 The legacy boolean inputs **Tair_from_netcdf**, **qair_from_netcdf**,
 **Pair_from_netcdf**, **srflx_from_netcdf**, **longwave_down_from_netcdf**,

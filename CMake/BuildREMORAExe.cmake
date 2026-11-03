@@ -34,6 +34,7 @@ function(build_remora_lib remora_lib_name)
                    ${SRC_DIR}/IO/REMORA_NCPlotFile.cpp
                    ${SRC_DIR}/IO/REMORA_NCFile.cpp
                    ${SRC_DIR}/IO/REMORA_NCTimeSeries.cpp
+                   ${SRC_DIR}/IO/REMORA_LatLonRegrid.cpp
                    ${SRC_DIR}/IO/REMORA_NCTimeSeriesRiver.cpp
                    ${SRC_DIR}/IO/REMORA_NCTimeSeriesBoundary.cpp
                    ${SRC_DIR}/IO/REMORA_ReadFromInitNetcdf.cpp
@@ -146,6 +147,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/IO/REMORA_SetPlotVars.cpp
        ${SRC_DIR}/IO/REMORA_writeJobInfo.cpp
        ${SRC_DIR}/IO/REMORA_console_io.cpp
+       ${SRC_DIR}/IO/REMORA_LatLonRegridMath.H
        ${SRC_DIR}/TimeIntegration/REMORA_Advance.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_advance_2d.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_advance_2d_onestep.cpp
