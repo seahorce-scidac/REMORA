@@ -118,7 +118,12 @@ Old concentrations drive scratch chemistry; only ``mask * Hz * (Bio-Bio_old)``
 is added to the incoming weighted state. The selected surface wind/stress and
 both bottom-stress components are supplied through explicit common views.
 The solver must allocate shortwave forcing through ``bulk_fluxes`` or
-``atm2ocn_flux_mode``.
+``atm2ocn_flux_mode``. REMORA's shortwave flux is in W/m\ :sup:`2`, so surface
+PAR is ``PARfrac * srflx``. ROMS ``ecb.h`` also multiplies by ``rho0 * Cp``
+because its ``srflx`` is kinematic; REMORA does not.
+
+``configure`` rejects ``AttSW <= 0``, ``AttChl < 0``, ``slCexc <= 0`` and
+``K_Phy <= 0``, each of which divides by zero in the kernel.
 A column must contain at least two layers, and each grid box must span its
 entire vertical column. Horizontal decomposition is allowed; vertically
 split grid boxes fail explicitly. CPU tiling does not split this kernel.
