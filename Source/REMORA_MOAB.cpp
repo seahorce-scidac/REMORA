@@ -12,13 +12,12 @@ REMORA::InitMOABMesh()
     std::vector<int> n_cells;
 
     int lev = 0;
-    int which_subdomain = 0;
     int nblocks = grids[lev].size();
 
     // We only do single-level mesh instances
     int flev = 1; //max_level;
 
-    const Box subdomain = netcdf_subdomain(lev, which_subdomain);
+    const Box subdomain = netcdf_subdomain(lev);
 
     int nx = subdomain.length(0);
     int ny = subdomain.length(1);
