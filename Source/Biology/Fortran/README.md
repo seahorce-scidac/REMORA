@@ -11,7 +11,7 @@ Two implementations of the same kernel, in one executable, selected at run time:
 | | Path | Selected by |
 |---|---|---|
 | **Path A** | ROMS `biology_tile`, the oracle | `remora.use_biology_cpp_answer = 0` |
-| **Path B** | Native `REMORA::advance_biology` | `remora.use_biology_cpp_answer = 1` (default) |
+| **Path B** | Native `FennelBiology::advance` | `remora.use_biology_cpp_answer = 1` (default) |
 
 Path A runs the tracked copy of the ROMS Fennel kernel
 (`REMORA_fennel.h`, instrumented only with tag calls at block seams) through an

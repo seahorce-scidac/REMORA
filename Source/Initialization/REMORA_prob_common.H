@@ -130,13 +130,13 @@ public:
           amrex::Error("Doing analytic masks, but not defined in prob.cpp");
     }
 
+    /** \brief Analytic biology initial condition. Problems locate their
+     *         fields by tracer name through biology.declaration(), so the
+     *         hook does not depend on a concrete ecosystem model. */
     virtual void
     init_analytic_biology (
-        int /*lev*/, const amrex::Geometry& /*geom*/,
-        SolverChoice const& /*m_solverChoice*/,
-        REMORABiology::FennelParameters const& /*m_fennel_params*/,
-        REMORA const& /*remora*/,
-        amrex::MultiFab& /*mf_cons*/) {
+        REMORABiology::Biology const& /*biology*/,
+        REMORABiology::BiologyInitContext& /*context*/) {
           amrex::Error("Doing analytic biology but not defined in prob.cpp");
     }
 };
