@@ -305,7 +305,6 @@ REMORA::advance_2d (int lev,
     const int add_frc = (couple == couple_none) ? 1 : 0;
 
     const Real g_half = Real(0.5) * solverChoice.g;
-    const Real third  = one / Real(3.0);
     const Real sixth  = one / Real(6.0);
 
     const int upstream3 = (solverChoice.uv_Hadv_scheme == AdvectionScheme::upstream3) ? 1 : 0;
