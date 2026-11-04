@@ -12,7 +12,13 @@ target_link_libraries(remora_subset_compare PRIVATE ${REMORA_AMREX_TARGET})
 if (REMORA_ENABLE_CUDA)
   setup_target_for_cuda_compilation(remora_subset_compare)
 endif ()
-set(SUBSET_COMPARE_EXE ${CMAKE_CURRENT_BINARY_DIR}/remora_subset_compare${CMAKE_EXECUTABLE_SUFFIX})
+# Multi-config generators (MSVC) put the executable in a per-configuration subdirectory; the
+# tests run it through sh, which expands the glob, as for FCOMPARE_EXE above
+if(WIN32)
+    set(SUBSET_COMPARE_EXE ${CMAKE_CURRENT_BINARY_DIR}/*/remora_subset_compare.exe)
+else()
+    set(SUBSET_COMPARE_EXE ${CMAKE_CURRENT_BINARY_DIR}/remora_subset_compare${CMAKE_EXECUTABLE_SUFFIX})
+endif()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/CTestList.cmake)
 
