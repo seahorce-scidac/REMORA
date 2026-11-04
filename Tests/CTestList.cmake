@@ -291,6 +291,39 @@ function(add_test_conservation TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
     )
 endfunction(add_test_conservation)
 
+# Run INPUT_NAME's inputs with OPTIONS and pass if the run exits cleanly: for
+# self-checking modes that abort on an inconsistency, so no gold file is needed.
+function(add_test_run TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
+
+    set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${INPUT_NAME})
+    set(CURRENT_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
+    file(MAKE_DIRECTORY ${CURRENT_TEST_BINARY_DIR})
+    file(GLOB TEST_FILES "${CURRENT_TEST_SOURCE_DIR}/*")
+    file(COPY ${TEST_FILES} DESTINATION "${CURRENT_TEST_BINARY_DIR}/")
+
+    if(REMORA_ENABLE_MPI)
+        set(NP 2)
+        set(MPI_COMMANDS "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${NP} ${MPIEXEC_PREFLAGS}")
+    else()
+        set(NP 1)
+        unset(MPI_COMMANDS)
+    endif()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${OPTIONS} > ${TEST_NAME}.log 2>&1")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_run)
+
 # Run must succeed AND its log must contain LOG_SUBSTRING. For a code path whose answers are
 # not worth blessing into a gold file, but which must keep reaching the named behavior.
 function(add_test_log TEST_NAME TEST_EXE LOG_SUBSTRING)
@@ -545,6 +578,14 @@ add_test_conservation(Advection_3L_conservation Advection_3L_conservation "remor
 add_test_conservation(Advection_3L_conservation_control Advection_3L_conservation "remora_exec"
                       "remora.max_step=20 remora.do_reflux=0"
                       tracer 1e-6 above)
+
+# The cached coarse-fine 2D fills, checked against a recomputation on every replay
+# (remora.cf_2d_fill_cache = 2 aborts on any difference): three levels with a regrid every
+# step, and a ratio-3 nest with masks.
+add_test_run(Advection_3L_cf_fill_cache_check Advection_3L_conservation "remora_exec"
+             "remora.max_step=20 remora.cf_2d_fill_cache=2")
+add_test_run(DogboneAnalytic_MLvel_cf_fill_cache_check DogboneAnalytic_MLvel "remora_exec"
+             "remora.cf_2d_fill_cache=2")
 
 # The floor. Both totals are exact on one level, so the AMR bounds are measured against
 # roundoff rather than against an unknown scheme error.

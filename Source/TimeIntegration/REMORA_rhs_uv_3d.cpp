@@ -18,8 +18,8 @@ using namespace amrex;
  * @param[in   ] bvstr   v-direction bottom stress
  * @param[in   ] Huon    u-volume flux
  * @param[in   ] Hvom    v-volume flux
- * @param[in   ] pm      1/dx
- * @param[in   ] pn      1/dy
+ * @param[in   ] omn_u   om_u*on_u at u points
+ * @param[in   ] omn_v   om_v*on_v at v points
  * @param[in   ] W       vertical velocity
  * @param        FC      temporary
  * @param[in   ] nrhs    index of component for RHS
@@ -40,8 +40,8 @@ REMORA::rhs_uv_3d (int lev,
                   const Array4<Real const>& bvstr,
                   const Array4<Real const>& Huon,
                   const Array4<Real const>& Hvom,
-                  const Array4<Real const>& pm,
-                  const Array4<Real const>& pn,
+                  const Array4<Real const>& omn_u,
+                  const Array4<Real const>& omn_v,
                   const Array4<Real const>& W   ,
                   const Array4<Real      >& FC,
                   int nrhs, int N)
@@ -223,9 +223,7 @@ REMORA::rhs_uv_3d (int lev,
        {
           rufrc(i,j,0) += ru(i,j,k,nrhs);
 
-          Real om_u = two / (pm(i-1,j,0)+pm(i,j,0));
-          Real on_u = two / (pn(i-1,j,0)+pn(i,j,0));
-          Real cff  = om_u * on_u;
+          Real cff  = omn_u(i,j,0);
 
           Real cff1 = (k == N) ?  sustr(i,j,0)*cff : zero;
           Real cff2 = (k == 0) ? -bustr(i,j,0)*cff : zero;
@@ -370,9 +368,7 @@ REMORA::rhs_uv_3d (int lev,
        {
           rvfrc(i,j,0) += rv(i,j,k,nrhs);
 
-          Real om_v = two / (pm(i,j-1,0)+pm(i,j,0));
-          Real on_v = two / (pn(i,j-1,0)+pn(i,j,0));
-          Real cff = om_v * on_v;
+          Real cff = omn_v(i,j,0);
 
           Real cff1 = (k == N) ?  svstr(i,j,0)*cff : zero;
           Real cff2 = (k == 0) ? -bvstr(i,j,0)*cff : zero;
