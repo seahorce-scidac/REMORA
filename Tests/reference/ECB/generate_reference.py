@@ -186,6 +186,8 @@ def main():
                 nz = [2,3,8,16,8,8,8,8,8,8,8,2][case]
                 iterations = [1,3,1,2,3,1,2,3,1,0,1,1][case]
                 seconds = [300.,3600.,60.,900.,1800.,300.,300.,300.,300.,300.,86400.,172800.][case]
+                # Kinematic srflx for ROMS (150 W/m2 / (rho0*Cp)); the REMORA
+                # unit test converts it back to W/m2.
                 light = 0. if case in [1,4,10] else 150./(1025.*3985.)
                 stress = 0.0001 if case%2 else 0.
                 bottom = [0.,1.e-6,1.e-4][case%3]

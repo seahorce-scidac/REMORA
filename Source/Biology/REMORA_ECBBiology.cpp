@@ -451,7 +451,9 @@ void ECBBiology::advance (const BiologyAdvanceContext& context) const
                 bio(i,j,k-1,sc_temp)=amrex::min(old(i,j,k-1,0),Real(35.0));
                 bio(i,j,k-1,sc_salt)=amrex::max(old(i,j,k-1,1), Real(0.0));
             }
-            parsur=p.PARfrac*srflx(i,j,0)*rho0*Cp;
+            // REMORA stores srflx in W/m2, so only PARfrac applies. ROMS ecb.h
+            // multiplies by rho0*Cp because its srflx is kinematic (degC m/s).
+            parsur=p.PARfrac*srflx(i,j,0);
             // Primary production, exudation and nitrification, from surface down.
             for (iter = 1; iter <= p.BioIter; iter += 1) {
                 par=parsur;

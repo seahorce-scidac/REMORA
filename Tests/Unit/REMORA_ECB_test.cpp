@@ -13,6 +13,10 @@ using namespace amrex;
 using namespace REMORABiology;
 
 // Fixtures are produced by the pinned ROMS kernel, not the native port.
+// generate_reference.py runs every case with this density and ROMS Cp.
+constexpr Real reference_rho0 = Real(1025.0);
+static_assert(Cp == Real(3985.0), "generate_reference.py uses Cp = 3985");
+
 void check_ecb_reference ()
 {
     std::ifstream input(REMORA_ECB_REFERENCE_FILE);
@@ -70,7 +74,9 @@ void check_ecb_reference ()
         MultiFab wu(horizontal,mapping,1,1,MFInfo().SetArena(The_Managed_Arena()));
         MultiFab wv(horizontal,mapping,1,1,MFInfo().SetArena(The_Managed_Arena()));
         old.setVal(-17.); next.setVal(-29.);
-        shortwave.setVal(light); mask.setVal(mask_value);
+        // columns.txt stores the kinematic srflx (degC m/s) that ROMS consumed;
+        // REMORA's shortwave is in W/m2, so convert with the same rho0 and Cp.
+        shortwave.setVal(light*reference_rho0*Cp); mask.setVal(mask_value);
         su.setVal(stress); sv.setVal(stress*Real(0.5));
         bu.setVal(bottom); bv.setVal(bottom*Real(0.5)); wu.setVal(wind); wv.setVal(0.);
         Gpu::streamSynchronize();
@@ -88,7 +94,7 @@ void check_ecb_reference ()
         }
         SolverChoice solver;
         solver.bulk_fluxes=bulk!=0;
-        solver.rho0=1025.;
+        solver.rho0=reference_rho0;
         BiologyInitContext init{.level=0,.geometry=geometry,.solver_choice=solver,.state=next,.component_start=base};
         initialize_uniform_biology(*model, init, initial);
         Gpu::streamSynchronize();

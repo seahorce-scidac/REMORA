@@ -35,7 +35,9 @@ Refractory DON/DOC and calcium have zero biological increments in this source.
 
 columns.txt holds parameter names/values followed by case controls, thickness,
 interfaces, old concentrations, incoming weighted state, and expected weighted
-state. Matrices are component-major, bottom to top. Synthetic parameters and
+state. The light control is the kinematic srflx (degC m/s) that ROMS consumes;
+REMORA's shortwave is in W/m2, so the native test multiplies it by rho0*Cp
+(1025*3985) before calling the model. Matrices are component-major, bottom to top. Synthetic parameters and
 profiles exercise the equations; they are not a calibrated scientific setup.
 The native test varies dye offsets and checks preservation of physical fields,
 dyes, incoming increments, old state and inert reference pools. Expected values
