@@ -59,7 +59,8 @@ void REMORAPC::massDensity ( MultiFab&  a_mf,
  * and the uniform prob_lo and cell size, not with the physical corners. WriteBinaryParticleData,
  * which both Checkpoint and WritePlotFile call, asserts pc.OK(), so in builds with assertions
  * on the write fails wherever the physical coordinates differ from the uniform ones. Writing
- * through WritePlotFile instead would not avoid this.
+ * through WritePlotFile instead would not avoid this. The writers do not need pc.OK(), and
+ * AMReX-Codes/amrex#6175 removes the assertion from them.
  *
  * @param a_fname   checkpoint or plotfile directory
  * @param a_name    particle species name
