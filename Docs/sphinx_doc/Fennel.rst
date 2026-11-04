@@ -12,6 +12,37 @@ state and applies biological source and sink terms during the three-dimensional
 time step. The biology update is called after the GLS corrector when a biology
 model is enabled.
 
+Common Biology Interface
+========================
+
+REMORA owns one ``REMORABiology::Biology`` object. The factory in
+``Source/Biology/REMORA_Biology.cpp`` selects ``FennelBiology`` or the no-op
+implementation for ``none``/``off``. The solver uses the same interface for
+configuration, tracer declarations, and advancement; Fennel parameters and
+kernels belong to ``REMORA_FennelBiology.H/.cpp``. Analytic initial profiles
+are problem-specific and belong to the problem, not the model (see Initial
+Data and Restarts below).
+
+The lifecycle is ``configure`` followed by ``declaration`` before scalar
+allocation, then ``advance`` each step. The declaration fixes tracer order and
+output aliases for the run. The advance context supplies immutable old
+concentrations, the existing mutable new state, geometry/forcing views, the
+step duration, and model time. The model adds its concentration change
+multiplied by layer thickness to the new state; it must preserve incoming
+increments from the physical solver. Virtual dispatch occurs on the host;
+device kernels capture ordinary views and parameters.
+
+Adding an ecosystem requires its concrete implementation, build entries, and
+one factory registration. Shared solver call sites do not select model names
+or downcast. The current implementation supports Fennel only. A second
+ecosystem and optional module composition are later stages of the extension
+plan, to be designed and validated against actual scientific implementations.
+This refactor does not add an oyster or harmful-algal-bloom model.
+
+The plot-variable group ``biology`` expands to the selected model's biological
+tracers, excluding passive dye. The existing ``fennel`` group remains available
+as a Fennel-declared alias.
+
 Turning Fennel On
 =================
 
@@ -317,13 +348,25 @@ an error. For analytic biology initialization, the problem must
 provide an analytic biology routine; problems that enable biology without one
 abort during initialization rather than starting from uninitialized tracers.
 
-``BioToy`` and ``Upwelling`` ship with such a routine, both using the profile from
-ROMS ``ana_biology.h``: nitrate follows a cubic in a temperature-derived silicate
-proxy, and the remaining tracers start uniform. To add one for another problem, write
-a ``Source/Prob/REMORA_InitAnalyticBiology_<Problem>.H`` and give it a branch in
-``Problem::init_analytic_biology`` in ``Exec/REMORA_Prob.cpp``. Because that profile
-is a function of temperature alone, it carries over unchanged to any problem that
-stratifies temperature.
+``BioToy`` and ``Upwelling`` ship with such a routine, both using the profile
+from ROMS ``ana_biology.h``: nitrate follows a cubic in a temperature-derived
+silicate proxy, and the remaining tracers start uniform. To add one for another
+problem, write a ``Source/Prob/REMORA_InitAnalyticBiology_<Problem>.H`` and give
+it a branch in ``Problem::init_analytic_biology`` in ``Exec/REMORA_Prob.cpp``.
+Because the BioToy profile is a function of temperature alone, it carries over
+unchanged to any problem that stratifies temperature: add the problem's name to
+the existing BioToy branch. Its values are Fennel's, so it errors for any other
+``remora.biology_model``.
+
+The hook receives ``const REMORABiology::Biology&`` and
+``REMORABiology::BiologyInitContext&``, not Fennel parameters or the whole
+solver. A profile locates each field with
+``biology.declaration().component_index(name, context.component_start)``,
+which returns -1 for a tracer the run does not carry, so optional pools are
+skipped by testing the index. Write only the biology components; physical
+fields and dyes are already initialized. Existing overrides taking
+``FennelParameters`` and ``REMORA`` must migrate to this signature. NetCDF
+initialization does not call the hook.
 
 When initial data is specified on a high-resolution level and averaged down
 (``remora.hires_init_level``), biology is initialized on that level before the

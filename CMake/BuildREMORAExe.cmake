@@ -92,7 +92,7 @@ function(build_remora_lib remora_lib_name)
   endif()
 
   # Fennel parity tag diagnostics. Deliberately independent of the bridge
-  # flag: REMORA_Biology.cpp carries tag instrumentation inside its device
+  # flag: REMORA_FennelBiology.cpp carries tag instrumentation inside its device
   # lambda whether or not the Fortran oracle is built.
   if(REMORA_ENABLE_BIOLOGY_DIAG)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_BIOLOGY_DIAG)
@@ -130,6 +130,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/REMORA_SumIQ.cpp
        ${SRC_DIR}/REMORA_Tagging.cpp
        ${SRC_DIR}/Biology/REMORA_Biology.cpp
+       ${SRC_DIR}/Biology/REMORA_FennelBiology.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_cons.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_xvel.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_yvel.cpp

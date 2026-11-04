@@ -43,7 +43,7 @@
 /*
 ** BULK_FLUXES selects how the gas-exchange transfer velocity is computed:
 ** from Uwind/Vwind when defined, from sustr/svstr when not.  Both branches
-** exist natively in REMORA_Biology.cpp and are chosen at run time by
+** exist natively in REMORA_FennelBiology.cpp and are chosen at run time by
 ** remora.bulk_fluxes, so this define must agree with the case being
 ** validated.  fennel_check_config enforces that on every call.
 **

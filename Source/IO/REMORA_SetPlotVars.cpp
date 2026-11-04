@@ -2,6 +2,8 @@
 #include "AMReX_Interp_3D_C.H"
 #include "AMReX_PlotFileUtil.H"
 
+#include <algorithm>
+
 using namespace amrex;
 
 template<typename V, typename T>
@@ -44,10 +46,14 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
         plot_var_names_3d.clear();
     }
 
-    const bool expand_fennel = containerHasElement(plot_var_names_3d, "fennel") &&
-                               REMORABiology::has_biology(biology_model);
-    if (expand_fennel) {
-        // "fennel" means the biology tracers only, not any passive scalars ahead of them
+    auto groups = m_biology->declaration().plot_aliases;
+    groups.emplace_back("biology");
+    const bool expand_biology = nbio > 0 &&
+        std::any_of(groups.begin(), groups.end(), [&](const std::string& group) {
+            return containerHasElement(plot_var_names_3d, group);
+        });
+    if (expand_biology) {
+        // Group aliases expand only the biology block, excluding passive dyes.
         for (int icomp = Bio_comp; icomp < ncons; ++icomp) {
             if (!containerHasElement(plot_var_names_3d, cons_names[icomp])) {
                 plot_var_names_3d.push_back(cons_names[icomp]);
@@ -106,7 +112,7 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
 
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_3d) {
-      if (plot_name == "fennel" && expand_fennel) {
+      if (expand_biology && containerHasElement(groups, plot_name)) {
           continue;
       }
       if (!containerHasElement(tmp_plot_names, plot_name) && ParallelDescriptor::IOProcessor()) {
@@ -236,7 +242,7 @@ REMORA::append3DPlotVariables (const std::string& pp_plot_var_names_3d)
     // anything else back would resurrect a name set3DPlotVariables deliberately dropped as
     // unavailable, and nothing downstream would ever fill it: the plotfile would carry the
     // uninitialized sentinel from WritePlotFile under a real-looking variable name. The
-    // "fennel" keyword needs no handling here, since set3DPlotVariables already expanded it.
+    // Biology group aliases were expanded by set3DPlotVariables.
 #ifdef REMORA_USE_PARTICLES
     Vector<std::string> particle_mesh_plot_names;
     particleData.GetMeshPlotVarNames( particle_mesh_plot_names );

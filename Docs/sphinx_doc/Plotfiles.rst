@@ -160,11 +160,15 @@ Notes
 
    - Per-step files keep their step numbers. The restart step's file is written again, and
      the earlier copy is renamed to ``*.old.*``.
-   - A history file in the run directory is continued from its first record at or after the
-     restart time. Later records from the earlier run are written over as the new run
-     reaches them; any it does not reach stay at the end of the file.
-   - With no history file, or one for a different grid (which is renamed aside), a new file
-     is started. Chunked history files keep the numbering from the checkpoint.
+   - Each level's history file in the run directory is continued from its first record at
+     or after the restart time. Later records from the earlier run are written over as the
+     new run reaches them; any it does not reach stay at the end of the file.
+   - With no history file, a new one is started. A file for a different grid is renamed
+     aside first. Chunked history files keep the numbering from the checkpoint.
+
+-  A run that is not a restart never adds to a history file it finds in the run directory.
+   It renames the file aside when it first writes to that name. This also applies to a
+   refined level that first appears partway through the run.
 
 -  REMORA writes CDF-5 files, which have no practical size limit. Some MPI builds still fail on writes
    larger than 2 GB — a limit of the MPI-IO layer, not the file format. If a large write crashes, see the
@@ -180,10 +184,11 @@ Notes
    ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
    This also holds for a NetCDF history file, whose records then need not be evenly spaced in time.
 
--  When Fennel biology is enabled, ``fennel`` in ``remora.plot_vars_3d``
-   expands to all active biology tracers. Active biology tracers can also be
-   requested by name. See :ref:`sec:Fennel` for tracer names and component
-   options.
+-  When a biology model is enabled, ``biology`` in ``remora.plot_vars_3d``
+   expands to all of that model's active tracers, excluding passive dye. Fennel
+   also accepts ``fennel`` as an alias for the same group. Active biology tracers
+   can also be requested by name. See :ref:`sec:Fennel` for tracer names and
+   component options.
 
 -  Passive dye is opt-in: ``tracer`` is only available when ``remora.nscalar`` is at
    least 1 (see :ref:`sec:Inputs`). Naming a field the run does not carry is not fatal
@@ -316,17 +321,33 @@ Examples of Usage
    *out/plt_run_his00000_d01.nc*; and with ``remora.write_history_file = false``
    there is one file per output step, as in *out/plt_run00010_d01.nc*.
 
-   The region a refined level's NetCDF file covers is taken from the static
-   refinement boxes (``in_box_lo``/``in_box_hi`` or their ``_indices`` forms), not
-   from the level's actual grids, and only the first such box at that level is
-   written. NetCDF output of a refined level therefore requires the level to be
-   defined by a static box, given by an indicator whose ``max_level`` is that
-   level, and the level's grids must cover the whole box. A write aborts the run
-   otherwise: for a level created only by field-based tagging, for a level created
-   by a box whose ``max_level`` is a finer level, for a box that only limits where a
-   field-based criterion tags, and for a box that a ``start_time``/``end_time``
-   window has stopped refining. Cells that field-based tagging adds to a level
-   outside its first static box are not written.
+   .. note::
+
+      NetCDF output is not recommended for runs with mesh refinement. Each refined
+      level is written over the whole domain at its own resolution, so the files are
+      large and slow to write, and most of each one is fill. For speed and disk space,
+      we recommend AMReX plotfiles (``remora.plotfile_type = amrex``) for these runs.
+      :ref:`xamrex<sec:xamrex>` reads them into Python with xarray, including time
+      series and multiple levels.
+
+   Every level's NetCDF file covers the whole domain at that level's resolution,
+   however the level was made (by static refinement boxes, by field-based tagging,
+   or both) and wherever regridding moves it. A level 1 file with refinement ratio
+   2 therefore has twice as many points in each horizontal direction as the level 0
+   file. Cells the level's grids don't cover hold the fill value
+   ``remora.netcdf_fill_value`` in every variable, the masks included, so they read
+   as missing rather than as land. For this reason every variable of a refined level
+   carries a ``_FillValue`` attribute, including the fixed grid variables (``h``,
+   ``pm``, ``x_rho`` and the like) and the masks. On level 0, which has no gaps, the
+   grid variables and masks carry none. In a history file, the grid variables are
+   written again whenever the level's grids have changed since the last record, so
+   they gain the cells the level moves over.
+
+   A refined level's history holds a record only for the outputs at which the level
+   exists. If tagging creates the level partway through the run, or the level
+   disappears and comes back, its file starts at record 0 and skips the outputs when
+   the level was absent. ``ocean_time`` gives each record's time, so it does not line
+   up record for record with level 0's file.
 
 -  **remora.plot_nodal_data** = *false*
 

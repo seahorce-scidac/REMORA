@@ -836,15 +836,6 @@ public:
                           amrex::MultiFab& mf_cons_new,
                           int N, amrex::Real dt_lev);
 
-#ifdef REMORA_USE_FENNEL_FORT
-    /** \brief Path A oracle: apply biological source/sink terms through the
-     *         ROMS Fennel Fortran kernel. Selected at run time by
-     *         remora.use_biology_cpp_answer = 0. */
-    void advance_biology_fortran (int lev, amrex::MultiFab const& mf_cons_old,
-                                  amrex::MultiFab& mf_cons_new,
-                                  int N, amrex::Real dt_lev);
-#endif
-
     /** \brief Calculate bulk temperature, salinity, wind fluxes */
     void bulk_fluxes (int lev,
                       amrex::MultiFab* mf_cons,
@@ -1076,7 +1067,10 @@ public:
     void compute_wvel (int lev, amrex::MultiFab& mf_w, const amrex::MultiFab& mf_omega);
 
     /** \brief Region of a level that its NetCDF output covers */
-    amrex::Box netcdf_subdomain (int lev, int which_subdomain = 0) const;
+    amrex::Box netcdf_subdomain (int lev) const;
+
+    /** \brief Whether a level's grids leave cells of its NetCDF region uncovered */
+    bool netcdf_subdomain_has_gaps (int lev) const;
 
     /** \brief omega and w on the s_w points of the NetCDF output, ghost columns filled and masked */
     void compute_omega_and_w (int lev, amrex::MultiFab* mf_omega, amrex::MultiFab* mf_wvel);
@@ -1697,12 +1691,16 @@ private:
                                 amrex::MultiFab const* mf_wvel = nullptr);
 
     /** \brief Write a particular NetCDF plotfile */
-    void WriteNCPlotFile_which (int lev, int which_subdomain,
+    void WriteNCPlotFile_which (int lev,
                                 amrex::MultiFab const* plotMF,
                                 amrex::MultiFab const* mf_omega,
                                 amrex::MultiFab const* mf_wvel,
-                                bool write_header, ncutils::NCFile& ncf,
+                                bool write_header, bool write_grid,
+                                ncutils::NCFile& ncf,
                                 bool is_history, long long history_record = 0);
+
+    /** \brief NetCDF file a level's output goes to at this output step */
+    std::string netcdf_plot_path (int which_step, int lev) const;
 
     /** \brief Record at which a restarted run continues a history file */
     long long history_restart_record (int lev, const std::string& path);
@@ -1947,25 +1945,10 @@ private:
     /** \brief Number of conserved scalars in the state
      *         (temperature + salt + passive scalars + biology tracers) */
     int ncons = Tracer_comp + 1;
-    /** \brief Active biology package */
-    REMORABiology::BiologyModel biology_model = REMORABiology::BiologyModel::none;
-    /** \brief Runtime parameters for the Fennel biology package */
-    REMORABiology::FennelParameters fennel_params;
-    /** \brief Source of the biology tracer initial condition, independent of
-     *         remora.ic_type. Default follows ic_type. */
+    /** \brief Selected ecosystem, owning its parameters and host-side kernels. */
+    std::unique_ptr<REMORABiology::Biology> m_biology = REMORABiology::make_biology("none");
+    /** \brief Biology IC source, independent of the physical IC source. */
     REMORABiology::BiologyICType biology_ic_type = REMORABiology::BiologyICType::follow_ic_type;
-    /** \brief Select the native C++ biology kernel (1) or the ROMS Fortran
-     *         bridge oracle (0). Only meaningful when built with
-     *         USE_FENNEL_FORT=TRUE; ignored otherwise. Runtime-controlled so
-     *         the two paths can be compared without a rebuild. */
-    int use_biology_cpp_answer = 1;
-    /** \brief Biology diagnostic verbosity: 0 off, 1 target column, 2 all
-     *         columns. See Source/Biology/Fortran/tag_map.md. */
-    int biology_debug = 0;
-    /** \brief Target column i index for biology_debug = 1 */
-    int biology_debug_i = 2;
-    /** \brief Target column j index for biology_debug = 1 */
-    int biology_debug_j = 2;
 
     // Time step controls
     /** \brief CFL condition */
@@ -2126,11 +2109,19 @@ private:
     int steps_per_history_file = -1;
     /** \brief Counter for which time index we are writing to in the netcdf history file */
     int history_count = 0;
-    /** \brief Per level, the history file this run last wrote to */
-    amrex::Vector<std::string> history_file_in_use;
-    /** \brief Per level, history_count minus the record written in the file in
-     *  use. Nonzero only after a restart. */
-    amrex::Vector<long long> history_record_shift;
+    /** \brief The NetCDF history file a level is writing to */
+    struct NCHistoryFile {
+        //! File this run last wrote to, empty before the level's first write
+        std::string path;
+        //! Next record to write. A level counts its own records, since a level made by
+        //! tagging may appear, vanish and reappear while history_count counts every output.
+        long long next_record = 0;
+        //! Grids the fixed grid variables were last written for, so they are written
+        //! again only when the level has moved
+        amrex::BoxArray grids_written;
+    };
+    /** \brief Per level, the history file it is writing to */
+    amrex::Vector<NCHistoryFile> history_files;
 
     /** \brief Names of 3D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_3d;
