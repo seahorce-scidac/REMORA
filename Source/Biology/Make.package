@@ -4,3 +4,4 @@ CEXE_sources += REMORA_FennelBiology.cpp
 CEXE_headers += REMORA_FennelBiology.H
 CEXE_sources += REMORA_ECBBiology.cpp
 CEXE_headers += REMORA_ECBBiology.H
+CEXE_headers += REMORA_BiologyCarbonate.H
