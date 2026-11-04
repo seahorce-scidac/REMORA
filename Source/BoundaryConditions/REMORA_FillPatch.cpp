@@ -27,6 +27,16 @@ namespace {
  * FillBoundary then fills the images. The result goes into scratch rather than back into mf,
  * so the coarse level's own ghost cells are left as they were.
  *
+ * Doing this with AMReX calls alone gets most of the way. EnforcePeriodicity takes its
+ * sources from each box grown by its ghost cells -- Periodicity::Domain() is unbounded in the
+ * non-periodic directions -- so on a copy of mf, FillBoundary followed by EnforcePeriodicity
+ * already makes cell-centered ghosts beyond a wall match their images. On Channel_Test_ML_seam
+ * that gives a plotfile bitwise identical to this function's. It does not cover face data
+ * normal to a periodic direction: faces 0 and nx both lie inside the nodal periodic domain, so
+ * EnforcePeriodicity never writes them, and OverrideSync reconciles only their valid copies.
+ * Below a wall the two then still differ (up to 3e-15 for xvel in that test), leaving two
+ * sources. The extended temporary makes those faces valid so OverrideSync reaches them.
+ *
  * @param[in   ] mf       data to read, its ghost cells already FillBoundary'd
  * @param[in   ] geom     geometry of mf's level
  * @param[inout] scratch  storage for the copy, used only when one is needed
