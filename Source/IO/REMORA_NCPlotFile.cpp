@@ -37,6 +37,33 @@ plot_2d_var_requested (const amrex::Vector<std::string>& names, const std::strin
     return false;
 }
 
+/** \brief Abort on a PnetCDF error */
+void
+nc_check (int ierr)
+{
+    if (ierr != NC_NOERR) {
+        amrex::Abort(std::string("NetCDF error: ") + ncmpi_strerror(ierr));
+    }
+}
+
+/**
+ * \brief Whether a variable is laid out over the horizontal grid (has an xi_* dimension).
+ */
+bool
+nc_var_is_gridded (int ncid, int varid)
+{
+    int ndims = 0;
+    nc_check(ncmpi_inq_varndims(ncid, varid, &ndims));
+    std::vector<int> dimids(ndims);
+    nc_check(ncmpi_inq_vardimid(ncid, varid, dimids.data()));
+    for (int d : dimids) {
+        char dname[NC_MAX_NAME+1];
+        nc_check(ncmpi_inq_dimname(ncid, d, dname));
+        if (std::string(dname).rfind("xi_", 0) == 0) { return true; }
+    }
+    return false;
+}
+
 /**
  * \brief Accumulates each rank's hyperslabs and writes them with collective I/O.
  *
@@ -929,6 +956,25 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
 //        ncf.put_attr("current_time", std::vector<double> { time });
         ncf.put_attr("CurrentLevel", std::vector<int> { flev });
         ncf.put_attr("DefaultGeometry", std::vector<int> { amrex::DefaultGeometry().Coord() });
+
+        // With level-0 boxes dropped (remora.drop_dry_boxes) the boxes no longer cover the
+        // domain, so no rank writes the dropped cells. Give every gridded variable a fill
+        // value -- zero (land) for the masks -- so they read as missing, not as whatever the
+        // file held. Fixed-size variables are filled at enddef; record variables per record,
+        // below.
+        if (lev == 0 && level0_has_holes()) {
+            for (int varid = 0; varid < ncf.num_variables(); ++varid) {
+                if (!nc_var_is_gridded(ncf.ncid, varid)) { continue; }
+                int no_fill = 0;
+                nc_check(ncmpi_inq_var_fill(ncf.ncid, varid, &no_fill, nullptr));
+                if (!no_fill) { continue; }
+                char vname[NC_MAX_NAME+1];
+                nc_check(ncmpi_inq_varname(ncf.ncid, varid, vname));
+                const std::string nm(vname);
+                const amrex::Real fill = (nm.rfind("mask_", 0) == 0) ? zero : netcdf_fill_value;
+                nc_check(ncmpi_def_var_fill(ncf.ncid, varid, NC_FILL, &fill));
+            }
+        }
 
         ncf.exit_def_mode();
 

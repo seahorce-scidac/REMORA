@@ -251,6 +251,73 @@ function(add_test_restart TEST_NAME TEST_EXE PLTFILE CHKFILE)
     )
 endfunction(add_test_restart)
 
+# As add_test_restart, but bitwise: every value of the restarted run's plotfile must have the
+# same bit pattern as the continuous run's (remora_subset_compare at zero tolerance).
+function(add_test_restart_exact TEST_NAME TEST_EXE PLTFILE CHKFILE)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} remora.restart=../runA/${CHKFILE} remora.check_int=-1 >> ../${TEST_NAME}.log 2>&1 && cd .. && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_restart_exact)
+
+# Run one input under two sets of options whose layouts may differ -- box-to-rank assignment,
+# or level-0 boxes left out by remora.drop_dry_boxes -- and require the second run to match the
+# first bitwise on every cell of the second run's boxes, which amrex_fcompare cannot do when
+# the BoxArrays differ. PLTFILE is compared, and CHKFILE too (every MultiFab in it) unless it
+# is "none". INPUT_NAME picks the input file, so several tests can share one case. An extra
+# argument is plain text the second run's output must contain, to show the options took effect.
+function(add_test_layout TEST_NAME INPUT_NAME TEST_EXE PLTFILE CHKFILE OPTIONS_A OPTIONS_B)
+
+    set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${INPUT_NAME})
+    set(CURRENT_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
+    file(MAKE_DIRECTORY ${CURRENT_TEST_BINARY_DIR})
+    file(GLOB TEST_FILES "${CURRENT_TEST_SOURCE_DIR}/*")
+    file(COPY ${TEST_FILES} DESTINATION "${CURRENT_TEST_BINARY_DIR}/")
+
+    if(REMORA_ENABLE_MPI)
+        set(NP 2)
+        set(MPI_COMMANDS "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${NP} ${MPIEXEC_PREFLAGS}")
+    else()
+        set(NP 1)
+        unset(MPI_COMMANDS)
+    endif()
+    set(RUNTIME_OPTIONS "remora.check_mask_consistency=true")
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(CHK_CLAUSE "")
+    if(NOT "${CHKFILE}" STREQUAL "none")
+        set(CHK_CLAUSE " && ${SUBSET_COMPARE_EXE} --chk runB/${CHKFILE} runA/${CHKFILE}")
+    endif()
+    set(LOG_CLAUSE "")
+    if(NOT "${ARGN}" STREQUAL "")
+        set(LOG_CLAUSE " && grep -q -- \"${ARGN}\" ${TEST_NAME}.runB.log")
+    endif()
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_A} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_B} > ../${TEST_NAME}.runB.log 2>&1 && cd .. && cat ${TEST_NAME}.runB.log >> ${TEST_NAME}.log && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}${CHK_CLAUSE}${LOG_CLAUSE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_layout)
+
 # Assert how far an integrated quantity drifts over a run. INPUT_NAME picks the input file, so
 # several tests can share one case; OPTIONS go on the command line; the remaining arguments are
 # <column> <bound> <below|above> triples handed to check_conservation.sh.
@@ -818,6 +885,59 @@ add_test_equiv(DogboneAnalytic_MLmaskring DogboneAnalytic_MLmaskring_hires "remo
 # make the open y=250..500 stretch across the seam dry. Either breaks the agreement.
 add_test_equiv(DogboneAnalytic_MLmaskring_periodic DogboneAnalytic_MLmaskring_periodic_hires
                "remora_exec" "plt_per00010" "plt_per_hires00010")
+
+#=============================================================================
+# Land layout. Which rank owns a box never changes the answer, so every remora.load_balance
+# strategy, weighting boxes by their wet cells, must reproduce AMReX's own mapping bitwise.
+# Leaving out the level-0 boxes that are land over their whole footprint
+# (remora.drop_dry_boxes) must leave every kept cell -- the plotted fields and every field in
+# the checkpoint -- bitwise as the full layout has it: on one level; with a nest near the coast
+# made at a regrid; with the ghost cells no exchange fills overwritten by a finite value (what
+# is computed from it stays on land, so the plotted fields still agree, though the land-face
+# tendencies in the checkpoint do not; a NaN there would spread to the water); and across a
+# restart, which keeps the checkpoint's BoxArray.
+#=============================================================================
+
+# drop_dry_boxes is on by default, so the reference runs ask for the full layout.
+set(FULL_LAYOUT "remora.drop_dry_boxes=false")
+add_test_layout(DogboneAnalytic_loadbalance_knapsack DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" "remora.load_balance=amrex ${FULL_LAYOUT}"
+                "remora.load_balance=knapsack remora.load_balance_land_weight=0 ${FULL_LAYOUT}")
+add_test_layout(DogboneAnalytic_loadbalance_roundrobin DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" "remora.load_balance=amrex ${FULL_LAYOUT}"
+                "remora.load_balance=roundrobin remora.load_balance_land_weight=0.25 ${FULL_LAYOUT}")
+# With land from the west edge on, weighing wet cells alone moves boxes between the two ranks:
+# 11 and 21 instead of AMReX's 16 and 16. The answer must not move with them.
+add_test_layout(DogboneAnalytic_loadbalance_sfc DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" "remora.load_balance=amrex remora.prob.mask_x_lo=-100. ${FULL_LAYOUT}"
+                "remora.load_balance=sfc remora.load_balance_land_weight=0 remora.prob.mask_x_lo=-100. ${FULL_LAYOUT}"
+                "boxes per rank 11 to 21")
+add_test_layout(DogboneAnalytic_drop DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "chk00020" "${FULL_LAYOUT}" "remora.drop_dry_boxes=true")
+add_test_layout(DogboneAnalytic_MLdrop DogboneAnalytic_MLlandlayout "remora_exec"
+                "plt00008" "chk00008" "${FULL_LAYOUT}" "remora.drop_dry_boxes=true")
+add_test_layout(DogboneAnalytic_drop_ghosts DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" "${FULL_LAYOUT}"
+                "remora.drop_dry_boxes=true remora.dry_ghost_test=2 remora.dry_ghost_value=7")
+add_test_restart_exact(DogboneAnalytic_drop_restart "remora_exec" "plt00010" "chk00005")
+# Bulk fluxes work on the box grown by two cells, so on the ghost cells in dropped boxes too,
+# with the logs, powers and divisions by air pressure of the COARE scheme; what they compute
+# there has to stay finite. (NetCDF forcing, which CI does not build, was checked by hand.)
+set(DROP_BULK "remora.bulk_fluxes=true remora.uwind_type=constant remora.vwind_type=constant remora.uwind=5.0 remora.vwind=2.0 remora.air_temperature=23.567 remora.air_humidity=0.776 remora.air_pressure=1013.48 remora.surface_radiation_flux=300.0 remora.rain=1.0e-5")
+add_test_layout(DogboneAnalytic_drop_bulk DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "chk00020" "${DROP_BULK} ${FULL_LAYOUT}" "${DROP_BULK} remora.drop_dry_boxes=true"
+                "level 0 keeps 24 of 32 boxes")
+
+#=============================================================================
+# Boxes hold whole water columns. A small amr.max_grid_size cuts the domain in x and y only,
+# since amr.max_grid_size_z defaults to the number of vertical cells; the 24 boxes must give the
+# single-box answer bitwise (before that default, the column was cut and the run aborted). A
+# box cut in z on purpose is refused.
+#=============================================================================
+
+add_test_layout(DogboneAnalytic_maskring_mgs8 DogboneAnalytic_maskring "remora_exec"
+                "plt00010" "chk00010" "" "amr.max_grid_size=8")
+add_test_abort(DogboneAnalytic_split_column_abort "remora_exec" "Boxes must hold whole water columns")
 
 #=============================================================================
 # Performance tests

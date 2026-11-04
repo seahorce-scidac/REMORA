@@ -14,6 +14,23 @@ using namespace amrex;
 
 namespace {
 /**
+ * Every box has to span the whole water column; see the amr.max_grid_size_z default in
+ * main.cpp. Abort with the reason rather than fail somewhere in a vertical sweep.
+ */
+void check_full_columns (int lev, const BoxArray& ba, const Geometry& geom)
+{
+    const int nz = geom.Domain().length(2);
+    for (int i = 0; i < ba.size(); ++i) {
+        if (ba[i].length(2) != nz) {
+            amrex::Abort("Level " + std::to_string(lev) + " has a box " + std::to_string(ba[i].length(2))
+                         + " cells tall in a column of " + std::to_string(nz) + ". Boxes must"
+                         " hold whole water columns: set amr.max_grid_size_z to at least the"
+                         " number of vertical cells, which is its default.");
+        }
+    }
+}
+
+/**
  * CPU builds tile in 16x16 columns by default (main.cpp), and the threads of a rank share
  * the tiles of its boxes. When tiling is turned off (remora.omp_tile_size at least the box
  * size), the threads share whole boxes instead, so a rank with fewer boxes than threads
@@ -72,6 +89,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     amrex::Print() << "Making level " << lev << " from coarse" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    check_full_columns(lev, ba, geom[lev]);
     warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     cons_new[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
@@ -230,6 +248,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     amrex::Print() << "Remaking level " << lev << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    check_full_columns(lev, ba, geom[lev]);
     warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state   = 3;
@@ -392,10 +411,30 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
  * @param[in   ] ba      BoxArray for the level
  * @param[in   ] dm      DistributionMapping for the level
  */
-void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
-                                     const DistributionMapping& dm)
+void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba_in,
+                                     const DistributionMapping& dm_in)
 {
-    // Set BoxArray grids and DistributionMapping dmap in AMReX_AmrMesh.H class
+    BoxArray ba = ba_in;
+    DistributionMapping dm = dm_in;
+    // Decided once, when the run starts: a restart keeps the checkpoint's BoxArray, which
+    // already holds whatever the run it continues dropped.
+    bool dropped = false;
+    if (lev == 0 && drop_dry_boxes) {
+        if (restart_chkfile.empty()) {
+            BoxArray kept = drop_dry_level0_boxes(ba_in);
+            if (kept.size() != ba_in.size()) {
+                ba = std::move(kept);
+                dm = MakeDistributionMap(lev, ba);
+                dropped = true;
+            }
+        } else {
+            amrex::Print() << "remora.drop_dry_boxes: restarting, so level 0 keeps the"
+                           << " checkpoint's BoxArray\n";
+        }
+    }
+
+    // Set BoxArray grids and DistributionMapping dmap in AMReX_AmrMesh.H class. AmrMesh keeps
+    // these, not the ones it passed in, since they are set here.
     SetBoxArray(lev, ba);
     SetDistributionMap(lev, dm);
 
@@ -407,6 +446,7 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 
     amrex::Print() << "Making level " << lev << " from scratch" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    check_full_columns(lev, ba, geom[lev]);
     warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state = 3;
@@ -440,7 +480,17 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     init_masks(lev, ba, dm);
     init_stuff(lev, ba, dm);
 
+    // Every field exists now and nothing has read it: give the ghost cells no exchange fills
+    // a number (see zero_level0_dry_ghost_cells)
+    if (lev == 0) {
+        zero_level0_dry_ghost_cells();
+    }
+
     init_only(lev, time);
+
+    if (dropped) {
+        check_dropped_level0_mask();
+    }
 
 #ifdef REMORA_USE_PARTICLES
     if (restart_chkfile.empty()) {

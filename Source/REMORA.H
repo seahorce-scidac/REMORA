@@ -303,6 +303,70 @@ public:
     virtual void MakeNewLevelFromScratch (int lev, amrex::Real time, const amrex::BoxArray& ba,
                       const amrex::DistributionMapping& dm) override;
 
+    /** \brief Distribution mapping for a new BoxArray on level lev, by remora.load_balance:
+     *         each box weighs its wet cells plus remora.load_balance_land_weight times its
+     *         land cells (overrides AmrMesh) */
+    virtual amrex::DistributionMapping MakeDistributionMap (int lev, amrex::BoxArray const& ba) override;
+
+    /** \brief The rho-point mask a level lev on mskr's layout would get, before that level
+     *         exists; false if it cannot be known yet */
+    bool probe_rho_mask (int lev, amrex::MultiFab& mskr);
+
+    /** \brief Wet cells in each box of a prospective layout of level lev; false if unknown */
+    bool wet_cells_per_box (int lev, const amrex::BoxArray& ba, amrex::Vector<amrex::Long>& wet);
+
+    /** \brief The remora.load_balance spelling of the current strategy */
+    std::string load_balance_name () const;
+
+    /** \brief Regrid (overrides AmrCore), then check that level 1 stays clear of dropped
+     *         level-0 boxes */
+    virtual void regrid (int lbase, amrex::Real time, bool initial=false) override;
+
+    /** \brief The kept boxes of a level-0 BoxArray under remora.drop_dry_boxes */
+    amrex::BoxArray drop_dry_level0_boxes (const amrex::BoxArray& ba);
+
+    /** \brief Level-0 index region a finer level may need; unbounded if it can go anywhere */
+    amrex::BoxList level0_refine_footprint (bool& unbounded) const;
+
+    /** \brief Whether level 0's BoxArray leaves part of the domain out */
+    bool level0_has_holes () const;
+
+    /** \brief Abort if level 1 or its coarse stencil reaches a dropped level-0 box */
+    void check_dry_box_nesting () const;
+
+    /** \brief The level-0 fields: the evolving ones, and with all the static ones too */
+    amrex::Vector<amrex::MultiFab*> level0_fields (bool all);
+
+    /** \brief Write val into the cells of a level-0 field inside the domain but in no box */
+    amrex::Long set_dry_ghost_cells (amrex::MultiFab& mf, amrex::Real val);
+
+    /** \brief Zero those cells in every level-0 field (see set_dry_ghost_cells) */
+    void zero_level0_dry_ghost_cells ();
+
+    /** \brief Check level 0's mask against the mask the dropping decision was made on */
+    void check_dropped_level0_mask ();
+
+    /** \brief remora.dry_ghost_test: overwrite the ghost cells of kept level-0 boxes that lie in
+     *         dropped boxes (1: signalling NaN, 2: a large finite value) after initialization */
+    void poison_dry_ghost_cells ();
+
+    /** \brief Leave out level-0 boxes that are land over their whole footprint
+     *         (remora.drop_dry_boxes) */
+    bool drop_dry_boxes = true;
+    /** \brief Debug: see poison_dry_ghost_cells */
+    int dry_ghost_test = 0;
+    /** \brief Physical-space region of each refinement indicator, for level0_refine_footprint */
+    amrex::Vector<amrex::RealBox> refine_regions;
+    /** \brief Whether some refinement indicator has no region, so it may refine anywhere */
+    bool refine_region_unbounded = false;
+
+    /** \brief How MakeDistributionMap assigns boxes to ranks (remora.load_balance) */
+    enum class LoadBalance { amrex, sfc, knapsack, roundrobin };
+    LoadBalance load_balance = LoadBalance::sfc;
+    /** \brief cost of a land cell relative to a wet one in the load-balance weights
+     *         (remora.load_balance_land_weight); 1 weighs boxes by cell count */
+    amrex::Real load_balance_land_weight = amrex::Real(1.0);
+
     /** \brief Set pm and pn arrays and x/y coords on level lev */
     void set_grid_scale (int lev);
 
@@ -1504,6 +1568,8 @@ public:
     void init_bdry_from_netcdf (int lev);
     /** \brief Mask data initialization from NetCDF file */
     void init_masks_from_netcdf (int lev);
+    /** \brief fill a rho-point mask on any layout of level lev from its NetCDF grid file(s) */
+    void fill_rho_mask_from_netcdf (int lev, amrex::MultiFab& mskr);
     /** \brief Full domain high-res mask data initialization from NetCDF file */
     void init_masks_full_domain_from_netcdf ();
     /** \brief Bathymetry data initialization from NetCDF file */

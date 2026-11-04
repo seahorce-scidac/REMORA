@@ -428,8 +428,8 @@ REMORA::ReadCheckpointFile ()
     }
 
     for (int lev = 0; lev <= finest_level; ++lev) {
-        // create a distribution mapping
-        DistributionMapping dm { chk_ba[lev], ParallelDescriptor::NProcs() };
+        // The same mapping a fresh start gives this BoxArray, remora.load_balance included
+        DistributionMapping dm = MakeDistributionMap(lev, chk_ba[lev]);
 
         MakeNewLevelFromScratch (lev, t_new[lev], chk_ba[lev], dm);
     }
