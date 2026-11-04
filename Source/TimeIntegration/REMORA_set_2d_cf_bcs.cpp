@@ -115,13 +115,15 @@ REMORA::store_2d_flux (int lev)
         });
     }
 
-    // There is no previous step on the first one, so extrapolate rather than leave old at
-    // the zero it was initialised with. Only remora.time_interp_flux reads old at all.
-    if (istep[lev] == 0) {
+    // With no previous step's flux -- the first step, after the level was (re)made, or after a
+    // restart from a checkpoint without it -- extrapolate rather than leave old at the zero it
+    // was initialised with. Only remora.time_interp_flux reads old at all.
+    if (Dubar_fresh[lev]) {
         MultiFab::Copy(*vec_Dubar_old[lev], *vec_Dubar_new[lev], 0, 0, 1,
                        vec_Dubar_new[lev]->nGrowVect());
         MultiFab::Copy(*vec_Dvbar_old[lev], *vec_Dvbar_new[lev], 0, 0, 1,
                        vec_Dvbar_new[lev]->nGrowVect());
+        Dubar_fresh[lev] = 0;
     }
 }
 

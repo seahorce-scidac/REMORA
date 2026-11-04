@@ -581,6 +581,10 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Dvbar_old;
     /** \brief see vec_Dvbar_old (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Dvbar_new;
+    /** \brief per level, whether vec_Dubar_new and vec_Dvbar_new hold no previous step's flux
+     *         (just allocated, or a restart from a checkpoint without them), so the next
+     *         store_2d_flux sets the old snapshot to the new one instead of to that zero */
+    amrex::Vector<int> Dubar_fresh;
     /** \brief free surface at the start and end of this level's step, every leapfrog
      *         component holding the same value. What a subcycled finer level interpolates
      *         in time to get its contact points, as ROMS's put_refine2d does (2D) */

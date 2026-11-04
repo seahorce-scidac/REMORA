@@ -231,6 +231,18 @@ REMORA::WriteCheckpointFile ()
        VisMF::Write(*(vec_Akp[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akp"));
        VisMF::Write(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akv"));
        VisMF::Write(*(vec_Akt[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akt"));
+
+       // The end-of-step snapshots a subcycled finer level interpolates between (see
+       // roll_2d_snapshot and store_2d_flux). Each step rolls the previous step's into the
+       // start of its own, so a restart needs them to take its first step as an
+       // uninterrupted run would.
+       if (lev < int(vec_zeta_crse_new.size()) && vec_zeta_crse_new[lev]) {
+           VisMF::Write(*(vec_zeta_crse_new[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "zeta_crse"));
+       }
+       if (!Dubar_fresh[lev]) {
+           VisMF::Write(*(vec_Dubar_new[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Dubar"));
+           VisMF::Write(*(vec_Dvbar_new[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Dvbar"));
+       }
    }
 
 #ifdef REMORA_USE_PARTICLES
@@ -535,6 +547,30 @@ REMORA::ReadCheckpointFile ()
        VisMF::Read(*(vec_Akp[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akp"));
        VisMF::Read(*(vec_Akt[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akt"));
        VisMF::Read(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akv"));
+
+       // The subcycling snapshots (see WriteCheckpointFile). A checkpoint written before they
+       // were saved, or at a level that had not taken a step, leaves them as a fresh level
+       // starts them: the free surface is not interpolated in time for one step, and the old
+       // flux snapshot is set to the new one.
+       const std::string zeta_crse_name = amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "zeta_crse");
+       if (VisMF::Exist(zeta_crse_name)) {
+           if (int(vec_zeta_crse_new.size()) <= lev) {
+               vec_zeta_crse_old.resize(lev+1);
+               vec_zeta_crse_new.resize(lev+1);
+           }
+           const MultiFab& like = *vec_zeta[lev];
+           vec_zeta_crse_old[lev] = std::make_unique<MultiFab>(like.boxArray(), like.DistributionMap(),
+                                                               like.nComp(), like.nGrowVect());
+           vec_zeta_crse_new[lev] = std::make_unique<MultiFab>(like.boxArray(), like.DistributionMap(),
+                                                               like.nComp(), like.nGrowVect());
+           VisMF::Read(*(vec_zeta_crse_new[lev]), zeta_crse_name);
+       }
+       const std::string dubar_name = amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Dubar");
+       if (VisMF::Exist(dubar_name)) {
+           VisMF::Read(*(vec_Dubar_new[lev]), dubar_name);
+           VisMF::Read(*(vec_Dvbar_new[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Dvbar"));
+           Dubar_fresh[lev] = 0;
+       }
 
        stretch_transform(lev);
 

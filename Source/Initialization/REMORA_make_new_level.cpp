@@ -835,6 +835,8 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_Dubar_new[lev]->setVal(zero);
     vec_Dvbar_old[lev]->setVal(zero);
     vec_Dvbar_new[lev]->setVal(zero);
+    if (int(Dubar_fresh.size()) <= lev) { Dubar_fresh.resize(lev+1); }
+    Dubar_fresh[lev] = 1;
     vec_rubar[lev]->setVal(zero);
     vec_rvbar[lev]->setVal(zero);
     vec_rzeta[lev]->setVal(zero);
