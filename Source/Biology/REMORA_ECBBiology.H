@@ -3,7 +3,8 @@
 #include <REMORA_Biology.H>
 namespace REMORABiology {
 // Independent ECB parameters, in ROMS input units. All must be supplied.
-struct ECBParameters {
+struct ECBParameters
+{
     int BioIter = 1;
     amrex::Real AttSW = 0;
     amrex::Real AttChl = 0;
@@ -48,18 +49,25 @@ struct ECBParameters {
     amrex::Real slCexc = 0;
     amrex::Real pCO2air = 0;
 };
-class ECBBiology final : public Biology {
-public:
-    std::string name () const override { return "ecb"; }
-    std::string checkpoint_identity () const override {
-        return "ecb/roms-31cabd318c9379429c365c308b9e0f2ee166a6fc/po4-talk-rw14-v1";
+class ECBBiology final : public Biology
+{
+  public:
+    std::string name() const override { return "ecb"; }
+    std::string checkpoint_identity() const override
+    {
+        return "ecb/roms-31cabd318c9379429c365c308b9e0f2ee166a6fc/"
+               "po4-talk-rw14-v1";
     }
-    void configure (const std::string& remora_prefix) override;
-    const BiologyDeclaration& declaration () const noexcept override { return m_declaration; }
-    void advance (const BiologyAdvanceContext& context) const override;
-private:
+    void configure(const std::string& remora_prefix) override;
+    const BiologyDeclaration& declaration() const noexcept override
+    {
+        return m_declaration;
+    }
+    void advance(const BiologyAdvanceContext& context) const override;
+
+  private:
     ECBParameters m_parameters;
     BiologyDeclaration m_declaration;
 };
-}
+} // namespace REMORABiology
 #endif

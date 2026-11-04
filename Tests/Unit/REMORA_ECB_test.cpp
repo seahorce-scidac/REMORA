@@ -17,7 +17,8 @@ using namespace REMORABiology;
 constexpr Real reference_rho0 = Real(1025.0);
 static_assert(Cp == Real(3985.0), "generate_reference.py uses Cp = 3985");
 
-void check_ecb_reference ()
+void
+check_ecb_reference()
 {
     std::ifstream input(REMORA_ECB_REFERENCE_FILE);
     AMREX_ALWAYS_ASSERT(input.good());
@@ -25,114 +26,172 @@ void check_ecb_reference ()
     input >> count;
     Vector<std::string> names(count);
     Vector<Real> values(count);
-    for (auto& name : names) input >> name;
-    for (auto& value : values) input >> value;
+    for (auto& name : names)
+        input >> name;
+    for (auto& value : values)
+        input >> value;
     int cases;
     input >> cases;
     Real worst = 0;
     for (int test = 0; test < cases; ++test) {
         int bulk, nz, iterations;
         Real seconds, light, stress, bottom, wind, mask_value;
-        input >> bulk >> nz >> iterations >> seconds >> light >> stress >> bottom >> wind >> mask_value;
-        Vector<Real> thickness(nz), interfaces(nz+1), old_values(nz*20), incoming(nz*20), expected(nz*20);
-        for (auto* array : {&thickness,&interfaces,&old_values,&incoming,&expected})
-            for (auto& value : *array) input >> value;
+        input >> bulk >> nz >> iterations >> seconds >> light >> stress >>
+          bottom >> wind >> mask_value;
+        Vector<Real> thickness(nz), interfaces(nz + 1), old_values(nz * 20),
+          incoming(nz * 20), expected(nz * 20);
+        for (auto* array :
+             {&thickness, &interfaces, &old_values, &incoming, &expected})
+            for (auto& value : *array)
+                input >> value;
         AMREX_ALWAYS_ASSERT(input.good());
-        const std::string prefix = "ecb_reference_"+std::to_string(test);
-        ParmParse pp(prefix+".ecb");
+        const std::string prefix = "ecb_reference_" + std::to_string(test);
+        ParmParse pp(prefix + ".ecb");
         pp.add("BioIter", iterations);
-        for (int n=0; n<count; ++n) pp.add(names[n].c_str(),values[n]);
+        for (int n = 0; n < count; ++n)
+            pp.add(names[n].c_str(), values[n]);
         Vector<Real> initial(18);
-        for (int n=0; n<18; ++n) initial[n] = old_values[(n+2)*nz];
+        for (int n = 0; n < 18; ++n)
+            initial[n] = old_values[(n + 2) * nz];
         auto model = make_biology("ECB");
         model->configure(prefix);
-        AMREX_ALWAYS_ASSERT(model->name()=="ecb");
-        AMREX_ALWAYS_ASSERT(model->declaration().tracer_names.size()==18);
-        AMREX_ALWAYS_ASSERT(model->declaration().tracer_names[7]=="DON");
-        AMREX_ALWAYS_ASSERT(model->declaration().tracer_names[15]=="Rdon");
-        const Box domain(IntVect(0), IntVect(0,0,nz-1));
-        const RealBox physical({0.,0.,-50.},{1.,1.,0.});
-        const int periodic[3] = {0,0,0};
-        Geometry geometry(domain,&physical,0,periodic);
+        AMREX_ALWAYS_ASSERT(model->name() == "ecb");
+        AMREX_ALWAYS_ASSERT(model->declaration().tracer_names.size() == 18);
+        AMREX_ALWAYS_ASSERT(model->declaration().tracer_names[7] == "DON");
+        AMREX_ALWAYS_ASSERT(model->declaration().tracer_names[15] == "Rdon");
+        const Box domain(IntVect(0), IntVect(0, 0, nz - 1));
+        const RealBox physical({0., 0., -50.}, {1., 1., 0.});
+        const int periodic[3] = {0, 0, 0};
+        Geometry geometry(domain, &physical, 0, periodic);
         BoxArray boxes(domain);
         DistributionMapping mapping(boxes);
-        const int dyes = test%4;
-        const int base = 2+dyes;
+        const int dyes = test % 4;
+        const int base = 2 + dyes;
         // Managed buffers also make this test executable in GPU builds.
-        MultiFab old(boxes,mapping,base+18,0,MFInfo().SetArena(The_Managed_Arena()));
-        MultiFab next(boxes,mapping,base+18,0,MFInfo().SetArena(The_Managed_Arena()));
-        MultiFab hz(boxes,mapping,1,0,MFInfo().SetArena(The_Managed_Arena()));
-        BoxArray wboxes = amrex::convert(boxes,IntVect(0,0,1));
-        MultiFab zw(wboxes,mapping,1,0,MFInfo().SetArena(The_Managed_Arena()));
-        BoxArray horizontal(Box(IntVect(0),IntVect(0)));
-        MultiFab shortwave(horizontal,mapping,1,1,MFInfo().SetArena(The_Managed_Arena()));
-        MultiFab mask(horizontal,mapping,1,1,MFInfo().SetArena(The_Managed_Arena()));
-        MultiFab su(horizontal,mapping,1,1,MFInfo().SetArena(The_Managed_Arena()));
-        MultiFab sv(horizontal,mapping,1,1,MFInfo().SetArena(The_Managed_Arena()));
-        MultiFab bu(horizontal,mapping,1,1,MFInfo().SetArena(The_Managed_Arena()));
-        MultiFab bv(horizontal,mapping,1,1,MFInfo().SetArena(The_Managed_Arena()));
-        MultiFab wu(horizontal,mapping,1,1,MFInfo().SetArena(The_Managed_Arena()));
-        MultiFab wv(horizontal,mapping,1,1,MFInfo().SetArena(The_Managed_Arena()));
-        old.setVal(-17.); next.setVal(-29.);
+        MultiFab old(
+          boxes, mapping, base + 18, 0, MFInfo().SetArena(The_Managed_Arena()));
+        MultiFab next(
+          boxes, mapping, base + 18, 0, MFInfo().SetArena(The_Managed_Arena()));
+        MultiFab hz(
+          boxes, mapping, 1, 0, MFInfo().SetArena(The_Managed_Arena()));
+        BoxArray wboxes = amrex::convert(boxes, IntVect(0, 0, 1));
+        MultiFab zw(
+          wboxes, mapping, 1, 0, MFInfo().SetArena(The_Managed_Arena()));
+        BoxArray horizontal(Box(IntVect(0), IntVect(0)));
+        MultiFab shortwave(
+          horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
+        MultiFab mask(
+          horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
+        MultiFab su(
+          horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
+        MultiFab sv(
+          horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
+        MultiFab bu(
+          horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
+        MultiFab bv(
+          horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
+        MultiFab wu(
+          horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
+        MultiFab wv(
+          horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
+        old.setVal(-17.);
+        next.setVal(-29.);
         // columns.txt stores the kinematic srflx (degC m/s) that ROMS consumed;
         // REMORA's shortwave is in W/m2, so convert with the same rho0 and Cp.
-        shortwave.setVal(light*reference_rho0*Cp); mask.setVal(mask_value);
-        su.setVal(stress); sv.setVal(stress*Real(0.5));
-        bu.setVal(bottom); bv.setVal(bottom*Real(0.5)); wu.setVal(wind); wv.setVal(0.);
+        shortwave.setVal(light * reference_rho0 * Cp);
+        mask.setVal(mask_value);
+        su.setVal(stress);
+        sv.setVal(stress * Real(0.5));
+        bu.setVal(bottom);
+        bv.setVal(bottom * Real(0.5));
+        wu.setVal(wind);
+        wv.setVal(0.);
         Gpu::streamSynchronize();
-        for (MFIter mfi(old);mfi.isValid();++mfi) {
-            auto a=old.array(mfi), b=next.array(mfi), h=hz.array(mfi), z=zw.array(mfi);
-            for (int k=0;k<nz;++k) {
-                h(0,0,k)=thickness[k];
-                for (int c=0;c<20;++c) {
-                    const int component=c<2 ? c : base+c-2;
-                    a(0,0,k,component)=old_values[c*nz+k];
-                    b(0,0,k,component)=incoming[c*nz+k];
+        for (MFIter mfi(old); mfi.isValid(); ++mfi) {
+            auto a = old.array(mfi), b = next.array(mfi), h = hz.array(mfi),
+                 z = zw.array(mfi);
+            for (int k = 0; k < nz; ++k) {
+                h(0, 0, k) = thickness[k];
+                for (int c = 0; c < 20; ++c) {
+                    const int component = c < 2 ? c : base + c - 2;
+                    a(0, 0, k, component) = old_values[c * nz + k];
+                    b(0, 0, k, component) = incoming[c * nz + k];
                 }
             }
-            for (int k=0;k<=nz;++k) z(0,0,k)=interfaces[k];
+            for (int k = 0; k <= nz; ++k)
+                z(0, 0, k) = interfaces[k];
         }
         SolverChoice solver;
-        solver.bulk_fluxes=bulk!=0;
-        solver.rho0=reference_rho0;
-        BiologyInitContext init{.level=0,.geometry=geometry,.solver_choice=solver,.state=next,.component_start=base};
+        solver.bulk_fluxes = bulk != 0;
+        solver.rho0 = reference_rho0;
+        BiologyInitContext init{
+          .level = 0,
+          .geometry = geometry,
+          .solver_choice = solver,
+          .state = next,
+          .component_start = base};
         initialize_uniform_biology(*model, init, initial);
         Gpu::streamSynchronize();
-        for (MFIter mfi(next);mfi.isValid();++mfi) {
-            auto b=next.array(mfi);
-            for (int k=0;k<nz;++k)
-                for (int c=0;c<18;++c) {
-                    AMREX_ALWAYS_ASSERT(b(0,0,k,base+c)==initial[c]);
-                    b(0,0,k,base+c)=incoming[(c+2)*nz+k];
+        for (MFIter mfi(next); mfi.isValid(); ++mfi) {
+            auto b = next.array(mfi);
+            for (int k = 0; k < nz; ++k)
+                for (int c = 0; c < 18; ++c) {
+                    AMREX_ALWAYS_ASSERT(b(0, 0, k, base + c) == initial[c]);
+                    b(0, 0, k, base + c) = incoming[(c + 2) * nz + k];
                 }
         }
         const BiologyAdvanceContext context{
-            .old_state=old,.new_state=next,.solver_choice=solver,.component_start=base,
-            .top_layer=nz-1,.dt=seconds,.model_time=0.,.hz=&hz,.z_w=&zw,.mask=&mask,
-            .shortwave=&shortwave,.stress_u=&su,.stress_v=&sv,.wind_u=&wu,.wind_v=&wv,
-            .bottom_stress_u=&bu,.bottom_stress_v=&bv};
+          .old_state = old,
+          .new_state = next,
+          .solver_choice = solver,
+          .component_start = base,
+          .top_layer = nz - 1,
+          .dt = seconds,
+          .model_time = 0.,
+          .hz = &hz,
+          .z_w = &zw,
+          .mask = &mask,
+          .shortwave = &shortwave,
+          .stress_u = &su,
+          .stress_v = &sv,
+          .wind_u = &wu,
+          .wind_v = &wv,
+          .bottom_stress_u = &bu,
+          .bottom_stress_v = &bv};
         model->advance(context);
         Gpu::streamSynchronize();
-        for (MFIter mfi(next);mfi.isValid();++mfi) {
-            auto a=old.const_array(mfi), b=next.const_array(mfi);
-            for (int k=0;k<nz;++k) {
-                for (int c=0;c<20;++c) {
-                    const int component=c<2 ? c : base+c-2;
-                    const Real actual=b(0,0,k,component), reference=expected[c*nz+k];
-                    const Real error=std::abs(actual-reference)/amrex::max(Real(1.),std::abs(reference));
-                    worst=amrex::max(worst,error);
-                    if (!std::isfinite(actual) || error > Real(128.)*std::numeric_limits<Real>::epsilon()) {
-                        Print()<<"ECB case "<<test<<" component "<<c<<" layer "<<k
-                               <<" actual "<<actual<<" reference "<<reference<<" scaled error "<<error<<"\n";
+        for (MFIter mfi(next); mfi.isValid(); ++mfi) {
+            auto a = old.const_array(mfi), b = next.const_array(mfi);
+            for (int k = 0; k < nz; ++k) {
+                for (int c = 0; c < 20; ++c) {
+                    const int component = c < 2 ? c : base + c - 2;
+                    const Real actual = b(0, 0, k, component),
+                               reference = expected[c * nz + k];
+                    const Real error =
+                      std::abs(actual - reference) /
+                      amrex::max(Real(1.), std::abs(reference));
+                    worst = amrex::max(worst, error);
+                    if (
+                      !std::isfinite(actual) ||
+                      error >
+                        Real(128.) * std::numeric_limits<Real>::epsilon()) {
+                        Print() << "ECB case " << test << " component " << c
+                                << " layer " << k << " actual " << actual
+                                << " reference " << reference
+                                << " scaled error " << error << "\n";
                         Abort("ECB differs from clean ROMS reference");
                     }
-                    AMREX_ALWAYS_ASSERT(a(0,0,k,component)==old_values[c*nz+k]);
-                    if (c<2 || c>=17 || iterations==0 || mask_value==0)
-                        AMREX_ALWAYS_ASSERT(actual==incoming[c*nz+k]);
+                    AMREX_ALWAYS_ASSERT(
+                      a(0, 0, k, component) == old_values[c * nz + k]);
+                    if (c < 2 || c >= 17 || iterations == 0 || mask_value == 0)
+                        AMREX_ALWAYS_ASSERT(actual == incoming[c * nz + k]);
                 }
-                for (int dye=2;dye<base;++dye) AMREX_ALWAYS_ASSERT(b(0,0,k,dye)==Real(-29.));
+                for (int dye = 2; dye < base; ++dye)
+                    AMREX_ALWAYS_ASSERT(b(0, 0, k, dye) == Real(-29.));
             }
         }
     }
-    Print()<<"ECB: "<<cases<<" clean-ROMS column fixtures; maximum scaled error "<<worst<<"\n";
+    Print() << "ECB: " << cases
+            << " clean-ROMS column fixtures; maximum scaled error " << worst
+            << "\n";
 }
