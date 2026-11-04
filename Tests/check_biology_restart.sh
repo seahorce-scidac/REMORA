@@ -1,14 +1,19 @@
 #!/bin/sh
 # Run in an isolated test directory. MPI launcher words precede the executable.
+# Usage: check_biology_restart.sh <input> <fcompare> <gold plotfile> <launcher...> <exe>
 set -eu
 input=$1
 compare=$2
-shift 2
+gold=$3
+shift 3
 mkdir -p runA runB alias mismatch
 (
     cd runA
     "$@" "$input" remora.check_mask_consistency=true > ../run.log 2>&1
 )
+# The answer itself, at the tolerance add_test_r uses; the checks below only
+# prove the run is self-consistent.
+"$compare" -a -r 1e-11 --abs_tol 1.0e-11 "$gold" runA/plt00003
 (
     cd runB
     "$@" "$input" remora.restart=../runA/chk00002 remora.check_int=-1 > ../restart.log 2>&1

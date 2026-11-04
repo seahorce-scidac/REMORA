@@ -791,7 +791,7 @@ function(add_test_biology_restart TEST_NAME)
     separate_arguments(BIOLOGY_MPI_COMMANDS NATIVE_COMMAND "${MPI_COMMANDS}")
     add_test(NAME ${TEST_NAME} COMMAND sh
         ${CMAKE_CURRENT_SOURCE_DIR}/check_biology_restart.sh
-        ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${FCOMPARE_EXE}
+        ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${FCOMPARE_EXE} ${PLOT_GOLD}
         ${BIOLOGY_MPI_COMMANDS} ${TEST_EXE})
     set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 5400
         PROCESSORS ${NP} WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}"
