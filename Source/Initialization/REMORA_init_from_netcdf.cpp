@@ -629,6 +629,13 @@ REMORA::init_grid_vars_from_netcdf (int lev)
             vec_angler[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
                                                1, vec_xr[lev]->nGrowVect()));
         }
+        // These are made after the level's other fields were zeroed in dropped boxes
+        // (zero_level0_dry_ghost_cells), so zero theirs now
+        if (lev == 0) {
+            for (auto* v : {&vec_lonr, &vec_latr, &vec_angler}) {
+                if ((*v)[lev]) { set_dry_ghost_cells(*(*v)[lev], zero); }
+            }
+        }
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())

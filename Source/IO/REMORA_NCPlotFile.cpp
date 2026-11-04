@@ -1063,24 +1063,6 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
     // single flush() at the end turns each variable into one ncmpi_put_varn_*_all.
     VarnCollector collector;
 
-    // Dropped level-0 boxes: fill this record of every gridded record variable first, so the
-    // cells no rank writes hold the fill value. Collective, and before any write to the record.
-    if (lev == 0 && level0_has_holes()) {
-        const MPI_Offset rec = is_history ? history_record : 0;
-        int unlimdim = -1;
-        nc_check(ncmpi_inq_unlimdim(ncf.ncid, &unlimdim));
-        for (int varid = 0; varid < ncf.num_variables(); ++varid) {
-            if (!nc_var_is_gridded(ncf.ncid, varid)) { continue; }
-            int ndims = 0;
-            nc_check(ncmpi_inq_varndims(ncf.ncid, varid, &ndims));
-            std::vector<int> dimids(ndims);
-            nc_check(ncmpi_inq_vardimid(ncf.ncid, varid, dimids.data()));
-            if (ndims > 0 && dimids[0] == unlimdim) {
-                nc_check(ncmpi_fill_var_rec(ncf.ncid, varid, rec));
-            }
-        }
-    }
-
     //
     // We compute the offsets based on location of the box within the domain
     //

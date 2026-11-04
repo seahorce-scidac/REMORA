@@ -1833,6 +1833,8 @@ REMORA::ensure_stress_rho_arrays (int lev)
         if ((*vec)[lev] == nullptr || (*vec)[lev]->boxArray() != rho_ba ||
             (*vec)[lev]->DistributionMap() != dm) {
             (*vec)[lev] = std::make_unique<MultiFab>(rho_ba, dm, 1, IntVect(NGROW,NGROW,0));
+            // Made after the level, so zero its ghost cells in dropped boxes here
+            if (lev == 0) { set_dry_ghost_cells(*(*vec)[lev], zero); }
         }
     }
 }

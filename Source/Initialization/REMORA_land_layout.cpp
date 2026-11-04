@@ -500,12 +500,17 @@ REMORA::level0_fields (bool all)
                     &vec_Lscale, &vec_Akk, &vec_Akp}) {
         if (lev < v->size()) { add_if(f, (*v)[lev]); }
     }
+#ifdef REMORA_USE_NETCDF
+    for (auto* v : {&vec_sustr_rho, &vec_svstr_rho}) {
+        if (lev < v->size()) { add_if(f, (*v)[lev]); }
+    }
+#endif
     if (all) {
         for (auto* v : {&vec_h, &vec_Hz, &vec_z_w, &vec_z_r, &vec_z_phys_nd, &vec_visc2_p,
                         &vec_visc2_r, &vec_diff2, &vec_stflux, &vec_btflux, &vec_pm, &vec_pn,
                         &vec_metric_r, &vec_metric_u, &vec_metric_v, &vec_metric_p, &vec_fcor,
                         &vec_xr, &vec_yr, &vec_xu, &vec_yu, &vec_xv, &vec_yv, &vec_xp, &vec_yp,
-                        &vec_lonp, &vec_latp, &vec_dndx, &vec_dmde, &vec_rdrag, &vec_rdrag2,
+                        &vec_lonp, &vec_latp, &vec_lonr, &vec_latr, &vec_angler, &vec_dndx, &vec_dmde, &vec_rdrag, &vec_rdrag2,
                         &vec_ZoBot, &vec_uwind, &vec_vwind, &vec_Tair, &vec_qair, &vec_Pair,
                         &vec_srflx, &vec_longwave_down, &vec_cloud, &vec_EminusP, &vec_alpha,
                         &vec_beta, &vec_lrflx, &vec_lhflx, &vec_shflx, &vec_rain, &vec_evap,
@@ -585,9 +590,17 @@ REMORA::set_dry_ghost_cells (MultiFab& mf, Real val)
  * land cells away and the masks multiply the land values out (the regression tests write 7
  * there and compare), but 0 * NaN is NaN, so a NaN there spreads into the water within a few
  * steps. A fresh FArrayBox holds NaN in a debug build (amrex.init_snan), so these cells are
- * zeroed in every level-0 field as soon as the fields exist, before anything reads them, and
- * the step zeroes them in the scratch fields it allocates on the level-0 layout and exchanges
- * (see the set_dry_ghost_cells callers).
+ * zeroed in every level-0 field as soon as the fields exist, before anything reads them.
+ * Fields made later on the level-0 layout (lon/lat/angle from the grid file, the rho-point
+ * surface stress) zero theirs when they are allocated.
+ *
+ * The scratch MultiFabs the step allocates on the level-0 layout (for example in setup_step,
+ * gls, bulk_fluxes and the prestep) are not zeroed there. Nothing that the step reads from
+ * them in a dropped region reaches a kept cell's result: the Debug CI build (amrex.init_snan)
+ * and the dropped-vs-full feature checks with signalling NaNs and the invalid, zero and
+ * overflow traps on all complete with bitwise water points. A new kernel that reads such
+ * scratch in its ghost cells and lets the value reach a wet cell would break that; zero the
+ * scratch with set_dry_ghost_cells then.
  */
 void
 REMORA::zero_level0_dry_ghost_cells ()
