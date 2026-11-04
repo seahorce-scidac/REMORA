@@ -72,6 +72,7 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
 
     const int lev = 0;
     const auto dx = Geom(lev).CellSizeArray();
+    const auto dxi = Geom(lev).InvCellSizeArray();
     const auto plo = Geom(lev).ProbLoArray();
 
     int particles_per_cell = m_ppc_init;
@@ -180,7 +181,7 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
 
         if (a_height_ptr && place_randomly_in_cells) {
 
-            const auto height_arr        = (*a_height_ptr)[mfi].array();
+            const auto height_arr        = (*a_height_ptr)[mfi].const_array();
 
             ParallelForRNG(tile_box, [=] AMREX_GPU_DEVICE (int i, int j, int k,
                                                            const RandomEngine& rnd_engine) noexcept
@@ -193,21 +194,9 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
                     Real x = plo[0] + (i + r[0])*dx[0];
                     Real y = plo[1] + (j + r[1])*dx[1];
 
-                    Real sx[] = {one - r[0], r[0]};
-                    Real sy[] = {one - r[1], r[1]};
-
-                    Real height_at_pxy_lo = zero;
-                    for (int ii = 0; ii < 2; ++ii) {
-                        for (int jj = 0; jj < 2; ++jj) {
-                            height_at_pxy_lo += sx[ii] * sy[jj] * height_arr(i+ii,j+jj,k);
-                        }
-                    }
-                    Real height_at_pxy_hi = zero;
-                    for (int ii = 0; ii < 2; ++ii) {
-                        for (int jj = 0; jj < 2; ++jj) {
-                            height_at_pxy_hi += sx[ii] * sy[jj] * height_arr(i+ii,j+jj,k+1);
-                        }
-                    }
+                    // The same corner-height interpolation the advection uses
+                    const Real height_at_pxy_lo = level_height(x, y, k  , plo, dxi, height_arr);
+                    const Real height_at_pxy_hi = level_height(x, y, k+1, plo, dxi, height_arr);
 
                     Real z = height_at_pxy_lo  + r[2] * (height_at_pxy_hi - height_at_pxy_lo);
 
@@ -227,7 +216,7 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
 
         } else if (a_height_ptr && !place_randomly_in_cells) {
 
-            const auto height_arr        = (*a_height_ptr)[mfi].array();
+            const auto height_arr        = (*a_height_ptr)[mfi].const_array();
 
             ParallelFor(tile_box, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
@@ -239,21 +228,9 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
                     Real x = plo[0] + (i + r[0])*dx[0];
                     Real y = plo[1] + (j + r[1])*dx[1];
 
-                    Real sx[] = { one - r[0], r[0]};
-                    Real sy[] = { one - r[1], r[1]};
-
-                    Real height_at_pxy_lo = zero;
-                    for (int ii = 0; ii < 2; ++ii) {
-                        for (int jj = 0; jj < 2; ++jj) {
-                            height_at_pxy_lo += sx[ii] * sy[jj] * height_arr(i+ii,j+jj,k);
-                        }
-                    }
-                    Real height_at_pxy_hi = zero;
-                    for (int ii = 0; ii < 2; ++ii) {
-                        for (int jj = 0; jj < 2; ++jj) {
-                            height_at_pxy_hi += sx[ii] * sy[jj] * height_arr(i+ii,j+jj,k+1);
-                        }
-                    }
+                    // The same corner-height interpolation the advection uses
+                    const Real height_at_pxy_lo = level_height(x, y, k  , plo, dxi, height_arr);
+                    const Real height_at_pxy_hi = level_height(x, y, k+1, plo, dxi, height_arr);
 
                     Real z = height_at_pxy_lo  + r[2] * (height_at_pxy_hi - height_at_pxy_lo);
 
