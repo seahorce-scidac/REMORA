@@ -190,6 +190,32 @@ checkpoint can differ at land faces next to dropped boxes. Set
 against an older run with ``amrex_fcompare``, which needs equal box layouts; to compare two
 layouts, use ``remora_subset_compare``, built with the regression tests.
 
+Two margins decide which boxes go, as in :numref:`fig:drop_dry_boxes`. The *ghost footprint*
+is the box grown by the three ghost rings the land mask carries (``NGROW + 1``), stopping one
+cell past a non-periodic domain edge: a box is kept if any cell there is water, since its
+stencils read those cells (box A). The *refinement footprint* protects the level-0 cells a
+nest may need: each refinement indicator's box is grown by the tag buffer
+(``amr.n_error_buf``), rounded out to blocks of the level-1 blocking factor divided by the
+refinement ratio, grown by ``amr.n_proper`` + 1 such blocks (AMReX clears tags within
+``n_proper`` blocks of a hole in the coarser level, which would shrink the fine grids), and
+finally by the coarse cells the coarse-fine fills read. A box touching it is kept even if it
+is all land (box B). A box outside both is dropped (box C). The figure is drawn by
+``Docs/sphinx_doc/figures/drop_dry_boxes.py`` with the same rules as the code.
+
+.. _fig:drop_dry_boxes:
+
+.. figure:: ./figures/drop_dry_boxes.svg
+   :width: 100%
+   :alt: A 96 by 64 level-0 grid in 8 by 8 boxes with a coastline to the east, one refinement
+         indicator near the coast and its nested margins, and three example boxes with their
+         ghost footprints.
+
+   Which level-0 boxes ``remora.drop_dry_boxes`` keeps, on an example grid in 8 × 8 boxes
+   with ``amr.n_error_buf = 1``, ``amr.n_proper = 1``, a level-1 blocking factor of 8 and a
+   refinement ratio of 2. Box A is all land but has water in its ghost footprint (dashed); box
+   B is all land over its ghost footprint but touches the refinement footprint (solid purple);
+   box C is outside both and is dropped.
+
 Load balance
 ~~~~~~~~~~~~
 
