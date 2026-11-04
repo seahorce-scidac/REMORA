@@ -77,24 +77,43 @@ struct REMORAParticlesAssignor
 // levels, which is what keeps a particle in the water column over sloping bathymetry.
 
 /**
- * Bilinear interpolation of a_arr at level a_k to horizontal position (a_x, a_y). a_nodal
- * says whether the data are nodal in both x and y (like z_phys_nd, whose (i,j) is the low
- * corner of cell (i,j)) or cell-centered in both (like pm and pn, stored at k = 0).
+ * Lower-left cell (i, j) and fractional offsets (fx, fy) of the bilinear stencil at horizontal
+ * position (x, y), for data nodal or cell-centered in each of x and y (nodal data at (i,j) sits
+ * at the low corner of cell (i,j)). Every horizontal interpolation of grid data to a particle
+ * goes through this, so the staggering and the half-cell offset are defined in one place.
  */
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-amrex::Real interpolate_horizontal ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
-                                     int a_k, bool a_nodal,
-                                     amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
-                                     amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
-                                     amrex::Array4<amrex::Real const> const& a_arr )
+struct HorizontalStencil
 {
-    const amrex::Real offset = a_nodal ? zero : myhalf;
-    const amrex::Real lx = static_cast<amrex::Real>((a_x-a_plo[0])*a_dxi[0]) - offset;
-    const amrex::Real ly = static_cast<amrex::Real>((a_y-a_plo[1])*a_dxi[1]) - offset;
+    int i;
+    int j;
+    amrex::Real fx;
+    amrex::Real fy;
+};
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+HorizontalStencil horizontal_stencil ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
+                                       bool a_nodal_x, bool a_nodal_y,
+                                       amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
+                                       amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi )
+{
+    const amrex::Real lx = static_cast<amrex::Real>((a_x-a_plo[0])*a_dxi[0])
+                         - static_cast<amrex::Real>(!a_nodal_x) * myhalf;
+    const amrex::Real ly = static_cast<amrex::Real>((a_y-a_plo[1])*a_dxi[1])
+                         - static_cast<amrex::Real>(!a_nodal_y) * myhalf;
     const int i = static_cast<int>(amrex::Math::floor(lx));
     const int j = static_cast<int>(amrex::Math::floor(ly));
-    const amrex::Real sx = lx - static_cast<amrex::Real>(i);
-    const amrex::Real sy = ly - static_cast<amrex::Real>(j);
+    return {i, j, lx - static_cast<amrex::Real>(i), ly - static_cast<amrex::Real>(j)};
+}
+
+/** Bilinear interpolation of a_arr at level a_k with the horizontal stencil a_st */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+amrex::Real interpolate_horizontal ( HorizontalStencil const& a_st, int a_k,
+                                     amrex::Array4<amrex::Real const> const& a_arr )
+{
+    const int i = a_st.i;
+    const int j = a_st.j;
+    const amrex::Real sx = a_st.fx;
+    const amrex::Real sy = a_st.fy;
     return a_arr(i  ,j  ,a_k) * (one-sx) * (one-sy) +
            a_arr(i+1,j  ,a_k) *      sx  * (one-sy) +
            a_arr(i  ,j+1,a_k) * (one-sx) *      sy  +
@@ -108,44 +127,7 @@ amrex::Real level_height (  amrex::ParticleReal a_x, amrex::ParticleReal a_y, in
                             amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
                             amrex::Array4<amrex::Real const> const& a_z_nd )
 {
-    return interpolate_horizontal(a_x, a_y, a_k, true, a_plo, a_dxi, a_z_nd);
-}
-
-/**
- * Fractional w-level index of height a_z in the column at (a_x, a_y). A height below the
- * bed or above the free surface is clamped onto it. a_k, the cell the particle was last
- * in, is where the search starts. If a_kcell is given, the cell the search ended in and the
- * thickness of that cell at (a_x, a_y) are returned through a_kcell and a_dz, so a caller
- * need not recompute the level heights.
- */
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-amrex::Real height_to_level_index ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
-                                    amrex::ParticleReal a_z, int a_k, int a_nz,
-                                    amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
-                                    amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
-                                    amrex::Array4<amrex::Real const> const& a_z_nd,
-                                    int* a_kcell = nullptr, amrex::Real* a_dz = nullptr )
-{
-    const auto z = static_cast<amrex::Real>(a_z);
-    int k = amrex::max(0, amrex::min(a_k, a_nz-1));
-    amrex::Real zlo = level_height(a_x, a_y, k  , a_plo, a_dxi, a_z_nd);
-    amrex::Real zhi = level_height(a_x, a_y, k+1, a_plo, a_dxi, a_z_nd);
-    while (z > zhi && k < a_nz-1) {
-        ++k;
-        zlo = zhi;
-        zhi = level_height(a_x, a_y, k+1, a_plo, a_dxi, a_z_nd);
-    }
-    while (z < zlo && k > 0) {
-        --k;
-        zhi = zlo;
-        zlo = level_height(a_x, a_y, k, a_plo, a_dxi, a_z_nd);
-    }
-    const amrex::Real f = amrex::max(amrex::Real(0.0), amrex::min(amrex::Real(1.0), (z - zlo) / (zhi - zlo)));
-    if (a_kcell) {
-        *a_kcell = k;
-        *a_dz = zhi - zlo;
-    }
-    return static_cast<amrex::Real>(k) + f;
+    return interpolate_horizontal(horizontal_stencil(a_x, a_y, true, true, a_plo, a_dxi), a_k, a_z_nd);
 }
 
 /** Cell holding fractional w-level index a_s; the free surface s = nz belongs to the top cell */
@@ -153,6 +135,60 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 int level_index_cell (amrex::Real a_s, int a_nz)
 {
     return amrex::max(0, amrex::min(static_cast<int>(amrex::Math::floor(a_s)), a_nz-1));
+}
+
+/**
+ * A height located in its column: the fractional w-level index s, the cell k that holds it
+ * (level_index_cell(s)), the thickness dz of that cell, and the height z itself after any
+ * clamping onto the bed or the free surface.
+ */
+struct LevelIndex
+{
+    amrex::Real s;
+    int k;
+    amrex::Real dz;
+    amrex::Real z;
+};
+
+/**
+ * Locate height a_z in the column at (a_x, a_y). A height below the bed or above the free
+ * surface is clamped onto it. a_k, the cell the particle was last in, is where the search
+ * starts. A cell of zero (or negative) thickness, as in a dry or degenerate column, gives
+ * f = 0 rather than a division by zero.
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+LevelIndex height_to_level_index ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
+                                   amrex::ParticleReal a_z, int a_k, int a_nz,
+                                   amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
+                                   amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
+                                   amrex::Array4<amrex::Real const> const& a_z_nd )
+{
+    const HorizontalStencil st = horizontal_stencil(a_x, a_y, true, true, a_plo, a_dxi);
+    const auto z = static_cast<amrex::Real>(a_z);
+    int k = amrex::max(0, amrex::min(a_k, a_nz-1));
+    amrex::Real zlo = interpolate_horizontal(st, k  , a_z_nd);
+    amrex::Real zhi = interpolate_horizontal(st, k+1, a_z_nd);
+    while (z > zhi && k < a_nz-1) {
+        ++k;
+        zlo = zhi;
+        zhi = interpolate_horizontal(st, k+1, a_z_nd);
+    }
+    while (z < zlo && k > 0) {
+        --k;
+        zhi = zlo;
+        zlo = interpolate_horizontal(st, k, a_z_nd);
+    }
+    const amrex::Real dz = zhi - zlo;
+    const amrex::Real f = (dz > zero)
+        ? amrex::max(amrex::Real(0.0), amrex::min(amrex::Real(1.0), (z - zlo) / dz)) : zero;
+    const amrex::Real s = static_cast<amrex::Real>(k) + f;
+
+    // The search's cell holds s except when k + f rounds, or f = 1 puts s on the next level;
+    // only then are the level heights recomputed
+    const int ks = level_index_cell(s, a_nz);
+    const amrex::Real dz_s = (ks == k) ? dz
+                           : interpolate_horizontal(st, ks+1, a_z_nd) - interpolate_horizontal(st, ks, a_z_nd);
+    return {s, ks, dz_s, zlo + f * dz};
 }
 
 /** Height of fractional w-level index a_s at (a_x, a_y); the inverse of height_to_level_index */
@@ -163,10 +199,11 @@ amrex::Real level_index_to_height ( amrex::ParticleReal a_x, amrex::ParticleReal
                                     amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
                                     amrex::Array4<amrex::Real const> const& a_z_nd )
 {
+    const HorizontalStencil st = horizontal_stencil(a_x, a_y, true, true, a_plo, a_dxi);
     const int k = level_index_cell(a_s, a_nz);
     const amrex::Real f = a_s - static_cast<amrex::Real>(k);
-    const amrex::Real zlo = level_height(a_x, a_y, k  , a_plo, a_dxi, a_z_nd);
-    const amrex::Real zhi = level_height(a_x, a_y, k+1, a_plo, a_dxi, a_z_nd);
+    const amrex::Real zlo = interpolate_horizontal(st, k  , a_z_nd);
+    const amrex::Real zhi = interpolate_horizontal(st, k+1, a_z_nd);
     return zlo + f * (zhi - zlo);
 }
 
@@ -183,14 +220,11 @@ amrex::Real interpolate_to_level_index ( amrex::ParticleReal a_x, amrex::Particl
                                          amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
                                          amrex::Array4<amrex::Real const> const& a_arr )
 {
-    const amrex::Real lx = static_cast<amrex::Real>((a_x-a_plo[0])*a_dxi[0])
-                         - static_cast<amrex::Real>(!a_nodal[0]) * myhalf;
-    const amrex::Real ly = static_cast<amrex::Real>((a_y-a_plo[1])*a_dxi[1])
-                         - static_cast<amrex::Real>(!a_nodal[1]) * myhalf;
-    const int i0 = static_cast<int>(amrex::Math::floor(lx));
-    const int j0 = static_cast<int>(amrex::Math::floor(ly));
-    const amrex::Real sx[] = {one - (lx - static_cast<amrex::Real>(i0)), lx - static_cast<amrex::Real>(i0)};
-    const amrex::Real sy[] = {one - (ly - static_cast<amrex::Real>(j0)), ly - static_cast<amrex::Real>(j0)};
+    const HorizontalStencil st = horizontal_stencil(a_x, a_y, a_nodal[0], a_nodal[1], a_plo, a_dxi);
+    const int i0 = st.i;
+    const int j0 = st.j;
+    const amrex::Real sx[] = {one - st.fx, st.fx};
+    const amrex::Real sy[] = {one - st.fy, st.fy};
 
     const int kmax = a_nodal[2] ? a_nz : a_nz-1;
     const amrex::Real lz = amrex::max(amrex::Real(0.0), amrex::min(static_cast<amrex::Real>(kmax),

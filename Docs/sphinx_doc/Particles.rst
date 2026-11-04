@@ -149,7 +149,9 @@ where
 
 - :math:`u` and :math:`v` are the physical horizontal velocities (m/s) along the grid directions;
 - :math:`p_m` and :math:`p_n` are interpolated bilinearly to the particle;
-- :math:`H_z = z_{k+1}(x,y) - z_k(x,y)` is the thickness of the particle's cell;
+- :math:`H_z = z_{k+1}(x,y) - z_k(x,y)` is the thickness of the particle's cell (in a cell of zero
+  thickness, as in a dry or degenerate column, :math:`ds/dt` is taken to be zero rather than dividing
+  by zero);
 - :math:`\Omega` is the velocity across the :math:`w`-levels (ROMS's ``omega``), from integrating the
   divergence of the horizontal mass fluxes up the column.
 

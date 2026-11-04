@@ -45,7 +45,9 @@ void REMORAPC::EvolveParticles ( int                                        a_le
  * curvilinear grids; on a uniform grid the factors are 1.
  *
  * The index is recovered from the stored height on the current grid, so a particle stays
- * at a fixed height, not a fixed index, while the free surface moves between steps.
+ * at a fixed height, not a fixed index, while the free surface moves between steps. Both
+ * stages of the midpoint method run in one kernel; nothing between them needs the particles
+ * redistributed, since the midpoint stays within the ghost cells of the particle's grid.
  *
  * @param a_lev         level at which to evolve particles
  * @param a_dt          time step
@@ -80,100 +82,98 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
     const auto dxi = geom.InvCellSizeArray();
     const int nz = geom.Domain().length(2);
 
-    for (int ipass = 0; ipass < 2; ipass++)
-    {
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-        for (ParIterType pti(*this, a_lev); pti.isValid(); ++pti)
+    for (ParIterType pti(*this, a_lev); pti.isValid(); ++pti)
+    {
+        int grid    = pti.index();
+        auto& ptile = ParticlesAt(a_lev, pti);
+        auto& aos  = ptile.GetArrayOfStructs();
+        auto& soa  = ptile.GetStructOfArrays();
+        const int n = aos.numParticles();
+        auto *p_pbox = aos().data();
+
+        // Set at the end of the step: the physical velocities u and v at the midpoint (m/s,
+        // not the rate of change of the geometry coordinates) and vz, the rate of change of
+        // the particle's height over the step
+        auto* vx_ptr = soa.GetRealData(REMORAParticlesRealIdxSoA::vx).data();
+        auto* vy_ptr = soa.GetRealData(REMORAParticlesRealIdxSoA::vy).data();
+        auto* vz_ptr = soa.GetRealData(REMORAParticlesRealIdxSoA::vz).data();
+
+        const auto uarr = (*a_umac[0])[grid].const_array();
+        const auto varr = (*a_umac[1])[grid].const_array();
+        const auto warr = (*a_umac[2])[grid].const_array();
+        const auto zheight = (*a_z_height)[grid].const_array();
+        const auto pmarr = a_pm[grid].const_array();
+        const auto pnarr = a_pn[grid].const_array();
+
+        ParallelFor(n, [=] AMREX_GPU_DEVICE (int i)
         {
-            int grid    = pti.index();
-            auto& ptile = ParticlesAt(a_lev, pti);
-            auto& aos  = ptile.GetArrayOfStructs();
-            auto& soa  = ptile.GetStructOfArrays();
-            const int n = aos.numParticles();
-            auto *p_pbox = aos().data();
+            ParticleType& p = p_pbox[i];
+            if (p.id() <= 0) { return; }
 
-            // Between the passes these hold the starting x, y and level index; afterwards
-            // the physical velocities u and v (m/s, not the rate of change of the geometry
-            // coordinates) and vz, the rate of change of the particle's height
-            Array<ParticleReal*,AMREX_SPACEDIM> v_ptr;
-            v_ptr[0] = soa.GetRealData(REMORAParticlesRealIdxSoA::vx).data();
-            v_ptr[1] = soa.GetRealData(REMORAParticlesRealIdxSoA::vy).data();
-            v_ptr[2] = soa.GetRealData(REMORAParticlesRealIdxSoA::vz).data();
-
-            const auto uarr = (*a_umac[0])[grid].const_array();
-            const auto varr = (*a_umac[1])[grid].const_array();
-            const auto warr = (*a_umac[2])[grid].const_array();
-            const auto zheight = (*a_z_height)[grid].const_array();
-            const auto pmarr = a_pm[grid].const_array();
-            const auto pnarr = a_pn[grid].const_array();
-
-            ParallelFor(n, [=] AMREX_GPU_DEVICE (int i)
+            // u, v and the rates of change of x, y and s at (a_x, a_y) and level index a_loc
+            const auto rates = [&] (ParticleReal a_x, ParticleReal a_y, LevelIndex const& a_loc,
+                                    Real& a_u, Real& a_v, Real& a_xdot, Real& a_ydot, Real& a_sdot)
             {
-                ParticleType& p = p_pbox[i];
-                if (p.id() <= 0) { return; }
-
-                const ParticleReal x = p.pos(0);
-                const ParticleReal y = p.pos(1);
-                int kfound;
-                Real dz_found;
-                const Real s = height_to_level_index(x, y, p.pos(2),
-                                                     p.idata(REMORAParticlesIntIdxAoS::k),
-                                                     nz, plo, dxi, zheight, &kfound, &dz_found);
-
-                const Real u = interpolate_to_level_index(x, y, s, nz, IntVect(1,0,0),
-                                                          plo, dxi, uarr);
-                const Real v = interpolate_to_level_index(x, y, s, nz, IntVect(0,1,0),
-                                                          plo, dxi, varr);
-                // The search's cell is the one holding s except when k + f rounds, or f = 1
-                // puts s on the next level; only then are the level heights recomputed
-                const int ks = level_index_cell(s, nz);
-                const Real dz = (ks == kfound) ? dz_found
-                              : level_height(x, y, ks+1, plo, dxi, zheight)
-                              - level_height(x, y, ks  , plo, dxi, zheight);
-                const Real sdot = interpolate_to_level_index(x, y, s, nz, IntVect(0,0,1),
-                                                             plo, dxi, warr) / dz;
+                a_u = interpolate_to_level_index(a_x, a_y, a_loc.s, nz, IntVect(1,0,0),
+                                                 plo, dxi, uarr);
+                a_v = interpolate_to_level_index(a_x, a_y, a_loc.s, nz, IntVect(0,1,0),
+                                                 plo, dxi, varr);
+                const Real w = interpolate_to_level_index(a_x, a_y, a_loc.s, nz, IntVect(0,0,1),
+                                                          plo, dxi, warr);
+                // A cell of zero thickness (a dry or degenerate column) does not move s
+                a_sdot = (a_loc.dz > zero) ? w / a_loc.dz : zero;
                 // Physical velocity to the rate of change of the geometry coordinate:
                 // pm * dx_geom is the number of geometry metres per physical metre
-                const Real xdot = u * interpolate_horizontal(x, y, 0, false, plo, dxi, pmarr) / dxi[0];
-                const Real ydot = v * interpolate_horizontal(x, y, 0, false, plo, dxi, pnarr) / dxi[1];
+                const HorizontalStencil cc = horizontal_stencil(a_x, a_y, false, false, plo, dxi);
+                a_xdot = a_u * interpolate_horizontal(cc, 0, pmarr) / dxi[0];
+                a_ydot = a_v * interpolate_horizontal(cc, 0, pnarr) / dxi[1];
+            };
 
-                Real s_new;
-                ParticleReal z_old = zero;
-                if (ipass == 0) {
-                    v_ptr[0][i] = x;
-                    v_ptr[1][i] = y;
-                    v_ptr[2][i] = static_cast<ParticleReal>(s);
-                    p.pos(0) += static_cast<ParticleReal>(myhalf*a_dt*xdot);
-                    p.pos(1) += static_cast<ParticleReal>(myhalf*a_dt*ydot);
-                    s_new = s + myhalf*a_dt*sdot;
-                } else {
-                    const auto s_old = static_cast<Real>(v_ptr[2][i]);
-                    z_old = level_index_to_height(v_ptr[0][i], v_ptr[1][i], s_old, nz,
-                                                  plo, dxi, zheight);
-                    p.pos(0) = v_ptr[0][i] + static_cast<ParticleReal>(a_dt*xdot);
-                    p.pos(1) = v_ptr[1][i] + static_cast<ParticleReal>(a_dt*ydot);
-                    s_new = s_old + a_dt*sdot;
-                }
+            // omega vanishes at the bed and the surface, so only the time
+            // discretization can carry a particle past them: reflect it back
+            const auto reflect = [=] (Real a_s)
+            {
+                if (a_s < zero) { a_s = -a_s; }
+                if (a_s > static_cast<Real>(nz)) { a_s = Real(2*nz) - a_s; }
+                return amrex::max(Real(0.0), amrex::min(static_cast<Real>(nz), a_s));
+            };
 
-                // omega vanishes at the bed and the surface, so only the time
-                // discretization can carry a particle past them: reflect it back
-                if (s_new < zero) { s_new = -s_new; }
-                if (s_new > static_cast<Real>(nz)) { s_new = Real(2*nz) - s_new; }
-                s_new = amrex::max(Real(0.0), amrex::min(static_cast<Real>(nz), s_new));
+            Real u, v, xdot, ydot, sdot;
 
-                p.pos(2) = level_index_to_height(p.pos(0), p.pos(1), s_new, nz,
-                                                 plo, dxi, zheight);
-                p.idata(REMORAParticlesIntIdxAoS::k) = level_index_cell(s_new, nz);
+            // Half step to the midpoint, from the start of the step
+            const ParticleReal x0 = p.pos(0);
+            const ParticleReal y0 = p.pos(1);
+            const LevelIndex loc0 = height_to_level_index(x0, y0, p.pos(2),
+                                                          p.idata(REMORAParticlesIntIdxAoS::k),
+                                                          nz, plo, dxi, zheight);
+            rates(x0, y0, loc0, u, v, xdot, ydot, sdot);
 
-                if (ipass == 1) {
-                    v_ptr[0][i] = u;
-                    v_ptr[1][i] = v;
-                    v_ptr[2][i] = (p.pos(2) - z_old) / a_dt;
-                }
-            });
-        }
+            const ParticleReal xh = x0 + static_cast<ParticleReal>(myhalf*a_dt*xdot);
+            const ParticleReal yh = y0 + static_cast<ParticleReal>(myhalf*a_dt*ydot);
+            const Real sh = reflect(loc0.s + myhalf*a_dt*sdot);
+
+            // Full step with the rates at the midpoint, whose level index is recovered from
+            // its height as at the start of a step
+            const auto zh = static_cast<ParticleReal>(level_index_to_height(xh, yh, sh, nz,
+                                                                            plo, dxi, zheight));
+            const LevelIndex loch = height_to_level_index(xh, yh, zh, level_index_cell(sh, nz),
+                                                          nz, plo, dxi, zheight);
+            rates(xh, yh, loch, u, v, xdot, ydot, sdot);
+
+            p.pos(0) = x0 + static_cast<ParticleReal>(a_dt*xdot);
+            p.pos(1) = y0 + static_cast<ParticleReal>(a_dt*ydot);
+            const Real s1 = reflect(loc0.s + a_dt*sdot);
+            p.pos(2) = static_cast<ParticleReal>(level_index_to_height(p.pos(0), p.pos(1), s1, nz,
+                                                                       plo, dxi, zheight));
+            p.idata(REMORAParticlesIntIdxAoS::k) = level_index_cell(s1, nz);
+
+            vx_ptr[i] = static_cast<ParticleReal>(u);
+            vy_ptr[i] = static_cast<ParticleReal>(v);
+            vz_ptr[i] = (p.pos(2) - static_cast<ParticleReal>(loc0.z)) / a_dt;
+        });
     }
 
     if (m_verbose > 1)
