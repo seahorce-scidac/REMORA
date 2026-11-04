@@ -658,7 +658,8 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     BoxArray ba_w(ba);
     ba_w.surroundingNodes(2);
 
-    vec_z_phys_nd[lev].reset          (new MultiFab(ba_nd,dm,1,IntVect(NGROW,NGROW,1))); // z at psi points (nodes) MIGHT NEED NGROW+1
+    // No z ghosts: z_w has no node outside the column, and nothing reads z_phys_nd there
+    vec_z_phys_nd[lev].reset          (new MultiFab(ba_nd,dm,1,IntVect(NGROW,NGROW,0))); // z at psi points (nodes) MIGHT NEED NGROW+1
     vec_z_w[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at w points (cell faces)
     vec_z_r[lev].reset                (new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at r points (cell center)
     vec_Hz[lev].reset                 (new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
@@ -885,6 +886,11 @@ REMORA::ClearLevel (int lev)
 {
     delete cons_new[lev]; delete xvel_new[lev];  delete yvel_new[lev];  delete zvel_new[lev];
     delete cons_old[lev]; delete xvel_old[lev];  delete yvel_old[lev];  delete zvel_old[lev];
+#ifdef REMORA_USE_PARTICLES
+    if (lev < int(particle_omega.size())) {
+        particle_omega[lev].reset(); particle_u[lev].reset(); particle_v[lev].reset();
+    }
+#endif
 }
 
 /**

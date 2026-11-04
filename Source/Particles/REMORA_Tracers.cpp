@@ -67,22 +67,47 @@ void REMORA::evolveTracers (int a_lev, Real a_dt_lev)
 {
     if (!m_use_tracer_particles && !m_use_hydro_particles) { return; }
 
+    Vector<REMORAPC*> species;
+    if (m_use_tracer_particles) { species.push_back(particleData[REMORAParticleNames::tracers]); }
+    if (m_use_hydro_particles)  { species.push_back(particleData[REMORAParticleNames::hydro]); }
+
+    // Whether each species moves with the flow on this level. One with no particles here needs
+    // no flow fields: particles are seeded on level 0 and usually stay there, so this skips
+    // them on the finer levels. The count is a global reduction, so every rank agrees.
+    Vector<int> advect_here(species.size());
+    bool any_advect = false;
+    for (int n = 0; n < species.size(); ++n) {
+        advect_here[n] = species[n]->advectsWithFlow()
+                      && species[n]->NumberOfParticlesAtLevel(a_lev) > 0;
+        any_advect = any_advect || advect_here[n];
+    }
+
     // Particles are advected in terrain-following coordinates, so they need omega, the
     // velocity across the w-levels, rather than a Cartesian vertical velocity. As in ROMS
     // floats, it comes from the time-averaged fluxes update_massflux_3d leaves, the ones the
-    // tracers move with, rather than the diagnostic omega from the current velocities. It is
-    // only needed if some species moves with the flow (hydro particles do not by default).
-    bool any_advect = false;
-    if (m_use_tracer_particles) {
-        any_advect = any_advect || particleData[REMORAParticleNames::tracers]->advectsWithFlow();
-    }
-    if (m_use_hydro_particles) {
-        any_advect = any_advect || particleData[REMORAParticleNames::hydro]->advectsWithFlow();
-    }
-    MultiFab mf_omega;
-    MultiFab mf_u, mf_v;
+    // tracers move with, rather than the diagnostic omega from the current velocities.
     if (any_advect) {
-        mf_omega.define(convert(grids[a_lev],IntVect(0,0,1)), dmap[a_lev], 1, IntVect(NGROW,NGROW,0));
+        // Kept between steps rather than allocated on each one, and redefined when the
+        // level's grids change. compute_omega and the fills below overwrite them entirely.
+        if (int(particle_omega.size()) <= a_lev) {
+            particle_omega.resize(a_lev+1);
+            particle_u.resize(a_lev+1);
+            particle_v.resize(a_lev+1);
+        }
+        auto fit = [&] (std::unique_ptr<MultiFab>& mf, const BoxArray& ba, const IntVect& ng)
+        {
+            if (!mf || !mf->boxArray().CellEqual(ba) || mf->boxArray().ixType() != ba.ixType()
+                    || mf->DistributionMap() != dmap[a_lev] || mf->nGrowVect() != ng) {
+                mf = std::make_unique<MultiFab>(ba, dmap[a_lev], 1, ng);
+            }
+        };
+        fit(particle_omega[a_lev], convert(grids[a_lev],IntVect(0,0,1)), IntVect(NGROW,NGROW,0));
+        fit(particle_u[a_lev], xvel_new[a_lev]->boxArray(), xvel_new[a_lev]->nGrowVect());
+        fit(particle_v[a_lev], yvel_new[a_lev]->boxArray(), yvel_new[a_lev]->nGrowVect());
+        MultiFab& mf_omega = *particle_omega[a_lev];
+        MultiFab& mf_u     = *particle_u[a_lev];
+        MultiFab& mf_v     = *particle_v[a_lev];
+
         compute_omega(a_lev, mf_omega, *vec_Huon[a_lev], *vec_Hvom[a_lev]);
 
         // A particle within half a cell of a wall or a coarse/fine boundary interpolates u and
@@ -96,8 +121,6 @@ void REMORA::evolveTracers (int a_lev, Real a_dt_lev)
         // step: the NetCDF radiation conditions read the calc field unguarded. With calc
         // equal to the field, a radiation (orlanski_rad*) boundary leaves the ghost as it
         // was, so there the particles still see the start-of-step ghost value.
-        mf_u.define(xvel_new[a_lev]->boxArray(), dmap[a_lev], 1, xvel_new[a_lev]->nGrowVect());
-        mf_v.define(yvel_new[a_lev]->boxArray(), dmap[a_lev], 1, yvel_new[a_lev]->nGrowVect());
         MultiFab::Copy(mf_u, *xvel_new[a_lev], 0, 0, 1, mf_u.nGrowVect());
         MultiFab::Copy(mf_v, *yvel_new[a_lev], 0, 0, 1, mf_v.nGrowVect());
         FillPatch(a_lev, t_new[a_lev], mf_u, xvel_new, xvel_bc(), BdyVars::u, 0, true, false,
@@ -106,24 +129,16 @@ void REMORA::evolveTracers (int a_lev, Real a_dt_lev)
                   0, 0, zero, mf_v, yvel_old, yvel_new);
     }
 
-    Vector<MultiFab const*> flowvel = {any_advect ? &mf_u : xvel_new[a_lev],
-                                       any_advect ? &mf_v : yvel_new[a_lev], &mf_omega};
-
-    if (m_use_tracer_particles) {
-      particleData[REMORAParticleNames::tracers]->EvolveParticles( a_lev,
-                                                                   a_dt_lev,
-                                                                   flowvel,
-                                                                   vec_z_phys_nd,
-                                                                   *vec_pm[a_lev],
-                                                                   *vec_pn[a_lev] );
-    }
-    if (m_use_hydro_particles) {
-      particleData[REMORAParticleNames::hydro]->EvolveParticles( a_lev,
-                                                                 a_dt_lev,
-                                                                 flowvel,
-                                                                 vec_z_phys_nd,
-                                                                 *vec_pm[a_lev],
-                                                                 *vec_pn[a_lev] );
+    for (int n = 0; n < species.size(); ++n) {
+        if (advect_here[n]) {
+            Vector<MultiFab const*> flowvel = {particle_u[a_lev].get(), particle_v[a_lev].get(),
+                                               particle_omega[a_lev].get()};
+            species[n]->EvolveParticles(a_lev, a_dt_lev, flowvel, vec_z_phys_nd,
+                                        *vec_pm[a_lev], *vec_pn[a_lev]);
+        } else {
+            // Nothing to advect on this level; still redistribute, as EvolveParticles does
+            species[n]->Redistribute();
+        }
     }
     return;
 }
