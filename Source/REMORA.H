@@ -2171,6 +2171,12 @@ private:
     /** \brief Evolve tracers and hydro particles */
     void evolveTracers (int lev, amrex::Real dt);
 
+    /** \brief Per level, the omega and the boundary-filled u and v that particles advect
+     *  with. Kept between steps, and redefined when the level's grids change. */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> particle_omega;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> particle_u;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> particle_v;
+
 #endif
     /** \brief Verbosity level of output */
     static int verbose;
