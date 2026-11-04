@@ -91,6 +91,19 @@ grid therefore draws each particle inside the cell that holds it. Checkpoints in
 geometry's uniform coordinates that the particles move in (see :ref:`ParticleAdvection`), which a
 restart needs. The ``xvel`` and ``yvel`` attributes are physical velocities in m/s.
 
+The particles are still filed under the plotfile's grids in AMReX's particle format, and each one is
+filed under the grid that physically holds it. The plotfile header, however, describes the grids in
+the uniform frame (``prob_lo`` and the cell sizes); where they physically sit is given only by the
+nodal displacement (``amrexvec_nu_x``, ``amrexvec_nu_y``, ``amrexvec_nu_z``). A tool that places the
+grids from the header alone, without the displacement, therefore sees particles outside the grid
+they are filed under, or outside ``[prob_lo, prob_hi]``, wherever the physical and uniform
+coordinates differ: on a stretched or curvilinear grid, or on a NetCDF grid whose coordinates do not
+start at the origin. This includes reading the plotfile's particles back into an AMReX
+``ParticleContainer`` (``Restart``, ``Redistribute``, ``OK``), so plotfile particles are meant for
+analysis and visualization, not for reloading; restarts use checkpoints. With
+``remora.plot_nodal_data = false`` the plotfile holds no displacement, but the particle positions are
+still physical. On a uniform grid starting at the origin the two frames agree, up to round-off.
+
 For an example, build the executable in ``Exec`` and run the ``ParticleAdvectionFlat`` case.
 
 .. _ParticleAdvection:
