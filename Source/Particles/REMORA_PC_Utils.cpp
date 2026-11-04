@@ -54,9 +54,12 @@ void REMORAPC::massDensity ( MultiFab&  a_mf,
  * conversion and restored bit for bit after the write, so writing a plotfile does not change
  * the run.
  *
- * While the plotfile is written the positions no longer match the grids the particles are
- * stored in, so AMReX's AMREX_ASSERT(pc.OK()) at the start of the write fails in builds with
- * assertions on, wherever the physical coordinates differ from the uniform ones.
+ * Each particle stays filed under the grid that physically holds it, but AMReX checks that
+ * against the uniform geometry: pc.OK() maps each position to a cell with REMORAParticlesAssignor
+ * and the uniform prob_lo and cell size, not with the physical corners. WriteBinaryParticleData,
+ * which both Checkpoint and WritePlotFile call, asserts pc.OK(), so in builds with assertions
+ * on the write fails wherever the physical coordinates differ from the uniform ones. Writing
+ * through WritePlotFile instead would not avoid this.
  *
  * @param a_fname   checkpoint or plotfile directory
  * @param a_name    particle species name
