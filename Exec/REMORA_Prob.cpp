@@ -402,16 +402,12 @@ void Problem::init_analytic_surface_var (
 }
 
 void Problem::init_analytic_biology (
-        int /*lev*/, const amrex::Geometry& /*geom*/,
-        SolverChoice const& /*m_solverChoice*/,
-        REMORABiology::FennelParameters const& m_fennel_params,
-        REMORA const& remora,
-        amrex::MultiFab& mf_cons)
+        REMORABiology::Biology const& biology,
+        REMORABiology::BiologyInitContext& context)
 {
     ParmParse pp("remora");
     std::string my_prob_name; pp.get("prob_name",my_prob_name);
     std::string my_prob_name_ci = amrex::toLower(my_prob_name);
-    const auto bio_comp = REMORABiology::Fennel::components(m_fennel_params, remora.bio_comp_start());
     // Upwelling reuses BioToy's profile, which is ROMS ana_biology.h: it is a function of
     // temperature alone, so it carries over to any problem that stratifies temperature.
     if ((my_prob_name_ci == "biotoy") || (my_prob_name_ci == "upwelling")) {
@@ -427,4 +423,3 @@ void Problem::init_analytic_biology (
                      " Problem::init_analytic_biology, or set remora.biology_ic_type = netcdf.");
     }
 }
-

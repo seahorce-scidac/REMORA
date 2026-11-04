@@ -209,6 +209,14 @@ with the list of the ones it does. All but ``mask`` are restricted to water; see
 than filled, so ``adjacent_difference_greater`` on one sees a step at every grid
 boundary and tags a set of cells that depends on the domain decomposition.
 
+Levels made by dynamic refinement can be written to NetCDF as well as to AMReX
+plotfiles. A refined level's NetCDF file covers the whole domain at that level's
+resolution. Cells the level's grids don't cover hold the fill value, so one file
+follows the level as regridding moves it. See :ref:`sec:Plotfiles`. Because of
+this, NetCDF output is not recommended for runs with mesh refinement; for speed
+and disk space, use AMReX plotfiles, which :ref:`xamrex<sec:xamrex>` can read and
+manipulate in Python.
+
 Masked Regions and Tagging
 --------------------------
 

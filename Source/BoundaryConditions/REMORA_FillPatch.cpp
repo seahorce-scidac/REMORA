@@ -52,6 +52,107 @@ Long count_mask_diff (const MultiFab& a, const MultiFab& b, const iMultiFab& mas
     ParallelDescriptor::ReduceLongSum(n);
     return n;
 }
+
+/**
+ * A copy of mf whose ghost cells beyond a non-periodic domain face agree with their periodic
+ * images, for a copy that reads ghost cells with periodicity.
+ *
+ * FillBoundary copies only from valid cells, so a ghost cell that lies outside the domain in
+ * a non-periodic direction and beyond a periodic edge -- a corner where a periodic seam meets
+ * a wall, or the vertical ghosts at a seam -- keeps whatever the boundary conditions put there,
+ * which need not match the cell it images. Face data normal to a periodic direction has the
+ * same problem one step earlier: below a wall, the faces at the two ends of the periodic width
+ * are both owned by a box and need not agree either. InterpFromCoarseLevel copies coarse ghost
+ * cells with periodicity, so such a cell then has two sources, the box's own ghost and its
+ * periodic image. ParallelCopy does not say which one wins. On a CPU the order is fixed, but on
+ * a GPU whichever thread gets there first wins, so the result varies from run to run (#768).
+ *
+ * Here each box is extended outward across its non-periodic domain faces, so those ghosts
+ * become valid cells of a temporary. OverrideSync makes the shared periodic faces agree, and
+ * FillBoundary then fills the images. The result goes into scratch rather than back into mf,
+ * so the coarse level's own ghost cells are left as they were.
+ *
+ * Doing this with AMReX calls alone gets most of the way. EnforcePeriodicity takes its
+ * sources from each box grown by its ghost cells -- Periodicity::Domain() is unbounded in the
+ * non-periodic directions -- so on a copy of mf, FillBoundary followed by EnforcePeriodicity
+ * already makes cell-centered ghosts beyond a wall match their images. On Channel_Test_ML_seam
+ * that gives a plotfile bitwise identical to this function's. It does not cover face data
+ * normal to a periodic direction: faces 0 and nx both lie inside the nodal periodic domain, so
+ * EnforcePeriodicity never writes them, and OverrideSync reconciles only their valid copies.
+ * Below a wall the two then still differ (up to 3e-15 for xvel in that test), leaving two
+ * sources. The extended temporary makes those faces valid so OverrideSync reaches them.
+ *
+ * @param[in   ] mf       data to read, its ghost cells already FillBoundary'd
+ * @param[in   ] geom     geometry of mf's level
+ * @param[inout] scratch  storage for the copy, used only when one is needed
+ * @return mf itself when no ghost cell can have two sources, otherwise scratch
+ */
+const MultiFab&
+periodic_consistent_ghosts (const MultiFab& mf, const Geometry& geom, MultiFab& scratch)
+{
+    const IntVect ng = mf.nGrowVect();
+    bool any_periodic = false;
+    bool any_outside  = false;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (geom.isPeriodic(d)) {
+            any_periodic = any_periodic || ng[d] > 0;
+        } else {
+            any_outside  = any_outside  || ng[d] > 0;
+        }
+    }
+    if (!any_periodic || !any_outside) { return mf; }
+
+    const Box dom = amrex::convert(geom.Domain(), mf.ixType());
+    const BoxArray& ba = mf.boxArray();
+    BoxList bl(mf.ixType());
+    IntVect per_ng(0);
+    bool nodal_periodic = false;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (geom.isPeriodic(d)) {
+            per_ng[d] = ng[d];
+            nodal_periodic = nodal_periodic || mf.ixType().nodeCentered(d);
+        }
+    }
+    for (int i = 0; i < ba.size(); ++i) {
+        Box b = ba[i];
+        for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+            if (geom.isPeriodic(d)) { continue; }
+            if (b.smallEnd(d) <= dom.smallEnd(d)) { b.growLo(d, ng[d]); }
+            if (b.bigEnd(d)   >= dom.bigEnd(d))   { b.growHi(d, ng[d]); }
+        }
+        bl.push_back(b);
+    }
+
+    // The temporary's ghosts start from mf's too: FillBoundary leaves alone a ghost with no
+    // valid cell to copy from -- one at a coarse-fine interface of a level that does not span
+    // the domain -- and that must come out as it went in, not as uninitialized memory.
+    MultiFab ext(BoxArray(std::move(bl)), mf.DistributionMap(), mf.nComp(), per_ng);
+    const int ncomp = mf.nComp();
+    for (MFIter mfi(ext); mfi.isValid(); ++mfi) {
+        const auto& e = ext.array(mfi);
+        const auto& a = mf.const_array(mfi);
+        ParallelFor(mfi.fabbox(), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            e(i,j,k,n) = a(i,j,k,n);
+        });
+    }
+    if (nodal_periodic) { ext.OverrideSync(geom.periodicity()); }
+    ext.FillBoundary(geom.periodicity());
+
+    // Ghosts the temporary does not cover -- those of a box away from the domain faces --
+    // come from mf unchanged.
+    scratch.define(ba, mf.DistributionMap(), ncomp, ng);
+    MultiFab::Copy(scratch, mf, 0, 0, ncomp, ng);
+    for (MFIter mfi(ext); mfi.isValid(); ++mfi) {
+        const auto& e = ext.const_array(mfi);
+        const auto& a = scratch.array(mfi);
+        ParallelFor(mfi.fabbox(), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            a(i,j,k,n) = e(i,j,k,n);
+        });
+    }
+    return scratch;
+}
 } // namespace
 
 /**
@@ -718,9 +819,16 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
         }
     }
 
+    // InterpFromCoarseLevel copies the coarse ghost cells with periodicity. When the levels
+    // are first made the parent has had no FillPatch yet, so its ghosts beyond a wall and
+    // beyond a periodic edge still hold initial values rather than their periodic images.
+    // Where the new patch touches the seam the two then compete for one cell of the copy,
+    // and on a GPU the winner varies from run to run (Channel_Test_ML_seam, issue #768).
     mf_crse->FillBoundary(geom[lev-1].periodicity());
+    MultiFab crse_scratch;
+    const MultiFab& crse_src = periodic_consistent_ghosts(*mf_crse, geom[lev-1], crse_scratch);
     amrex::InterpFromCoarseLevel(*mf_to_fill, mf_to_fill->nGrowVect(), IntVect(0,0,0),
-            *mf_crse, 0, icomp, ncomp, geom[lev-1], geom[lev],
+            crse_src, 0, icomp, ncomp, geom[lev-1], geom[lev],
                                  refRatio(lev-1),
                                  mapper, domain_bcs_type, bccomp);
 
