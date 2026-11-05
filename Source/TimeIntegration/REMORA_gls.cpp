@@ -59,7 +59,6 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         FArrayBox fab_EF(ybx, 1, amrex::The_Async_Arena());
         FArrayBox fab_FE(ybx, 1, amrex::The_Async_Arena());
         FArrayBox fab_FEL(ybx, 1, amrex::The_Async_Arena());
-        FArrayBox fab_Hz_half(bx, 1, amrex::The_Async_Arena());
         FArrayBox fab_CF(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena());
         FArrayBox fab_FC(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena());
         FArrayBox fab_FCL(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena());
@@ -70,7 +69,6 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         auto EF  = fab_EF.array();
         auto FE  = fab_FE.array();
         auto FEL = fab_FEL.array();
-        auto Hz_half = fab_Hz_half.array();
         auto CF  = fab_CF.array();
         auto FC  = fab_FC.array();
         auto FCL = fab_FCL.array();
@@ -145,22 +143,6 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             indx = 1 - nstp;
         }
 
-        // update tke, gls from [xlo to xhi  ] by [ylo to yhi  ]
-        // need XF/FX/FXL from  [xlo to xhi+1] by [ylo to yhi  ]
-        // need EF/FE/FEL from  [xlo to xhi  ] by [ylo to yhi+1]
-        ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real cff = Real(0.5) * (Hz(i,j,k) + Hz(i,j,k-1));
-            Real cff4 = cff3 * pm(i,j,0) * pn(i,j,0);
-            Hz_half(i,j,k) = cff - cff4 * (XF(i+1,j,k)-XF(i,j,k)+EF(i,j+1,k)-EF(i,j,k));
-            tke(i,j,k,2) = cff * (cff1*tke(i,j,k,nstp) + cff2*tke(i,j,k,indx)) -
-                           cff4 * (FX(i+1,j,k)-FX(i,j,k)+FE(i,j+1,k)-FE(i,j,k));
-            gls(i,j,k,2) = cff * (cff1 * gls(i,j,k,nstp) + cff2 * gls(i,j,k,indx)) -
-                           cff4 * (FXL(i+1,j,k)-FXL(i,j,k)+FEL(i,j+1,k)-FEL(i,j,k));
-            tke(i,j,k,nnew) = cff * tke(i,j,k,nstp);
-            gls(i,j,k,nnew) = cff * gls(i,j,k,nstp);
-        });
-
         // Will do a FillPatch after this, so don't need to do any ghost zones in x,y
         // Compute vertical advection
         ParallelFor(convert(bx,IntVect(0,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -197,20 +179,29 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             }
         });
 
-        // Time-step vertical advection
-        if (iic == ntfirst) {
-            cff3 = Real(0.5) * dt_lev;
-        } else {
-            cff3 = (one - gamma) * dt_lev;
-        }
-        // DO k=1,N-1
+        // Time-step horizontal and vertical advection in one pass. The vertical step uses the
+        // same cff3 as the horizontal one, and every intermediate is rounded as when they
+        // were stored between two passes.
+        // update tke, gls from [xlo to xhi  ] by [ylo to yhi  ]
+        // need XF/FX/FXL from  [xlo to xhi+1] by [ylo to yhi  ]
+        // need EF/FE/FEL from  [xlo to xhi  ] by [ylo to yhi+1]
         ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
+            Real cff = Real(0.5) * (Hz(i,j,k) + Hz(i,j,k-1));
             Real cff4 = cff3 * pm(i,j,0) * pn(i,j,0);
-            Hz_half(i,j,k) = Hz_half(i,j,k) - cff4 * (CF(i,j,k)-CF(i,j,k-1));
-            Real cff1_loc = one / Hz_half(i,j,k);
-            tke(i,j,k,2) = cff1_loc * (tke(i,j,k,2) - cff4 * (FC (i,j,k) - FC (i,j,k-1)));
-            gls(i,j,k,2) = cff1_loc * (gls(i,j,k,2) - cff4 * (FCL(i,j,k) - FCL(i,j,k-1)));
+            Real Hz_half = cff - cff4 * (XF(i+1,j,k)-XF(i,j,k)+EF(i,j+1,k)-EF(i,j,k));
+            Real tke_half = cff * (cff1*tke(i,j,k,nstp) + cff2*tke(i,j,k,indx)) -
+                            cff4 * (FX(i+1,j,k)-FX(i,j,k)+FE(i,j+1,k)-FE(i,j,k));
+            Real gls_half = cff * (cff1 * gls(i,j,k,nstp) + cff2 * gls(i,j,k,indx)) -
+                            cff4 * (FXL(i+1,j,k)-FXL(i,j,k)+FEL(i,j+1,k)-FEL(i,j,k));
+            tke(i,j,k,nnew) = cff * tke(i,j,k,nstp);
+            gls(i,j,k,nnew) = cff * gls(i,j,k,nstp);
+
+            // DO k=1,N-1
+            Hz_half = Hz_half - cff4 * (CF(i,j,k)-CF(i,j,k-1));
+            Real cff1_loc = one / Hz_half;
+            tke(i,j,k,2) = cff1_loc * (tke_half - cff4 * (FC (i,j,k) - FC (i,j,k-1)));
+            gls(i,j,k,2) = cff1_loc * (gls_half - cff4 * (FCL(i,j,k) - FCL(i,j,k-1)));
         });
     }
 
@@ -629,20 +620,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             FEP(i,j,k) = cff * Real(0.5) * (gls(i,j-1,k,2)+gls(i,j,k,2)-Gadv*cff2);
         });
 
-        Real gls_Kmin = solverChoice.gls_Kmin;
-        Real gls_Pmin = solverChoice.gls_Pmin;
-        ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real cff = dt_lev * pm(i,j,0) * pn(i,j,0);
-            tke(i,j,k,nnew) = tke(i,j,k,nnew) - cff * (FXK(i+1,j  ,k)-FXK(i,j,k)+
-                                                       FEK(i  ,j+1,k)-FEK(i,j,k));
-            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew), gls_Kmin);
-
-            gls(i,j,k,nnew) = gls(i,j,k,nnew) - cff * (FXP(i+1,j  ,k)-FXP(i,j,k)+
-                                                       FEP(i  ,j+1,k)-FEP(i,j,k));
-            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew), gls_Pmin);
-        });
-
         // Vertical advection
         ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -665,13 +642,24 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             FCK(i,j,N) = cff * (cff1 * tke(i,j,N+1,2)+cff2*tke(i,j,N,2)-cff3*tke(i,j,N-1,2));
             FCP(i,j,N) = cff * (cff1 * gls(i,j,N+1,2)+cff2*gls(i,j,N,2)-cff3*gls(i,j,N-1,2));
         });
-        ParallelFor(grow(bx,2,-1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        // Time-step horizontal, then vertical advection, in one pass (each intermediate is
+        // rounded and limited as it was when stored between two passes)
+        Real gls_Kmin = solverChoice.gls_Kmin;
+        Real gls_Pmin = solverChoice.gls_Pmin;
+        ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real cff = dt_lev * pm(i,j,0) * pn(i,j,0);
-            tke(i,j,k,nnew) = tke(i,j,k,nnew) - cff*(FCK(i,j,k  )-FCK(i,j,k-1));
-            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew),gls_Kmin);
-            gls(i,j,k,nnew) = gls(i,j,k,nnew) - cff*(FCP(i,j,k  )-FCP(i,j,k-1));
-            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew),gls_Pmin);
+            Real tke_new = tke(i,j,k,nnew) - cff * (FXK(i+1,j  ,k)-FXK(i,j,k)+
+                                                    FEK(i  ,j+1,k)-FEK(i,j,k));
+            tke_new = std::max(tke_new, gls_Kmin);
+            tke_new = tke_new - cff*(FCK(i,j,k  )-FCK(i,j,k-1));
+            tke(i,j,k,nnew) = std::max(tke_new,gls_Kmin);
+
+            Real gls_new = gls(i,j,k,nnew) - cff * (FXP(i+1,j  ,k)-FXP(i,j,k)+
+                                                    FEP(i  ,j+1,k)-FEP(i,j,k));
+            gls_new = std::max(gls_new, gls_Pmin);
+            gls_new = gls_new - cff*(FCP(i,j,k  )-FCP(i,j,k-1));
+            gls(i,j,k,nnew) = std::max(gls_new,gls_Pmin);
         });
 
         // Compute vertical mixing, turbulent production and turbulent
