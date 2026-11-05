@@ -24,6 +24,14 @@ mkdir -p runA runB alias mismatch
     "$@" "$input" 'remora.plot_vars_3d=salt temp tracer x_velocity y_velocity z_velocity ecb' > ../alias.log 2>&1
 )
 "$compare" -a -r 0 --abs_tol 0 runA/plt00003 alias/plt00003
+# Small CPU tiles split each box horizontally; the column kernel must give
+# the same answer whatever the tiling.
+mkdir -p tiled
+(
+    cd tiled
+    "$@" "$input" 'remora.omp_tile_size=2 3 1024000' > ../tiled.log 2>&1
+)
+"$compare" -a -r 0 --abs_tol 0 runA/plt00003 tiled/plt00003
 # Save the metadata so rerunning this test leaves the original checkpoint intact.
 cp runA/chk00002/BiologyHeader saved_biology_header
 cp runA/chk00002/Header saved_header
