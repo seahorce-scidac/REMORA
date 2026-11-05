@@ -36,6 +36,7 @@ struct REMORAParticlesRealIdxSoA
         vy,
         vz,
         mass,
+        s,      // fractional w-level index, the particle's vertical coordinate (see below)
         ncomps
     };
 };
@@ -74,7 +75,10 @@ struct REMORAParticlesAssignor
 // Particles are tracked vertically by a fractional w-level index s in [0,nz]: s = k + f puts
 // a particle the fraction f of the way from w-level k to w-level k+1 of its column, so s = 0
 // is the bed and s = nz the free surface. Moving at fixed s follows the terrain-following
-// levels, which is what keeps a particle in the water column over sloping bathymetry.
+// levels, which is what keeps a particle in the water column over sloping bathymetry. s is
+// stored (REMORAParticlesRealIdxSoA::s) and advanced directly; the height pos(2) is derived
+// from it on the current grid after each step, so a particle moves with the levels as the
+// free surface rises and falls.
 
 /**
  * Lower-left cell (i, j) and fractional offsets (fx, fy) of the bilinear stencil at horizontal
@@ -191,7 +195,26 @@ LevelIndex height_to_level_index ( amrex::ParticleReal a_x, amrex::ParticleReal 
     return {s, ks, dz_s, zlo + f * dz};
 }
 
-/** Height of fractional w-level index a_s at (a_x, a_y); the inverse of height_to_level_index */
+/**
+ * Fractional w-level index a_s located in the column at (a_x, a_y): the cell that holds it,
+ * that cell's thickness and the height of a_s. The inverse of height_to_level_index.
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+LevelIndex level_index_in_column ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
+                                   amrex::Real a_s, int a_nz,
+                                   amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
+                                   amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
+                                   amrex::Array4<amrex::Real const> const& a_z_nd )
+{
+    const HorizontalStencil st = horizontal_stencil(a_x, a_y, true, true, a_plo, a_dxi);
+    const int k = level_index_cell(a_s, a_nz);
+    const amrex::Real f = a_s - static_cast<amrex::Real>(k);
+    const amrex::Real zlo = interpolate_horizontal(st, k  , a_z_nd);
+    const amrex::Real zhi = interpolate_horizontal(st, k+1, a_z_nd);
+    return {a_s, k, zhi - zlo, zlo + f * (zhi - zlo)};
+}
+
+/** Height of fractional w-level index a_s at (a_x, a_y) */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 amrex::Real level_index_to_height ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
                                     amrex::Real a_s, int a_nz,
@@ -199,12 +222,7 @@ amrex::Real level_index_to_height ( amrex::ParticleReal a_x, amrex::ParticleReal
                                     amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
                                     amrex::Array4<amrex::Real const> const& a_z_nd )
 {
-    const HorizontalStencil st = horizontal_stencil(a_x, a_y, true, true, a_plo, a_dxi);
-    const int k = level_index_cell(a_s, a_nz);
-    const amrex::Real f = a_s - static_cast<amrex::Real>(k);
-    const amrex::Real zlo = interpolate_horizontal(st, k  , a_z_nd);
-    const amrex::Real zhi = interpolate_horizontal(st, k+1, a_z_nd);
-    return zlo + f * (zhi - zlo);
+    return level_index_in_column(a_x, a_y, a_s, a_nz, a_plo, a_dxi, a_z_nd).z;
 }
 
 /**
@@ -299,7 +317,7 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
         virtual amrex::Vector<std::string> varNames () const
         {
             BL_PROFILE("REMORAPCPC::varNames()");
-            return {AMREX_D_DECL("xvel","yvel","zvel"),"mass"};
+            return {AMREX_D_DECL("xvel","yvel","zvel"),"mass","level_index"};
         }
 
         /*! Get real-type particle attribute names */
@@ -316,6 +334,17 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
                                        const std::unique_ptr<amrex::MultiFab>& a_z_height,
                                        amrex::MultiFab const& a_pm,
                                        amrex::MultiFab const& a_pn );
+
+        /*! Set each particle's height from its level index on the current grid, for
+         *  particles that do not advect but still follow the levels */
+        void SetHeightsFromLevelIndex ( int a_lev, amrex::Real a_dt,
+                                        const std::unique_ptr<amrex::MultiFab>& a_z_phys_nd );
+
+        /*! Read the particles from a checkpoint. A checkpoint written before the level index
+         *  was stored is read too: s is then computed from each particle's height on a_z_phys_nd,
+         *  the grid the checkpoint holds. */
+        void Restart ( const std::string& a_dir, const std::string& a_name,
+                       const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& a_z_phys_nd );
 
         /*! Write the particles for a checkpoint, or with a_xy for a plotfile with x and y in
          *  physical coordinates */

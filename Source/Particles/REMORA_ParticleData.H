@@ -66,15 +66,17 @@ class ParticleData
             writeSpecies( a_fname, &a_xy );
         }
 
-        /*! Read from restart file */
-        void Restart ( amrex::ParGDBBase* a_gdb, const std::string& a_fname )
+        /*! Read from restart file. a_z_phys_nd is the grid read from the same checkpoint,
+         *  used to compute the level index for checkpoints written before it was stored. */
+        void Restart ( amrex::ParGDBBase* a_gdb, const std::string& a_fname,
+                       const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& a_z_phys_nd )
         {
             BL_PROFILE("ParticleData::Restart()");
             AMREX_ASSERT(isEmpty());
             for (auto it = m_namelist_unalloc.begin(); it != m_namelist_unalloc.end(); ++it) {
                 std::string species_name( *it );
                 REMORAPC* pc = new REMORAPC( a_gdb, species_name );
-                pc->Restart(a_fname, species_name );
+                pc->Restart(a_fname, species_name, a_z_phys_nd );
                 pushBack( species_name, pc );
             }
             m_namelist_unalloc.clear();

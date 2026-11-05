@@ -136,7 +136,12 @@ void REMORA::evolveTracers (int a_lev, Real a_dt_lev)
             species[n]->EvolveParticles(a_lev, a_dt_lev, flowvel, vec_z_phys_nd,
                                         *vec_pm[a_lev], *vec_pn[a_lev]);
         } else {
-            // Nothing to advect on this level; still redistribute, as EvolveParticles does
+            // Nothing to advect on this level. A species that does not advect still keeps
+            // its level index, so its heights follow the levels; then redistribute, as
+            // EvolveParticles does.
+            if (!species[n]->advectsWithFlow()) {
+                species[n]->SetHeightsFromLevelIndex(a_lev, a_dt_lev, vec_z_phys_nd[a_lev]);
+            }
             species[n]->Redistribute();
         }
     }
