@@ -410,18 +410,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     const BoxArray&            ba = cons_old[lev]->boxArray();
     const DistributionMapping& dm = cons_old[lev]->DistributionMap();
 
-    int ncomp_w = 0;
-    int dU_comp = ncomp_w++;
-    int dV_comp = ncomp_w++;
-    int CF_comp = ncomp_w++;
-
-    int ncomp = 0;
-    int shear2_comp = ncomp++;
-    int shear2_cache_comp = ncomp++;
-    int buoy2_comp = ncomp++;
-
-    MultiFab mf_w(convert(ba, IntVect(0,0,1)),dm,ncomp_w,IntVect(NGROW,NGROW,0));
-    MultiFab mf(ba,dm,ncomp,IntVect(NGROW,NGROW,0));
+    // Squared shear at w points before its horizontal averaging; level-wide because its
+    // boundary values come from physbcs. The column scratch (dU, dV, CF) and the averaged
+    // shear2/buoy2 are per-tile FArrayBoxes in the loops below.
+    MultiFab mf_shear2_cached(ba,dm,1,IntVect(NGROW,NGROW,0));
 
     const Box& domain = geom[0].Domain();
     const auto dlo = amrex::lbound(domain);
@@ -448,10 +440,11 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Array4<Real> const& u = xvel_old[lev]->array(mfi);
         Array4<Real> const& v = yvel_old[lev]->array(mfi);
 
-        auto dU = mf_w.array(mfi,dU_comp);
-        auto dV = mf_w.array(mfi,dV_comp);
-        auto CF = mf_w.array(mfi,CF_comp);
-        auto shear2_cached = mf.array(mfi,shear2_cache_comp);
+        FArrayBox fab_w(gbx1, 3, amrex::The_Async_Arena());
+        auto dU = fab_w.array(0);
+        auto dV = fab_w.array(1);
+        auto CF = fab_w.array(2);
+        auto shear2_cached = mf_shear2_cached.array(mfi);
 
         ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -481,7 +474,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
     // While potentially counterintuitive, this is what ROMS does for handling shear2 at all boundaries, even
     // periodic
-    (*physbcs[lev])(mf,*mf_mskr,shear2_cache_comp,1,mf.nGrowVect(),t_new[lev],foextrap_bc());
+    (*physbcs[lev])(mf_shear2_cached,*mf_mskr,0,1,mf_shear2_cached.nGrowVect(),t_new[lev],foextrap_bc());
 
     int ncomp_fab = 0;
     int tmp_buoy_comp  = ncomp_fab++;
@@ -496,6 +489,9 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     int FCP_comp = ncomp_fab++;
     int BCK_comp = ncomp_fab++;
     int BCP_comp = ncomp_fab++;
+    int CF_comp = ncomp_fab++;
+    int shear2_comp = ncomp_fab++;
+    int buoy2_comp = ncomp_fab++;
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -541,10 +537,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         // Every scratch cell read below is written first, so the fab is not zero-filled
         FArrayBox fab(gbx1,ncomp_fab, amrex::The_Async_Arena());
 
-        auto CF = mf_w.array(mfi,CF_comp);
-        auto shear2 = mf.array(mfi,shear2_comp);
-        auto shear2_cached = mf.array(mfi,shear2_cache_comp);
-        auto buoy2 = mf.array(mfi,buoy2_comp);
+        auto CF = fab.array(CF_comp);
+        auto shear2 = fab.array(shear2_comp);
+        auto shear2_cached = mf_shear2_cached.array(mfi);
+        auto buoy2 = fab.array(buoy2_comp);
         Array4<Real> const& bvf = vec_bvf[lev]->array(mfi);
 
         auto tmp_buoy = fab.array(tmp_buoy_comp);
