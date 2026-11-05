@@ -577,6 +577,6 @@ REMORA::ReadCheckpointFile ()
     }
 
 #ifdef REMORA_USE_PARTICLES
-   particleData.Restart((amrex::ParGDBBase*)GetParGDB(),restart_chkfile);
+   particleData.Restart((amrex::ParGDBBase*)GetParGDB(),restart_chkfile,vec_z_phys_nd);
 #endif
 }

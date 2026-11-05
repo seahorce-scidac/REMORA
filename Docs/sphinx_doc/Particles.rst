@@ -224,18 +224,24 @@ defined on the :math:`w`-levels, is interpolated linearly between them.
 
 After the step, the ``xvel`` and ``yvel`` attributes hold :math:`u` and :math:`v` (m/s, along the grid
 directions) at the midpoint, and ``zvel`` holds the rate of change of the particle's height,
-:math:`\bigl(z^{n+1} - z^n\bigr) / \Delta t`.
+:math:`\bigl(z^{n+1} - z^n\bigr) / \Delta t`, where :math:`z^n` is the height at the end of the
+previous step, on that step's grid.
 
-Limitation
-~~~~~~~~~~
+Moving with the levels
+~~~~~~~~~~~~~~~~~~~~~~
 
-A particle stores its height :math:`z`, not :math:`s`, so :math:`s` is recovered from :math:`z` on the
-current grid at the start of every step. When the free surface moves between steps, a particle
-therefore keeps its height rather than its position relative to the levels, dropping the
+Each particle stores :math:`s` (the ``level_index`` attribute) as well as its height, and the
+time step advances :math:`s` directly. The height is then set from :math:`s` on the current grid, so
+when the free surface moves between steps a particle moves with the levels, picking up the
 level-stretching term
 
 .. math::
-   \left.\frac{\partial z}{\partial t}\right|_s = \frac{\partial \zeta}{\partial t}\,\frac{z + h}{\zeta + h}.
+   \left.\frac{\partial z}{\partial t}\right|_s = \frac{\partial \zeta}{\partial t}\,\frac{z + h}{\zeta + h},
 
-Storing :math:`s` as a particle attribute would remove this, at the cost of a different checkpoint
-layout.
+and ``zvel`` includes it. A particle near a falling surface therefore stays below it rather than
+being clamped onto it. Particles that do not advect with the flow (``advect_with_flow = false``)
+keep a fixed :math:`s` too, so they also rise and fall with the levels.
+
+Checkpoints written before ``level_index`` was stored have one particle attribute fewer. A restart
+from one reads them anyway and computes :math:`s` from each particle's stored height on the grid read
+from the same checkpoint, which is the index the particle's next step would have used.

@@ -166,6 +166,7 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
         auto* vy_ptr = soa.GetRealData(REMORAParticlesRealIdxSoA::vy).data();
         auto* vz_ptr = soa.GetRealData(REMORAParticlesRealIdxSoA::vz).data();
         auto* mass_ptr = soa.GetRealData(REMORAParticlesRealIdxSoA::mass).data();
+        auto* s_ptr = soa.GetRealData(REMORAParticlesRealIdxSoA::s).data();
 
         auto my_proc = ParallelDescriptor::MyProc();
         Long pid;
@@ -211,6 +212,9 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
                     vx_ptr[n] = v[0]; vy_ptr[n] = v[1]; vz_ptr[n] = v[2];
 
                     mass_ptr[n] = Real(1.0e-6);
+
+                    // The fraction r[2] of the way up cell k, as the height is set above
+                    s_ptr[n] = static_cast<ParticleReal>(Real(k) + r[2]);
                }
             });
 
@@ -245,6 +249,9 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
                     vx_ptr[n] = v[0]; vy_ptr[n] = v[1]; vz_ptr[n] = v[2];
 
                     mass_ptr[n] = Real(1.0e-6);
+
+                    // The fraction r[2] of the way up cell k, as the height is set above
+                    s_ptr[n] = static_cast<ParticleReal>(Real(k) + r[2]);
                }
             });
 
@@ -273,6 +280,9 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
                     vx_ptr[n] = v[0]; vy_ptr[n] = v[1]; vz_ptr[n] = v[2];
 
                     mass_ptr[n] = Real(1.0e-6);
+
+                    // The fraction r[2] of the way up cell k, as the height is set above
+                    s_ptr[n] = static_cast<ParticleReal>(Real(k) + r[2]);
                }
             });
 
@@ -300,6 +310,9 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
                     vx_ptr[n] = v[0]; vy_ptr[n] = v[1]; vz_ptr[n] = v[2];
 
                     mass_ptr[n] = Real(1.0e-6);
+
+                    // The fraction r[2] of the way up cell k, as the height is set above
+                    s_ptr[n] = static_cast<ParticleReal>(Real(k) + r[2]);
                }
             });
         }

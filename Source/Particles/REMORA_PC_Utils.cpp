@@ -1,6 +1,7 @@
 #ifdef REMORA_USE_PARTICLES
 
 #include <AMReX_ParticleInterpolators.H>
+#include <AMReX_ParticleHeader.H>
 #include <REMORA_Constants.H>
 #include <REMORA_PC.H>
 
@@ -42,6 +43,95 @@ void REMORAPC::massDensity ( MultiFab&  a_mf,
         });
 
     return;
+}
+
+/**
+ * Checkpoints written before the level index s was stored have one real component fewer.
+ * Such a checkpoint is read into a container with that layout, the particles are copied into
+ * this one, and s is computed from each particle's height on a_z_phys_nd, the grid read from
+ * the same checkpoint. That is the index the particle's next step would have recovered.
+ *
+ * @param a_dir         checkpoint directory
+ * @param a_name        particle species name
+ * @param a_z_phys_nd   z nodal positions of the grid, per level
+ */
+void REMORAPC::Restart ( const std::string& a_dir, const std::string& a_name,
+                         const Vector<std::unique_ptr<MultiFab>>& a_z_phys_nd )
+{
+    BL_PROFILE("REMORAPC::Restart()");
+
+    using BasePC   = ParticleContainer<REMORAParticlesRealIdxAoS::ncomps, REMORAParticlesIntIdxAoS::ncomps,
+                                       REMORAParticlesRealIdxSoA::ncomps, REMORAParticlesIntIdxSoA::ncomps,
+                                       DefaultAllocator, REMORAParticlesAssignor>;
+    // The layout before s was added: the same components, with s missing at the end
+    constexpr int nreal_old = REMORAParticlesRealIdxSoA::s;
+    using LegacyPC = ParticleContainer<REMORAParticlesRealIdxAoS::ncomps, REMORAParticlesIntIdxAoS::ncomps,
+                                       nreal_old, REMORAParticlesIntIdxSoA::ncomps,
+                                       DefaultAllocator, REMORAParticlesAssignor>;
+
+    Vector<char> header_chars;
+    ParallelDescriptor::ReadAndBcastFile(a_dir + "/" + a_name + "/Header", header_chars);
+    std::istringstream header_stream(std::string(header_chars.dataPtr()), std::istringstream::in);
+    ParticleHeader header;
+    header.parse(header_stream);
+
+    if (header.num_real == REMORAParticlesRealIdxSoA::ncomps) {
+        BasePC::Restart(a_dir, a_name);
+        return;
+    }
+    if (header.num_real != nreal_old) {
+        Abort("REMORAPC::Restart(): " + a_name + " in " + a_dir + " has "
+              + std::to_string(header.num_real) + " real components; expected "
+              + std::to_string(REMORAParticlesRealIdxSoA::ncomps) + ", or "
+              + std::to_string(nreal_old) + " for a checkpoint written before level_index");
+    }
+    Print() << "Restarting " << a_name << " from a checkpoint without level_index;"
+            << " computing it from the particle heights\n";
+
+    LegacyPC old_pc(m_gdb);
+    old_pc.Restart(a_dir, a_name);
+
+    resizeData();
+    for (int lev = 0; lev <= old_pc.finestLevel(); ++lev)
+    {
+        AMREX_ALWAYS_ASSERT(a_z_phys_nd[lev] != nullptr);
+        const Geometry& geom = m_gdb->Geom(lev);
+        const auto plo = geom.ProbLoArray();
+        const auto dxi = geom.InvCellSizeArray();
+        const int nz = geom.Domain().length(2);
+
+        for (const auto& kv : old_pc.GetParticles(lev))
+        {
+            const auto& src = kv.second;
+            const int np = src.numParticles();
+            auto& dst = DefineAndReturnParticleTile(lev, kv.first.first, kv.first.second);
+            dst.resize(np);
+            if (np == 0) { continue; }
+
+            const auto& src_aos = src.GetArrayOfStructs();
+            Gpu::copyAsync(Gpu::deviceToDevice, src_aos.begin(), src_aos.end(),
+                           dst.GetArrayOfStructs().begin());
+            for (int comp = 0; comp < nreal_old; ++comp) {
+                const auto& src_comp = src.GetStructOfArrays().GetRealData(comp);
+                Gpu::copyAsync(Gpu::deviceToDevice, src_comp.begin(), src_comp.end(),
+                               dst.GetStructOfArrays().GetRealData(comp).begin());
+            }
+
+            auto* p_pbox = dst.GetArrayOfStructs()().data();
+            auto* s_ptr = dst.GetStructOfArrays().GetRealData(REMORAParticlesRealIdxSoA::s).data();
+            const auto zheight = (*a_z_phys_nd[lev])[kv.first.first].const_array();
+            ParallelFor(np, [=] AMREX_GPU_DEVICE (int i)
+            {
+                const ParticleType& p = p_pbox[i];
+                if (p.id() <= 0) { s_ptr[i] = zero; return; }
+                s_ptr[i] = static_cast<ParticleReal>(
+                    height_to_level_index(p.pos(0), p.pos(1), p.pos(2),
+                                          p.idata(REMORAParticlesIntIdxAoS::k),
+                                          nz, plo, dxi, zheight).s);
+            });
+        }
+    }
+    Gpu::streamSynchronize();
 }
 
 /**
