@@ -54,6 +54,47 @@ Long count_mask_diff (const MultiFab& a, const MultiFab& b, const iMultiFab& mas
 }
 
 /**
+ * ba with each box extended outward by ng across the non-periodic domain faces it touches.
+ * The result is kept and handed out again for the same ba, so a MultiFab built on it has the
+ * same BoxArray from call to call and FillBoundary reuses its communication pattern rather
+ * than rebuilding it on every fill. The few layouts a run uses at a time are kept; the cache
+ * is emptied at finalize, before AMReX is torn down.
+ */
+BoxArray
+extended_boxarray (const BoxArray& ba, const Geometry& geom, const IntVect& ng)
+{
+    struct Entry { BoxArray ba; Box dom; IntVect ng; BoxArray ext; };
+    static Vector<Entry> cache;
+    static bool registered = false;
+    if (!registered) {
+        amrex::ExecOnFinalize([] () { cache.clear(); });
+        registered = true;
+    }
+
+    const Box dom = amrex::convert(geom.Domain(), ba.ixType());
+    for (const auto& e : cache) {
+        if (e.ng == ng && e.dom == dom && e.ba == ba) { return e.ext; }
+    }
+
+    BoxList bl(ba.ixType());
+    for (int i = 0; i < ba.size(); ++i) {
+        Box b = ba[i];
+        for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+            if (geom.isPeriodic(d)) { continue; }
+            if (b.smallEnd(d) <= dom.smallEnd(d)) { b.growLo(d, ng[d]); }
+            if (b.bigEnd(d)   >= dom.bigEnd(d))   { b.growHi(d, ng[d]); }
+        }
+        bl.push_back(b);
+    }
+    BoxArray ext(std::move(bl));
+
+    constexpr int max_entries = 16;
+    if (cache.size() >= max_entries) { cache.erase(cache.begin()); }
+    cache.push_back({ba, dom, ng, ext});
+    return ext;
+}
+
+/**
  * A copy of mf whose ghost cells beyond a non-periodic domain face agree with their periodic
  * images, for a copy that reads ghost cells with periodicity.
  *
@@ -102,9 +143,7 @@ periodic_consistent_ghosts (const MultiFab& mf, const Geometry& geom, MultiFab& 
     }
     if (!any_periodic || !any_outside) { return mf; }
 
-    const Box dom = amrex::convert(geom.Domain(), mf.ixType());
     const BoxArray& ba = mf.boxArray();
-    BoxList bl(mf.ixType());
     IntVect per_ng(0);
     bool nodal_periodic = false;
     for (int d = 0; d < AMREX_SPACEDIM; ++d) {
@@ -113,20 +152,11 @@ periodic_consistent_ghosts (const MultiFab& mf, const Geometry& geom, MultiFab& 
             nodal_periodic = nodal_periodic || mf.ixType().nodeCentered(d);
         }
     }
-    for (int i = 0; i < ba.size(); ++i) {
-        Box b = ba[i];
-        for (int d = 0; d < AMREX_SPACEDIM; ++d) {
-            if (geom.isPeriodic(d)) { continue; }
-            if (b.smallEnd(d) <= dom.smallEnd(d)) { b.growLo(d, ng[d]); }
-            if (b.bigEnd(d)   >= dom.bigEnd(d))   { b.growHi(d, ng[d]); }
-        }
-        bl.push_back(b);
-    }
 
     // The temporary's ghosts start from mf's too: FillBoundary leaves alone a ghost with no
     // valid cell to copy from -- one at a coarse-fine interface of a level that does not span
     // the domain -- and that must come out as it went in, not as uninitialized memory.
-    MultiFab ext(BoxArray(std::move(bl)), mf.DistributionMap(), mf.nComp(), per_ng);
+    MultiFab ext(extended_boxarray(ba, geom, ng), mf.DistributionMap(), mf.nComp(), per_ng);
     const int ncomp = mf.nComp();
     for (MFIter mfi(ext); mfi.isValid(); ++mfi) {
         const auto& e = ext.array(mfi);
@@ -154,6 +184,30 @@ periodic_consistent_ghosts (const MultiFab& mf, const Geometry& geom, MultiFab& 
     return scratch;
 }
 } // namespace
+
+/**
+ * Coarse data ready for a coarse-to-fine interpolation (FillPatchTwoLevels,
+ * InterpFromCoarseLevel), which copies the coarse cells, ghost cells included, with
+ * periodicity. The ghost cells are exchanged across grids and periodic edges, and those that
+ * also lie beyond a non-periodic domain face are made to agree with their periodic images
+ * (periodic_consistent_ghosts), so that no cell of the copy has two different sources (#768,
+ * #774, #776). Every coarse-to-fine fill goes through here.
+ *
+ * The ghost cells beyond a wall are otherwise taken as the coarse level's own fill left them;
+ * they are not refilled from the boundary conditions here.
+ *
+ * @param[in   ] crse_lev  level of crse
+ * @param[inout] crse      coarse data; its ghost cells are exchanged in place
+ * @param[inout] scratch   storage for a consistent copy, used only when one is needed
+ * @return crse itself, or scratch holding the consistent copy
+ */
+MultiFab&
+REMORA::coarse_for_interp (int crse_lev, MultiFab& crse, MultiFab& scratch)
+{
+    crse.FillBoundary(geom[crse_lev].periodicity());
+    const MultiFab& src = periodic_consistent_ghosts(crse, geom[crse_lev], scratch);
+    return (&src == &crse) ? crse : scratch;
+}
 
 /**
  * Fill valid and ghost data in the MultiFab "mf"
@@ -280,16 +334,20 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
             // contribution has to be interpolated. Passing one MultiFab twice makes
             // FillPatchTwoLevels return it whatever the time: fine in lockstep, wrong for
             // subcycling.
-            Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
-            Vector<Real> ctime    = {time, time};
+            MultiFab crse_scratch, crse_old_scratch, crse_new_scratch;
+            Vector<MultiFab*> cmf;
+            Vector<Real> ctime;
             if (do_substep && int(mfs_crse_old.size()) >= lev && int(mfs_crse_new.size()) >= lev) {
-                cmf   = {mfs_crse_old[lev-1], mfs_crse_new[lev-1]};
+                cmf   = {&coarse_for_interp(lev-1, *mfs_crse_old[lev-1], crse_old_scratch),
+                         &coarse_for_interp(lev-1, *mfs_crse_new[lev-1], crse_new_scratch)};
                 ctime = {t_old[lev-1], t_new[lev-1]};
-                mfs_crse_old[lev-1]->FillBoundary(geom[lev-1].periodicity());
-                mfs_crse_new[lev-1]->FillBoundary(geom[lev-1].periodicity());
+                mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
+            } else {
+                MultiFab& crse = coarse_for_interp(lev-1, *mfs[lev-1], crse_scratch);
+                cmf   = {&crse, &crse};
+                ctime = {time, time};
             }
 
-            mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
             amrex::FillPatchTwoLevels(mf_to_fill, mf_to_fill.nGrowVect(), IntVect(0,0,0),
                                       time, cmf, ctime, fmf, ftime,
                                       icomp, icomp, ncomp, geom[lev-1], geom[lev],
@@ -586,16 +644,20 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
         // contribution has to be interpolated. Passing one MultiFab twice makes
         // FillPatchTwoLevels return it whatever the time: fine in lockstep, wrong for
         // subcycling.
-        Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
-        Vector<Real> ctime    = {time, time};
+        MultiFab crse_scratch, crse_old_scratch, crse_new_scratch;
+        Vector<MultiFab*> cmf;
+        Vector<Real> ctime;
         if (do_substep && int(mfs_crse_old.size()) >= lev && int(mfs_crse_new.size()) >= lev) {
-            cmf   = {mfs_crse_old[lev-1], mfs_crse_new[lev-1]};
+            cmf   = {&coarse_for_interp(lev-1, *mfs_crse_old[lev-1], crse_old_scratch),
+                     &coarse_for_interp(lev-1, *mfs_crse_new[lev-1], crse_new_scratch)};
             ctime = {t_old[lev-1], t_new[lev-1]};
-            mfs_crse_old[lev-1]->FillBoundary(geom[lev-1].periodicity());
-            mfs_crse_new[lev-1]->FillBoundary(geom[lev-1].periodicity());
+            mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
+        } else {
+            MultiFab& crse = coarse_for_interp(lev-1, *mfs[lev-1], crse_scratch);
+            cmf   = {&crse, &crse};
+            ctime = {time, time};
         }
 
-        mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
         amrex::FillPatchTwoLevels(mf_to_fill, mf_to_fill.nGrowVect(), IntVect(0,0,0),
                                   time, cmf, ctime, fmf, ftime,
                                   icomp, icomp, ncomp, geom[lev-1], geom[lev],
@@ -824,9 +886,8 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
     // beyond a periodic edge still hold initial values rather than their periodic images.
     // Where the new patch touches the seam the two then compete for one cell of the copy,
     // and on a GPU the winner varies from run to run (Channel_Test_ML_seam, issue #768).
-    mf_crse->FillBoundary(geom[lev-1].periodicity());
     MultiFab crse_scratch;
-    const MultiFab& crse_src = periodic_consistent_ghosts(*mf_crse, geom[lev-1], crse_scratch);
+    const MultiFab& crse_src = coarse_for_interp(lev-1, *mf_crse, crse_scratch);
     amrex::InterpFromCoarseLevel(*mf_to_fill, mf_to_fill->nGrowVect(), IntVect(0,0,0),
             crse_src, 0, icomp, ncomp, geom[lev-1], geom[lev],
                                  refRatio(lev-1),

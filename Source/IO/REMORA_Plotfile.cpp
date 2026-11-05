@@ -302,7 +302,9 @@ REMORA::WritePlotFile (int istep_for_plot)
             for (int lev = 1; lev <= finest_level; ++lev) {
                 Vector<MultiFab*> fmf = {&(mf_cc_vel[lev]), &(mf_cc_vel[lev])};
                 Vector<Real> ftime    = {t_new[lev], t_new[lev]};
-                Vector<MultiFab*> cmf = {&mf_cc_vel[lev-1], &mf_cc_vel[lev-1]};
+                MultiFab crse_scratch;
+                MultiFab& crse = coarse_for_interp(lev-1, mf_cc_vel[lev-1], crse_scratch);
+                Vector<MultiFab*> cmf = {&crse, &crse};
                 Vector<Real> ctime    = {t_new[lev], t_new[lev]};
 
                 MultiFab mf_to_fill;
@@ -1214,10 +1216,17 @@ REMORA::plot_node_coords (Vector<MultiFab>& mf_xy)
             null_dom_bcs[n].setHi(dir, REMORABCType::int_dir);
         }
     }
+    // Coordinates are not periodic: on a domain periodic in x, nodes 0 and nx of the coarse
+    // level are both valid and a domain width apart, so a periodic copy would give the node at
+    // the seam two different sources. Copy without periodicity, as interp_grid_coords_from_coarse
+    // does (#775).
     for (int lev = 1; lev <= finest_level; ++lev) {
         const IntVect rr(ref_ratio[lev-1][0], ref_ratio[lev-1][1], 1);
+        const Geometry& cg = geom[lev-1];
+        const Geometry crse_geom_nonperiodic(cg.Domain(), cg.ProbDomain(), cg.Coord(),
+                                             Array<int,AMREX_SPACEDIM>{AMREX_D_DECL(0,0,0)});
         InterpFromCoarseLevel(mf_xy[lev], t_new[lev], mf_xy[lev-1], 0, 0, 2,
-                              geom[lev-1], geom[lev],
+                              crse_geom_nonperiodic, geom[lev],
                               null_bc_for_fill, 0, null_bc_for_fill, 0,
                               rr, &node_bilinear_interp, null_dom_bcs, 0);
     }
