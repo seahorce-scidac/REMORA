@@ -2241,11 +2241,20 @@ private:
     /** \brief Evolve tracers and hydro particles */
     void evolveTracers (int lev, amrex::Real dt);
 
+    /** \brief Keep advance_3d's W, as omega, for the particles to advect with, if any species
+     *         advects on this level */
+    void store_particle_omega (int lev, const amrex::MultiFab& mf_W);
+
     /** \brief Per level, the omega and the boundary-filled u and v that particles advect
      *  with. Kept between steps, and redefined when the level's grids change. */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> particle_omega;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> particle_u;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> particle_v;
+    /** \brief Per level, whether store_particle_omega has run since the last evolveTracers,
+     *  and so whether particle_omega and particle_advect hold this step's values */
+    amrex::Vector<int> particle_omega_stored;
+    /** \brief Per level and species, whether the species advects on the level this step */
+    amrex::Vector<amrex::Vector<int>> particle_advect;
 
 #endif
     /** \brief Verbosity level of output */

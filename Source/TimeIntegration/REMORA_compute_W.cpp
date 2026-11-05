@@ -77,8 +77,9 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
     const int N = Geom(lev).Domain().size()[2]-1;
 
     // The first ghost column is computed only where both the output and the fluxes have it:
-    // the particles' omega has it from the fluxes update_massflux_3d keeps on grown boxes,
-    // while the diagnostic omega builds its fluxes on the valid faces only.
+    // the fluxes update_massflux_3d keeps on grown boxes have it (the particles normally take
+    // the same omega from advance_3d, see store_particle_omega), while the diagnostic omega
+    // builds its fluxes on the valid faces only.
     IntVect ng(0);
     for (int d = 0; d < 2; ++d) {
         ng[d] = amrex::min(amrex::min(mf_omega.nGrowVect()[d], 1),

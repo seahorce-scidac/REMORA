@@ -325,6 +325,12 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         compute_W(gbx1D, W, Huon, Hvom, z_w, h, N);
     }
 
+#ifdef REMORA_USE_PARTICLES
+    // The particles advect with this W at the end of the step (evolveTracers); nothing
+    // between here and there changes it, the fluxes or z_w
+    store_particle_omega(lev, mf_W);
+#endif
+
     const int nstp = (iic) % 2;
     nnew = 1-nstp;
     if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
