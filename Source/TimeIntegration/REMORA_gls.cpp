@@ -4,15 +4,22 @@ using namespace amrex;
 
 namespace {
 /**
- * std::pow for the GLS exponents, which are run-time parameters and often 0 or 1
- * (gls_m + gls_n/2 and -gls_n for k-epsilon). A pow with error under 1 ulp (glibc: 0.52)
- * returns x for pow(x,1) and 1 for pow(x,0), so skipping the call keeps the result.
+ * std::pow for the GLS exponents, which are run-time parameters and for the usual closures
+ * are small multiples of 1/2 (k-epsilon: 1, -1, 3/2). Those are evaluated with sqrt,
+ * multiplies and divides, which cost a few ns where a pow call costs ~17. pow(x,1) = x and
+ * pow(x,0) = 1 are exact; the others can differ from std::pow by about an ulp.
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Real gls_pow (Real x, Real y) noexcept
 {
     if (y == Real(1.0)) { return x; }
     if (y == Real(0.0)) { return Real(1.0); }
+    if (y == Real(-1.0)) { return Real(1.0) / x; }
+    if (y == Real(1.5)) { return x * std::sqrt(x); }
+    if (y == Real(0.5)) { return std::sqrt(x); }
+    if (y == Real(-0.5)) { return Real(1.0) / std::sqrt(x); }
+    if (y == Real(-1.5)) { return Real(1.0) / (x * std::sqrt(x)); }
+    if (y == Real(2.0)) { return x * x; }
     return std::pow(x, y);
 }
 }
