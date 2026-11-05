@@ -128,8 +128,11 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
     const auto dxi = geom.InvCellSizeArray();
     const int nz = geom.Domain().length(2);
 
+    // Midpoints whose omega stencil reaches beyond the first ghost column (see below)
+    Long n_outside = 0;
+
 #ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
+#pragma omp parallel if (Gpu::notInLaunchRegion()) reduction(+:n_outside)
 #endif
     for (ParIterType pti(*this, a_lev); pti.isValid(); ++pti)
     {
@@ -154,6 +157,13 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
         const auto zheight = (*a_z_height)[grid].const_array();
         const auto pmarr = a_pm[grid].const_array();
         const auto pnarr = a_pn[grid].const_array();
+
+        // omega is computed only out to the first ghost column of the grid (store_particle_omega);
+        // further out it is zero at non-periodic domain edges and coarse/fine boundaries
+        const auto vlo = lbound(pti.validbox());
+        const auto vhi = ubound(pti.validbox());
+        Gpu::DeviceScalar<Long> outside(0);
+        Long* outside_ptr = outside.dataPtr();
 
         ParallelFor(n, [=] AMREX_GPU_DEVICE (int i)
         {
@@ -202,6 +212,14 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
             const ParticleReal yh = y0 + static_cast<ParticleReal>(myhalf*a_dt*ydot);
             const Real sh = reflect(s0 + myhalf*a_dt*sdot);
 
+            // The midpoint reads omega more than one column outside the grid only if the half
+            // step carried the particle more than half a cell out, i.e. a particle CFL number
+            // above 1 for the step
+            const HorizontalStencil wst = horizontal_stencil(xh, yh, false, false, plo, dxi);
+            if (wst.i < vlo.x-1 || wst.i+1 > vhi.x+1 || wst.j < vlo.y-1 || wst.j+1 > vhi.y+1) {
+                Gpu::Atomic::AddNoRet(outside_ptr, Long(1));
+            }
+
             // Full step with the rates at the midpoint
             rates(xh, yh, level_index_in_column(xh, yh, sh, nz, plo, dxi, zheight),
                   u, v, xdot, ydot, sdot);
@@ -220,6 +238,16 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
             // includes the motion of the levels as well as the motion across them
             vz_ptr[i] = (p.pos(2) - z0) / a_dt;
         });
+
+        n_outside += outside.dataValue();
+    }
+
+    ParallelDescriptor::ReduceLongSum(n_outside);
+    if (n_outside > 0) {
+        Abort("REMORAPC::AdvectWithFlow(): " + std::to_string(n_outside) + " particle(s) on level "
+              + std::to_string(a_lev) + " moved more than half a cell outside their grid in half"
+              + " a step, beyond the ghost cells omega is computed in; the time step is too long"
+              + " for the particles (CFL number above 1)");
     }
 
     if (m_verbose > 1)
