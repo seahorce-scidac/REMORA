@@ -77,16 +77,18 @@ using amrex::ParmParse;
 using amrex::Real;
 using amrex::Vector;
 
-Vector<Real>
+BiologyConstantIC
 read_constant_biology_ic (const BiologyDeclaration& declaration,
                           const std::string& remora_prefix)
 {
     ParmParse pp(remora_prefix);
-    Vector<Real> values(declaration.tracer_names.size());
+    BiologyConstantIC values;
     std::string missing;
-    for (int n = 0; n < static_cast<int>(declaration.tracer_names.size()); ++n) {
-        const std::string& name = declaration.tracer_names[n];
-        if (!pp.query(("biology_initial_" + name).c_str(), values[n])) {
+    for (const auto& name : declaration.tracer_names) {
+        Real value;
+        if (pp.query(("biology_initial_" + name).c_str(), value)) {
+            values[name] = value;
+        } else {
             missing += " " + remora_prefix + ".biology_initial_" + name;
         }
     }
@@ -100,13 +102,15 @@ read_constant_biology_ic (const BiologyDeclaration& declaration,
 void
 initialize_constant_biology (const BiologyDeclaration& declaration,
                              BiologyInitContext& context,
-                             const Vector<Real>& values)
+                             const BiologyConstantIC& values)
 {
-    const int count = static_cast<int>(declaration.tracer_names.size());
-    AMREX_ALWAYS_ASSERT(static_cast<int>(values.size()) == count);
-    for (int n = 0; n < count; ++n) {
-        context.state.setVal(values[n], context.component_start + n, 1,
-                             context.state.nGrowVect());
+    for (const auto& name : declaration.tracer_names) {
+        const auto value = values.find(name);
+        if (value == values.end()) {
+            Abort("No constant biology initial value for tracer " + name);
+        }
+        const int comp = declaration.component_index(name, context.component_start);
+        context.state.setVal(value->second, comp, 1, context.state.nGrowVect());
     }
 }
 

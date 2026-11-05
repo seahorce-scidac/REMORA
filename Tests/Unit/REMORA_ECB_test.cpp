@@ -156,8 +156,11 @@ void check_ecb_reference ()
         for (int n = 0; n < 18; ++n) {
             ic_pp.add(("biology_initial_" + model->declaration().tracer_names[n]).c_str(), initial[n]);
         }
-        const Vector<Real> constant_ic = read_constant_biology_ic(model->declaration(), prefix);
-        AMREX_ALWAYS_ASSERT(constant_ic == initial);
+        const BiologyConstantIC constant_ic = read_constant_biology_ic(model->declaration(), prefix);
+        AMREX_ALWAYS_ASSERT(constant_ic.size() == 18);
+        for (int n = 0; n < 18; ++n) {
+            AMREX_ALWAYS_ASSERT(constant_ic.at(model->declaration().tracer_names[n]) == initial[n]);
+        }
         initialize_constant_biology(model->declaration(), init, constant_ic);
         if (test == 0) {
             // Ghost cells are set too, and physical fields and dyes are not.
