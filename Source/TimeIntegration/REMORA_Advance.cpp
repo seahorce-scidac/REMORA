@@ -97,6 +97,10 @@ REMORA::register_coarse_data (int lev, Real time, Real dt_lev)
     // step before any child substep, so {t_old, t_new} brackets every time the child asks for.
     if (lev >= finest_level) { return; }
 
+    // The finer level's cached coarse-fine fills were made from the state replaced here
+    if (int(cf_crse_gen.size()) <= lev) { cf_crse_gen.resize(lev+1, 0); }
+    ++cf_crse_gen[lev];
+
     const Periodicity& per = geom[lev].periodicity();
 
     // The parallel copies inside RegisterCoarseData need filled ghost cells. Each copy

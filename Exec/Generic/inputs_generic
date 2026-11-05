@@ -118,15 +118,15 @@ remora.bdy_vbar_time_varname = <UNKNOWN_DEFAULT>
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_zeta_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=int; method=queryAdd
 remora.biology_debug = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=int; method=queryAdd
 remora.biology_debug_i = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=int; method=queryAdd
 remora.biology_debug_j = <UNKNOWN_DEFAULT>
 
@@ -165,6 +165,10 @@ remora.bulk_flux_scheme = coare30
 # Whether to use bulk fluxes parametrization
 # type=bool; method=queryAdd
 remora.bulk_fluxes = true
+
+# source: Source/REMORA.cpp
+# type=int; method=queryAdd
+remora.cf_2d_fill_cache = <UNKNOWN_DEFAULT>
 
 # source: Source/REMORA.cpp
 # type=int; method=queryAdd
@@ -326,6 +330,22 @@ remora.do_rivers_temp = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 remora.do_substep = <UNKNOWN_DEFAULT>
 
+# Leave all-land level-0 boxes out; see drop_dry_level0_boxes.
+# type=bool; method=queryAdd
+remora.drop_dry_boxes = <UNKNOWN_DEFAULT>
+
+# Fields dry_ghost_test overwrites: the evolving ones, or also the grid, metrics, masks and forcing
+# type=string; method=query
+remora.dry_ghost_fields = dynamic
+
+# Debug: after initialization, overwrite the ghost cells of kept boxes that lie in dropped boxes
+# type=int; method=queryAdd
+remora.dry_ghost_test = <UNKNOWN_DEFAULT>
+
+# Value written by dry_ghost_test = 2
+# type=Real; method=query
+remora.dry_ghost_value = <UNKNOWN_DEFAULT>
+
 # time step ratio between a level and its parent
 # type=unknown; method=queryarr
 remora.dt_ref_ratio = <UNKNOWN_DEFAULT>
@@ -350,199 +370,199 @@ remora.eos_type = linear
 # type=bool; method=queryAdd
 remora.expand_plotvars_to_unif_rr = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.AttChl = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.AttSW = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=int; method=queryAdd
 remora.fennel.BioIter = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.Chl2C_m = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.ChlMin = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.CoagR = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.D_p5NH4 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.I_thNH4 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.K_NH4 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.K_NO3 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.K_PO4 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.K_Phy = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.LDeRRC = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.LDeRRN = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.NitriR = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.PARfrac = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.PhyCN = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.PhyIP = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.PhyIS = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.PhyMR = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.PhyMin = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.RDeRRC = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.RDeRRN = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.R_P2N = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.SDeRRC = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.SDeRRN = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.Vp0 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.ZooAE_N = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.ZooBM = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.ZooCN = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.ZooER = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.ZooGR = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.ZooMR = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.ZooMin = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=bool; method=queryAdd
 remora.fennel.bio_sediment = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=bool; method=queryAdd
 remora.fennel.carbon = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=string; method=queryAdd
 remora.fennel.co2_schmidt = wanninkhof1992
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=bool; method=queryAdd
 remora.fennel.denitrification = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Array4<Real>; method=queryAdd
 remora.fennel.odu = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=bool; method=queryAdd
 remora.fennel.oxygen = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=string; method=queryAdd
 remora.fennel.oxygen_schmidt = wanninkhof1992
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.pCO2air = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=string; method=queryAdd
 remora.fennel.pco2air_type = constant
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Array4<Real>; method=queryAdd
 remora.fennel.po4 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=bool; method=queryAdd
 remora.fennel.river_don = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=bool; method=queryAdd
 remora.fennel.talk_nonconserv = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.wLDet = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.wPhy = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=Real; method=queryAdd
 remora.fennel.wSDet = <UNKNOWN_DEFAULT>
 
@@ -690,6 +710,14 @@ remora.init_l1ad_T = false
 # type=Vector<int>; method=queryarr
 remora.is_periodic = 1 1 0
 
+# How boxes are assigned to ranks
+# type=string; method=queryAdd
+remora.load_balance = <UNKNOWN_DEFAULT>
+
+# Weight of a land cell relative to a wet one in the box weights
+# type=Real; method=queryAdd
+remora.load_balance_land_weight = <UNKNOWN_DEFAULT>
+
 # Treat external longwave as downward radiation and compute net longwave
 # type=bool; method=queryAdd
 remora.longwave_down = <UNKNOWN_DEFAULT>
@@ -802,9 +830,9 @@ remora.nscalar = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 remora.obcfac = <UNKNOWN_DEFAULT>
 
-# target tile size
+# CPU: 16x16 columns, the whole column in z. On a Perlmutter Milan node (Upwelling, 84 M cells, 128x128 boxes) this was the fastest shape at 128x1, 64x2 and 32x4 ranks x threads, 25-35% faster than 16-row strips and 5-10% faster than 8x8, because each kernel pass's working set stays in cache. On a small workstation the ordering can differ, so it is worth timing a few shapes (Docs: Performance tuning). Where tiles overlap on shared scratch every tile writes the same value, so the answers do not depend on the tiling or the thread count.
 # type=Vector<int>; method=queryarr
-remora.omp_tile_size = 8 8 1024000
+remora.omp_tile_size = 16 16 1024000
 
 # Outputs forcing variables if true
 # type=bool; method=queryAdd
@@ -1082,7 +1110,7 @@ remora.tnudg = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.tracer_horizontal_advection_scheme = upstream3
 
-# Bridge-vs-native selection and diagnostic verbosity are runtime controls so a parity comparison never requires a rebuild. Both parse unconditionally; without USE_FENNEL_FORT there is no bridge to select, so asking for it is an error rather than a silent fallback to the path being validated.
+# source: Source/Biology/REMORA_FennelBiology.cpp
 # type=int; method=queryAdd
 remora.use_biology_cpp_answer = <UNKNOWN_DEFAULT>
 
@@ -1269,8 +1297,8 @@ amr.max_grid_size_x = <REQUIRED>
 # type=Vector<int>; method=getarr
 amr.max_grid_size_y = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp
-# type=Vector<int>; method=getarr
+# A box holds whole water columns: the vertical sweeps (tridiagonal solves, vertical integrals, the vertical grid) run down a box's own column, and the vertical is never refined, so every level has the same number of cells in z. amr.max_grid_size alone would also cut the column whenever it is smaller than the number of vertical cells.
+# type=Vector<int>; method=add
 amr.max_grid_size_z = <REQUIRED>
 
 # Default max_level to 0 if not in file
@@ -1511,9 +1539,9 @@ fabarray.comm_tile_size = <UNKNOWN_DEFAULT>
 # type=class; method=query
 fabarray.maxcomp = <UNKNOWN_DEFAULT>
 
-# source: Source/main.cpp
+# CPU: 16x16 columns, the whole column in z. On a Perlmutter Milan node (Upwelling, 84 M cells, 128x128 boxes) this was the fastest shape at 128x1, 64x2 and 32x4 ranks x threads, 25-35% faster than 16-row strips and 5-10% faster than 8x8, because each kernel pass's working set stays in cache. On a small workstation the ordering can differ, so it is worth timing a few shapes (Docs: Performance tuning). Where tiles overlap on shared scratch every tile writes the same value, so the answers do not depend on the tiling or the thread count.
 # type=Vector<int>; method=queryAdd
-fabarray.mfiter_tile_size = 8 8 1024000
+fabarray.mfiter_tile_size = 16 16 1024000
 
 #==============================================================================
 # VISMF PARAMETERS
@@ -1596,6 +1624,10 @@ amrex.async_out_nfiles = 64
 # source: Src/Base/AMReX.cpp
 # type=unknown; method=query
 amrex.call_addr2line = <UNKNOWN_DEFAULT>
+
+# source: Src/Base/AMReX_FabArrayBase.cpp
+# type=class; method=queryAdd
+amrex.fb.on_arrival_min_bytes = <UNKNOWN_DEFAULT>
 
 # source: Src/Base/AMReX_ForkJoin.cpp
 # type=bool; method=query

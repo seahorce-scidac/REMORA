@@ -303,6 +303,70 @@ public:
     virtual void MakeNewLevelFromScratch (int lev, amrex::Real time, const amrex::BoxArray& ba,
                       const amrex::DistributionMapping& dm) override;
 
+    /** \brief Distribution mapping for a new BoxArray on level lev, by remora.load_balance:
+     *         each box weighs its wet cells plus remora.load_balance_land_weight times its
+     *         land cells (overrides AmrMesh) */
+    virtual amrex::DistributionMapping MakeDistributionMap (int lev, amrex::BoxArray const& ba) override;
+
+    /** \brief The rho-point mask a level lev on mskr's layout would get, before that level
+     *         exists; false if it cannot be known yet */
+    bool probe_rho_mask (int lev, amrex::MultiFab& mskr);
+
+    /** \brief Wet cells in each box of a prospective layout of level lev; false if unknown */
+    bool wet_cells_per_box (int lev, const amrex::BoxArray& ba, amrex::Vector<amrex::Long>& wet);
+
+    /** \brief The remora.load_balance spelling of the current strategy */
+    std::string load_balance_name () const;
+
+    /** \brief Regrid (overrides AmrCore), then check that level 1 stays clear of dropped
+     *         level-0 boxes */
+    virtual void regrid (int lbase, amrex::Real time, bool initial=false) override;
+
+    /** \brief The kept boxes of a level-0 BoxArray under remora.drop_dry_boxes */
+    amrex::BoxArray drop_dry_level0_boxes (const amrex::BoxArray& ba);
+
+    /** \brief Level-0 index region a finer level may need; unbounded if it can go anywhere */
+    amrex::BoxList level0_refine_footprint (bool& unbounded) const;
+
+    /** \brief Whether level 0's BoxArray leaves part of the domain out */
+    bool level0_has_holes () const;
+
+    /** \brief Abort if level 1 or its coarse stencil reaches a dropped level-0 box */
+    void check_dry_box_nesting () const;
+
+    /** \brief The level-0 fields: the evolving ones, and with all the static ones too */
+    amrex::Vector<amrex::MultiFab*> level0_fields (bool all);
+
+    /** \brief Write val into the cells of a level-0 field inside the domain but in no box */
+    amrex::Long set_dry_ghost_cells (amrex::MultiFab& mf, amrex::Real val);
+
+    /** \brief Zero those cells in every level-0 field (see set_dry_ghost_cells) */
+    void zero_level0_dry_ghost_cells ();
+
+    /** \brief Check level 0's mask against the mask the dropping decision was made on */
+    void check_dropped_level0_mask ();
+
+    /** \brief remora.dry_ghost_test: overwrite the ghost cells of kept level-0 boxes that lie in
+     *         dropped boxes (1: signalling NaN, 2: a large finite value) after initialization */
+    void poison_dry_ghost_cells ();
+
+    /** \brief Leave out level-0 boxes that are land over their whole footprint
+     *         (remora.drop_dry_boxes) */
+    bool drop_dry_boxes = true;
+    /** \brief Debug: see poison_dry_ghost_cells */
+    int dry_ghost_test = 0;
+    /** \brief Physical-space region of each refinement indicator, for level0_refine_footprint */
+    amrex::Vector<amrex::RealBox> refine_regions;
+    /** \brief Whether some refinement indicator has no region, so it may refine anywhere */
+    bool refine_region_unbounded = false;
+
+    /** \brief How MakeDistributionMap assigns boxes to ranks (remora.load_balance) */
+    enum class LoadBalance { amrex, sfc, knapsack, roundrobin };
+    LoadBalance load_balance = LoadBalance::sfc;
+    /** \brief cost of a land cell relative to a wet one in the load-balance weights
+     *         (remora.load_balance_land_weight); 1 weighs boxes by cell count */
+    amrex::Real load_balance_land_weight = amrex::Real(1.0);
+
     /** \brief Set pm and pn arrays and x/y coords on level lev */
     void set_grid_scale (int lev);
 
@@ -311,6 +375,9 @@ public:
 
     /** \brief Set curvilinear derivative terms on level lev based on pm and pn */
     void set_curvilinear_terms_from_grid_scale (int lev);
+
+    /** \brief fill vec_metric_r/u/v/p from the level's final pm and pn */
+    void set_derived_metrics (int lev);
 
     /** \brief Set pm/pn by averaging down from higher-resolution grid */
     void set_grid_vars_averaged_down (int lev);
@@ -552,10 +619,11 @@ public:
      *  every fast step: the x and y mass fluxes of the current fast step */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DUon;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DVom;
-    /** \brief Scratch for the barotropic step: the n_scratch_2d work fields of advance_2d
-     *  (depths, free-surface gradients, right-hand sides), cell-centered 2D */
+    /** \brief Scratch for the barotropic step: the n_scratch_2d fields one pass of
+     *  advance_2d hands the next (new depth, free-surface pressure-gradient terms, and the
+     *  momentum right-hand sides stored at their face index), cell-centered 2D */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_scratch_2d;
-    static constexpr int n_scratch_2d = 12;
+    static constexpr int n_scratch_2d = 7;
     /** \brief A fine level's advective tracer fluxes on its faces, kept only when OpenMP
      *  threads defer the flux-register FineAdd to a fixed-order pass (see advance_3d) */
     amrex::Vector<amrex::Array<amrex::MultiFab,AMREX_SPACEDIM>> vec_reflux_flux;
@@ -577,6 +645,10 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Dvbar_old;
     /** \brief see vec_Dvbar_old (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Dvbar_new;
+    /** \brief per level, whether vec_Dubar_new and vec_Dvbar_new hold no previous step's flux
+     *         (just allocated, or a restart from a checkpoint without them), so the next
+     *         store_2d_flux sets the old snapshot to the new one instead of to that zero */
+    amrex::Vector<int> Dubar_fresh;
     /** \brief free surface at the start and end of this level's step, every leapfrog
      *         component holding the same value. What a subcycled finer level interpolates
      *         in time to get its contact points, as ROMS's put_refine2d does (2D) */
@@ -626,6 +698,16 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pm_full_domain;
     /** \brief horizontal scaling factor: 1 / dy (2D) on whole domain */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn_full_domain;
+
+    /** \brief metric products of pm and pn at rho points, components MetricR (2D).
+     *  Recomputed by set_derived_metrics whenever set_grid_scale sets pm and pn */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_r;
+    /** \brief metric products at u points, components MetricU (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_u;
+    /** \brief metric products at v points, components MetricV (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_v;
+    /** \brief metric products at psi points, components MetricP (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_p;
 
     /** \brief coriolis factor (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_fcor;
@@ -926,23 +1008,11 @@ public:
                     const amrex::Array4<amrex::Real const>& bvstr,
                     const amrex::Array4<amrex::Real const>& Huon,
                     const amrex::Array4<amrex::Real const>& Hvom,
-                    const amrex::Array4<amrex::Real const>& pm,
-                    const amrex::Array4<amrex::Real const>& pn,
+                    const amrex::Array4<amrex::Real const>& omn_u,
+                    const amrex::Array4<amrex::Real const>& omn_v,
                     const amrex::Array4<amrex::Real const>& W,
                     const amrex::Array4<amrex::Real      >& FC,
                     int nrhs, int N);
-
-    /** \brief RHS terms for 2D momentum */
-    void rhs_uv_2d (int lev,
-                    const amrex::Box& xbx,
-                    const amrex::Box& ybx,
-                    const amrex::Array4<amrex::Real const>& uold,
-                    const amrex::Array4<amrex::Real const>& vold,
-                    const amrex::Array4<amrex::Real      >& ru,
-                    const amrex::Array4<amrex::Real      >& rv,
-                    const amrex::Array4<amrex::Real const>& Duon,
-                    const amrex::Array4<amrex::Real const>& Dvom,
-                    const int nrhs);
 
     /** \brief Wrapper around equation of state calculation */
     void rho_eos (const amrex::Box& bx,
@@ -997,8 +1067,8 @@ public:
                  const amrex::Box& vtbx,
                  const amrex::Array4<amrex::Real      >& ru,
                  const amrex::Array4<amrex::Real      >& rv,
-                 const amrex::Array4<amrex::Real const>& pn,
-                 const amrex::Array4<amrex::Real const>& pm,
+                 const amrex::Array4<amrex::Real const>& on_u,
+                 const amrex::Array4<amrex::Real const>& om_v,
                  const amrex::Array4<amrex::Real const>& rho,
                  const amrex::Array4<amrex::Real      >& FC,
                  const amrex::Array4<amrex::Real const>& Hz,
@@ -1065,7 +1135,10 @@ public:
     void compute_wvel (int lev, amrex::MultiFab& mf_w, const amrex::MultiFab& mf_omega);
 
     /** \brief Region of a level that its NetCDF output covers */
-    amrex::Box netcdf_subdomain (int lev, int which_subdomain = 0) const;
+    amrex::Box netcdf_subdomain (int lev) const;
+
+    /** \brief Whether a level's grids leave cells of its NetCDF region uncovered */
+    bool netcdf_subdomain_has_gaps (int lev) const;
 
     /** \brief omega and w on the s_w points of the NetCDF output, ghost columns filled and masked */
     void compute_omega_and_w (int lev, amrex::MultiFab* mf_omega, amrex::MultiFab* mf_wvel);
@@ -1080,7 +1153,7 @@ public:
                              const amrex::Array4<amrex::Real      >& phibar,
                              const amrex::Array4<amrex::Real      >& Hphi,
                              const amrex::Array4<amrex::Real const>& Hz,
-                             const amrex::Array4<amrex::Real const>& pm_or_pn,
+                             const amrex::Array4<amrex::Real const>& om_v_or_on_u,
                              const amrex::Array4<amrex::Real const>& Dphi1,
                              const amrex::Array4<amrex::Real const>& Dphi2,
                              const amrex::Array4<amrex::Real      >& DC,
@@ -1096,7 +1169,7 @@ public:
                        const amrex::Array4<amrex::Real const>& Dphi_avg1,
                        const amrex::Array4<amrex::Real      >& DC,
                        const amrex::Array4<amrex::Real      >& CF,
-                       const amrex::Array4<amrex::Real const>& pm_or_pn,
+                       const amrex::Array4<amrex::Real const>& on_u_or_om_v,
                        const amrex::Array4<amrex::Real const>& msk,
                        const int nnew, const int N);
 
@@ -1114,6 +1187,8 @@ public:
                    const amrex::Array4<amrex::Real const>& Hz,
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& metr,
+                   const amrex::Array4<amrex::Real const>& metp,
                    const amrex::Array4<amrex::Real const>& mskp,
                    int nrhs, int nnew,
                    const amrex::Real dt_lev);
@@ -1127,6 +1202,8 @@ public:
                   const amrex::Array4<amrex::Real const>& z_r,
                   const amrex::Array4<amrex::Real const>& pm,
                   const amrex::Array4<amrex::Real const>& pn,
+                  const amrex::Array4<amrex::Real const>& metu,
+                  const amrex::Array4<amrex::Real const>& metv,
                   const amrex::Array4<amrex::Real const>& msku,
                   const amrex::Array4<amrex::Real const>& mskv,
                   const amrex::Real dt_lev,
@@ -1140,6 +1217,8 @@ public:
                    const amrex::Array4<amrex::Real const>& Hz,
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& metu,
+                   const amrex::Array4<amrex::Real const>& metv,
                    const amrex::Array4<amrex::Real const>& msku,
                    const amrex::Array4<amrex::Real const>& mskv,
                    const amrex::Real dt_lev, const int ncomp);
@@ -1153,6 +1232,8 @@ public:
                       const amrex::Array4<amrex::Real const>& z_r,
                       const amrex::Array4<amrex::Real const>& pm,
                       const amrex::Array4<amrex::Real const>& pn,
+                      const amrex::Array4<amrex::Real const>& metu,
+                      const amrex::Array4<amrex::Real const>& metv,
                       const amrex::Array4<amrex::Real const>& msku,
                       const amrex::Array4<amrex::Real const>& mskv,
                       const amrex::Real dt_lev,
@@ -1208,8 +1289,8 @@ public:
                    const amrex::Array4<amrex::Real const>& var_clim,
                    const amrex::Array4<amrex::Real const>& clim_coeff,
                    const amrex::Array4<amrex::Real const>& Hz,
-                   const amrex::Array4<amrex::Real const>& pm,
-                   const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& om_face,
+                   const amrex::Array4<amrex::Real const>& on_face,
                    const amrex::Real dt_lev = zero);
 
     /** \brief Set 2D momentum arrays from 3D momentum */
@@ -1363,7 +1444,20 @@ public:
                     const amrex::Real dt = zero,
                     const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_old = {},
-                    amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {});
+                    amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {},
+                    const int cf_cache_slot = -1);
+
+    /** \brief Make cf_2d_cache[lev][slot] fit mf's layout: on a layout change, find the
+     *  ghost cells a two-level fill of mf from crse writes (by a probe fill) and drop the
+     *  cached values */
+    void cf_2d_cache_entry (int lev, int slot, const amrex::MultiFab& mf,
+                            const amrex::MultiFab& crse, amrex::Real time,
+                            amrex::Interpolater* mapper, int bccomp);
+
+    /** \brief Coarse data ready for a coarse-to-fine interpolation: ghost cells exchanged,
+     *         and those beyond a wall made to agree with their periodic images */
+    amrex::MultiFab& coarse_for_interp (int crse_lev, amrex::MultiFab& crse,
+                                        amrex::MultiFab& scratch);
 
     /** \brief Fill a new MultiFab by copying in phi from valid region and filling ghost cells without applying boundary conditions */
     void FillPatchNoBC (int lev, amrex::Real time,
@@ -1483,6 +1577,8 @@ public:
     void init_bdry_from_netcdf (int lev);
     /** \brief Mask data initialization from NetCDF file */
     void init_masks_from_netcdf (int lev);
+    /** \brief fill a rho-point mask on any layout of level lev from its NetCDF grid file(s) */
+    void fill_rho_mask_from_netcdf (int lev, amrex::MultiFab& mskr);
     /** \brief Full domain high-res mask data initialization from NetCDF file */
     void init_masks_full_domain_from_netcdf ();
     /** \brief Bathymetry data initialization from NetCDF file */
@@ -1670,12 +1766,16 @@ private:
                                 amrex::MultiFab const* mf_wvel = nullptr);
 
     /** \brief Write a particular NetCDF plotfile */
-    void WriteNCPlotFile_which (int lev, int which_subdomain,
+    void WriteNCPlotFile_which (int lev,
                                 amrex::MultiFab const* plotMF,
                                 amrex::MultiFab const* mf_omega,
                                 amrex::MultiFab const* mf_wvel,
-                                bool write_header, ncutils::NCFile& ncf,
+                                bool write_header, bool write_grid,
+                                ncutils::NCFile& ncf,
                                 bool is_history, long long history_record = 0);
+
+    /** \brief NetCDF file a level's output goes to at this output step */
+    std::string netcdf_plot_path (int which_step, int lev) const;
 
     /** \brief Record at which a restarted run continues a history file */
     long long history_restart_record (int lev, const std::string& path);
@@ -1990,6 +2090,29 @@ private:
      *         non-conservative for the same reason as cf_fill_all_kcomp: 1.4e-08 of volume
      *         drift on its own. */
     int cf_time_interp_zeta = 1;
+    /** \brief reuse the coarse-fine ghost values of a fine level's barotropic fills
+     *         (ubar, vbar, zeta in advance_2d). 0: recompute on every fast step, where the
+     *         two-level fill re-exchanges and re-interpolates the coarse level each time.
+     *         1 (default): compute once per (component, fill time) within a parent step and
+     *         replay the result; bitwise identical, since the fill reads only the registered
+     *         coarse data and, for faces, the interface faces FillSet rewrites before every
+     *         fill, none of which changes inside the parent step. 2: as 1, but also
+     *         recompute and abort on any difference in the replayed cells. Subcycled driver
+     *         only. */
+    int cf_2d_fill_cache = 1;
+    /** \brief one cached two-level fill: the values it leaves in the ghost cells it writes
+     *         (mask), per component, with the fill time and coarse generation of each */
+    struct CF2DCache {
+        std::unique_ptr<amrex::MultiFab>  vals;
+        std::unique_ptr<amrex::iMultiFab> mask;
+        amrex::Vector<amrex::Real> time;
+        amrex::Vector<long> gen;
+    };
+    /** \brief per level: the caches for ubar, vbar and zeta (slots 0, 1, 2) */
+    amrex::Vector<amrex::Array<CF2DCache,3>> cf_2d_cache;
+    /** \brief per level: bumped whenever register_coarse_data hands the level's new state to
+     *         the next finer level, which invalidates that level's cf_2d_cache */
+    amrex::Vector<long> cf_crse_gen;
     /** \brief distribute the parent's interface mass flux piecewise-constantly over the fine
      *         faces under each parent face, as ROMS's get_persisted2d does, instead of with
      *         the linear tangential variation of AMReX's face interpolator. Both conserve the
@@ -2061,11 +2184,19 @@ private:
     int steps_per_history_file = -1;
     /** \brief Counter for which time index we are writing to in the netcdf history file */
     int history_count = 0;
-    /** \brief Per level, the history file this run last wrote to */
-    amrex::Vector<std::string> history_file_in_use;
-    /** \brief Per level, history_count minus the record written in the file in
-     *  use. Nonzero only after a restart. */
-    amrex::Vector<long long> history_record_shift;
+    /** \brief The NetCDF history file a level is writing to */
+    struct NCHistoryFile {
+        //! File this run last wrote to, empty before the level's first write
+        std::string path;
+        //! Next record to write. A level counts its own records, since a level made by
+        //! tagging may appear, vanish and reappear while history_count counts every output.
+        long long next_record = 0;
+        //! Grids the fixed grid variables were last written for, so they are written
+        //! again only when the level has moved
+        amrex::BoxArray grids_written;
+    };
+    /** \brief Per level, the history file it is writing to */
+    amrex::Vector<NCHistoryFile> history_files;
 
     /** \brief Names of 3D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_3d;
@@ -2114,6 +2245,21 @@ private:
 
     /** \brief Evolve tracers and hydro particles */
     void evolveTracers (int lev, amrex::Real dt);
+
+    /** \brief Keep advance_3d's W, as omega, for the particles to advect with, if any species
+     *         advects on this level */
+    void store_particle_omega (int lev, const amrex::MultiFab& mf_W);
+
+    /** \brief Per level, the omega and the boundary-filled u and v that particles advect
+     *  with. Kept between steps, and redefined when the level's grids change. */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> particle_omega;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> particle_u;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> particle_v;
+    /** \brief Per level, whether store_particle_omega has run since the last evolveTracers,
+     *  and so whether particle_omega and particle_advect hold this step's values */
+    amrex::Vector<int> particle_omega_stored;
+    /** \brief Per level and species, whether the species advects on the level this step */
+    amrex::Vector<amrex::Vector<int>> particle_advect;
 
 #endif
     /** \brief Verbosity level of output */

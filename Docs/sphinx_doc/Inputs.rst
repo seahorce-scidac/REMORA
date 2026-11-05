@@ -389,6 +389,12 @@ List of Parameters
 |                                  | size in each     |                    |                   |
 |                                  | direction        |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
+| **amr.max_grid_size_{x,y,z}**    | maximum grid     | Integer > 0;       | x, y:             |
+|                                  | size in one      |                    | amr.max_grid_size |
+|                                  | direction        | z: at least the    |                   |
+|                                  |                  | number of vertical | z: the number of  |
+|                                  |                  | cells              | vertical cells    |
++----------------------------------+------------------+--------------------+-------------------+
 | **amr.grid_eff**                 | grid             | Real > 0, < 1      | 0.7               |
 |                                  | efficiency at    |                    |                   |
 |                                  |                  |                    |                   |
@@ -466,6 +472,12 @@ Notes
    REMORA always sets the blocking factor in z to 4096, whatever is given, so the
    blocking factor only constrains the grids in x and y.
 
+-  A box always holds whole water columns: the vertical sweeps (the implicit vertical
+   mixing solves, the vertical integrals and the vertical grid itself) run down a box's own
+   column. **amr.max_grid_size_z** therefore defaults to the number of vertical cells,
+   **remora.n_cell** in z, so a small **amr.max_grid_size** only cuts the domain in x and y,
+   and REMORA aborts at startup if a box is shorter than the column.
+
 -  **amr.regrid_int** is a single integer used at every level: each level
    below **amr.max_level** rebuilds the grids of the levels above it every
    **amr.regrid_int** of its own time steps. A value of 0 or less disables
@@ -479,8 +491,9 @@ Notes
 
 -  **amr.blocking_factor** at every level must be a power of 2
 
--  The blocking factor in the z-direction will be forced to a large value automatically to
-   guarantee the domain will not be decomposed in the z-direction
+-  The blocking factor in the z-direction will be forced to a large value automatically, so
+   refined grids are never decomposed in the z-direction; the default of
+   **amr.max_grid_size_z** does the same for the level-0 grids
 
 -  the domain size **remora.n_cell** must be a multiple of
    **amr.blocking_factor** at level 0
@@ -551,6 +564,16 @@ Notes
    -  **remora.cf_time_interp_zeta** (default 1) interpolates the parent free surface in time
       onto the child's own sub-time rather than freezing it at the end of the parent step.
       Non-conservative for the same reason: 1.4e-08 of drift on its own.
+
+   -  **remora.cf_2d_fill_cache** (default 1) is a speed option, not a physics one. A fine
+      level's barotropic fills (``ubar``, ``vbar``, ``zeta``, every fast step) repeat within a
+      parent step for a few (time level, time) pairs, so with 1 the coarse-fine ghost values
+      are computed once per pair and replayed, instead of exchanging and interpolating the
+      parent on every fast step. The results are bitwise identical to 0, which recomputes
+      every time; 2 does both and aborts on any difference in the replayed cells (the
+      ``*_cf_fill_cache_check`` tests run it). ``ubar`` and ``vbar`` are cached only when
+      the coarse-fine fill patchers are in use (``remora.cf_width`` and
+      ``remora.cf_set_width`` at least 0); ``zeta`` always. Subcycled driver only.
 
    -  **remora.cf_avgdown_perimeter** (default 1) leaves the normal-velocity faces on the
       coarse-fine perimeter out of the fine-to-coarse average, as ROMS's ``fine2coarse`` does.
@@ -686,6 +709,102 @@ List of Parameters
 | **remora.mask_consistency**              | What to do when that check fails.      | abort, warn            | abort          |
 |                                          |                                        |                        |                |
 |                                          | Only read when the check is on         |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+
+.. _sec:LandLayout:
+
+Land Layout: Load Balance and Dry Boxes
+---------------------------------------
+
+Two options use the mask to lay a level out over the ranks. Neither changes the answer: the
+first only moves boxes between ranks, and the second leaves out boxes no water cell can reach
+(see :ref:`PerformanceTuning` for when they pay).
+
+``remora.load_balance`` chooses how boxes are assigned to ranks, for every new layout: at
+initialization, at each regrid, for a level made from a coarser one, and on restart. Each box
+weighs its wet cells plus ``remora.load_balance_land_weight`` times its land cells, counted
+from the rho-point mask the level will have (the land weight counts to within 2^-20). ``sfc``
+orders the boxes along a space-filling
+curve and cuts it into pieces of equal weight; ``knapsack`` packs boxes to equalize the
+weight without regard to position; ``roundrobin`` deals them out heaviest first; ``amrex``
+is AMReX's own mapping (its ``DistributionMapping.strategy``, by default the space-filling
+curve, weighted by cell count). A land weight of 1 weighs every box by its cell count, so the
+default, ``sfc`` with a land weight of 1, is exactly AMReX's mapping and reads no mask for it.
+REMORA computes land cells as fully as wet ones -- the masks are multiplications, not branches
+-- so the cell count is the right weight even where land boxes are dropped (below): a kept box
+computes all of its cells. Where the level-0 mask comes from ``remora.hires_grid_level`` it is
+not known before the level is made, and level 0 falls back to cell counts.
+
+``remora.drop_dry_boxes`` (on by default) leaves out of level 0 every box that is land over
+its whole footprint: its own cells and every ghost cell of the mask, up to one cell beyond a non-periodic
+domain edge. Boxes partly wet are kept whole. The dropped cells cost neither memory nor time,
+and no rank holds them. Kept boxes keep their ghost cells in a dropped box, which no exchange
+fills, and the land stencils of a kept box read them. The nearest wet cell is at least four
+cells away and the masks multiply land values out, so what is computed from finite values
+there stays on land: the regression tests write 7 into them after initialization and still
+match the full layout in every plotted field. A NaN there would not stay on land (0 times NaN
+is NaN), and a fresh array holds NaN in a debug build (``amrex.init_snan``), so REMORA writes 0
+into these cells of every level-0 field as soon as the fields are allocated, before anything
+reads them; this also holds on restart. With one refined level, a level-0 box is kept wherever
+level 1 may need it: inside every refinement indicator's box, grown by the tag buffer, by
+``amr.n_proper`` + 1 blocks of the level-1 blocking factor and by the coarse stencil of the
+coarse-fine fills. No box is dropped with ``amr.max_level`` > 1, with an indicator that tags on
+a field (it may refine anywhere), under the atmosphere coupling driver (whose remap assumes
+level 0 covers the domain; the driver must be configured before ``InitData``, and REMORA
+aborts otherwise), or in a build with particles or MOAB. After each regrid REMORA aborts if
+level 1, or the level-0 cells its fills need, reaches a dropped box. A restart keeps the BoxArray of the
+checkpoint, so it continues with the boxes the original run dropped whatever this option says.
+Plotfiles and checkpoints hold the kept boxes only (a valid AMReX plotfile with holes; compare
+two layouts with ``remora_subset_compare``, built with the tests, since ``amrex_fcompare`` needs
+equal BoxArrays); in NetCDF output the dropped cells hold the fill value
+``remora.netcdf_fill_value`` in every gridded variable, the grid fields (``h``, ``pm``,
+``x_rho``, ...) included, which the run no longer holds there and which the grid file still
+has, and the masks hold 0 there. The integrated diagnostics printed at
+``remora.v`` > 0 sum over the cells held, so their ``VOLUME`` leaves out the dropped land, which
+a full-domain run counts. The number of boxes and cells dropped is printed at startup.
+
+What dropping preserves is the solution, not every array: the state and every field on wet
+cells and wet faces are bitwise the same as in a full-domain run, but some momentum
+tendency and scratch arrays in a checkpoint (``XRHS``, ``YRHS``, their 2D forms,
+``DV_avg2``, the previous face fluxes) can differ at land faces on the edges of the dropped
+boxes. Set ``remora.drop_dry_boxes = false`` to compare against an older full-domain run
+with ``amrex_fcompare``, which needs equal BoxArrays.
+
+.. _list-of-parameters-landlayout:
+
+List of Parameters
+~~~~~~~~~~~~~~~~~~
+
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| Parameter                                | Definition                             | Acceptable             | Default        |
+|                                          |                                        |                        |                |
+|                                          |                                        | Values                 |                |
++==========================================+========================================+========================+================+
+| **remora.load_balance**                  | How boxes are assigned to ranks        | sfc, knapsack,         | sfc            |
+|                                          |                                        |                        |                |
+|                                          |                                        | roundrobin, amrex      |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.load_balance_land_weight**      | Weight of a land cell relative to a    | Real >= 0              | 1              |
+|                                          |                                        |                        |                |
+|                                          | wet one in the box weights             |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.drop_dry_boxes**                | Leave out level-0 boxes that are land  | true / false           | true           |
+|                                          |                                        |                        |                |
+|                                          | over their whole footprint             |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.dry_ghost_test**                | Debug: after initialization, overwrite | 0, 1 (signalling NaN), | 0              |
+|                                          |                                        |                        |                |
+|                                          | the ghost cells of kept boxes that lie | 2 (the value below)    |                |
+|                                          |                                        |                        |                |
+|                                          | in dropped boxes                       |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.dry_ghost_value**               | Value written by dry_ghost_test = 2    | Real                   | 1e30           |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.dry_ghost_fields**              | Fields dry_ghost_test overwrites: the  | dynamic, all           | dynamic        |
+|                                          |                                        |                        |                |
+|                                          | evolving ones, or also the grid,       |                        |                |
+|                                          |                                        |                        |                |
+|                                          | metrics, masks and forcing             |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 
 Simulation Time

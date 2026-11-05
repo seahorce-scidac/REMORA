@@ -504,6 +504,7 @@ REMORA::InitData ()
 
     // Every level's mask exists by now, whether built from scratch or read back
     check_mask_consistency();
+    check_dry_box_nesting();
 
 #ifdef REMORA_USE_MOAB
     InitMOABMesh();
@@ -575,6 +576,7 @@ REMORA::InitData ()
         ComputeDt();
     }
 
+    poison_dry_ghost_cells();
 }
 
 /**
@@ -1831,6 +1833,8 @@ REMORA::ensure_stress_rho_arrays (int lev)
         if ((*vec)[lev] == nullptr || (*vec)[lev]->boxArray() != rho_ba ||
             (*vec)[lev]->DistributionMap() != dm) {
             (*vec)[lev] = std::make_unique<MultiFab>(rho_ba, dm, 1, IntVect(NGROW,NGROW,0));
+            // Made after the level, so zero its ghost cells in dropped boxes here
+            if (lev == 0) { set_dry_ghost_cells(*(*vec)[lev], zero); }
         }
     }
 }
@@ -2656,10 +2660,42 @@ REMORA::ReadParameters ()
     pp.queryAdd("cf_avgdown_bar", cf_avgdown_bar);
     pp.queryAdd("cf_fill_all_kcomp", cf_fill_all_kcomp);
     pp.queryAdd("cf_time_interp_zeta", cf_time_interp_zeta);
+    pp.queryAdd("cf_2d_fill_cache", cf_2d_fill_cache);
+    if (cf_2d_fill_cache < 0 || cf_2d_fill_cache > 2) {
+        amrex::Abort("remora.cf_2d_fill_cache must be 0 (recompute), 1 (cache) or 2 (cache and check)");
+    }
     pp.queryAdd("cf_flux_pc", cf_flux_pc);
     pp.queryAdd("cf_avgdown_stencil", cf_avgdown_stencil);
     pp.queryAdd("cf_avgdown_volume_weighted", cf_avgdown_volume_weighted);
     pp.queryAdd("cf_print_iface", cf_print_iface);
+
+    // Box-to-rank assignment; see MakeDistributionMap.
+    {
+        std::string lb = load_balance_name();
+        pp.queryAdd("load_balance", lb);
+        const std::string lbl = amrex::toLower(lb);
+        if (lbl == "amrex") {
+            load_balance = LoadBalance::amrex;
+        } else if (lbl == "sfc") {
+            load_balance = LoadBalance::sfc;
+        } else if (lbl == "knapsack") {
+            load_balance = LoadBalance::knapsack;
+        } else if (lbl == "roundrobin") {
+            load_balance = LoadBalance::roundrobin;
+        } else {
+            amrex::Abort("remora.load_balance must be amrex, sfc, knapsack or roundrobin, not " + lb);
+        }
+        pp.queryAdd("load_balance_land_weight", load_balance_land_weight);
+        if (load_balance_land_weight < zero) {
+            amrex::Abort("remora.load_balance_land_weight must not be negative");
+        }
+    }
+    // Leave all-land level-0 boxes out; see drop_dry_level0_boxes.
+    pp.queryAdd("drop_dry_boxes", drop_dry_boxes);
+    pp.queryAdd("dry_ghost_test", dry_ghost_test);
+    if (dry_ghost_test < 0 || dry_ghost_test > 2) {
+        amrex::Abort("remora.dry_ghost_test must be 0 (off), 1 (signalling NaN) or 2 (remora.dry_ghost_value)");
+    }
 
     // Whether to zero a tracer the correction drives negative, as ROMS does.
     pp.queryAdd("reflux_clamp", reflux_clamp);

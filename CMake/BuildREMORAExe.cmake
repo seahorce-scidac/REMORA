@@ -143,6 +143,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/Initialization/REMORA_init1d.cpp
        ${SRC_DIR}/Initialization/REMORA_init_bcs.cpp
        ${SRC_DIR}/Initialization/REMORA_make_new_level.cpp
+       ${SRC_DIR}/Initialization/REMORA_land_layout.cpp
        ${SRC_DIR}/IO/REMORA_Checkpoint.cpp
        ${SRC_DIR}/IO/REMORA_Plotfile.cpp
        ${SRC_DIR}/IO/REMORA_SetPlotVars.cpp
@@ -169,7 +170,6 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/TimeIntegration/REMORA_prestep_diffusion.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_rhs_t_3d.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_rhs_uv_3d.cpp
-       ${SRC_DIR}/TimeIntegration/REMORA_rhs_uv_2d.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_scale_rhs_vars.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_set_2d_cf_bcs.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_vert_visc_3d.cpp

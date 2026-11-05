@@ -17,7 +17,6 @@ CEXE_sources += REMORA_prestep_diffusion.cpp
 CEXE_sources += REMORA_prestep_t_advection.cpp
 CEXE_sources += REMORA_rhs_t_3d.cpp
 CEXE_sources += REMORA_rhs_uv_3d.cpp
-CEXE_sources += REMORA_rhs_uv_2d.cpp
 CEXE_sources += REMORA_scale_rhs_vars.cpp
 CEXE_sources += REMORA_set_2d_cf_bcs.cpp
 CEXE_sources += REMORA_vert_visc_3d.cpp

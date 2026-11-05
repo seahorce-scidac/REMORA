@@ -80,6 +80,16 @@ void add_par () {
     pp_remora.queryarr("n_cell",n_cell);
     pp.queryAdd("n_cell",n_cell);
 
+    // A box holds whole water columns: the vertical sweeps (tridiagonal solves, vertical
+    // integrals, the vertical grid) run down a box's own column, and the vertical is never
+    // refined, so every level has the same number of cells in z. amr.max_grid_size alone
+    // would also cut the column whenever it is smaller than the number of vertical cells.
+    amrex::Vector<int> n_cell_amr;
+    pp.queryarr("n_cell", n_cell_amr);
+    if (n_cell_amr.size() == AMREX_SPACEDIM && pp.countval("max_grid_size_z") == 0) {
+        pp.add("max_grid_size_z", n_cell_amr[AMREX_SPACEDIM-1]);
+    }
+
     int max_level = 0;
     // Default max_level to 0 if not in file
     if (!pp.query("max_level",max_level)) {

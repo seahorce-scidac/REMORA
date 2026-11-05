@@ -16,6 +16,9 @@ The short version:
   shape changed the time per step by 2x in our tests, more than any other single setting.
 * One MPI rank per core on a node is as fast as any hybrid mix on that node. Threads pay
   off at scale and in memory per node, not in single-node throughput.
+* On coastal domains, leave dry-box dropping on (the default) and fit the box size to the
+  coastline on CPUs; on GPUs, use large boxes. It saved 28 % on a CPU node and 8 to 9 % on
+  GPUs for a grid that is a third land.
 * Leave floating-point contraction off (the default). It costs little and makes the
   answers independent of tiling, thread count and vectorization.
 * Turn off the diagnostics you do not need: ``remora.sum_interval = -1``, ``remora.v = 0``,
@@ -140,13 +143,89 @@ Grid layout and regridding
 
 * ``amr.max_grid_size`` and ``amr.blocking_factor`` set the box sizes. One box per rank
   is the usual target on CPUs; on GPUs larger boxes (256 x 256 columns) amortize the
-  kernel launches better and one box per GPU is best when the memory allows.
+  kernel launches better and one box per GPU is best when the memory allows. A box always
+  spans the whole water column (``amr.max_grid_size_z`` defaults to the number of vertical
+  cells), so these only shape the boxes in x and y.
+
 * Static nests do not need regridding. When the refined region never changes, set
   ``amr.regrid_int = -1`` so no time is spent tagging cells and rebuilding levels (see
   the notes on ``amr.regrid_int`` in :ref:`Inputs <sec:Inputs>`).
 * The number of barotropic (fast) steps per baroclinic step, ``remora.ndtfast``, sets
   the cost of the 2D loop, which is the largest part of a single-level step. Use the
   smallest value that keeps the fast step stable.
+
+Land
+----
+
+Coastal domains are often a third land or more, and REMORA computes land cells as fully as
+wet ones: the land mask multiplies values, it does not skip cells. Two options use the mask
+to spend less on land (details in :ref:`Land Layout <sec:LandLayout>`); neither changes the
+answer.
+
+Dry-box dropping
+~~~~~~~~~~~~~~~~
+
+``remora.drop_dry_boxes``, on by default, leaves out of level 0 every box that is land over
+its whole footprint, that is its own cells and the ghost cells around them. No rank holds a
+dropped box, so the time and memory it would have cost are saved outright, and the remaining
+boxes are shared out among the ranks again. Boxes that are partly wet are kept whole, so the
+saving depends on how well the boxes fit the coastline: smaller boxes leave out more land
+but exchange more halo cells per wet cell. Start with boxes of 32 to 128 columns on CPUs
+(``amr.max_grid_size``) and compare the "keeps N of M boxes" line printed at startup for a
+few sizes. On a Perlmutter CPU node, a 52 M-cell grid with a staircase coastline and 36 %
+land ran 28 % faster with dropping (best layout against best layout, and 27 to 38 % at
+matched box sizes and rank/thread mixes); it dropped 23 to 32 % of the cells depending on
+the box size, and the dropped runs took about the same time at every box size from 32 to
+128. On GPUs, keep the boxes large: on four A100s the same grid ran fastest in boxes of 256
+or 512 columns, where dropping still saved 8 to 9 %, while boxes of 128 columns or fewer
+were slower whether boxes were dropped or not. Dropping is switched off automatically with
+more than one refined level, with a refinement indicator that tags on a field, under the
+atmosphere coupling driver and in builds with particles or MOAB. The solution is the same as
+on the full domain, bitwise on every wet cell and wet face, with every forcing and boundary
+option REMORA has; what differs is the layout. Plotfiles and checkpoints hold only the kept
+boxes, NetCDF output puts the fill value in the dropped region, the integrated ``VOLUME``
+diagnostic leaves the dropped land out, and some momentum-tendency scratch arrays in a
+checkpoint can differ at land faces next to dropped boxes. Set
+``remora.drop_dry_boxes = false`` to get the full-domain layout, for example to compare
+against an older run with ``amrex_fcompare``, which needs equal box layouts; to compare two
+layouts, use ``remora_subset_compare``, built with the regression tests.
+
+Two margins decide which boxes go, as in :numref:`fig:drop_dry_boxes`. The *ghost footprint*
+is the box grown by the three ghost rings the land mask carries (``NGROW + 1``), stopping one
+cell past a non-periodic domain edge: a box is kept if any cell there is water, since its
+stencils read those cells (box A). The *refinement footprint* protects the level-0 cells a
+nest may need: each refinement indicator's box is grown by the tag buffer
+(``amr.n_error_buf``), rounded out to blocks of the level-1 blocking factor divided by the
+refinement ratio, grown by ``amr.n_proper`` + 1 such blocks (AMReX clears tags within
+``n_proper`` blocks of a hole in the coarser level, which would shrink the fine grids), and
+finally by the coarse cells the coarse-fine fills read. A box touching it is kept even if it
+is all land (box B). A box outside both is dropped (box C). The figure is drawn by
+``Docs/sphinx_doc/figures/drop_dry_boxes.py`` with the same rules as the code.
+
+.. _fig:drop_dry_boxes:
+
+.. figure:: ./figures/drop_dry_boxes.svg
+   :width: 100%
+   :alt: A 96 by 64 level-0 grid in 8 by 8 boxes with a coastline to the east, one refinement
+         indicator near the coast and its nested margins, and three example boxes with their
+         ghost footprints.
+
+   Which level-0 boxes ``remora.drop_dry_boxes`` keeps, on an example grid in 8 × 8 boxes
+   with ``amr.n_error_buf = 1``, ``amr.n_proper = 1``, a level-1 blocking factor of 8 and a
+   refinement ratio of 2. Box A is all land but has water in its ghost footprint (dashed); box
+   B is all land over its ghost footprint but touches the refinement footprint (solid purple);
+   box C is outside both and is dropped.
+
+Load balance
+~~~~~~~~~~~~
+
+``remora.load_balance`` weighs boxes by their wet cells when assigning them to ranks. The
+default weighs a land cell like a wet one, which is right because every cell of a kept box
+costs the same: weighing by wet cells alone (``remora.load_balance_land_weight = 0``) piles
+land boxes onto some ranks. On the Perlmutter grid above, with dropped boxes, a land weight
+of 0.5 was 5 to 15 % slower than the default and a weight of 0 was 21 to 44 % slower. The
+option is there for platforms where a lower weight might help, and costs nothing when left
+alone.
 
 Output and diagnostics
 ----------------------
