@@ -39,6 +39,12 @@ prints `IDENTICAL` or the largest relative difference `fcompare` reported.
 `-x "k=v ..."` adds inputs to every run; `-x "$(cat Tests/perf/inputs/gls.in)"` turns on GLS
 vertical mixing (the settings of `Exec/Upwelling/inputs_gls`), the costliest kernel, and
 use a separate `-w` directory so those runs do not mix with the default ones.
+`-N` adds one Nsight Systems run of each revision to the GPU job, after the timed runs, with
+rank 0 under `nsys profile` (CUDA, NVTX, MPI and OS-runtime traces; TinyProfiler regions show
+up as NVTX ranges). Each writes `runs/gpu_upwelling_4gpu_<label>_nsys/profile.nsys-rep` for the
+Nsight Systems timeline and `stats_*.csv` summaries of GPU kernels, CUDA API calls and NVTX
+ranges, and the job output lists the ten costliest kernels and the launch count. These runs
+are slowed by the profiler and are left out of the `summarize.py` table.
 Every CPU build, the baseline included, is compiled with `-ffp-contract=off` (`-F fast` to
 allow FMA fusion in all of them instead), so a baseline that predates REMORA's default does
 not differ at roundoff for that reason alone. A source tree that is reused for another

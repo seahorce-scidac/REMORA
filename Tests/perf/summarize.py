@@ -45,6 +45,8 @@ def main(runs):
         if not m or not os.path.exists(os.path.join(d, "log")):
             continue
         arch, case, cfg, var = m.groups()
+        if var.endswith("_nsys"):   # profiled runs (-N) are slowed by the profiler
+            continue
         rows.setdefault((arch, case, cfg), {})[var] = evolve_time(os.path.join(d, "log"))
         if var not in variants:
             variants.append(var)

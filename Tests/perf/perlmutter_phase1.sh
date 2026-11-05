@@ -21,6 +21,7 @@
 #   -T "spec ..."  extra CPU tile sizes for every revision      []
 #   -F mode        -ffp-contract for every CPU build (off|on|fast) [off]
 #   -x "k=v ..."   extra inputs added to every run, e.g. a mixing scheme  []
+#   -N             also profile each GPU revision with Nsight Systems (one extra run each)
 #                  (-x "$(cat Tests/perf/inputs/gls.in)" turns GLS on)
 #   -q qos         Slurm QOS                                [debug]
 #   -j n           make -j                                  [16]
@@ -38,13 +39,13 @@ set -euo pipefail
 
 ACCOUNT=""; ARCH=both; REVS=""; BASE=""; NEW=""; WORK=""; GULF=""; SIZE="512 1024 40"
 NSTEP=10; QOS=debug; JOBS=16; SUBMIT=1; CPU_CFGS="128x1 64x2 32x4"; TILES=""; FPCONTRACT=off
-XINPUTS=""
-while getopts "A:a:r:b:n:w:g:s:t:q:j:Sc:T:F:x:" opt; do
+XINPUTS=""; NSYS=0
+while getopts "A:a:r:b:n:w:g:s:t:q:j:Sc:T:F:x:N" opt; do
     case $opt in
         A) ACCOUNT=$OPTARG;; a) ARCH=$OPTARG;; r) REVS=$OPTARG;; b) BASE=$OPTARG;; n) NEW=$OPTARG;;
         w) WORK=$OPTARG;; g) GULF=$OPTARG;; s) SIZE=$OPTARG;; t) NSTEP=$OPTARG;;
         q) QOS=$OPTARG;; j) JOBS=$OPTARG;; S) SUBMIT=0;; c) CPU_CFGS=$OPTARG;; T) TILES=$OPTARG;;
-        F) FPCONTRACT=$OPTARG;; x) XINPUTS=$OPTARG;;
+        F) FPCONTRACT=$OPTARG;; x) XINPUTS=$OPTARG;; N) NSYS=1;;
         *) echo "unknown option"; exit 1;;
     esac
 done
@@ -284,9 +285,14 @@ EOF
 fi
 
 # one rank per GPU; CUDA_VISIBLE_DEVICES inverse to the local task id for GPU-aware MPI
+# With NSYS_OUT set, rank 0 runs under Nsight Systems: one rank keeps the report small, and the
+# ranks do the same work. TinyProfiler regions appear as NVTX ranges in CUDA builds.
 cat > "$WORK/gpu_wrap.sh" <<'EOF'
 #!/bin/bash
 export CUDA_VISIBLE_DEVICES=$((3-SLURM_LOCALID))
+if [ -n "${NSYS_OUT:-}" ] && [ "$SLURM_PROCID" = 0 ]; then
+    exec nsys profile --trace=cuda,nvtx,mpi,osrt --force-overwrite true -o "$NSYS_OUT" "$@"
+fi
 exec "$@"
 EOF
 chmod +x "$WORK/gpu_wrap.sh"
@@ -315,6 +321,50 @@ cat >> "$gpu_job" <<EOF
 cd $GULF
 run_set gpu gulf $WORK/runs/gulf.in 4gpu "\$SRUN" amrex.use_gpu_aware_mpi=1
 EOF
+fi
+
+# -N: one more Upwelling run of each revision under Nsight Systems, after the timed runs and
+# kept out of the timings (the run directories end in _nsys, which summarize.py skips).
+if [ $NSYS = 1 ]; then
+cat > "$WORK/nsys_runs.sh" <<'NSYS_EOF'
+#!/bin/bash
+# nsys_runs.sh <work dir> <inputs> "<revision labels>" "<extra inputs>"
+# Writes runs/gpu_upwelling_4gpu_<label>_nsys/profile.nsys-rep (open it in the Nsight Systems
+# GUI for the timeline), CSV summaries of GPU kernels, CUDA API calls and NVTX ranges
+# (stats_*.csv), and prints the ten costliest kernels of each revision.
+W=$1 inp=$2 labels=$3 xin=$4
+SRUN="srun -n 4 --cpus-per-task=32 --cpu-bind=cores $W/gpu_wrap.sh"
+module load cudatoolkit 2>/dev/null || true
+command -v nsys > /dev/null || { echo "nsys not found; load the cudatoolkit module"; exit 1; }
+for v in $labels; do
+    out=$W/runs/gpu_upwelling_4gpu_${v}_nsys; mkdir -p "$out"
+    echo "=== nsys $v  $(date +%T)"
+    NSYS_OUT=$out/profile $SRUN "$W/bin/remora_${v}_gpu" "$inp" remora.plot_int=-1 \
+        remora.check_int=-1 $xin amrex.use_gpu_aware_mpi=1 > "$out/log" 2>&1 \
+        || echo "   NSYS RUN FAILED: $out/log"
+    [ -f "$out/profile.nsys-rep" ] || { echo "   no report written"; continue; }
+    nsys stats --report cuda_gpu_kern_sum,cuda_api_sum,nvtx_sum --format csv \
+        --force-export true -o "$out/stats" "$out/profile.nsys-rep" > "$out/stats.log" 2>&1
+    k=$(ls "$out"/stats*cuda_gpu_kern_sum*.csv 2>/dev/null | head -1)
+    [ -n "$k" ] || { echo "   no kernel summary, see $out/stats.log"; continue; }
+    echo "   top GPU kernels: % of GPU kernel time, calls, name"
+    python3 - "$k" <<'PY'
+import csv, sys
+rows = list(csv.DictReader(open(sys.argv[1])))
+# the column is "Time (%)" in recent nsys and "Time(%)" in older ones
+pct = next((c for c in (rows[0].keys() if rows else []) if c.replace(" ", "") == "Time(%)"), None)
+for r in rows[:10]:
+    p = f"{float(r[pct]):6.1f}" if pct else "     ?"
+    print(f"   {p} %  {int(r['Instances']):8d}  {r['Name'][:90]}")
+total = sum(int(r['Instances']) for r in rows)
+print(f"   {len(rows)} distinct kernels, {total} launches")
+PY
+done
+NSYS_EOF
+chmod +x "$WORK/nsys_runs.sh"
+labels=""; for t in $GPU_VARIANTS; do labels="$labels ${t%%:*}"; done
+printf 'bash %s/nsys_runs.sh %s %s/runs/upwelling_gpu.in "%s" "%s"\n' \
+    "$WORK" "$WORK" "$WORK" "$labels" "$XINPUTS" >> "$gpu_job"
 fi
 
 echo "job scripts: $cpu_job $gpu_job"
