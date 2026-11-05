@@ -37,6 +37,28 @@ plot_2d_var_requested (const amrex::Vector<std::string>& names, const std::strin
     return false;
 }
 
+/**
+ * \brief Leave the low face of a face- or node-centered write box out in direction dir when
+ *        the cells just below the box belong to other grids of the level.
+ *
+ * A box's u, v or psi points include the faces on both of its sides, so two neighbouring
+ * boxes would both write the face they share. The values agree, but the overlapping file
+ * regions in one collective put_varn overran a buffer inside Open MPI's OMPIO (issue #758,
+ * a heap overflow on 3 or more ranks; ROMIO tolerated it). Here the face is left to the
+ * grid below, whose high face writes it, so every file point is written once.
+ *
+ * @param[inout] face_bx  the box to write, already converted with surroundingNodes(dir)
+ * @param[in   ] cc_bx    the grid's cell-centered valid box
+ * @param[in   ] ba       the level's cell-centered BoxArray
+ * @param[in   ] dir      direction of the face
+ */
+void
+drop_shared_low_face (amrex::Box& face_bx, const amrex::Box& cc_bx, const amrex::BoxArray& ba,
+                      int dir)
+{
+    if (ba.contains(amrex::adjCellLo(cc_bx, dir))) { face_bx.growLo(dir, -1); }
+}
+
 /** \brief Abort on a PnetCDF error */
 void
 nc_check (int ierr)
@@ -1624,6 +1646,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             //
             Box tmp_bx(bx);
             tmp_bx.surroundingNodes(0);
+            drop_shared_low_face(tmp_bx, bx, grids[lev], 0);
             if (tmp_bx.smallEnd()[1] == subdomain.smallEnd()[1])
                 tmp_bx.growLo(1, 1);
             if (tmp_bx.bigEnd()[1] == subdomain.bigEnd()[1])
@@ -1719,6 +1742,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             //
             Box tmp_bx(bx);
             tmp_bx.surroundingNodes(1);
+            drop_shared_low_face(tmp_bx, bx, grids[lev], 1);
             if (tmp_bx.smallEnd()[0] == subdomain.smallEnd()[0])
                 tmp_bx.growLo(0, 1);
             if (tmp_bx.bigEnd()[0] == subdomain.bigEnd()[0])
@@ -1819,6 +1843,8 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             Box tmp_bx(bx);
             tmp_bx.surroundingNodes(0);
             tmp_bx.surroundingNodes(1);
+            drop_shared_low_face(tmp_bx, bx, grids[lev], 0);
+            drop_shared_low_face(tmp_bx, bx, grids[lev], 1);
 
             Box tmp_bx_2d(tmp_bx);
             tmp_bx_2d.makeSlab(2, 0);
