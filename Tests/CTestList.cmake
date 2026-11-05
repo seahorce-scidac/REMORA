@@ -907,11 +907,17 @@ add_test_layout(DogboneAnalytic_loadbalance_roundrobin DogboneAnalytic_landlayou
                 "plt00020" "none" "remora.load_balance=amrex ${FULL_LAYOUT}"
                 "remora.load_balance=roundrobin remora.load_balance_land_weight=0.25 ${FULL_LAYOUT}")
 # With land from the west edge on, weighing wet cells alone moves boxes between the two ranks:
-# 11 and 21 instead of AMReX's 16 and 16. The answer must not move with them.
+# 11 and 21 instead of AMReX's 16 and 16. The answer must not move with them. A build without
+# MPI runs on one rank, which holds all 32 boxes whatever the strategy.
+if(REMORA_ENABLE_MPI)
+    set(SFC_BOXES_PER_RANK "boxes per rank 11 to 21")
+else()
+    set(SFC_BOXES_PER_RANK "boxes per rank 32 to 32")
+endif()
 add_test_layout(DogboneAnalytic_loadbalance_sfc DogboneAnalytic_landlayout "remora_exec"
                 "plt00020" "none" "remora.load_balance=amrex remora.prob.mask_x_lo=-100. ${FULL_LAYOUT}"
                 "remora.load_balance=sfc remora.load_balance_land_weight=0 remora.prob.mask_x_lo=-100. ${FULL_LAYOUT}"
-                "boxes per rank 11 to 21")
+                "${SFC_BOXES_PER_RANK}")
 add_test_layout(DogboneAnalytic_drop DogboneAnalytic_landlayout "remora_exec"
                 "plt00020" "chk00020" "${FULL_LAYOUT}" "remora.drop_dry_boxes=true")
 add_test_layout(DogboneAnalytic_MLdrop DogboneAnalytic_MLlandlayout "remora_exec"
