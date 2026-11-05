@@ -1,5 +1,4 @@
 #include <REMORA_Biology.H>
-#include <Prob/REMORA_InitAnalyticBiology_Uniform.H>
 #include <REMORA_DataStruct.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_MFIter.H>
@@ -130,7 +129,42 @@ check_ecb_reference()
           .solver_choice = solver,
           .state = next,
           .component_start = base};
-        initialize_uniform_biology(*model, init, initial);
+        // Set the constant initial values by tracer name, as an inputs file
+        // would with remora.biology_ic_type = constant.
+        ParmParse ic_pp(prefix);
+        for (int n = 0; n < 18; ++n) {
+            ic_pp.add(
+              ("biology_initial_" + model->declaration().tracer_names[n])
+                .c_str(),
+              initial[n]);
+        }
+        const Vector<Real> constant_ic =
+          read_constant_biology_ic(model->declaration(), prefix);
+        AMREX_ALWAYS_ASSERT(constant_ic == initial);
+        initialize_constant_biology(model->declaration(), init, constant_ic);
+        if (test == 0) {
+            // Ghost cells are set too, and physical fields and dyes are not.
+            MultiFab grown(
+              boxes, mapping, base + 18, 2,
+              MFInfo().SetArena(The_Managed_Arena()));
+            grown.setVal(Real(-5.0));
+            BiologyInitContext grown_init{
+              .level = 0,
+              .geometry = geometry,
+              .solver_choice = solver,
+              .state = grown,
+              .component_start = base};
+            initialize_constant_biology(
+              model->declaration(), grown_init, constant_ic);
+            for (int c = 0; c < 18; ++c) {
+                AMREX_ALWAYS_ASSERT(grown.min(base + c, 2) == initial[c]);
+                AMREX_ALWAYS_ASSERT(grown.max(base + c, 2) == initial[c]);
+            }
+            for (int c = 0; c < base; ++c) {
+                AMREX_ALWAYS_ASSERT(grown.min(c, 2) == Real(-5.0));
+                AMREX_ALWAYS_ASSERT(grown.max(c, 2) == Real(-5.0));
+            }
+        }
         Gpu::streamSynchronize();
         for (MFIter mfi(next); mfi.isValid(); ++mfi) {
             auto b = next.array(mfi);

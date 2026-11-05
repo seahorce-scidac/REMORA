@@ -71,14 +71,16 @@ The input names are:
    wLDet wPhy wSDet ZooAE_N ZooBM ZooCN ZooER ZooGR ZooMin ZooMR
    ElDON EsDON deltN deltC gammaC slCexc pCO2air
 
-Analytic initialization uses 18 explicitly supplied concentrations in
-``remora.biology_initial``, in the following fixed order. Temperature, salinity
-and dyes are initialized by the physical application and left unchanged.
-The standard ``Problem`` implements this generic uniform profile. A custom
-application can instead implement the common ``init_analytic_biology``
-hook for a spatial profile. Missing uniform values fail clearly. Existing
-NetCDF initialization uses the names below and requires every active tracer;
-that path still needs an ECB execution validation case.
+For a uniform start, set ``remora.biology_ic_type = constant`` and give each of
+the 18 tracers below by name as ``remora.biology_initial_<name>``, for example
+``remora.biology_initial_TIC = 2100.0``; ``Tests/test_files/Upwelling_ECB``
+sets all 18. Every tracer must be given, and ghost cells are set too.
+Temperature, salinity and dyes are initialized by the physical application and
+left unchanged. ECB has no built-in analytic profile; an application can
+implement the common ``init_analytic_biology`` hook for a spatial one and use
+``remora.biology_ic_type = analytic``. NetCDF initialization uses the names
+below and requires every active tracer; that path still needs an ECB execution
+validation case.
 
 .. list-table:: Ordered ECB fields and NetCDF/output names
    :header-rows: 1

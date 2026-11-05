@@ -58,7 +58,7 @@ remora.coriolis_beta = 0.0
 
 # ECB with explicit reference-unit parameters.
 remora.biology_model = ecb
-remora.biology_ic_type = analytic
+remora.biology_ic_type = constant
 remora.nscalar = 1
 remora.bulk_fluxes = true
 remora.surface_radiation_flux = 150.0
@@ -107,4 +107,22 @@ remora.ecb.deltC = 0.275
 remora.ecb.gammaC = 0.15
 remora.ecb.slCexc = 0.45
 remora.ecb.pCO2air = 400.0
-remora.biology_initial = 8.0 0.5 1.0 0.3 0.1 0.2 0.1 3.0 0.5 1.2 0.6 2100.0 2300.0 50.0 200.0 1.0 40.0 10000.0
+# Constant initial concentrations, set by tracer name.
+remora.biology_initial_NO3           = 8.0
+remora.biology_initial_NH4           = 0.5
+remora.biology_initial_chlorophyll   = 1.0
+remora.biology_initial_phytoplankton = 0.3
+remora.biology_initial_zooplankton   = 0.1
+remora.biology_initial_LdetritusN    = 0.2
+remora.biology_initial_SdetritusN    = 0.1
+remora.biology_initial_DON           = 3.0
+remora.biology_initial_PO4           = 0.5
+remora.biology_initial_LdetritusC    = 1.2
+remora.biology_initial_SdetritusC    = 0.6
+remora.biology_initial_TIC           = 2100.0
+remora.biology_initial_alkalinity    = 2300.0
+remora.biology_initial_DOC           = 50.0
+remora.biology_initial_oxygen        = 200.0
+remora.biology_initial_Rdon          = 1.0
+remora.biology_initial_Rdoc          = 40.0
+remora.biology_initial_calcium       = 10000.0

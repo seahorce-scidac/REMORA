@@ -15,6 +15,7 @@ namespace REMORABiology {
 /** \brief Initial-condition source, independent of physical IC selection. */
 enum class BiologyICType {
     follow_ic_type,
+    constant,
     analytic,
     netcdf
 };
@@ -107,6 +108,23 @@ public:
 std::unique_ptr<Biology> make_biology (const std::string& name);
 BiologyICType parse_biology_ic_type (const std::string& name);
 std::string biology_ic_type_name (BiologyICType type);
+
+/** \brief Read one constant initial concentration per declared tracer, by name.
+ *
+ * Each value comes from <remora_prefix>.biology_initial_<tracer name>, in the
+ * model's units, in the style of the named constant forcing values. There are
+ * no defaults: every declared tracer must be given, and the error lists any
+ * that are missing. Returns the values in declaration order.
+ */
+amrex::Vector<amrex::Real>
+read_constant_biology_ic (const BiologyDeclaration& declaration,
+                          const std::string& remora_prefix);
+
+/** \brief Set each declared biology component to its constant value, ghost
+ *         cells included. Physical fields and dyes are left unchanged. */
+void initialize_constant_biology (const BiologyDeclaration& declaration,
+                                  BiologyInitContext& context,
+                                  const amrex::Vector<amrex::Real>& values);
 
 }
 #endif

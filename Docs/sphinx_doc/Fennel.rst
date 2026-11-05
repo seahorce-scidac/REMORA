@@ -327,13 +327,29 @@ The source of the biology initial condition is selected independently of
 | Option                      | Default     | Description                                           |
 +=============================+=============+=======================================================+
 | ``remora.biology_ic_type``  | ``follow``  | ``follow``: use NetCDF when ``remora.ic_type`` is     |
-|                             |             | ``netcdf``, analytic otherwise. ``analytic``: always  |
-|                             |             | use the problem's analytic biology profile.           |
-|                             |             | ``netcdf``: always read from the NetCDF initial file. |
+|                             |             | ``netcdf``, analytic otherwise. ``constant``: set     |
+|                             |             | each tracer to its ``remora.biology_initial_<name>``. |
+|                             |             | ``analytic``: always use the problem's analytic       |
+|                             |             | biology profile. ``netcdf``: always read from the     |
+|                             |             | NetCDF initial file.                                  |
 +-----------------------------+-------------+-------------------------------------------------------+
 
 Note this option has no ``remora.fennel`` prefix; it is a biology-wide setting
 rather than a Fennel parameter.
+
+With ``remora.biology_ic_type = constant``, each biology tracer starts at a
+uniform value set by name, in the style of the constant forcing values such as
+``remora.air_temperature``. The name is the tracer name listed under Runtime
+Options above, for example::
+
+   remora.biology_ic_type     = constant
+   remora.biology_initial_NO3 = 10.0
+   remora.biology_initial_NH4 = 0.1
+
+There are no defaults: every tracer the configured model declares must be
+given, and the error lists any that are missing. Ghost cells are set too.
+Temperature, salinity and dyes are left to the physical initialization. This
+works for any ecosystem; see :ref:`sec:ECB` for a complete ECB example.
 
 The two are decoupled because a NetCDF initial file supplies only the tracers it
 happens to contain. Setting ``remora.biology_ic_type = analytic`` keeps physical
@@ -356,11 +372,6 @@ Because the BioToy profile is a function of temperature alone, it carries over
 unchanged to any problem that stratifies temperature: add the problem's name to
 the existing BioToy branch. Its values are Fennel's, so it errors for any other
 ``remora.biology_model``.
-
-The standard application also accepts ``remora.biology_initial``, an explicit
-uniform concentration for each declared biological tracer in order. This
-problem-owned profile works with either ecosystem and has no scientific
-defaults; see :ref:`sec:ECB` for an example.
 
 The hook receives ``const REMORABiology::Biology&`` and
 ``REMORABiology::BiologyInitContext&``, not Fennel parameters or the whole

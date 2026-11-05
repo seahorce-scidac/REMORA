@@ -2522,6 +2522,18 @@ REMORA::ReadParameters ()
         std::string biology_ic_string = REMORABiology::biology_ic_type_name(biology_ic_type);
         pp.queryAdd("biology_ic_type", biology_ic_string);
         biology_ic_type = REMORABiology::parse_biology_ic_type(biology_ic_string);
+        // The positional list of an earlier draft would otherwise be ignored
+        // silently whenever the selector is not constant.
+        if (pp.contains("biology_initial")) {
+            amrex::Abort("remora.biology_initial is not read. Set"
+                         " remora.biology_ic_type = constant and give each tracer"
+                         " by name, e.g. remora.biology_initial_"
+                         + m_biology->declaration().tracer_names[0] + " = <value>.");
+        }
+        if (biology_ic_type == REMORABiology::BiologyICType::constant) {
+            biology_constant_ic = REMORABiology::read_constant_biology_ic(
+                m_biology->declaration(), pp_prefix);
+        }
     }
     // Dye is opt-in, biology or not: a component nothing asked for is one more thing to
     // advect, diffuse, and explain in every plotfile and boundary file.

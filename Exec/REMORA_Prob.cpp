@@ -1,4 +1,3 @@
-#include <Prob/REMORA_InitAnalyticBiology_Uniform.H>
 #include "REMORA_Prob.H"
 #include "REMORA_DepthStretchTransform.H"
 
@@ -411,10 +410,7 @@ void Problem::init_analytic_biology (
     std::string my_prob_name_ci = amrex::toLower(my_prob_name);
     // Upwelling reuses BioToy's profile, which is ROMS ana_biology.h: it is a function of
     // temperature alone, so it carries over to any problem that stratifies temperature.
-    Vector<Real> initial;
-    if (pp.queryarr("biology_initial", initial)) {
-        REMORABiology::initialize_uniform_biology(biology, context, initial);
-    } else if ((my_prob_name_ci == "biotoy") || (my_prob_name_ci == "upwelling")) {
+    if ((my_prob_name_ci == "biotoy") || (my_prob_name_ci == "upwelling")) {
 #include "Prob/REMORA_InitAnalyticBiology_BioToy.H"
 
     } else {
@@ -424,6 +420,7 @@ void Problem::init_analytic_biology (
         // this override has to do so too, or that guard is dead.
         amrex::Error("remora.prob_name = " + my_prob_name + " has no analytic biology initial"
                      " condition. Add one to Source/Prob/ and a branch for it in"
-                     " Problem::init_analytic_biology, or set remora.biology_ic_type = netcdf.");
+                     " Problem::init_analytic_biology, or set remora.biology_ic_type to"
+                     " constant or netcdf.");
     }
 }
