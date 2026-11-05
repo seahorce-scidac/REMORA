@@ -1125,6 +1125,12 @@ public:
     void compute_omega (int lev, amrex::MultiFab& mf_omega,
                         const amrex::MultiFab& mf_Huon, const amrex::MultiFab& mf_Hvom);
 
+#ifdef REMORA_USE_PARTICLES
+    /** \brief Keep advance_3d's W, as omega, for the particles to advect with, if any species
+     *         advects on this level */
+    void store_particle_omega (int lev, const amrex::MultiFab& mf_W);
+#endif
+
     /** \brief omega (m/s) as ROMS writes it: from mass fluxes of the current velocities */
     void compute_diagnostic_omega (int lev, amrex::MultiFab& mf_omega);
 
@@ -2245,10 +2251,6 @@ private:
 
     /** \brief Evolve tracers and hydro particles */
     void evolveTracers (int lev, amrex::Real dt);
-
-    /** \brief Keep advance_3d's W, as omega, for the particles to advect with, if any species
-     *         advects on this level */
-    void store_particle_omega (int lev, const amrex::MultiFab& mf_W);
 
     /** \brief Per level, the omega and the boundary-filled u and v that particles advect
      *  with. Kept between steps, and redefined when the level's grids change. */
