@@ -44,10 +44,6 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Box xbx = surroundingNodes(bx,0);
         Box ybx = surroundingNodes(bx,1);
 
-        Box xbx_hi = growHi(xbx,0,1);
-
-        Box ybx_hi = growHi(ybx,0,1);
-
         const Box& domain = geom[lev].Domain();
         const auto dlo = amrex::lbound(domain);
         const auto dhi = amrex::ubound(domain);
@@ -56,22 +52,17 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         bool is_periodic_in_x = geomdata.isPeriodic(0);
         bool is_periodic_in_y = geomdata.isPeriodic(1);
 
-        int ncomp = 1;
-        Vector<BCRec> bcrs_x(ncomp);
-        Vector<BCRec> bcrs_y(ncomp);
-        amrex::setBC(xbx,domain,xvel_bc(),0,1,domain_bcs_type,bcrs_x);
-        amrex::setBC(ybx,domain,yvel_bc(),0,1,domain_bcs_type,bcrs_y);
-
-        FArrayBox fab_XF(xbx_hi, 1, amrex::The_Async_Arena()); fab_XF.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FX(xbx_hi, 1, amrex::The_Async_Arena()); fab_FX.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FXL(xbx_hi, 1, amrex::The_Async_Arena()); fab_FXL.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_EF(ybx_hi, 1, amrex::The_Async_Arena()); fab_EF.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FE(ybx_hi, 1, amrex::The_Async_Arena()); fab_FE.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FEL(ybx_hi, 1, amrex::The_Async_Arena()); fab_FEL.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_Hz_half(bx, 1, amrex::The_Async_Arena()); fab_Hz_half.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_CF(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena()); fab_CF.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FC(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena()); fab_FC.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FCL(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena()); fab_FCL.template setVal<RunOn::Device>(zero);
+        // Every scratch cell read below is written first, so none is zero-filled
+        FArrayBox fab_XF(xbx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_FX(xbx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_FXL(xbx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_EF(ybx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_FE(ybx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_FEL(ybx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_Hz_half(bx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_CF(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena());
+        FArrayBox fab_FC(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena());
+        FArrayBox fab_FCL(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena());
 
         auto XF  = fab_XF.array();
         auto FX  = fab_FX.array();
@@ -497,12 +488,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
 
-        int ncompbc = 1;
-        Vector<BCRec> bcrs_x(ncompbc);
-        Vector<BCRec> bcrs_y(ncompbc);
-        amrex::setBC(xbx,domain,xvel_bc(),0,1,domain_bcs_type,bcrs_x);
-        amrex::setBC(ybx,domain,yvel_bc(),0,1,domain_bcs_type,bcrs_y);
-
         Array4<Real const> const& W = mf_W.const_array(mfi);
         Array4<Real> const& Hz = vec_Hz[lev]->array(mfi);
         Array4<Real> const& pm = vec_pm[lev]->array(mfi);
@@ -525,7 +510,8 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
         Array4<Real> const& ZoBot = vec_ZoBot[lev]->array(mfi);
 
-        FArrayBox fab(gbx1,ncomp_fab, amrex::The_Async_Arena()); fab.template setVal<RunOn::Device>(zero);
+        // Every scratch cell read below is written first, so the fab is not zero-filled
+        FArrayBox fab(gbx1,ncomp_fab, amrex::The_Async_Arena());
 
         auto CF = mf_w.array(mfi,CF_comp);
         auto shear2 = mf.array(mfi,shear2_comp);
