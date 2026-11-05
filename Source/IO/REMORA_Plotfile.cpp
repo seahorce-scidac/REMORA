@@ -11,12 +11,12 @@ bool containerHasElement(const V& iterable, const T& query) {
     return std::find(iterable.begin(), iterable.end(), query) != iterable.end();
 }
 
-// The nodal displacement a viewer adds to the Cartesian node position it builds from the
-// Header: nu = (0, 0, z_phys_nd - (prob_lo_z + k*dz)), with dz and prob_lo from the Geometry the
-// Header describes this level with. rz > 1 is the expand_plotvars_to_unif_rr case, where the
-// Header's dz is the native one over rz and mf_nd carries rz node layers per native layer: z is
-// interpolated linearly in k between native node layers, so node rz*k coincides with native
-// node k. Fills component 2 only; the caller zeroes the rest.
+// The vertical part of the nodal displacement a viewer adds to the Cartesian node position it
+// builds from the Header: nu_z = z_phys_nd - (prob_lo_z + k*dz), with dz and prob_lo from the
+// Geometry the Header describes this level with. rz > 1 is the expand_plotvars_to_unif_rr case,
+// where the Header's dz is the native one over rz and mf_nd carries rz node layers per native
+// layer: z is interpolated linearly in k between native node layers, so node rz*k coincides with
+// native node k. Fills component 2 only; fill_nodal_xy_displacement fills components 0 and 1.
 static void
 fill_nodal_z_displacement (MultiFab& mf_nd, const MultiFab& z_phys_nd, const Geometry& g, int rz)
 {
@@ -35,10 +35,35 @@ fill_nodal_z_displacement (MultiFab& mf_nd, const MultiFab& z_phys_nd, const Geo
             const int k = kf / rz;
             const int r = kf - k * rz;
             Real z = zp(i,j,k);
-            // z_phys_nd has one z ghost but only k = -1 is filled, so k+1 is read only when
-            // its weight is nonzero, which keeps it at or below the top node.
+            // z_phys_nd has no z ghost layers, so k+1 is read only when its weight is
+            // nonzero, which keeps it at or below the top node.
             if (r > 0) { z += (Real(r) / Real(rz)) * (zp(i,j,k+1) - zp(i,j,k)); }
             nu(i,j,kf,2) = z - (zlo + Real(kf) * dz);
+        });
+    }
+}
+
+// The horizontal part of the nodal displacement: nu_x = x - (prob_lo_x + i*dx) and likewise in
+// y, from the physical psi-point coordinates mf_xy (component 0 x, 1 y) that plot_node_coords
+// builds on the nodal 2D grids of the same level. The horizontal index of mf_nd is the native
+// one on every path, since the expand path refines only in z. Fills components 0 and 1.
+static void
+fill_nodal_xy_displacement (MultiFab& mf_nd, const MultiFab& mf_xy, const Geometry& g)
+{
+    const auto dx  = g.CellSizeArray();
+    const auto plo = g.ProbLoArray();
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(mf_nd, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.tilebox();
+        Array4<Real>       const& nu = mf_nd.array(mfi);
+        Array4<Real const> const& xy = mf_xy.const_array(mfi);
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            nu(i,j,k,0) = xy(i,j,0,0) - (plo[0] + Real(i) * dx[0]);
+            nu(i,j,k,1) = xy(i,j,0,1) - (plo[1] + Real(j) * dx[1]);
         });
     }
 }
@@ -124,6 +149,19 @@ REMORA::WritePlotFile (int istep_for_plot)
          if (plot_name == "srflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "shflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "mask_rho") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         // Spherical coordinates and grid angle exist only when the grid file carried them,
+         // which is known only after the grid is read, so an unavailable one is warned
+         // about and dropped here, as set2DPlotVariables does for the names it can check.
+         if (plot_name == "lon_rho" || plot_name == "lat_rho" || plot_name == "angle") {
+             const bool available = (plot_name == "angle") ? (vec_angler[0] != nullptr)
+                                                            : (vec_lonr[0] != nullptr);
+             if (available) {
+                 varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;
+             } else if (ParallelDescriptor::IOProcessor()) {
+                 Warning("\nWARNING: Requested to plot variable '" + plot_name +
+                         "' in 2D list but the grid carries no " + plot_name);
+             }
+         }
          if (plot_name == "ubar" ) {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "sustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "bustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
@@ -152,11 +190,15 @@ REMORA::WritePlotFile (int istep_for_plot)
     Vector<MultiFab> nc_wvel(finest_level+1);
     if (plotfile_type == PlotfileType::netcdf && (plot_omega || plot_wvel)) {
         for (int lev = 0; lev <= finest_level; ++lev) {
+            // Boxes outside the first subdomain are skipped below and the NaN check reads
+            // every ghost cell, so start from zero
             if (plot_omega) {
                 nc_omega[lev].define(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,IntVect(1,1,0));
+                nc_omega[lev].setVal(zero);
             }
             if (plot_wvel) {
                 nc_wvel[lev].define(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,IntVect(1,1,0));
+                nc_wvel[lev].setVal(zero);
             }
             compute_omega_and_w(lev, plot_omega ? &nc_omega[lev] : nullptr,
                                      plot_wvel  ? &nc_wvel[lev]  : nullptr);
@@ -199,13 +241,20 @@ REMORA::WritePlotFile (int istep_for_plot)
     }
 
 
+    // Physical (x, y) of the psi points, for the nodal displacement and the particle positions
+    Vector<MultiFab> mf_xy;
+    bool need_node_coords = plot_nodal_data;
+#ifdef REMORA_USE_PARTICLES
+    need_node_coords = need_node_coords || !particleData.isEmpty();
+#endif
+    if (need_node_coords) { plot_node_coords(mf_xy); }
+
     // Array of MultiFabs for nodal data
     Vector<MultiFab> mf_nd(finest_level+1);
     if (plot_nodal_data) {
         for (int lev = 0; lev <= finest_level; ++lev) {
             BoxArray nodal_grids(grids[lev]); nodal_grids.surroundingNodes();
             mf_nd[lev].define(nodal_grids, dmap[lev], AMREX_SPACEDIM, 0);
-            mf_nd[lev].setVal(zero);
         }
     }
 
@@ -253,7 +302,9 @@ REMORA::WritePlotFile (int istep_for_plot)
             for (int lev = 1; lev <= finest_level; ++lev) {
                 Vector<MultiFab*> fmf = {&(mf_cc_vel[lev]), &(mf_cc_vel[lev])};
                 Vector<Real> ftime    = {t_new[lev], t_new[lev]};
-                Vector<MultiFab*> cmf = {&mf_cc_vel[lev-1], &mf_cc_vel[lev-1]};
+                MultiFab crse_scratch;
+                MultiFab& crse = coarse_for_interp(lev-1, mf_cc_vel[lev-1], crse_scratch);
+                Vector<MultiFab*> cmf = {&crse, &crse};
                 Vector<Real> ctime    = {t_new[lev], t_new[lev]};
 
                 MultiFab mf_to_fill;
@@ -356,6 +407,18 @@ REMORA::WritePlotFile (int istep_for_plot)
         }
         if (plot_name == "mask_rho" ) {
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_mskr[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "lon_rho" || plot_name == "lat_rho" || plot_name == "angle") {
+            const auto& src = (plot_name == "lon_rho") ? vec_lonr
+                            : (plot_name == "lat_rho") ? vec_latr : vec_angler;
+            for (int lev = 0; lev <= finest_level; ++lev) {
+                // Registered above only when level 0 has it, and every finer level follows
+                // level 0, so this cannot fire; it keeps a null from reaching the copy.
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(src[lev] != nullptr,
+                    "Plot variable " + plot_name + " is missing on a refined level");
+                MultiFab::Copy(mf_2d_rho[lev],*src[lev],0,icomp_rho,1,0);
+            }
             icomp_rho++;
         }
     }
@@ -560,7 +623,8 @@ REMORA::WritePlotFile (int istep_for_plot)
             if (containerHasElement(plot_var_names_3d, plot_var_name) ) {
                 MultiFab temp_dat(plotMF[lev].boxArray(), plotMF[lev].DistributionMap(), 1, 1);
                 temp_dat.setVal(0);
-                particleData.GetMeshPlotVar(plot_var_name, temp_dat, lev);
+                particleData.GetMeshPlotVar(plot_var_name, temp_dat, lev,
+                                             *vec_Hz[lev], *vec_pm[lev], *vec_pn[lev]);
                 MultiFab::Copy(plotMF[lev], temp_dat, 0, mf_comp, 1, 0);
                 mf_comp += 1;
             }
@@ -568,6 +632,7 @@ REMORA::WritePlotFile (int istep_for_plot)
 #endif
 
         if (plot_nodal_data) {
+            fill_nodal_xy_displacement(mf_nd[lev], mf_xy[lev], Geom(lev));
             fill_nodal_z_displacement(mf_nd[lev], *vec_z_phys_nd[lev], Geom(lev), 1);
         }
     } // lev
@@ -598,7 +663,7 @@ REMORA::WritePlotFile (int istep_for_plot)
             writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
-            particleData.Checkpoint(plotfilename);
+            particleData.writePlotFile(plotfilename, mf_xy);
 #endif
 
         }
@@ -661,7 +726,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                     if (plot_nodal_data) {
                         BoxArray nodal2(mf2[lev].boxArray()); nodal2.surroundingNodes();
                         mf_nd2[lev].define(nodal2, dmap[lev], AMREX_SPACEDIM, 0);
-                        mf_nd2[lev].setVal(zero);
+                        fill_nodal_xy_displacement(mf_nd2[lev], mf_xy[lev], g2[lev]);
                         fill_nodal_z_displacement(mf_nd2[lev], *vec_z_phys_nd[lev], g2[lev], rz);
                         nd2_ptrs[lev] = &mf_nd2[lev];
                     }
@@ -719,7 +784,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                 writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
-                particleData.Checkpoint(plotfilename);
+                particleData.writePlotFile(plotfilename, mf_xy);
 #endif
             } else {
                 if (check_plot_z) { check_plot_nodal_z(GetVecOfConstPtrs(mf_nd), Geom()); }
@@ -738,7 +803,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                                                       model_time(t_new[0]), istep, ref_ratio);
                 writeJobInfo(plotfilename);
 #ifdef REMORA_USE_PARTICLES
-                particleData.Checkpoint(plotfilename);
+                particleData.writePlotFile(plotfilename, mf_xy);
 #endif
             }
         }
@@ -749,7 +814,6 @@ REMORA::WritePlotFile (int istep_for_plot)
     else if (plotfile_type == PlotfileType::netcdf)
     {
         // Each level goes to its own file: level 0 to _d01, a refined level to _d02 and up.
-        // A level with more than one box is not handled; only its first subdomain is written.
         for (int lev = 0; lev <= finest_level; ++lev) {
             plotMF[lev].FillBoundary(geom[lev].periodicity());
             WriteNCPlotFile(istep_for_plot,&plotMF[lev],lev,
@@ -1125,6 +1189,50 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
 }
 
 /**
+ * Physical (x, y) of the psi points (cell corners) on every level, for the horizontal part of
+ * the plotfile's nodal displacement and for particle positions. Level 0 takes the grid's own
+ * x_psi and y_psi. Each finer level is interpolated bilinearly from the level below, so that
+ * a fine node that coincides with a coarse node gets the coarse node's position: a fine
+ * level's own x_psi is rebuilt from its pm and pn, which on a stretched grid does not match its
+ * parent's, and on a NetCDF grid does not carry the file's origin.
+ *
+ * @param[out] mf_xy  per level, a 2-component nodal 2D MultiFab: x, then y
+ */
+void
+REMORA::plot_node_coords (Vector<MultiFab>& mf_xy)
+{
+    mf_xy.resize(finest_level+1);
+    for (int lev = 0; lev <= finest_level; ++lev) {
+        mf_xy[lev].define(vec_xp[lev]->boxArray(), vec_xp[lev]->DistributionMap(), 2, 0);
+    }
+
+    MultiFab::Copy(mf_xy[0], *vec_xp[0], 0, 0, 1, 0);
+    MultiFab::Copy(mf_xy[0], *vec_yp[0], 0, 1, 1, 0);
+
+    Vector<BCRec> null_dom_bcs(2);
+    for (int n = 0; n < 2; ++n) {
+        for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+            null_dom_bcs[n].setLo(dir, REMORABCType::int_dir);
+            null_dom_bcs[n].setHi(dir, REMORABCType::int_dir);
+        }
+    }
+    // Coordinates are not periodic: on a domain periodic in x, nodes 0 and nx of the coarse
+    // level are both valid and a domain width apart, so a periodic copy would give the node at
+    // the seam two different sources. Copy without periodicity, as interp_grid_coords_from_coarse
+    // does (#775).
+    for (int lev = 1; lev <= finest_level; ++lev) {
+        const IntVect rr(ref_ratio[lev-1][0], ref_ratio[lev-1][1], 1);
+        const Geometry& cg = geom[lev-1];
+        const Geometry crse_geom_nonperiodic(cg.Domain(), cg.ProbDomain(), cg.Coord(),
+                                             Array<int,AMREX_SPACEDIM>{AMREX_D_DECL(0,0,0)});
+        InterpFromCoarseLevel(mf_xy[lev], t_new[lev], mf_xy[lev-1], 0, 0, 2,
+                              crse_geom_nonperiodic, geom[lev],
+                              null_bc_for_fill, 0, null_bc_for_fill, 0,
+                              rr, &node_bilinear_interp, null_dom_bcs, 0);
+    }
+}
+
+/**
  * Check the nodal z a viewer rebuilds from what WritePlotFile is about to write.
  *
  * nd[lev] is the nodal displacement on the grid g[lev] describes -- the native geometry, or g2
@@ -1334,6 +1442,34 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 }
 
 /**
+ * The region of a level that its NetCDF output covers: the whole domain at that
+ * level's resolution, so a refined level's file has one shape however the level was
+ * made and wherever regridding moves it. Cells the level's grids don't cover hold
+ * the fill value.
+ *
+ * @param lev   level being written
+ * @return      the region the NetCDF file covers
+ */
+Box
+REMORA::netcdf_subdomain (int lev) const
+{
+    return geom[lev].Domain();
+}
+
+/**
+ * Whether a level's grids leave cells of its NetCDF region uncovered, as any refined
+ * level that doesn't span the domain does. Those cells are written as the fill value.
+ *
+ * @param lev   level being written
+ * @return      whether the grids miss any cell of netcdf_subdomain(lev)
+ */
+bool
+REMORA::netcdf_subdomain_has_gaps (int lev) const
+{
+    return grids[lev].numPts() != netcdf_subdomain(lev).numPts();
+}
+
+/**
  * omega and w for the NetCDF writer, on the s_w points ROMS writes them at.
  *
  * Both are diagnosed from the current velocities, as ROMS does just before it writes a
@@ -1369,11 +1505,11 @@ REMORA::compute_omega_and_w (int lev, MultiFab* mf_omega, MultiFab* mf_wvel)
         }
     }
 
-    // The NetCDF writer adds one ghost column around the subdomain it writes, which on a
-    // refined level is the first of boxes_at_level. A side of it is copied from the
-    // interior unless it is a periodic domain edge, which FillBoundary has filled.
+    // The NetCDF writer adds one ghost column around the subdomain it writes. A side of
+    // it is copied from the interior unless it is a periodic domain edge, which
+    // FillBoundary has filled.
     const Box& dom = Geom(lev).Domain();
-    const Box  sub = (lev == 0) ? dom : boxes_at_level[lev][0];
+    const Box  sub = netcdf_subdomain(lev);
     const IntVect slo = sub.smallEnd();
     const IntVect shi = sub.bigEnd();
     GpuArray<bool,2> copy_lo, copy_hi;
@@ -1385,6 +1521,10 @@ REMORA::compute_omega_and_w (int lev, MultiFab* mf_omega, MultiFab* mf_wvel)
     for (MultiFab* mf : {mf_omega, mf_wvel}) {
         if (mf == nullptr) { continue; }
 
+        // A ghost cell facing a gap in a refined level's grids is neither filled from
+        // a neighbor nor copied below; the writer leaves it out, so it just holds the
+        // fill value
+        mf->setBndry(fill_value);
         mf->FillBoundary(geom[lev].periodicity());
 
 #ifdef _OPENMP
@@ -1392,10 +1532,6 @@ REMORA::compute_omega_and_w (int lev, MultiFab* mf_omega, MultiFab* mf_wvel)
 #endif
         for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
-            // The writer skips grids outside the subdomain, and the clamp below would
-            // reach outside their arrays
-            if (!sub.contains(enclosedCells(mfi.validbox(),2))) { continue; }
-
             Box gbx = mfi.growntilebox(IntVect(1,1,0));
             Array4<Real> const& a = mf->array(mfi);
             Array4<Real const> const& mskr = vec_mskr[lev]->const_array(mfi);

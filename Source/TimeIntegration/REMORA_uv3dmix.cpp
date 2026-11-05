@@ -16,6 +16,8 @@ using namespace amrex;
  * @param[in   ] Hz        vertical cell height
  * @param[in   ] pm        1/dx
  * @param[in   ] pn        1/dy
+ * @param[in   ] metr      metric products at rho points (MetricR)
+ * @param[in   ] metp      metric products at psi points (MetricP)
  * @param[in   ] mskp      land-sea mask on psi-points
  * @param[in   ] nrhs      index of RHS component
  * @param[in   ] nnew      index of time step to update
@@ -34,6 +36,8 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
                  const Array4<Real const>& Hz,
                  const Array4<Real const>& pm,
                  const Array4<Real const>& pn,
+                 const Array4<Real const>& metr,
+                 const Array4<Real const>& metp,
                  const Array4<Real const>& mskp,
                  int nrhs, int nnew,
                  const Real dt_lev)
@@ -71,23 +75,21 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
 
     ParallelFor(growLo(xbx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        const Real cff = Real(0.5)*Hz(i,j,k) * ( pm(i,j,0) / pn(i,j,0) *
+        const Real cff = Real(0.5)*Hz(i,j,k) * ( metr(i,j,0,MetricR::pmon_r) *
                                     ( (pn(i  ,j,0) + pn(i+1,j,0)) * uold(i+1,j,k,nrhs)-
                                       (pn(i-1,j,0) + pn(i  ,j,0)) * uold(i  ,j,k,nrhs) )-
-                                                pn(i,j,0) / pm(i,j,0) *
+                                                metr(i,j,0,MetricR::pnom_r) *
                                     ( (pm(i,j  ,0) + pm(i,j+1,0)) * vold(i,j+1,k,nrhs)-
                                       (pm(i,j-1,0) + pm(i,j  ,0)) * vold(i,j  ,k,nrhs) ) );
 
-        Real on_r = one / pn(i,j,0);
+        Real on_r = metr(i,j,0,MetricR::on_r);
         UFx(i,j,k) = on_r * on_r * visc2_r(i,j,0) * cff;
     });
 
     ParallelFor(growHi(xbx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        const Real pmon_p = (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0)) /
-                            (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0));
-        const Real pnom_p = (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0)) /
-                            (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0));
+        const Real pmon_p = metp(i,j,0,MetricP::pmon_p);
+        const Real pnom_p = metp(i,j,0,MetricP::pnom_p);
         const Real cff = mskp(i,j,0) * Real(0.125) *
                     (Hz(i-1,j  ,k) + Hz(i,j ,k)+ Hz(i-1,j-1,k) + Hz(i,j-1,k))*
                     (pmon_p*
@@ -97,7 +99,7 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
                      ((pm(i-1,j  ,0)+pm(i,j  ,0))*uold(i,j  ,k,nrhs)-
                       (pm(i-1,j-1,0)+pm(i,j-1,0))*uold(i,j-1,k,nrhs)));
 
-        const Real om_p =  Real(4.0) / (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0));
+        const Real om_p = metp(i,j,0,MetricP::om_p);
         UFe(i,j,k) = om_p*om_p*visc2_p(i,j,0)*cff;
     });
 
@@ -127,23 +129,21 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
     ParallelFor(growLo(ybx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         // cff depends on k, but UFx and VFe will only be affected by the last cell?
-        const Real cff = Real(0.5)*Hz(i,j,k) * (pm(i,j,0) / pn(i,j,0) *
+        const Real cff = Real(0.5)*Hz(i,j,k) * (metr(i,j,0,MetricR::pmon_r) *
                 ((pn(i,  j,0) + pn(i+1,j,0)) * uold(i+1,j,k,nrhs)-
                  (pn(i-1,j,0) + pn(i,  j,0)) * uold(i  ,j,k,nrhs))-
-                pn(i,j,0) / pm(i,j,0) *
+                metr(i,j,0,MetricR::pnom_r) *
                 ((pm(i,j  ,0)+pm(i,j+1,0))*vold(i,j+1,k,nrhs)-
                  (pm(i,j-1,0)+pm(i,j  ,0))*vold(i,j  ,k,nrhs)));
 
-        Real om_r = one / pm(i,j,0);
+        Real om_r = metr(i,j,0,MetricR::om_r);
         VFe(i,j,k) = om_r * om_r * visc2_r(i,j,0) * cff;
     });
 
     ParallelFor(growHi(ybx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        const Real pmon_p = (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0)) /
-                            (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0));
-        const Real pnom_p = (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0)) /
-                            (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0));
+        const Real pmon_p = metp(i,j,0,MetricP::pmon_p);
+        const Real pnom_p = metp(i,j,0,MetricP::pnom_p);
         const Real cff = mskp(i,j,0) * Real(0.125) * (Hz(i-1,j  ,k)+Hz(i,j ,k)+
                               Hz(i-1,j-1,k)+Hz(i,j-1,k))*
                     (pmon_p*
@@ -153,7 +153,7 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
                      ((pm(i-1,j  ,0)+pm(i,j  ,0))*uold(i,j  ,k,nrhs)-
                       (pm(i-1,j-1,0)+pm(i,j-1,0))*uold(i,j-1,k,nrhs)));
 
-        const Real on_p =  Real(4.0) / (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0));
+        const Real on_p = metp(i,j,0,MetricP::on_p);
         VFx(i,j,k) = on_p*on_p*visc2_p(i,j,0)*cff;
     });
 

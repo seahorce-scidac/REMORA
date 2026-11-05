@@ -7,6 +7,208 @@ using namespace amrex;
 
 PhysBCFunctNoOp null_bc;
 
+namespace {
+/** \brief dst(comp) = src(comp) wherever mask is set, ghost cells included */
+void copy_on_mask (MultiFab& dst, const MultiFab& src, const iMultiFab& mask, int comp)
+{
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        auto d = dst.array(mfi, comp);
+        auto a = src.const_array(mfi, comp);
+        auto m = mask.const_array(mfi);
+        ParallelFor(mfi.growntilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (m(i,j,k)) { d(i,j,k) = a(i,j,k); }
+        });
+    }
+}
+
+/** \brief number of cells where mask is set and a(comp) and b(comp) differ in value
+ *         (two NaNs count as equal), over all ranks */
+Long count_mask_diff (const MultiFab& a, const MultiFab& b, const iMultiFab& mask, int comp)
+{
+    ReduceOps<ReduceOpSum> reduce_op;
+    ReduceData<Long> reduce_data(reduce_op);
+    using ReduceTuple = typename decltype(reduce_data)::Type;
+    for (MFIter mfi(a); mfi.isValid(); ++mfi) {
+        auto x = a.const_array(mfi, comp);
+        auto y = b.const_array(mfi, comp);
+        auto m = mask.const_array(mfi);
+        reduce_op.eval(mfi.fabbox(), reduce_data,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
+        {
+            // Outside the mask the cells may never have been written (a signalling NaN in a
+            // debug build), so do not even compare them
+            if (!m(i,j,k)) { return { Long(0) }; }
+            const Real xv = x(i,j,k);
+            const Real yv = y(i,j,k);
+            const bool same = (xv == yv) || (xv != xv && yv != yv);
+            return { same ? Long(0) : Long(1) };
+        });
+    }
+    Long n = amrex::get<0>(reduce_data.value(reduce_op));
+    ParallelDescriptor::ReduceLongSum(n);
+    return n;
+}
+
+/**
+ * ba with each box extended outward by ng across the non-periodic domain faces it touches.
+ * The result is kept and handed out again for the same ba, so a MultiFab built on it has the
+ * same BoxArray from call to call and FillBoundary reuses its communication pattern rather
+ * than rebuilding it on every fill. The few layouts a run uses at a time are kept; the cache
+ * is emptied at finalize, before AMReX is torn down.
+ */
+BoxArray
+extended_boxarray (const BoxArray& ba, const Geometry& geom, const IntVect& ng)
+{
+    struct Entry { BoxArray ba; Box dom; IntVect ng; BoxArray ext; };
+    static Vector<Entry> cache;
+    static bool registered = false;
+    if (!registered) {
+        amrex::ExecOnFinalize([] () { cache.clear(); });
+        registered = true;
+    }
+
+    const Box dom = amrex::convert(geom.Domain(), ba.ixType());
+    for (const auto& e : cache) {
+        if (e.ng == ng && e.dom == dom && e.ba == ba) { return e.ext; }
+    }
+
+    BoxList bl(ba.ixType());
+    for (int i = 0; i < ba.size(); ++i) {
+        Box b = ba[i];
+        for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+            if (geom.isPeriodic(d)) { continue; }
+            if (b.smallEnd(d) <= dom.smallEnd(d)) { b.growLo(d, ng[d]); }
+            if (b.bigEnd(d)   >= dom.bigEnd(d))   { b.growHi(d, ng[d]); }
+        }
+        bl.push_back(b);
+    }
+    BoxArray ext(std::move(bl));
+
+    constexpr int max_entries = 16;
+    if (cache.size() >= max_entries) { cache.erase(cache.begin()); }
+    cache.push_back({ba, dom, ng, ext});
+    return ext;
+}
+
+/**
+ * A copy of mf whose ghost cells beyond a non-periodic domain face agree with their periodic
+ * images, for a copy that reads ghost cells with periodicity.
+ *
+ * FillBoundary copies only from valid cells, so a ghost cell that lies outside the domain in
+ * a non-periodic direction and beyond a periodic edge -- a corner where a periodic seam meets
+ * a wall, or the vertical ghosts at a seam -- keeps whatever the boundary conditions put there,
+ * which need not match the cell it images. Face data normal to a periodic direction has the
+ * same problem one step earlier: below a wall, the faces at the two ends of the periodic width
+ * are both owned by a box and need not agree either. InterpFromCoarseLevel copies coarse ghost
+ * cells with periodicity, so such a cell then has two sources, the box's own ghost and its
+ * periodic image. ParallelCopy does not say which one wins. On a CPU the order is fixed, but on
+ * a GPU whichever thread gets there first wins, so the result varies from run to run (#768).
+ *
+ * Here each box is extended outward across its non-periodic domain faces, so those ghosts
+ * become valid cells of a temporary. OverrideSync makes the shared periodic faces agree, and
+ * FillBoundary then fills the images. The result goes into scratch rather than back into mf,
+ * so the coarse level's own ghost cells are left as they were.
+ *
+ * Doing this with AMReX calls alone gets most of the way. EnforcePeriodicity takes its
+ * sources from each box grown by its ghost cells -- Periodicity::Domain() is unbounded in the
+ * non-periodic directions -- so on a copy of mf, FillBoundary followed by EnforcePeriodicity
+ * already makes cell-centered ghosts beyond a wall match their images. On Channel_Test_ML_seam
+ * that gives a plotfile bitwise identical to this function's. It does not cover face data
+ * normal to a periodic direction: faces 0 and nx both lie inside the nodal periodic domain, so
+ * EnforcePeriodicity never writes them, and OverrideSync reconciles only their valid copies.
+ * Below a wall the two then still differ (up to 3e-15 for xvel in that test), leaving two
+ * sources. The extended temporary makes those faces valid so OverrideSync reaches them.
+ *
+ * @param[in   ] mf       data to read, its ghost cells already FillBoundary'd
+ * @param[in   ] geom     geometry of mf's level
+ * @param[inout] scratch  storage for the copy, used only when one is needed
+ * @return mf itself when no ghost cell can have two sources, otherwise scratch
+ */
+const MultiFab&
+periodic_consistent_ghosts (const MultiFab& mf, const Geometry& geom, MultiFab& scratch)
+{
+    const IntVect ng = mf.nGrowVect();
+    bool any_periodic = false;
+    bool any_outside  = false;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (geom.isPeriodic(d)) {
+            any_periodic = any_periodic || ng[d] > 0;
+        } else {
+            any_outside  = any_outside  || ng[d] > 0;
+        }
+    }
+    if (!any_periodic || !any_outside) { return mf; }
+
+    const BoxArray& ba = mf.boxArray();
+    IntVect per_ng(0);
+    bool nodal_periodic = false;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (geom.isPeriodic(d)) {
+            per_ng[d] = ng[d];
+            nodal_periodic = nodal_periodic || mf.ixType().nodeCentered(d);
+        }
+    }
+
+    // The temporary's ghosts start from mf's too: FillBoundary leaves alone a ghost with no
+    // valid cell to copy from -- one at a coarse-fine interface of a level that does not span
+    // the domain -- and that must come out as it went in, not as uninitialized memory.
+    MultiFab ext(extended_boxarray(ba, geom, ng), mf.DistributionMap(), mf.nComp(), per_ng);
+    const int ncomp = mf.nComp();
+    for (MFIter mfi(ext); mfi.isValid(); ++mfi) {
+        const auto& e = ext.array(mfi);
+        const auto& a = mf.const_array(mfi);
+        ParallelFor(mfi.fabbox(), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            e(i,j,k,n) = a(i,j,k,n);
+        });
+    }
+    if (nodal_periodic) { ext.OverrideSync(geom.periodicity()); }
+    ext.FillBoundary(geom.periodicity());
+
+    // Ghosts the temporary does not cover -- those of a box away from the domain faces --
+    // come from mf unchanged.
+    scratch.define(ba, mf.DistributionMap(), ncomp, ng);
+    MultiFab::Copy(scratch, mf, 0, 0, ncomp, ng);
+    for (MFIter mfi(ext); mfi.isValid(); ++mfi) {
+        const auto& e = ext.const_array(mfi);
+        const auto& a = scratch.array(mfi);
+        ParallelFor(mfi.fabbox(), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            a(i,j,k,n) = e(i,j,k,n);
+        });
+    }
+    return scratch;
+}
+} // namespace
+
+/**
+ * Coarse data ready for a coarse-to-fine interpolation (FillPatchTwoLevels,
+ * InterpFromCoarseLevel), which copies the coarse cells, ghost cells included, with
+ * periodicity. The ghost cells are exchanged across grids and periodic edges, and those that
+ * also lie beyond a non-periodic domain face are made to agree with their periodic images
+ * (periodic_consistent_ghosts), so that no cell of the copy has two different sources (#768,
+ * #774, #776). Every coarse-to-fine fill goes through here.
+ *
+ * The ghost cells beyond a wall are otherwise taken as the coarse level's own fill left them;
+ * they are not refilled from the boundary conditions here.
+ *
+ * @param[in   ] crse_lev  level of crse
+ * @param[inout] crse      coarse data; its ghost cells are exchanged in place
+ * @param[inout] scratch   storage for a consistent copy, used only when one is needed
+ * @return crse itself, or scratch holding the consistent copy
+ */
+MultiFab&
+REMORA::coarse_for_interp (int crse_lev, MultiFab& crse, MultiFab& scratch)
+{
+    crse.FillBoundary(geom[crse_lev].periodicity());
+    const MultiFab& src = periodic_consistent_ghosts(crse, geom[crse_lev], scratch);
+    return (&src == &crse) ? crse : scratch;
+}
+
 /**
  * Fill valid and ghost data in the MultiFab "mf"
  * This version fills the MultiFab mf_to_fill in valid regions with
@@ -29,33 +231,23 @@ PhysBCFunctNoOp null_bc;
 void
 REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs,
                   const int  bccomp,
-#ifdef REMORA_USE_NETCDF
-                  const int bdy_var_type,
-#else
-                  const int /*bdy_var_type*/,
-#endif
+                  const int  bdy_var_type,
                   const int  icomp,
                   const bool fill_all,
                   const bool fill_set,
                   const int  n_not_fill,
-#ifdef REMORA_USE_NETCDF
                   const int  icomp_calc,
                   const Real dt_lev,
-#else
-                  const int /*icomp_calc*/,
-                  const Real /*dt_lev*/,
-#endif
                   const MultiFab& mf_calc,
                   Vector<MultiFab*> const& mfs_crse_old,
-                  Vector<MultiFab*> const& mfs_crse_new)
+                  Vector<MultiFab*> const& mfs_crse_new,
+                  const int cf_cache_slot)
 {
     BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
     amrex::Interpolater* mapper = nullptr;
 
     Box mf_box(mf_to_fill.boxArray()[0]);
     bool is_2d = mf_box.length(2) == 1;
-
-    MultiFab* mask;
 
     //
     // ***************************************************************************
@@ -97,21 +289,9 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
     if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
     {
         mapper = &cell_cons_interp;
-        mask   = vec_mskr[lev].get();
-    }
-    else if (mf_box.ixType() == IndexType(IntVect(1,0,0)))
-    {
-        mapper = &face_cons_linear_interp;
-        mask   = vec_msku[lev].get();
-    }
-    else if (mf_box.ixType() == IndexType(IntVect(0,1,0)))
-    {
-        mapper = &face_cons_linear_interp;
-        mask   = vec_mskv[lev].get();
     }
     else {
         mapper = &face_cons_linear_interp;
-        mask   = vec_mskr[lev].get();
     }
 
     if (lev == 0)
@@ -123,69 +303,231 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
     }
     else
     {
-        Vector<MultiFab*> fmf = {mfs[lev], mfs[lev]};
-        Vector<Real> ftime    = {t_old[lev], t_new[lev]};
-        // A subcycled fine level asks for times inside the parent's step, so the coarse
-        // contribution has to be interpolated. Passing one MultiFab twice makes
-        // FillPatchTwoLevels return it whatever the time: fine in lockstep, wrong for
-        // subcycling.
-        Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
-        Vector<Real> ctime    = {time, time};
-        if (do_substep && int(mfs_crse_old.size()) >= lev && int(mfs_crse_new.size()) >= lev) {
-            cmf   = {mfs_crse_old[lev-1], mfs_crse_new[lev-1]};
-            ctime = {t_old[lev-1], t_new[lev-1]};
-            mfs_crse_old[lev-1]->FillBoundary(geom[lev-1].periodicity());
-            mfs_crse_new[lev-1]->FillBoundary(geom[lev-1].periodicity());
+        // The barotropic fills (advance_2d) repeat within a parent step for a handful of
+        // (component, time) pairs, and what the two-level fill leaves in the coarse-fine
+        // ghost cells depends only on the parent's data (fixed until register_coarse_data
+        // replaces it), the component and the time -- for faces also on the fine interface
+        // faces, which FillSet has just set from the same parent data and time. So keep the
+        // result per pair and replay it with the fine-fine exchange that ends the fill,
+        // instead of exchanging and interpolating the parent again on every fast step.
+        const bool is_face = mf_box.ixType() != IndexType(IntVect(0,0,0));
+        const bool cacheable = cf_cache_slot >= 0 && cf_2d_fill_cache > 0 && do_substep
+                               && ncomp == 1 && int(cf_crse_gen.size()) >= lev
+                               && (!is_face || (fill_set && cf_width >= 0 && cf_set_width >= 0));
+        CF2DCache* cache = nullptr;
+        long gen = 0;
+        bool hit = false;
+        if (cacheable) {
+            cf_2d_cache_entry(lev, cf_cache_slot, mf_to_fill, *mfs[lev-1], time, mapper, bccomp);
+            cache = &cf_2d_cache[lev][cf_cache_slot];
+            gen = cf_crse_gen[lev-1];
+            hit = (cache->gen[icomp] == gen) && (cache->time[icomp] == time);
         }
 
-        mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
-        amrex::FillPatchTwoLevels(mf_to_fill, mf_to_fill.nGrowVect(), IntVect(0,0,0),
-                                  time, cmf, ctime, fmf, ftime,
-                                  icomp, icomp, ncomp, geom[lev-1], geom[lev],
-                                  //null_bc, bccomp, null_bc, bccomp,
-                                  refRatio(lev-1),
-                                  mapper, domain_bcs_type, bccomp);
+        if (hit && cf_2d_fill_cache == 1) {
+            copy_on_mask(mf_to_fill, *cache->vals, *cache->mask, icomp);
+            mf_to_fill.FillBoundary(icomp, 1, mf_to_fill.nGrowVect(), geom[lev].periodicity());
+        } else {
+            Vector<MultiFab*> fmf = {mfs[lev], mfs[lev]};
+            Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+            // A subcycled fine level asks for times inside the parent's step, so the coarse
+            // contribution has to be interpolated. Passing one MultiFab twice makes
+            // FillPatchTwoLevels return it whatever the time: fine in lockstep, wrong for
+            // subcycling.
+            MultiFab crse_scratch, crse_old_scratch, crse_new_scratch;
+            Vector<MultiFab*> cmf;
+            Vector<Real> ctime;
+            if (do_substep && int(mfs_crse_old.size()) >= lev && int(mfs_crse_new.size()) >= lev) {
+                cmf   = {&coarse_for_interp(lev-1, *mfs_crse_old[lev-1], crse_old_scratch),
+                         &coarse_for_interp(lev-1, *mfs_crse_new[lev-1], crse_new_scratch)};
+                ctime = {t_old[lev-1], t_new[lev-1]};
+                mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
+            } else {
+                MultiFab& crse = coarse_for_interp(lev-1, *mfs[lev-1], crse_scratch);
+                cmf   = {&crse, &crse};
+                ctime = {time, time};
+            }
+
+            amrex::FillPatchTwoLevels(mf_to_fill, mf_to_fill.nGrowVect(), IntVect(0,0,0),
+                                      time, cmf, ctime, fmf, ftime,
+                                      icomp, icomp, ncomp, geom[lev-1], geom[lev],
+                                      //null_bc, bccomp, null_bc, bccomp,
+                                      refRatio(lev-1),
+                                      mapper, domain_bcs_type, bccomp);
+
+            if (cacheable && hit) {
+                const Long ndiff = count_mask_diff(mf_to_fill, *cache->vals, *cache->mask, icomp);
+                if (ndiff > 0) {
+                    amrex::Abort("remora.cf_2d_fill_cache = 2: the cached coarse-fine fill differs "
+                                 "from a fresh one in " + std::to_string(ndiff) + " cells (level "
+                                 + std::to_string(lev) + ", slot " + std::to_string(cf_cache_slot)
+                                 + ")");
+                }
+            } else if (cacheable) {
+                copy_on_mask(*cache->vals, mf_to_fill, *cache->mask, icomp);
+                cache->gen[icomp]  = gen;
+                cache->time[icomp] = time;
+            }
+        }
     } // lev > 0
 
-    // This is currently unconditionally true, but do_bc flag should actually be passed in
-    const bool do_bc=true;
-    if (do_bc) {
-        // ***************************************************************************
-        // Physical bc's at domain boundary
-        // ***************************************************************************
+    FillPatchBCs(lev, time, mf_to_fill, bccomp, bdy_var_type, icomp, ncomp, n_not_fill,
+                 icomp_calc, dt_lev, mf_calc);
+}
 
-        // Enforce physical boundary conditions
-        (*physbcs[lev])(mf_to_fill,*mask,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp,n_not_fill,mf_calc,
-                *vec_msku[lev].get(), *vec_mskv[lev].get());
+/**
+ * Fit cf_2d_cache[lev][slot] to mf's layout. When the layout changes, the cached values are
+ * dropped and the mask is rebuilt: the ghost cells a two-level fill of mf writes, which is
+ * the coarse-fine ghost region together with whatever the interpolater's patches overlap.
+ * Rather than restate AMReX's region logic, run the same fill on a probe whose ghost cells
+ * hold a sentinel no fill can produce (valid cells 0, parent 1) and mark what changed.
+ *
+ * @param[in] lev     fine level
+ * @param[in] slot    cache slot (0 ubar, 1 vbar, 2 zeta)
+ * @param[in] mf      the MultiFab the fills write
+ * @param[in] crse    the parent level's MultiFab of the same field, for its layout
+ * @param[in] time    a fill time (only the layout matters)
+ * @param[in] mapper  the interpolater the fills use
+ * @param[in] bccomp  index into domain_bcs_type the fills use
+ */
+void
+REMORA::cf_2d_cache_entry (int lev, int slot, const MultiFab& mf, const MultiFab& crse,
+                           Real time, Interpolater* mapper, int bccomp)
+{
+    if (int(cf_2d_cache.size()) <= lev) { cf_2d_cache.resize(lev+1); }
+    CF2DCache& c = cf_2d_cache[lev][slot];
+    if (c.vals && c.vals->boxArray() == mf.boxArray()
+               && c.vals->DistributionMap() == mf.DistributionMap()
+               && c.vals->nComp() == mf.nComp() && c.vals->nGrowVect() == mf.nGrowVect()) {
+        return;
+    }
+
+    c.vals = std::make_unique<MultiFab>(mf.boxArray(), mf.DistributionMap(), mf.nComp(),
+                                        mf.nGrowVect());
+    c.mask = std::make_unique<iMultiFab>(mf.boxArray(), mf.DistributionMap(), 1,
+                                         mf.nGrowVect());
+    c.time.assign(mf.nComp(), zero);
+    c.gen.assign(mf.nComp(), -1);
+
+    constexpr Real sentinel = Real(-1.0e30);
+    MultiFab probe(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
+    probe.setVal(sentinel);
+    probe.setVal(zero, 0, 1, 0);
+    MultiFab cprobe(crse.boxArray(), crse.DistributionMap(), 1, crse.nGrowVect());
+    cprobe.setVal(one);
+
+    Vector<MultiFab*> fmf = {&probe, &probe};
+    Vector<Real> ftime    = {time, time};
+    Vector<MultiFab*> cmf = {&cprobe, &cprobe};
+    Vector<Real> ctime    = {time, time};
+    amrex::FillPatchTwoLevels(probe, probe.nGrowVect(), IntVect(0,0,0),
+                              time, cmf, ctime, fmf, ftime,
+                              0, 0, 1, geom[lev-1], geom[lev],
+                              refRatio(lev-1),
+                              mapper, domain_bcs_type, bccomp);
+
+    // Ghost cells another fine box covers are left out: the exchange that ends every fill
+    // overwrites them with that box's current values, whatever the interpolation put there.
+    iMultiFab covered(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
+    covered.setVal(0);
+    covered.setVal(1, 0, 1, 0);
+    covered.FillBoundary(geom[lev].periodicity());
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(*c.mask, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        auto m = c.mask->array(mfi);
+        auto cv = covered.const_array(mfi);
+        auto pr = probe.const_array(mfi);
+        ParallelFor(mfi.growntilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            m(i,j,k) = (cv(i,j,k) == 0 && pr(i,j,k) != sentinel) ? 1 : 0;
+        });
+    }
+}
+
+/**
+ * The boundary-condition half of FillPatch, for a MultiFab whose fine-fine (and, above
+ * level 0, coarse-fine) ghost cells are already filled: physical boundary conditions,
+ * boundary data from NetCDF files, periodic corners, and free-slip at the top for the
+ * face-centered velocities. Split out so that several fields can share one exchange and
+ * then take their conditions in turn (advance_2d does this for ubar, vbar and zeta).
+ *
+ * @param[in   ] lev            level to fill on
+ * @param[in   ] time           current time
+ * @param[inout] mf_to_fill     MultiFab to fill
+ * @param[in   ] bccomp         index into domain_bcs_type
+ * @param[in   ] bdy_var_type   when filling from NetCDF, which boundary data
+ * @param[in   ] icomp          first component to fill
+ * @param[in   ] ncomp          number of components to fill
+ * @param[in   ] n_not_fill     number of ghost cells not to fill
+ * @param[in   ] icomp_calc     component to use in RHS boundary calculation
+ * @param[in   ] dt_lev         time step at this level
+ * @param[in   ] mf_calc        data to use in RHS boundary calculation
+ */
+void
+REMORA::FillPatchBCs (int lev, Real time, MultiFab& mf_to_fill,
+                      const int  bccomp,
+                      const int  bdy_var_type,
+                      const int  icomp,
+                      const int  ncomp,
+                      const int  n_not_fill,
+                      const int  icomp_calc,
+                      const Real dt_lev,
+                      const MultiFab& mf_calc)
+{
+    Box mf_box(mf_to_fill.boxArray()[0]);
+
+    MultiFab* mask;
+    if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
+        mask = vec_msku[lev].get();
+    } else if (mf_box.ixType() == IndexType(IntVect(0,1,0))) {
+        mask = vec_mskv[lev].get();
+    } else {
+        mask = vec_mskr[lev].get();
+    }
+
+    // ***************************************************************************
+    // Physical bc's at domain boundary
+    // ***************************************************************************
+
+    // Enforce physical boundary conditions
+    (*physbcs[lev])(mf_to_fill,*mask,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp,n_not_fill,mf_calc,
+            *vec_msku[lev].get(), *vec_mskv[lev].get());
 
 #ifdef REMORA_USE_NETCDF
-        // Fill the data which is stored in the boundary data read from netcdf files
-        if ( (solverChoice.boundary_from_netcdf) && (bdy_var_type != BdyVars::null) )
-        {
-            fill_from_bdyfiles(lev, mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
-        }
+    // Fill the data which is stored in the boundary data read from netcdf files
+    if ( (solverChoice.boundary_from_netcdf) && (bdy_var_type != BdyVars::null) )
+    {
+        fill_from_bdyfiles(lev, mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
+    }
+#else
+    amrex::ignore_unused(bdy_var_type, icomp_calc, dt_lev);
 #endif
-        // Fill corners of the domain with periodic data
-        if  ( mf_box.ixType() == IndexType(IntVect(0,0,0)) ) {
-            mf_to_fill.EnforcePeriodicity(geom[lev].periodicity());
-        }
+    // Fill corners of the domain with periodic data
+    if  ( mf_box.ixType() == IndexType(IntVect(0,0,0)) ) {
+        mf_to_fill.EnforcePeriodicity(geom[lev].periodicity());
+    }
 
-        // Also enforce free-slip at top boundary (on xvel or yvel)
-        if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
-             (mf_box.ixType() == IndexType(IntVect(0,1,0))) )
+    // Also enforce free-slip at top boundary (on xvel or yvel)
+    if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
+         (mf_box.ixType() == IndexType(IntVect(0,1,0))) )
+    {
+        int khi = geom[lev].Domain().bigEnd(2);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MFIter mfi(mf_to_fill); mfi.isValid(); ++mfi)
         {
-            int khi = geom[lev].Domain().bigEnd(2);
-            for (MFIter mfi(mf_to_fill); mfi.isValid(); ++mfi)
-            {
-                Box gbx  = mfi.growntilebox(); // Note this is face-centered since vel is
-                gbx.setSmall(2,khi+1);
-                if (gbx.ok()) {
-                    Array4<Real> vel_arr = mf_to_fill.array(mfi);
-                    ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                    {
-                        vel_arr(i,j,k) = vel_arr(i,j,khi);
-                    });
-                }
+            Box gbx  = mfi.growntilebox(); // Note this is face-centered since vel is
+            gbx.setSmall(2,khi+1);
+            if (gbx.ok()) {
+                Array4<Real> vel_arr = mf_to_fill.array(mfi);
+                ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    vel_arr(i,j,k) = vel_arr(i,j,khi);
+                });
             }
         }
     }
@@ -302,16 +644,20 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
         // contribution has to be interpolated. Passing one MultiFab twice makes
         // FillPatchTwoLevels return it whatever the time: fine in lockstep, wrong for
         // subcycling.
-        Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
-        Vector<Real> ctime    = {time, time};
+        MultiFab crse_scratch, crse_old_scratch, crse_new_scratch;
+        Vector<MultiFab*> cmf;
+        Vector<Real> ctime;
         if (do_substep && int(mfs_crse_old.size()) >= lev && int(mfs_crse_new.size()) >= lev) {
-            cmf   = {mfs_crse_old[lev-1], mfs_crse_new[lev-1]};
+            cmf   = {&coarse_for_interp(lev-1, *mfs_crse_old[lev-1], crse_old_scratch),
+                     &coarse_for_interp(lev-1, *mfs_crse_new[lev-1], crse_new_scratch)};
             ctime = {t_old[lev-1], t_new[lev-1]};
-            mfs_crse_old[lev-1]->FillBoundary(geom[lev-1].periodicity());
-            mfs_crse_new[lev-1]->FillBoundary(geom[lev-1].periodicity());
+            mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
+        } else {
+            MultiFab& crse = coarse_for_interp(lev-1, *mfs[lev-1], crse_scratch);
+            cmf   = {&crse, &crse};
+            ctime = {time, time};
         }
 
-        mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
         amrex::FillPatchTwoLevels(mf_to_fill, mf_to_fill.nGrowVect(), IntVect(0,0,0),
                                   time, cmf, ctime, fmf, ftime,
                                   icomp, icomp, ncomp, geom[lev-1], geom[lev],
@@ -476,13 +822,8 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
                          const int  icomp,
                          const bool fill_all,
                          const int  n_not_fill,
-#ifdef REMORA_USE_NETCDF
                          const int  icomp_calc,
                          const Real dt_lev,
-#else
-                         const int /*icomp_calc*/,
-                         const Real /*dt_lev*/,
-#endif
                          const MultiFab& mf_calc,
                                amrex::Interpolater* mapper)
 {
@@ -540,9 +881,15 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
         }
     }
 
-    mf_crse->FillBoundary(geom[lev-1].periodicity());
+    // InterpFromCoarseLevel copies the coarse ghost cells with periodicity. When the levels
+    // are first made the parent has had no FillPatch yet, so its ghosts beyond a wall and
+    // beyond a periodic edge still hold initial values rather than their periodic images.
+    // Where the new patch touches the seam the two then compete for one cell of the copy,
+    // and on a GPU the winner varies from run to run (Channel_Test_ML_seam, issue #768).
+    MultiFab crse_scratch;
+    const MultiFab& crse_src = coarse_for_interp(lev-1, *mf_crse, crse_scratch);
     amrex::InterpFromCoarseLevel(*mf_to_fill, mf_to_fill->nGrowVect(), IntVect(0,0,0),
-            *mf_crse, 0, icomp, ncomp, geom[lev-1], geom[lev],
+            crse_src, 0, icomp, ncomp, geom[lev-1], geom[lev],
                                  refRatio(lev-1),
                                  mapper, domain_bcs_type, bccomp);
 
@@ -550,17 +897,51 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
     // Physical bc's at domain boundary
     // ***************************************************************************
 
+    // The radiation conditions compare the field with its previous state (mf_calc),
+    // which a level being created does not have. Give them the interpolated field
+    // itself: the ghost cells then keep the coarse values and the nudging term,
+    // with no time step, is zero. Only the radiation conditions read it, so the
+    // copy is made only when one of them is set on this field, and only of the
+    // components being filled. It cannot be an alias of the field: the radiation
+    // kernels read the along-boundary neighbours of the column they write, so on a
+    // GPU a thread could read a cell another thread has already overwritten.
+    MultiFab calc_copy;
+    const MultiFab* calc = &mf_calc;
+    int icomp_calc_used = icomp_calc;
+    if (!mf_calc.ok()) {
+        bool radiation = false;
+        for (int n = 0; n < ncomp; ++n) {
+            const BCRec& bcr = domain_bcs_type[bccomp+n];
+            for (int dir = 0; dir < 2; ++dir) {
+                for (int bc : {bcr.lo(dir), bcr.hi(dir)}) {
+                    radiation = radiation || bc == REMORABCType::orlanski_rad
+                                          || bc == REMORABCType::orlanski_rad_nudge;
+                }
+            }
+        }
+        if (radiation) {
+            calc_copy.define(mf_to_fill->boxArray(), mf_to_fill->DistributionMap(),
+                             ncomp, mf_to_fill->nGrowVect());
+            MultiFab::Copy(calc_copy, *mf_to_fill, icomp, 0, ncomp,
+                           mf_to_fill->nGrowVect());
+            calc = &calc_copy;
+            icomp_calc_used = 0;
+        }
+    }
+
     // Enforce physical boundary conditions
     (*physbcs[lev])(*mf_to_fill,*mask,icomp,ncomp,mf_to_fill->nGrowVect(),
-            time,bccomp,n_not_fill,mf_calc,
+            time,bccomp,n_not_fill,*calc,
             *vec_msku[lev].get(), *vec_mskv[lev].get());
 
 #ifdef REMORA_USE_NETCDF
     // Fill the data which is stored in the boundary data read from netcdf files
     if ( (solverChoice.boundary_from_netcdf) && (bdy_var_type != BdyVars::null) )
     {
-        fill_from_bdyfiles(lev, *mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
+        fill_from_bdyfiles(lev, *mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc_used,*calc,dt_lev);
     }
+#else
+    amrex::ignore_unused(icomp_calc_used, dt_lev);
 #endif
     // Fill corners of the domain with periodic data
     if  ( box_mf.ixType() == IndexType(IntVect(0,0,0)) ) {
@@ -582,6 +963,9 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
          (box_mf.ixType() == IndexType(IntVect(0,1,0))) )
     {
         int khi = geom[lev].Domain().bigEnd(2);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for (MFIter mfi(*mf_to_fill); mfi.isValid(); ++mfi)
         {
             Box gbx  = mfi.growntilebox(); // Note this is face-centered since vel is

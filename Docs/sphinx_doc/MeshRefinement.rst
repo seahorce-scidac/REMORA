@@ -209,6 +209,14 @@ with the list of the ones it does. All but ``mask`` are restricted to water; see
 than filled, so ``adjacent_difference_greater`` on one sees a step at every grid
 boundary and tags a set of cells that depends on the domain decomposition.
 
+Levels made by dynamic refinement can be written to NetCDF as well as to AMReX
+plotfiles. A refined level's NetCDF file covers the whole domain at that level's
+resolution. Cells the level's grids don't cover hold the fill value, so one file
+follows the level as regridding moves it. See :ref:`sec:Plotfiles`. Because of
+this, NetCDF output is not recommended for runs with mesh refinement; for speed
+and disk space, use AMReX plotfiles, which :ref:`xamrex<sec:xamrex>` can read and
+manipulate in Python.
+
 Masked Regions and Tagging
 --------------------------
 
@@ -264,6 +272,19 @@ facing them, so the coast is refined from both sides.
 
 How the mask itself is carried across levels, and how it weights the two-way
 average, is described in :ref:`Land/Sea Masking <sec:masking>`.
+
+With ``remora.drop_dry_boxes`` (on by default) level 0 leaves out its all-land boxes (see
+:ref:`Land Layout <sec:LandLayout>`), and a finer level must never need one: AMReX would
+clip the fine grids to stay ``amr.n_proper`` blocks away from the hole, and the coarse-fine
+fills read coarse cells around the fine grids. So a level-0 box is kept wherever a refinement
+indicator's box, grown by the tag buffer, by ``amr.n_proper`` + 1 blocks of the level-1
+blocking factor (over the refinement ratio) and by the coarse stencil of the fills, reaches
+it; the fine grids are then the ones the full-domain run makes. This margin covers level 1
+only: a level-2 indicator would grow level 1 by its own buffer and proper nesting, and AMReX
+would clear level-1 tags near a hole without a word, so with ``amr.max_level`` > 1 no box is
+dropped. A field-based criterion can refine anywhere, so with one of those no box is dropped
+either. REMORA aborts after a regrid if level 1, or the level-0 cells its fills need, reaches a
+dropped box.
 
 Coupling Types
 --------------

@@ -15,7 +15,8 @@ class NCTimeSeriesRiver
         NCTimeSeriesRiver (const amrex::Vector<std::string>& a_file_names,
                            const std::string a_field_name,
                            const std::string a_time_name,
-                           const int a_nz, const int a_use_vert_integ=0,
+                           const int a_nz, double a_time_ref,
+                           const int a_use_vert_integ=0,
                            const int a_is_transport=0);
 
         void Initialize ();
@@ -61,6 +62,11 @@ class NCTimeSeriesRiver
         int nz;
         /// How many vertical cells there are in the data fabs
         int nzbox;
+
+        /** remora.time_ref: the reference date the model clock counts from. The
+         * file's times are placed on that clock from the reference date in their
+         * units attribute. Double, like every reference date. */
+        double time_ref;
 
         /// Time points in netcdf file, in seconds on the model clock
         amrex::Vector<double> river_times;

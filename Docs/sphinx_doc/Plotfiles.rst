@@ -46,6 +46,24 @@ List of Parameters
 |                                        | for                               |                       |            |
 |                                        | all timesteps?                    |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
+| **remora.output_forcing**              | also write the surface forcing    | false or true         | false      |
+|                                        |                                   |                       |            |
+|                                        | to NetCDF plotfiles: ``Uwind``,   |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``Vwind`` (along the grid axes),  |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``Tair``, ``Pair``, ``qnet``,     |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``ssflux``, ``latent``,           |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``sensible``, ``lwrad``,          |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``swrad``, ``evaporation``,       |                       |            |
+|                                        |                                   |                       |            |
+|                                        | ``rain``; without bulk fluxes     |                       |            |
+|                                        |                                   |                       |            |
+|                                        | only ``qnet`` and ``ssflux``      |                       |            |
++----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.chunk_history_file**          | do we divide netcdf history       | false or true         | false      |
 |                                        |                                   |                       |            |
 |                                        | files so that each file contains  |                       |            |
@@ -142,11 +160,15 @@ Notes
 
    - Per-step files keep their step numbers. The restart step's file is written again, and
      the earlier copy is renamed to ``*.old.*``.
-   - A history file in the run directory is continued from its first record at or after the
-     restart time. Later records from the earlier run are written over as the new run
-     reaches them; any it does not reach stay at the end of the file.
-   - With no history file, or one for a different grid (which is renamed aside), a new file
-     is started. Chunked history files keep the numbering from the checkpoint.
+   - Each level's history file in the run directory is continued from its first record at
+     or after the restart time. Later records from the earlier run are written over as the
+     new run reaches them; any it does not reach stay at the end of the file.
+   - With no history file, a new one is started. A file for a different grid is renamed
+     aside first. Chunked history files keep the numbering from the checkpoint.
+
+-  A run that is not a restart never adds to a history file it finds in the run directory.
+   It renames the file aside when it first writes to that name. This also applies to a
+   refined level that first appears partway through the run.
 
 -  REMORA writes CDF-5 files, which have no practical size limit. Some MPI builds still fail on writes
    larger than 2 GB — a limit of the MPI-IO layer, not the file format. If a large write crashes, see the
@@ -162,10 +184,11 @@ Notes
    ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
    This also holds for a NetCDF history file, whose records then need not be evenly spaced in time.
 
--  When Fennel biology is enabled, ``fennel`` in ``remora.plot_vars_3d``
-   expands to all active biology tracers. Active biology tracers can also be
-   requested by name. See :ref:`sec:Fennel` for tracer names and component
-   options.
+-  When a biology model is enabled, ``biology`` in ``remora.plot_vars_3d``
+   expands to all of that model's active tracers, excluding passive dye. Fennel
+   also accepts ``fennel`` as an alias for the same group. Active biology tracers
+   can also be requested by name. See :ref:`sec:Fennel` for tracer names and
+   component options.
 
 -  Passive dye is opt-in: ``tracer`` is only available when ``remora.nscalar`` is at
    least 1 (see :ref:`sec:Inputs`). Naming a field the run does not carry is not fatal
@@ -219,7 +242,8 @@ the tracers are advected with. All velocities are averaged to cell centers in AM
 +--------------------------------+------------------------------------+
 | **h**                          |                                    |
 +--------------------------------+------------------------------------+
-| **f**                          | Coriolis parameter                 |
+| **f**                          | Coriolis parameter, zero when      |
+|                                | ``remora.use_coriolis = false``    |
 +--------------------------------+------------------------------------+
 | **visc2**                      | horizontal viscosity               |
 +--------------------------------+------------------------------------+
@@ -261,6 +285,16 @@ the tracers are advected with. All velocities are averaged to cell centers in AM
 +--------------------------------+------------------------------------+
 | **mask_v**                     | v-point mask (sea = 1, land = 0)   |
 +--------------------------------+------------------------------------+
+| **lon_rho**                    | rho-point longitude [degrees east],|
+|                                | when the grid file carries it      |
+|                                | (otherwise dropped with a warning) |
++--------------------------------+------------------------------------+
+| **lat_rho**                    | rho-point latitude [degrees north],|
+|                                | likewise                           |
++--------------------------------+------------------------------------+
+| **angle**                      | angle from east to the xi axis     |
+|                                | [radians], likewise                |
++--------------------------------+------------------------------------+
 
 .. _examples-of-usage-8:
 
@@ -287,12 +321,33 @@ Examples of Usage
    *out/plt_run_his00000_d01.nc*; and with ``remora.write_history_file = false``
    there is one file per output step, as in *out/plt_run00010_d01.nc*.
 
-   The region a refined level's NetCDF file covers is taken from the static
-   refinement boxes (``in_box_lo``/``in_box_hi`` or their ``_indices`` forms), not
-   from the level's actual grids, and only the first such box at that level is
-   written. NetCDF output of a refined level therefore requires the level to be
-   defined by a static box; levels created only by field-based tagging are not
-   supported.
+   .. note::
+
+      NetCDF output is not recommended for runs with mesh refinement. Each refined
+      level is written over the whole domain at its own resolution, so the files are
+      large and slow to write, and most of each one is fill. For speed and disk space,
+      we recommend AMReX plotfiles (``remora.plotfile_type = amrex``) for these runs.
+      :ref:`xamrex<sec:xamrex>` reads them into Python with xarray, including time
+      series and multiple levels.
+
+   Every level's NetCDF file covers the whole domain at that level's resolution,
+   however the level was made (by static refinement boxes, by field-based tagging,
+   or both) and wherever regridding moves it. A level 1 file with refinement ratio
+   2 therefore has twice as many points in each horizontal direction as the level 0
+   file. Cells the level's grids don't cover hold the fill value
+   ``remora.netcdf_fill_value`` in every variable, the masks included, so they read
+   as missing rather than as land. For this reason every variable of a refined level
+   carries a ``_FillValue`` attribute, including the fixed grid variables (``h``,
+   ``pm``, ``x_rho`` and the like) and the masks. On level 0, which has no gaps, the
+   grid variables and masks carry none. In a history file, the grid variables are
+   written again whenever the level's grids have changed since the last record, so
+   they gain the cells the level moves over.
+
+   A refined level's history holds a record only for the outputs at which the level
+   exists. If tagging creates the level partway through the run, or the level
+   disappears and comes back, its file starts at record 0 and skips the outputs when
+   the level was absent. ``ocean_time`` gives each record's time, so it does not line
+   up record for record with level 0's file.
 
 -  **remora.plot_nodal_data** = *false*
 
@@ -302,8 +357,19 @@ Examples of Usage
    The nodal set is the displacement a viewer adds to the Cartesian node position it builds from
    the plotfile header: node :math:`(i,j,k)` of a level sits at
    :math:`\texttt{prob\_lo} + (i\,dx, j\,dy, k\,dz) + \nu(i,j,k)`, with :math:`dx, dy, dz` that
-   level's cell sizes from the header, :math:`\nu_x = \nu_y = 0` and
-   :math:`\nu_z = z_{\rm phys}(i,j,k) - (\texttt{prob\_lo}_z + k\,dz)`. The level's own ``h`` and
+   level's cell sizes from the header,
+
+   .. math::
+      \nu_x = x_\psi(i,j) - (\texttt{prob\_lo}_x + i\,dx), \qquad
+      \nu_y = y_\psi(i,j) - (\texttt{prob\_lo}_y + j\,dy), \qquad
+      \nu_z = z_{\rm phys}(i,j,k) - (\texttt{prob\_lo}_z + k\,dz),
+
+   where :math:`x_\psi, y_\psi` are the physical coordinates of the cell corners (:math:`\psi`-points):
+   on level 0, the grid's own ``x_psi`` and ``y_psi`` (read from the NetCDF grid file, or
+   :math:`i/p_m` and :math:`j/p_n` as in ROMS for an analytic grid). Each finer level's corners are
+   interpolated bilinearly from the level below, so a fine node that coincides with a coarse node
+   sits exactly where the coarse node does. On a uniform grid starting at the origin
+   :math:`\nu_x = \nu_y = 0`. The level's own ``h`` and
    ``zeta`` set :math:`z_{\rm phys}`, so on a refined level the bottom and surface are the refined
    level's; where its bathymetry is finer than the parent's, the two levels' bottoms differ at
    coincident nodes by the sub-grid bathymetry, and a viewer shows that as a step at the patch edge.

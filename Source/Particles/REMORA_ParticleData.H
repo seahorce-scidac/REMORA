@@ -51,25 +51,32 @@ class ParticleData
         }
 
         /*! Write checkpoint files */
-        void Checkpoint ( const std::string& a_fname ) const
+        void Checkpoint ( const std::string& a_fname )
         {
             BL_PROFILE("ParticleData::Checkpoint()");
-            for (ParticlesNamesVector::size_type i = 0; i < m_namelist.size(); i++) {
-                auto name( m_namelist[i] );
-                auto particles( m_particle_species.at(name) );
-                particles->Checkpoint( a_fname, name, true, particles->varNames() );
-            }
+            writeSpecies( a_fname, nullptr );
         }
 
-        /*! Read from restart file */
-        void Restart ( amrex::ParGDBBase* a_gdb, const std::string& a_fname )
+        /*! Write particles to a plotfile, with x and y in physical coordinates. Not const:
+         *  the positions are converted in place for the write and then restored. */
+        void writePlotFile ( const std::string& a_fname,
+                             const amrex::Vector<amrex::MultiFab>& a_xy )
+        {
+            BL_PROFILE("ParticleData::writePlotFile()");
+            writeSpecies( a_fname, &a_xy );
+        }
+
+        /*! Read from restart file. a_z_phys_nd is the grid read from the same checkpoint,
+         *  used to compute the level index for checkpoints written before it was stored. */
+        void Restart ( amrex::ParGDBBase* a_gdb, const std::string& a_fname,
+                       const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& a_z_phys_nd )
         {
             BL_PROFILE("ParticleData::Restart()");
             AMREX_ASSERT(isEmpty());
             for (auto it = m_namelist_unalloc.begin(); it != m_namelist_unalloc.end(); ++it) {
                 std::string species_name( *it );
                 REMORAPC* pc = new REMORAPC( a_gdb, species_name );
-                pc->Restart(a_fname, species_name );
+                pc->Restart(a_fname, species_name, a_z_phys_nd );
                 pushBack( species_name, pc );
             }
             m_namelist_unalloc.clear();
@@ -91,9 +98,12 @@ class ParticleData
             }
         }
 
-        void GetMeshPlotVar (   const std::string& a_var_name,
-                                amrex::MultiFab&   a_mf,
-                                const int          a_lev )
+        void GetMeshPlotVar (   const std::string&      a_var_name,
+                                amrex::MultiFab&        a_mf,
+                                const int               a_lev,
+                                amrex::MultiFab const&  a_Hz,
+                                amrex::MultiFab const&  a_pm,
+                                amrex::MultiFab const&  a_pn )
         {
             BL_PROFILE("ParticleData::GetMeshPlotVar()");
             for (ParticlesNamesVector::size_type i = 0; i < m_namelist.size(); i++) {
@@ -106,7 +116,7 @@ class ParticleData
 
                     std::string var_name = particle_name+"_"+particle_var_names[n];
                     if ( var_name == a_var_name ) {
-                        particles->computeMeshVar(particle_var_names[n], a_mf, a_lev);
+                        particles->computeMeshVar(particle_var_names[n], a_mf, a_lev, a_Hz, a_pm, a_pn);
                         return;
                     }
                 }
@@ -227,6 +237,17 @@ class ParticleData
 
 
     private:
+
+        /*! Write every species, for a checkpoint (a_xy null) or a plotfile */
+        void writeSpecies ( const std::string& a_fname,
+                            const amrex::Vector<amrex::MultiFab>* a_xy )
+        {
+            for (ParticlesNamesVector::size_type i = 0; i < m_namelist.size(); i++) {
+                auto name( m_namelist[i] );
+                auto particles( m_particle_species.at(name) );
+                particles->WriteOutput( a_fname, name, a_xy );
+            }
+        }
 
         /*! Vector of all particle species */
         ParticleSpeciesMap m_particle_species;

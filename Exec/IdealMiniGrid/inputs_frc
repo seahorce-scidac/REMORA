@@ -63,3 +63,5 @@ remora.nc_init_file_0   = "idmini_ini_v1_classic64.nc"
 remora.nc_grid_file_0   = "idmini_grd_v1_classic64.nc"
 remora.nc_bdry_file     = "idmini_bry_Salt_classic64.nc"
 remora.nc_frc_file      = "idmini_frc_wind_classic64.nc"
+# The boundary and forcing files count days since 2020-01-01; put the model clock there
+remora.time_ref         = 20200101

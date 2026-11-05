@@ -12,17 +12,20 @@
  * @param[in   ] a_field_name         name of field to read in
  * @param[in   ] a_time_name          name of time variable in NetCDF file
  * @param[in   ] a_nz                 number of vertical levels in domain
+ * @param[in   ] a_time_ref           remora.time_ref, the reference date of the model clock
  * @param[in   ] a_use_vert_integ     whether the data in the file is vertically integrated
  * @param[in   ] a_is_transport       whether the field is the river transport rather than a tracer
  */
 NCTimeSeriesRiver::NCTimeSeriesRiver (const amrex::Vector<std::string>& a_file_names, const std::string a_field_name,
                                       const std::string a_time_name,
-                                      const int a_nz, const int a_use_vert_integ,
+                                      const int a_nz, double a_time_ref,
+                                      const int a_use_vert_integ,
                                       const int a_is_transport) {
     file_names.assign(a_file_names.begin(), a_file_names.end());
     time_name = a_time_name;
     field_name = a_field_name;
     nz   = a_nz;
+    time_ref = a_time_ref;
     use_vert_integ = a_use_vert_integ;
     is_transport = a_is_transport;
 }
@@ -41,15 +44,10 @@ void NCTimeSeriesRiver::Initialize() {
     for (int ifile = 0; ifile < file_names.size(); ++ifile) {
         const std::string& file_name = file_names[ifile];
 
-        // Check units of time stamps; should be days
-        std::string unit_str = ReadNetCDFVarAttrStr(file_name, time_name, "units"); // works on proc 0
-        if (amrex::ParallelDescriptor::IOProcessor())
-        {
-            if (unit_str.find("days") == std::string::npos) {
-                amrex::Print() << "Units of river_time given as: " << unit_str << std::endl;
-                amrex::Abort("Units must be in days.");
-            }
-        }
+        // The time stamps must count days. Their reference date, if the units
+        // name one, is honored: this is the shift that puts them on the model clock.
+        const double offset_days = ReadNetCDFTimeOffsetDays(file_name, time_name, time_ref,
+                                                            true, true);
 
         // get times and put in array
         amrex::Vector<NDArray<double>> array_ts(1);
@@ -59,8 +57,8 @@ void NCTimeSeriesRiver::Initialize() {
             int ntimes_io = array_ts[0].get_vshape()[0];
             for (int nt(0); nt < ntimes_io; nt++)
             {
-                // Convert river time from days to seconds
-                river_times.push_back((*(array_ts[0].get_data() + nt)) * 60.0 * 60.0 * 24.0);
+                // Onto the model clock, then from days to seconds
+                river_times.push_back((*(array_ts[0].get_data() + nt) + offset_days) * 60.0 * 60.0 * 24.0);
                 file_for_time.push_back(ifile);
                 file_itime_offset.push_back(nt);
             }
@@ -144,17 +142,30 @@ void NCTimeSeriesRiver::Initialize() {
 
 void NCTimeSeriesRiver::update_interpolated_to_time (double time) {
     // Figure out time index:
-    AMREX_ASSERT(time >= river_times[0]);
-    AMREX_ASSERT(time <= river_times[river_times.size()-1]);
     int i_time_before_old = i_time_before;
+    int i_time_new = -1;
     for (int nt=0; nt < river_times.size()-1; nt++) {
         if ((river_times[nt] <= time) and (river_times[nt+1] >= time)) {
-            i_time_before = nt;
-            time_before = river_times[nt];
-            time_after = river_times[nt+1];
+            i_time_new = nt;
             break;
         }
     }
+    // Bracketing must succeed: falling through would read the series at a stale or
+    // uninitialized index. A runtime check rather than an assert, because the failure
+    // is a mismatch between the file and the run.
+    if (i_time_new < 0) {
+        amrex::Abort("Time " + std::to_string(time) + " is not spanned by the river time"
+                     + " series for '" + field_name + "', which covers ["
+                     + std::to_string(river_times[0]) + ", "
+                     + std::to_string(river_times[river_times.size()-1])
+                     + "]. Extend the river file to cover the run. The file's times were"
+                     + " placed on the model clock from the reference date in their units"
+                     + " attribute (the mapping is printed when the series is loaded), so"
+                     + " also check remora.time_ref and remora.start_time.");
+    }
+    i_time_before = i_time_new;
+    time_before = river_times[i_time_before];
+    time_after = river_times[i_time_before+1];
 
     int i_time_after = i_time_before + 1;
     if (i_time_before_old + 1 == i_time_before) {

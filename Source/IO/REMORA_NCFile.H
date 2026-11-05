@@ -166,6 +166,35 @@ bool QueryNetCDFVarAttrStr (const std::string& fname,
                             const std::string& attr_name);
 
 /**
+ * \brief Offset, in days, that puts a file's time variable onto the model clock.
+ *
+ * Reads the `units` attribute of \p time_name, which must count days, and its
+ * `calendar` attribute if it has one. A `days since <date>` reference date is
+ * converted to days since the date `remora.time_ref` names, so a file whose
+ * epoch differs from the run's is still read at the right time; the offset is
+ * zero when the two dates agree. A time variable with no reference date is
+ * taken to be on the model clock already. A calendar that disagrees with
+ * \p time_ref is an error, since the two would count days differently.
+ *
+ * Collective: the attributes are read on the I/O processor and the result is
+ * broadcast. The mapping applied is printed, so a reader of the log can see it.
+ *
+ * @param[in] fname           NetCDF file
+ * @param[in] time_name       name of the time variable
+ * @param[in] time_ref        remora.time_ref
+ * @param[in] units_required  abort when the time variable has no `units`
+ *                            attribute; otherwise warn and assume days on the
+ *                            model clock
+ * @param[in] announce        print the mapping; false for a series that is set
+ *                            up but will never be read
+ */
+double ReadNetCDFTimeOffsetDays (const std::string& fname,
+                                 const std::string& time_name,
+                                 double time_ref,
+                                 bool units_required,
+                                 bool announce);
+
+/**
  * \brief Helper function for testing whether a file carries every named variable.
  *
  * Call this before reading optional variables: ReadNetCDFFile() dereferences

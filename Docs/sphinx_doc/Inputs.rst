@@ -102,6 +102,8 @@ Grid and Initial Data on Refined Levels
 
 Grid and initial data files are read on level 0 only, from ``remora.nc_grid_file_0`` and ``remora.nc_init_file_0``; keys for other levels, such as ``remora.nc_grid_file_1``, are not used. By default, every field on a refined level -- bathymetry, ``pm`` and ``pn``, the land-sea mask, Coriolis, and the initial state -- is interpolated from the next coarser level.
 
+A spherical grid file also carries ``lon_rho``, ``lat_rho`` and ``angle`` (the angle in radians from east to the xi axis, as ROMS defines it). When present they are read with the other grid variables and interpolated to the refined levels; when absent the run proceeds without them. They can be written to plotfiles as the 2D variables ``lon_rho``, ``lat_rho`` and ``angle``, and the NetCDF history file carries them whenever they are available. With ``remora.hires_grid_level`` set they are read from ``remora.nc_grid_file_hires`` instead and averaged down like ``pm`` and ``pn``; longitude and angle are first made continuous across any branch cut, so a coarse cell straddling the dateline takes a longitude near 180 rather than 0, and the averaged longitude may then lie outside [-180, 180).
+
 Higher-resolution data can instead be given for the whole domain at one refined level, separately for the grid and the initial state:
 
 - ``remora.hires_grid_level`` and ``remora.nc_grid_file_hires`` supply ``h``, ``pm`` and ``pn``, plus ``mask_rho`` when ``remora.mask_type = netcdf``. ``remora.mask_type`` defaults to ``netcdf`` when ``remora.ic_type = netcdf``, so the file needs ``mask_rho`` unless the mask type is set otherwise.
@@ -234,7 +236,31 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   | in forcing file                   |                 | ``sms_time`` for surface        |
 |                                   |                                   |                 |                                 |
-|                                   |                                   |                 | momentum stress                 |
+|                                   |                                   |                 | momentum stress,                |
+|                                   |                                   |                 |                                 |
+|                                   |                                   |                 | ``ocean_time`` for the rest     |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_regrid**             | interpolate forcing given on a    | ``auto`` or     | ``auto``                        |
+|                                   |                                   |                 |                                 |
+|                                   | lat-lon grid onto the model grid  | ``off``         |                                 |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_lon_varname**        | longitude variable of lat-lon     | string          | from the variable's             |
+|                                   |                                   |                 |                                 |
+|                                   | forcing                           |                 | ``coordinates`` attribute       |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_lat_varname**        | latitude variable of lat-lon      | string          | from the variable's             |
+|                                   |                                   |                 |                                 |
+|                                   | forcing                           |                 | ``coordinates`` attribute       |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_rotate**             | rotate lat-lon winds and stresses | ``auto`` or     | ``auto``                        |
+|                                   |                                   |                 |                                 |
+|                                   | onto the grid axes                | ``off``         |                                 |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.frc_fill_max_rings**     | how many source cells out to look | integer >= 0    | 3                               |
+|                                   |                                   |                 |                                 |
+|                                   | for a valid value where lat-lon   |                 |                                 |
+|                                   |                                   |                 |                                 |
+|                                   | forcing is missing                |                 |                                 |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 
 Notes
@@ -276,17 +302,24 @@ List of Parameters
 |                           |                 |                           |                       |
 |                           | level           |                           |                       |
 +---------------------------+-----------------+---------------------------+-----------------------+
-| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | CPU: 8 8 1024000      |
-|                           | size            |                           |                       |
-|                           |                 | {x,y,z}                   | GPU: 1024000 1024000  |
-|                           |                 |                           | 1024000               |
+| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | CPU: 16 16            |
+|                           | size            |                           | 1024000               |
+|                           |                 | {x,y,z}                   |                       |
+|                           |                 |                           | GPU: 1024000 1024000  |
+|                           |                 |                           | 1024000 (no tiling)   |
+|                           |                 |                           |                       |
 +---------------------------+-----------------+---------------------------+-----------------------+
 
 Notes
 -----
 
 -  **remora.omp_tile_size** is an alias for **fabarray.mfiter_tile_size**, which controls
-   the distribution of work by OpenMP.
+   the distribution of work by OpenMP. The results do not depend on it or on the thread
+   count: where tiles overlap on shared scratch every tile writes the same value, and the
+   coarse-fine flux correction is accumulated in a fixed order. (This holds for the default
+   build, which keeps the compiler from fusing multiply-adds; see :ref:`PerformanceTuning`.)
+   The tile shape also has a large effect on speed; :ref:`PerformanceTuning` says how to
+   choose it.
 
 -  The domain may not be tiled in the z direction. That is, the last component of **remora.omp_tile_size**
    must be greater than or equal to the number of vertical levels.
@@ -355,6 +388,12 @@ List of Parameters
 | **amr.max_grid_size**            | maximum grid     | Integer > 0        | 2048              |
 |                                  | size in each     |                    |                   |
 |                                  | direction        |                    |                   |
++----------------------------------+------------------+--------------------+-------------------+
+| **amr.max_grid_size_{x,y,z}**    | maximum grid     | Integer > 0;       | x, y:             |
+|                                  | size in one      |                    | amr.max_grid_size |
+|                                  | direction        | z: at least the    |                   |
+|                                  |                  | number of vertical | z: the number of  |
+|                                  |                  | cells              | vertical cells    |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.grid_eff**                 | grid             | Real > 0, < 1      | 0.7               |
 |                                  | efficiency at    |                    |                   |
@@ -433,17 +472,28 @@ Notes
    REMORA always sets the blocking factor in z to 4096, whatever is given, so the
    blocking factor only constrains the grids in x and y.
 
+-  A box always holds whole water columns: the vertical sweeps (the implicit vertical
+   mixing solves, the vertical integrals and the vertical grid itself) run down a box's own
+   column. **amr.max_grid_size_z** therefore defaults to the number of vertical cells,
+   **remora.n_cell** in z, so a small **amr.max_grid_size** only cuts the domain in x and y,
+   and REMORA aborts at startup if a box is shorter than the column.
+
 -  **amr.regrid_int** is a single integer used at every level: each level
    below **amr.max_level** rebuilds the grids of the levels above it every
    **amr.regrid_int** of its own time steps. A value of 0 or less disables
-   regridding.
+   regridding. When every refinement indicator is a fixed box without a time
+   window the grids never change, so set **amr.regrid_int** = -1: each regrid
+   still fills the ghost cells of the level being regridded, tags and clusters
+   the cells, and checks the masks, and the grids come out the same. REMORA
+   prints a note at startup when the default is in effect in that case.
 
 -  **amr.max_grid_size** at every level must be even
 
 -  **amr.blocking_factor** at every level must be a power of 2
 
--  The blocking factor in the z-direction will be forced to a large value automatically to
-   guarantee the domain will not be decomposed in the z-direction
+-  The blocking factor in the z-direction will be forced to a large value automatically, so
+   refined grids are never decomposed in the z-direction; the default of
+   **amr.max_grid_size_z** does the same for the level-0 grids
 
 -  the domain size **remora.n_cell** must be a multiple of
    **amr.blocking_factor** at level 0
@@ -514,6 +564,16 @@ Notes
    -  **remora.cf_time_interp_zeta** (default 1) interpolates the parent free surface in time
       onto the child's own sub-time rather than freezing it at the end of the parent step.
       Non-conservative for the same reason: 1.4e-08 of drift on its own.
+
+   -  **remora.cf_2d_fill_cache** (default 1) is a speed option, not a physics one. A fine
+      level's barotropic fills (``ubar``, ``vbar``, ``zeta``, every fast step) repeat within a
+      parent step for a few (time level, time) pairs, so with 1 the coarse-fine ghost values
+      are computed once per pair and replayed, instead of exchanging and interpolating the
+      parent on every fast step. The results are bitwise identical to 0, which recomputes
+      every time; 2 does both and aborts on any difference in the replayed cells (the
+      ``*_cf_fill_cache_check`` tests run it). ``ubar`` and ``vbar`` are cached only when
+      the coarse-fine fill patchers are in use (``remora.cf_width`` and
+      ``remora.cf_set_width`` at least 0); ``zeta`` always. Subcycled driver only.
 
    -  **remora.cf_avgdown_perimeter** (default 1) leaves the normal-velocity faces on the
       coarse-fine perimeter out of the fine-to-coarse average, as ROMS's ``fine2coarse`` does.
@@ -651,6 +711,102 @@ List of Parameters
 |                                          | Only read when the check is on         |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 
+.. _sec:LandLayout:
+
+Land Layout: Load Balance and Dry Boxes
+---------------------------------------
+
+Two options use the mask to lay a level out over the ranks. Neither changes the answer: the
+first only moves boxes between ranks, and the second leaves out boxes no water cell can reach
+(see :ref:`PerformanceTuning` for when they pay).
+
+``remora.load_balance`` chooses how boxes are assigned to ranks, for every new layout: at
+initialization, at each regrid, for a level made from a coarser one, and on restart. Each box
+weighs its wet cells plus ``remora.load_balance_land_weight`` times its land cells, counted
+from the rho-point mask the level will have (the land weight counts to within 2^-20). ``sfc``
+orders the boxes along a space-filling
+curve and cuts it into pieces of equal weight; ``knapsack`` packs boxes to equalize the
+weight without regard to position; ``roundrobin`` deals them out heaviest first; ``amrex``
+is AMReX's own mapping (its ``DistributionMapping.strategy``, by default the space-filling
+curve, weighted by cell count). A land weight of 1 weighs every box by its cell count, so the
+default, ``sfc`` with a land weight of 1, is exactly AMReX's mapping and reads no mask for it.
+REMORA computes land cells as fully as wet ones -- the masks are multiplications, not branches
+-- so the cell count is the right weight even where land boxes are dropped (below): a kept box
+computes all of its cells. Where the level-0 mask comes from ``remora.hires_grid_level`` it is
+not known before the level is made, and level 0 falls back to cell counts.
+
+``remora.drop_dry_boxes`` (on by default) leaves out of level 0 every box that is land over
+its whole footprint: its own cells and every ghost cell of the mask, up to one cell beyond a non-periodic
+domain edge. Boxes partly wet are kept whole. The dropped cells cost neither memory nor time,
+and no rank holds them. Kept boxes keep their ghost cells in a dropped box, which no exchange
+fills, and the land stencils of a kept box read them. The nearest wet cell is at least four
+cells away and the masks multiply land values out, so what is computed from finite values
+there stays on land: the regression tests write 7 into them after initialization and still
+match the full layout in every plotted field. A NaN there would not stay on land (0 times NaN
+is NaN), and a fresh array holds NaN in a debug build (``amrex.init_snan``), so REMORA writes 0
+into these cells of every level-0 field as soon as the fields are allocated, before anything
+reads them; this also holds on restart. With one refined level, a level-0 box is kept wherever
+level 1 may need it: inside every refinement indicator's box, grown by the tag buffer, by
+``amr.n_proper`` + 1 blocks of the level-1 blocking factor and by the coarse stencil of the
+coarse-fine fills. No box is dropped with ``amr.max_level`` > 1, with an indicator that tags on
+a field (it may refine anywhere), under the atmosphere coupling driver (whose remap assumes
+level 0 covers the domain; the driver must be configured before ``InitData``, and REMORA
+aborts otherwise), or in a build with particles or MOAB. After each regrid REMORA aborts if
+level 1, or the level-0 cells its fills need, reaches a dropped box. A restart keeps the BoxArray of the
+checkpoint, so it continues with the boxes the original run dropped whatever this option says.
+Plotfiles and checkpoints hold the kept boxes only (a valid AMReX plotfile with holes; compare
+two layouts with ``remora_subset_compare``, built with the tests, since ``amrex_fcompare`` needs
+equal BoxArrays); in NetCDF output the dropped cells hold the fill value
+``remora.netcdf_fill_value`` in every gridded variable, the grid fields (``h``, ``pm``,
+``x_rho``, ...) included, which the run no longer holds there and which the grid file still
+has, and the masks hold 0 there. The integrated diagnostics printed at
+``remora.v`` > 0 sum over the cells held, so their ``VOLUME`` leaves out the dropped land, which
+a full-domain run counts. The number of boxes and cells dropped is printed at startup.
+
+What dropping preserves is the solution, not every array: the state and every field on wet
+cells and wet faces are bitwise the same as in a full-domain run, but some momentum
+tendency and scratch arrays in a checkpoint (``XRHS``, ``YRHS``, their 2D forms,
+``DV_avg2``, the previous face fluxes) can differ at land faces on the edges of the dropped
+boxes. Set ``remora.drop_dry_boxes = false`` to compare against an older full-domain run
+with ``amrex_fcompare``, which needs equal BoxArrays.
+
+.. _list-of-parameters-landlayout:
+
+List of Parameters
+~~~~~~~~~~~~~~~~~~
+
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| Parameter                                | Definition                             | Acceptable             | Default        |
+|                                          |                                        |                        |                |
+|                                          |                                        | Values                 |                |
++==========================================+========================================+========================+================+
+| **remora.load_balance**                  | How boxes are assigned to ranks        | sfc, knapsack,         | sfc            |
+|                                          |                                        |                        |                |
+|                                          |                                        | roundrobin, amrex      |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.load_balance_land_weight**      | Weight of a land cell relative to a    | Real >= 0              | 1              |
+|                                          |                                        |                        |                |
+|                                          | wet one in the box weights             |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.drop_dry_boxes**                | Leave out level-0 boxes that are land  | true / false           | true           |
+|                                          |                                        |                        |                |
+|                                          | over their whole footprint             |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.dry_ghost_test**                | Debug: after initialization, overwrite | 0, 1 (signalling NaN), | 0              |
+|                                          |                                        |                        |                |
+|                                          | the ghost cells of kept boxes that lie | 2 (the value below)    |                |
+|                                          |                                        |                        |                |
+|                                          | in dropped boxes                       |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.dry_ghost_value**               | Value written by dry_ghost_test = 2    | Real                   | 1e30           |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.dry_ghost_fields**              | Fields dry_ghost_test overwrites: the  | dynamic, all           | dynamic        |
+|                                          |                                        |                        |                |
+|                                          | evolving ones, or also the grid,       |                        |                |
+|                                          |                                        |                        |                |
+|                                          | metrics, masks and forcing             |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+
 Simulation Time
 ===============
 
@@ -713,8 +869,20 @@ the run within the calendar the way ROMS ``DSTART`` does. With the default
 ``time_ref = 0``, a run starting on 1 January 2020 sets
 ``remora.start_time = 63713433600``.
 
-``remora.start_time``, ``remora.stop_time`` and the time variables of NetCDF
-forcing, boundary, river and climatology files are all on this model clock.
+``remora.start_time`` and ``remora.stop_time`` are on this model clock. The
+time variables of NetCDF forcing, boundary, river and climatology files are
+placed on it from their ``units`` attribute, which must count days. A reference
+date in the units, as in ``days since 2020-01-01 00:00:00``, is honored: the
+difference between it and the ``remora.time_ref`` reference date is added, in
+the calendar ``time_ref`` selects, so a file whose epoch differs from the run's
+is read at the right time, and files with different epochs can be mixed in one
+run. Nothing changes when the two dates agree, which is the usual case. A time
+variable whose units name no reference date (``days``) is taken to be on the
+model clock already. The shift applied to each file, if any, is printed when it
+is loaded, and a ``calendar`` attribute that disagrees with the calendar
+``time_ref`` selects is an error. A reference date in a time zone other than
+UTC is not supported.
+
 The time window of a refinement indicator is instead given in seconds since
 ``remora.start_time`` by default, or on the model clock with that indicator's
 ``start_total_time`` and ``end_total_time`` (see :ref:`MeshRefinement`).
@@ -723,9 +891,18 @@ Internally the model clock is split, as ROMS splits ``DSTART`` from the time it
 advances: ``remora.start_time`` is kept in double precision, and the solver
 advances only the time elapsed since it. That keeps the timestep
 resolvable in a single-precision build, where seconds since a calendar epoch
-would otherwise round to tens of seconds or more. Checkpoints store the elapsed
-time together with ``remora.start_time``; a checkpoint that stores only
-model-clock time, with no separate start time, still restarts correctly.
+would otherwise round to tens of seconds or more. The time in a checkpoint
+header is on the model clock, as a plotfile header's is, so a reader of the
+header gets the offset included. The header also records ``remora.start_time``
+and the elapsed time separately, in its trailing ``time_origin`` and
+``elapsed_time`` lines, so a restart that keeps ``remora.start_time`` continues
+the elapsed clock exactly. A restart that changes ``remora.start_time`` keeps
+the model clock where the checkpoint left it and rebases the elapsed time, so
+anything keyed to elapsed time (an analytic forcing ramp, an indicator's
+``start_time``/``end_time`` window, the ``plot_int_time`` cadence) moves with
+it; REMORA warns when this happens. Checkpoints written by earlier versions,
+which hold either model-clock time alone or elapsed time with a ``start_time``
+line, still restart correctly.
 
 NetCDF output records that offset as the scalar variable ``dstart``, in days
 since the reference date, as ROMS does. ``ocean_time`` is the time of each
@@ -1679,11 +1856,67 @@ When a source selector is ``netcdf``, the field is
 read from **remora.nc_frc_file** using variable names ``Uwind``, ``Vwind``,
 ``Tair``, ``qair``, ``Pair``, ``swrad``, ``rain``, ``cloud``, ``EminusP``,
 and the configured longwave variable name. Multiple files may be specified,
-in which case in which case REMORA concatenates their time axes in the
-order listed in the inputs file. Forcing variables must have the same dimensions
-as the level 0 (coarsest) model grid. Time interpolation is performed automatically
-based on the simulation time at level 0, and fields are interpoalted to finer
-AMR levels as needed.
+in which case REMORA concatenates their time axes in the
+order listed in the inputs file. A forcing variable is either on the level 0
+(coarsest) model grid, including the ROMS boundary ring -- a rho-point field is
+``(time, eta_rho, xi_rho)`` with ``xi_rho = n_cell_x + 2`` -- or on a rectilinear
+lat-lon grid, such as a reanalysis product's, in which case it is interpolated onto
+the model grid as described below. Time interpolation is performed automatically
+based on the simulation time at level 0, and fields are interpolated to finer AMR
+levels as needed.
+
+Forcing on a lat-lon grid
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A forcing variable whose horizontal shape is not the model grid's is taken to be on a
+lat-lon grid and interpolated bilinearly onto the model's ``lon_rho`` and ``lat_rho``,
+as ROMS's ``regrid`` does. This needs a spherical grid file: ``lon_rho`` and ``lat_rho``
+come from ``remora.nc_grid_file_0`` (or ``remora.nc_grid_file_hires``). The rules are:
+
+-  The variable is dimensioned ``(time, lat, lon)``. Its longitude and latitude are 1D
+   variables named by **remora.frc_lon_varname** and **remora.frc_lat_varname**, or by
+   its CF ``coordinates`` attribute (``"lon lat"``), or else the coordinate variables of
+   its last two dimensions (``longitude(longitude)``, as ERA5 writes them); each runs
+   along the matching dimension of the variable. 2D (curvilinear) source coordinates
+   are not supported.
+-  A variable whose last two dimensions carry longitude and latitude coordinate
+   variables (in degrees east and north) is interpolated even when its shape happens
+   to be the model grid's.
+-  Packed variables are unpacked with their ``scale_factor`` and ``add_offset``.
+-  Either axis may be increasing or decreasing. Longitude may be in [-180, 180) or
+   [0, 360), may cross the branch cut, and may cover the globe, in which case the grid
+   is treated as periodic in longitude.
+-  The lat-lon grid must contain every rho point of level 0 and its boundary ring;
+   otherwise the run stops at startup and prints both extents.
+-  Source values exactly equal to the variable's ``_FillValue`` or ``missing_value``
+   (compared before unpacking, as CF defines them), or not finite, are left out and the
+   remaining interpolation weights renormalized. A point whose four surrounding source
+   values are all missing takes the nearest valid one within
+   **remora.frc_fill_max_rings** source cells; if there is none the run stops.
+-  Every file of one variable's series must be on the same lat-lon grid. Different
+   variables may be on different grids.
+-  The bulk-flux fields above and the surface stress (``sustr``, ``svstr``) can be on a
+   lat-lon grid; climatology must still be on the model grid.
+-  Winds and stresses on a lat-lon grid are taken to be east and north components and
+   are rotated onto the model grid's xi and eta axes with the grid file's ``angle``
+   :math:`a` (radians from east to xi, counterclockwise), as ROMS does:
+   :math:`u_\xi = u_E\cos a + v_N\sin a`, :math:`v_\eta = -u_E\sin a + v_N\cos a`.
+   Surface stress is interpolated, rotated at rho points and then averaged to the u and
+   v faces. Both components of a vector must come from the same kind of file, except that
+   a component given as one value per time pairs with a lat-lon one (and is then taken to
+   be east or north too); a model-grid or ``constant`` component paired with a lat-lon one
+   is an error. A grid file without ``angle`` gets a warning and no rotation. Set **remora.frc_rotate** to
+   ``off`` for a file whose components are already along the grid axes. Winds and
+   stresses on the model grid are never rotated.
+
+Each interpolated variable is reported at startup with its source grid. Setting
+**remora.frc_regrid** to ``off`` turns the interpolation off, so that a variable not on
+the model grid is an error.
+
+``Tests/tools/make_latlon_forcing_test_data.py`` writes a lat-lon forcing file for a given
+grid file, and a rotated copy of the grid, with fields the interpolation and rotation
+reproduce exactly; it also checks a run's history file against them. It is a useful
+template for preparing real forcing, and ``Exec/IdealMiniGrid/inputs_frc_latlon`` runs it.
 
 The legacy boolean inputs **Tair_from_netcdf**, **qair_from_netcdf**,
 **Pair_from_netcdf**, **srflx_from_netcdf**, **longwave_down_from_netcdf**,

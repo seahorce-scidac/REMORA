@@ -4,10 +4,67 @@
 
 #include <REMORA.H>
 #include <REMORA_prob_common.H>
+#include <AMReX_FillPatchUtil.H>
+#include <AMReX_Interpolater.H>
 
 #include <AMReX_buildInfo.H>
+#include <AMReX_OpenMP.H>
 
 using namespace amrex;
+
+namespace {
+/**
+ * Every box has to span the whole water column; see the amr.max_grid_size_z default in
+ * main.cpp. Abort with the reason rather than fail somewhere in a vertical sweep.
+ */
+void check_full_columns (int lev, const BoxArray& ba, const Geometry& geom)
+{
+    const int nz = geom.Domain().length(2);
+    for (int i = 0; i < ba.size(); ++i) {
+        if (ba[i].length(2) != nz) {
+            amrex::Abort("Level " + std::to_string(lev) + " has a box " + std::to_string(ba[i].length(2))
+                         + " cells tall in a column of " + std::to_string(nz) + ". Boxes must"
+                         " hold whole water columns: set amr.max_grid_size_z to at least the"
+                         " number of vertical cells, which is its default.");
+        }
+    }
+}
+
+/**
+ * CPU builds tile in 16x16 columns by default (main.cpp), and the threads of a rank share
+ * the tiles of its boxes. When tiling is turned off (remora.omp_tile_size at least the box
+ * size), the threads share whole boxes instead, so a rank with fewer boxes than threads
+ * leaves threads idle. Say so, naming the knobs that fix it.
+ */
+void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm)
+{
+#ifdef AMREX_USE_OMP
+    // Tiling is on when a tile is smaller than some box in x or y; inputs often write
+    // "1024 1024 1024" to mean no tiling, so compare with the boxes, not a fixed value.
+    const int nthreads = OpenMP::get_max_threads();
+    const IntVect& tile_size = FabArrayBase::mfiter_tile_size;
+    int nlocal = 0;
+    bool tiled = false;
+    const int myproc = ParallelDescriptor::MyProc();
+    for (int i = 0; i < ba.size(); ++i) {
+        if (dm[i] == myproc) { ++nlocal; }
+        tiled = tiled || ba[i].length(0) > tile_size[0] || ba[i].length(1) > tile_size[1];
+    }
+    // Collective: every rank reaches it, whatever its thread count
+    ParallelDescriptor::ReduceIntMin(nlocal);
+    if (nthreads > 1 && !tiled && nlocal < nthreads) {
+        amrex::Print() << "WARNING: level " << lev << " has only " << nlocal
+                       << " boxes on some rank for " << nthreads << " OpenMP threads;"
+                       << " threads beyond the box count idle. Lower amr.max_grid_size"
+                       << " (or amr.max_grid_size_x/y) to give every rank at least "
+                       << nthreads << " boxes, or set remora.omp_tile_size so the"
+                       << " threads share the tiles of a box.\n";
+    }
+#else
+    amrex::ignore_unused(lev, ba, dm);
+#endif
+}
+}
 
 /**
  * Make a new level using provided BoxArray and DistributionMapping and
@@ -32,6 +89,8 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     amrex::Print() << "Making level " << lev << " from coarse" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    check_full_columns(lev, ba, geom[lev]);
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     cons_new[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
     cons_old[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
@@ -91,6 +150,21 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     set_grid_scale(lev);
     set_masks(lev);
 
+    // init_stuff reallocated the nudging coefficients; init_only fills them only
+    // for a level made from scratch. The radiation conditions below and the
+    // climatology nudging read them.
+    init_clim_nudg_coeff(lev);
+
+#ifdef REMORA_USE_NETCDF
+    // The per-level NetCDF boundary series are otherwise built only by init_only,
+    // for a level made from scratch. The FillCoarsePatch calls below apply the
+    // file's boundary data to this level and index boundary_series[lev], so a
+    // level first created at a regrid needs its series built here.
+    if (solverChoice.boundary_from_netcdf) {
+        init_bdry_from_netcdf(lev);
+    }
+#endif
+
     FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1],BCVars::Temp_bc_comp,BdyVars::t);
     FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1], xvel_bc(), BdyVars::u);
     FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1], yvel_bc(), BdyVars::v);
@@ -105,7 +179,11 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
         set_bathymetry_averaged_down(lev);
     }
 
+    // The free surface before the barotropic velocities: a Flather condition on
+    // ubar or vbar at a domain edge reads zeta, and h, on this level.
     FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get(),BCVars::cons_bc);
+    bool apply_eminusp = false;
+    set_zeta_to_Ztavg(lev,apply_eminusp);
     for (int icomp=0; icomp<3; icomp++) {
         FillCoarsePatch(lev, time, vec_ubar[lev].get(), vec_ubar[lev-1].get(), ubar_bc(),
                 bdy_ubar(),icomp,false);
@@ -128,8 +206,6 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
-    bool apply_eminusp = false;
-    set_zeta_to_Ztavg(lev,apply_eminusp);
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_rivers) {
@@ -172,6 +248,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     amrex::Print() << "Remaking level " << lev << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    check_full_columns(lev, ba, geom[lev]);
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state   = 3;
     int ngrow_vels    = 3;
@@ -230,9 +308,11 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     init_stuff(lev, ba, dm);
     set_grid_scale(lev);
     set_masks(lev);
+    // init_stuff reallocated the nudging coefficients the fills below may read
+    init_clim_nudg_coeff(lev);
 
     // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
-    FillPatch(lev, time, tmp_cons_new, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false);
+    FillPatch(lev, time, tmp_cons_new, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,zero,tmp_cons_new);
     FillPatch(lev, time, tmp_xvel_new, xvel_new, xvel_bc(), BdyVars::u,0,true,false,0,0,zero,tmp_xvel_new);
     FillPatch(lev, time, tmp_yvel_new, yvel_new, yvel_bc(), BdyVars::v,0,true,false,0,0,zero,tmp_yvel_new);
     FillPatch(lev, time, tmp_zvel_new, zvel_new, zvel_bc(), BdyVars::null,0,true,false);
@@ -331,10 +411,30 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
  * @param[in   ] ba      BoxArray for the level
  * @param[in   ] dm      DistributionMapping for the level
  */
-void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
-                                     const DistributionMapping& dm)
+void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba_in,
+                                     const DistributionMapping& dm_in)
 {
-    // Set BoxArray grids and DistributionMapping dmap in AMReX_AmrMesh.H class
+    BoxArray ba = ba_in;
+    DistributionMapping dm = dm_in;
+    // Decided once, when the run starts: a restart keeps the checkpoint's BoxArray, which
+    // already holds whatever the run it continues dropped.
+    bool dropped = false;
+    if (lev == 0 && drop_dry_boxes) {
+        if (restart_chkfile.empty()) {
+            BoxArray kept = drop_dry_level0_boxes(ba_in);
+            if (kept.size() != ba_in.size()) {
+                ba = std::move(kept);
+                dm = MakeDistributionMap(lev, ba);
+                dropped = true;
+            }
+        } else {
+            amrex::Print() << "remora.drop_dry_boxes: restarting, so level 0 keeps the"
+                           << " checkpoint's BoxArray\n";
+        }
+    }
+
+    // Set BoxArray grids and DistributionMapping dmap in AMReX_AmrMesh.H class. AmrMesh keeps
+    // these, not the ones it passed in, since they are set here.
     SetBoxArray(lev, ba);
     SetDistributionMap(lev, dm);
 
@@ -346,6 +446,8 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 
     amrex::Print() << "Making level " << lev << " from scratch" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    check_full_columns(lev, ba, geom[lev]);
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state = 3;
     int ngrow_vels  = 3;
@@ -378,7 +480,17 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     init_masks(lev, ba, dm);
     init_stuff(lev, ba, dm);
 
+    // Every field exists now and nothing has read it: give the ghost cells no exchange fills
+    // a number (see zero_level0_dry_ghost_cells)
+    if (lev == 0) {
+        zero_level0_dry_ghost_cells();
+    }
+
     init_only(lev, time);
+
+    if (dropped) {
+        check_dropped_level0_mask();
+    }
 
 #ifdef REMORA_USE_PARTICLES
     if (restart_chkfile.empty()) {
@@ -449,6 +561,9 @@ void REMORA::resize_stuff(int lev)
     vec_alpha.resize(lev+1);
     vec_beta.resize(lev+1);
 
+    vec_DUon.resize(lev+1);
+    vec_DVom.resize(lev+1);
+    vec_scratch_2d.resize(lev+1);
     vec_DU_avg1.resize(lev+1);
     vec_DU_avg2.resize(lev+1);
     vec_DV_avg1.resize(lev+1);
@@ -482,6 +597,10 @@ void REMORA::resize_stuff(int lev)
 
     vec_pm.resize(lev+1);
     vec_pn.resize(lev+1);
+    vec_metric_r.resize(lev+1);
+    vec_metric_u.resize(lev+1);
+    vec_metric_v.resize(lev+1);
+    vec_metric_p.resize(lev+1);
     vec_fcor.resize(lev+1);
     vec_pm_full_domain.resize(hires_grid_level+1);
     vec_pn_full_domain.resize(hires_grid_level+1);
@@ -496,6 +615,12 @@ void REMORA::resize_stuff(int lev)
     vec_yp.resize(lev+1);
     vec_lonp.resize(lev+1);
     vec_latp.resize(lev+1);
+    vec_lonr.resize(lev+1);
+    vec_latr.resize(lev+1);
+    vec_angler.resize(lev+1);
+    vec_lonr_full_domain.resize(hires_grid_level+1);
+    vec_latr_full_domain.resize(hires_grid_level+1);
+    vec_angler_full_domain.resize(hires_grid_level+1);
 
     vec_dndx.resize(lev+1);
     vec_dmde.resize(lev+1);
@@ -583,7 +708,8 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     BoxArray ba_w(ba);
     ba_w.surroundingNodes(2);
 
-    vec_z_phys_nd[lev].reset          (new MultiFab(ba_nd,dm,1,IntVect(NGROW,NGROW,1))); // z at psi points (nodes) MIGHT NEED NGROW+1
+    // No z ghosts: z_w has no node outside the column, and nothing reads z_phys_nd there
+    vec_z_phys_nd[lev].reset          (new MultiFab(ba_nd,dm,1,IntVect(NGROW,NGROW,0))); // z at psi points (nodes) MIGHT NEED NGROW+1
     vec_z_w[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at w points (cell faces)
     vec_z_r[lev].reset                (new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at r points (cell center)
     vec_Hz[lev].reset                 (new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
@@ -624,6 +750,11 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_bvstr[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
     //all 2d -- all associated with the 2D advance
+    // Scratch of advance_2d, rewritten on every fast step
+    vec_DUon[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_DVom[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_scratch_2d[lev].reset(new MultiFab(ba2d,dm,n_scratch_2d,IntVect(NGROW+1,NGROW+1,0)));
+
     //2d DU: sum(height[incl free surface?] * u)
     vec_DU_avg1[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
@@ -648,6 +779,14 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
 
     vec_pm[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+2,0)));
     vec_pn[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+2,NGROW+1,0)));
+    // Each product reads pm/pn either side of its point, so these can have one ghost cell
+    // fewer than pm/pn. The widest readers are the mass-flux kernels on tiles grown by
+    // NGROW (faces) and the depth and pressure-gradient fields on tiles grown by NGROW+1
+    // (rho points); set_derived_metrics fills every ghost cell allocated here.
+    vec_metric_r[lev].reset(new MultiFab(ba2d,dm,MetricR::ncomp,IntVect(NGROW+1,NGROW+1,0)));
+    vec_metric_u[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,MetricU::ncomp,IntVect(NGROW,NGROW,0)));
+    vec_metric_v[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,MetricV::ncomp,IntVect(NGROW,NGROW,0)));
+    vec_metric_p[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,MetricP::ncomp,IntVect(NGROW,NGROW,0)));
     vec_fcor[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
 
     vec_xr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
@@ -746,6 +885,8 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_Dubar_new[lev]->setVal(zero);
     vec_Dvbar_old[lev]->setVal(zero);
     vec_Dvbar_new[lev]->setVal(zero);
+    if (int(Dubar_fresh.size()) <= lev) { Dubar_fresh.resize(lev+1); }
+    Dubar_fresh[lev] = 1;
     vec_rubar[lev]->setVal(zero);
     vec_rvbar[lev]->setVal(zero);
     vec_rzeta[lev]->setVal(zero);
@@ -797,6 +938,11 @@ REMORA::ClearLevel (int lev)
 {
     delete cons_new[lev]; delete xvel_new[lev];  delete yvel_new[lev];  delete zvel_new[lev];
     delete cons_old[lev]; delete xvel_old[lev];  delete yvel_old[lev];  delete zvel_old[lev];
+#ifdef REMORA_USE_PARTICLES
+    if (lev < int(particle_omega.size())) {
+        particle_omega[lev].reset(); particle_u[lev].reset(); particle_v[lev].reset();
+    }
+#endif
 }
 
 /**
@@ -826,6 +972,21 @@ REMORA::set_grid_scale (int lev)
             FillCoarsePatch(lev,dummy_time,vec_pm[lev].get(), vec_pm[lev-1].get(), foextrap_bc());
             FillCoarsePatch(lev,dummy_time,vec_pn[lev].get(), vec_pn[lev-1].get(), foextrap_bc());
 
+            // Spherical coordinates and grid angle follow when the coarser level has them.
+            // Rebuilt on every (re)make of the level, because the layout may have changed;
+            // laid out like vec_xr.
+            for (auto* vec_ptr : { &vec_lonr, &vec_latr, &vec_angler })
+            {
+                auto& vec = *vec_ptr;
+                if (vec[lev-1] == nullptr) {
+                    vec[lev].reset();
+                    continue;
+                }
+                vec[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
+                                            1, vec_xr[lev]->nGrowVect()));
+                interp_grid_coords_from_coarse(lev, *vec[lev], *vec[lev-1]);
+            }
+
             int rrx = ref_ratio[lev-1][0];
             int rry = ref_ratio[lev-1][1];
             // pm and pn need to be rescaled by the refinement ratio
@@ -852,6 +1013,123 @@ REMORA::set_grid_scale (int lev)
     if (solverChoice.use_curvilinear_grid) {
         set_curvilinear_terms_from_grid_scale(lev);
     }
+    // Every path that sets pm and pn on a level (analytic, NetCDF, averaged down from a
+    // high-resolution grid, interpolated from the parent, regrid) ends here.
+    set_derived_metrics(lev);
+}
+
+/**
+ * The metric products the time step needs, computed once from pm and pn rather than
+ * with divides inside every kernel (ROMS metrics.F). Each value uses the expression, and
+ * operand order, of the kernels it replaces, so they read identical bits.
+ *
+ * @param[in   ]lev   level to operate on
+ */
+void
+REMORA::set_derived_metrics (int lev)
+{
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for ( MFIter mfi(*vec_metric_r[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<const Real> const& pm = vec_pm[lev]->const_array(mfi);
+        Array4<const Real> const& pn = vec_pn[lev]->const_array(mfi);
+        Array4<Real> const& mr = vec_metric_r[lev]->array(mfi);
+        Array4<Real> const& mu = vec_metric_u[lev]->array(mfi);
+        Array4<Real> const& mv = vec_metric_v[lev]->array(mfi);
+        Array4<Real> const& mp = vec_metric_p[lev]->array(mfi);
+
+        ParallelFor(mfi.growntilebox(vec_metric_r[lev]->nGrowVect()),
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            mr(i,j,0,MetricR::pmn)    = pm(i,j,0)*pn(i,j,0);
+            mr(i,j,0,MetricR::omn)    = one/(pm(i,j,0)*pn(i,j,0));
+            mr(i,j,0,MetricR::om_r)   = one/pm(i,j,0);
+            mr(i,j,0,MetricR::on_r)   = one/pn(i,j,0);
+            mr(i,j,0,MetricR::pmon_r) = pm(i,j,0)/pn(i,j,0);
+            mr(i,j,0,MetricR::pnom_r) = pn(i,j,0)/pm(i,j,0);
+        });
+
+        ParallelFor(mfi.grownnodaltilebox(0, vec_metric_u[lev]->nGrowVect()),
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            const Real om_u = two/(pm(i,j,0)+pm(i-1,j,0));
+            const Real on_u = two/(pn(i,j,0)+pn(i-1,j,0));
+            mu(i,j,0,MetricU::om_u)   = om_u;
+            mu(i,j,0,MetricU::on_u)   = on_u;
+            mu(i,j,0,MetricU::omn_u)  = om_u*on_u;
+            mu(i,j,0,MetricU::pmon_u) = (pm(i-1,j,0)+pm(i,j,0))/(pn(i-1,j,0)+pn(i,j,0));
+            mu(i,j,0,MetricU::pmn4_u) = (pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+        });
+
+        ParallelFor(mfi.grownnodaltilebox(1, vec_metric_v[lev]->nGrowVect()),
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            const Real om_v = two/(pm(i,j,0)+pm(i,j-1,0));
+            const Real on_v = two/(pn(i,j,0)+pn(i,j-1,0));
+            mv(i,j,0,MetricV::om_v)   = om_v;
+            mv(i,j,0,MetricV::on_v)   = on_v;
+            mv(i,j,0,MetricV::omn_v)  = om_v*on_v;
+            mv(i,j,0,MetricV::pnom_v) = (pn(i,j-1,0)+pn(i,j,0))/(pm(i,j-1,0)+pm(i,j,0));
+            mv(i,j,0,MetricV::pmn4_v) = (pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
+        });
+
+        Box pbx = mfi.tilebox(IntVect(1,1,0), vec_metric_p[lev]->nGrowVect());
+        ParallelFor(pbx, [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            const Real sum_pm = pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0);
+            const Real sum_pn = pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0);
+            mp(i,j,0,MetricP::om_p)   = Real(4.0)/sum_pm;
+            mp(i,j,0,MetricP::on_p)   = Real(4.0)/sum_pn;
+            mp(i,j,0,MetricP::pmon_p) = sum_pm/sum_pn;
+            mp(i,j,0,MetricP::pnom_p) = sum_pn/sum_pm;
+        });
+    }
+}
+
+/**
+ * Fill a refined level's coordinate array from the coarser level, ghost cells included.
+ *
+ * FillCoarsePatch would finish with the physical boundary condition pm and pn want, which
+ * copies the edge value into every ghost cell outside the domain and averages the
+ * corners; for a coordinate that puts those cells on top of the edge rather than where
+ * they are. Here the ghost cells outside the domain are interpolated like the rest, from
+ * the coarse level's own ghost cells, which hold the coordinates continued past the edge
+ * (extrapolate_metric_to_physical_boundaries with linear on level 0, and this function on
+ * the levels between). The coarse level has NGROW+1 ghost cells, enough for the stencil
+ * at any refinement ratio from 2 up. The interpolation is conservative-linear, which
+ * reproduces a linear field exactly.
+ *
+ * The coarse data is copied without periodicity. Across a periodic edge, FillBoundary has
+ * already put the wrapped values in the coarse ghost cells, but a ghost cell that also lies
+ * beyond a wall (a corner where the seam meets a non-periodic face) keeps the value continued
+ * from the file's ring, while its periodic image keeps the other side's. A periodic copy
+ * would give that cell both as sources, and which one wins is not defined: on a GPU it varies
+ * from run to run (#775). Copied without periodicity, each cell comes from the coarse level's
+ * own ghost cell. The fine level's ghost cells across a periodic edge are then refilled from
+ * its valid cells, wrapped as on level 0.
+ *
+ * @param[in   ] lev    the refined level
+ * @param[inout] fine   its coordinate array
+ * @param[in   ] crse   the coarser level's
+ */
+void
+REMORA::interp_grid_coords_from_coarse (int lev, MultiFab& fine, const MultiFab& crse)
+{
+    AMREX_ASSERT(lev > 0);
+    Vector<BCRec> interior_bcs(1);
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        interior_bcs[0].setLo(dir, BCType::int_dir);
+        interior_bcs[0].setHi(dir, BCType::int_dir);
+    }
+    const IntVect ng = fine.nGrowVect();
+    const Geometry& cg = geom[lev-1];
+    const Geometry crse_geom_nonperiodic(cg.Domain(), cg.ProbDomain(), cg.Coord(),
+                                         Array<int,AMREX_SPACEDIM>{AMREX_D_DECL(0,0,0)});
+    amrex::InterpFromCoarseLevel(fine, ng, ng, crse, 0, 0, 1, crse_geom_nonperiodic, geom[lev],
+                                 ref_ratio[lev-1], &cell_cons_interp, interior_bcs, 0);
+    fine.FillBoundary(geom[lev].periodicity());
 }
 
 /**

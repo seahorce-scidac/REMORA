@@ -17,14 +17,16 @@
  * @param[in   ] a_is2d               Whether the variable we're working with is 2D
  * @param[in   ] a_rx                 refinement ratio in x relative to level 0
  * @param[in   ] a_ry                 refinement ratio in y relative to level 0
+ * @param[in   ] a_time_ref           remora.time_ref, the reference date of the model clock
  */
 NCTimeSeriesBoundary::NCTimeSeriesBoundary (int a_lev, const amrex::Vector<amrex::Geometry> a_geom,
                                             const amrex::Vector<std::string>& a_file_names, const std::string a_field_name,
                                             const std::string a_time_name,
                                             const amrex::IntVect a_index_type,
                                             const amrex::GpuArray<bool, AMREX_SPACEDIM*2>& a_var_need_data,
-                                            bool a_is2d, int a_rx, int a_ry)
+                                            bool a_is2d, int a_rx, int a_ry, double a_time_ref)
 {
+    time_ref = a_time_ref;
     m_lev = a_lev;
     m_geom = a_geom;
     file_names.assign(a_file_names.begin(), a_file_names.end());
@@ -70,22 +72,12 @@ void NCTimeSeriesBoundary::Initialize()
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     for (int ifile = 0; ifile < file_names.size(); ifile++) {
         std::string file_name = file_names[ifile];
-        // Check units of time stamps; should be days, if unit attribute exists.
-        // If it does not, print a warning and assume days
-        int has_units = QueryNetCDFVarAttrStr(file_name, time_name, "units");
-        amrex::ParallelDescriptor::Bcast(&has_units,1,ioproc);
-        if (has_units) {
-            std::string unit_str = ReadNetCDFVarAttrStr(file_name, time_name, "units"); // works on proc 0
-            if (amrex::ParallelDescriptor::IOProcessor())
-            {
-                if (unit_str.find("days") == std::string::npos) {
-                    amrex::Print() << "Units of ocean_time given as: " << unit_str << std::endl;
-                    amrex::Abort("Units must be in days.");
-                }
-            }
-        } else {
-            amrex::Warning("Units attribute not found on time variable " + time_name + ". Assuming days");
-        }
+        // The time stamps must count days, if they carry units at all; without
+        // units they are assumed to be days on the model clock. A reference date
+        // in the units is honored: this is the shift that puts them on the model
+        // clock. Only announced for a series that will be read.
+        const double offset_days = ReadNetCDFTimeOffsetDays(file_name, time_name, time_ref,
+                                                            false, any_side_needs_data);
         // get times and put in array
         amrex::Vector<NDArray<double>> array_ts(1);
         ReadNetCDFFile(file_name, {time_name}, array_ts); // filled only on proc 0
@@ -94,8 +86,8 @@ void NCTimeSeriesBoundary::Initialize()
             int ntimes_io = array_ts[0].get_vshape()[0];
             for (int nt(0); nt < ntimes_io; nt++)
             {
-                // Convert ocean time from days to seconds
-                bry_times.push_back((*(array_ts[0].get_data() + nt)) * 60.0 * 60.0 * 24.0);
+                // Onto the model clock, then from days to seconds
+                bry_times.push_back((*(array_ts[0].get_data() + nt) + offset_days) * 60.0 * 60.0 * 24.0);
                 file_for_time.push_back(ifile);
                 file_itime_offset.push_back(nt);
             }
@@ -215,17 +207,30 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (double time)
 #endif
 
     // Figure out time index:
-    AMREX_ASSERT(time >= bry_times[0]);
-    AMREX_ASSERT(time <= bry_times[bry_times.size()-1]);
     int i_time_before_old = i_time_before;
+    int i_time_new = -1;
     for (int nt=0; nt < bry_times.size()-1; nt++) {
         if ((bry_times[nt] <= time) and (bry_times[nt+1] >= time)) {
-            i_time_before = nt;
-            time_before = bry_times[nt];
-            time_after = bry_times[nt+1];
+            i_time_new = nt;
             break;
         }
     }
+    // Bracketing must succeed: falling through would read the series at a stale or
+    // uninitialized index. A runtime check rather than an assert, because the failure
+    // is a mismatch between the file and the run.
+    if (i_time_new < 0) {
+        amrex::Abort("Time " + std::to_string(time) + " is not spanned by the boundary time"
+                     + " series for '" + field_name + "', which covers ["
+                     + std::to_string(bry_times[0]) + ", "
+                     + std::to_string(bry_times[bry_times.size()-1])
+                     + "]. Extend the boundary file to cover the run. The file's times were"
+                     + " placed on the model clock from the reference date in their units"
+                     + " attribute (the mapping is printed when the series is loaded), so"
+                     + " also check remora.time_ref and remora.start_time.");
+    }
+    i_time_before = i_time_new;
+    time_before = bry_times[i_time_before];
+    time_after = bry_times[i_time_before+1];
 
     int i_time_after = i_time_before + 1;
 

@@ -59,17 +59,32 @@ REMORA::compute_W (const Box& bx2d,
  * W converted from a volume flux to a velocity, as ROMS scale_omega. It is zero at the bed
  * and the free surface.
  *
+ * If both mf_omega and the fluxes have ghost cells, the first ghost column is computed
+ * directly from the fluxes there, as advance_3d computes W, so it is right at domain and
+ * coarse/fine boundaries too. The rest of the ghost cells are then filled across grids and
+ * periodic boundaries, and are zero elsewhere outside the domain.
+ *
  * @param[in ] lev       level
- * @param[out] mf_omega  z-nodal omega (m/s); ghost cells are filled across grids and
- *                       periodic boundaries, and zero outside the domain
- * @param[in ] mf_Huon   u-volume flux on at least the valid faces
- * @param[in ] mf_Hvom   v-volume flux on at least the valid faces
+ * @param[out] mf_omega  z-nodal omega (m/s)
+ * @param[in ] mf_Huon   u-volume flux on the valid faces, and on the first ghost faces for
+ *                       the directly computed ghost column
+ * @param[in ] mf_Hvom   v-volume flux, likewise
  */
 void
 REMORA::compute_omega (int lev, MultiFab& mf_omega,
                        const MultiFab& mf_Huon, const MultiFab& mf_Hvom)
 {
     const int N = Geom(lev).Domain().size()[2]-1;
+
+    // The first ghost column is computed only where both the output and the fluxes have it:
+    // the fluxes update_massflux_3d keeps on grown boxes have it (the particles normally take
+    // the same omega from advance_3d, see store_particle_omega), while the diagnostic omega
+    // builds its fluxes on the valid faces only.
+    IntVect ng(0);
+    for (int d = 0; d < 2; ++d) {
+        ng[d] = amrex::min(amrex::min(mf_omega.nGrowVect()[d], 1),
+                           amrex::min(mf_Huon.nGrowVect()[d], mf_Hvom.nGrowVect()[d]));
+    }
 
     mf_omega.setVal(zero);
 
@@ -84,7 +99,7 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
         Array4<Real const> const& pm = vec_pm[lev]->const_array(mfi);
         Array4<Real const> const& pn = vec_pn[lev]->const_array(mfi);
 
-        Box bx2d = makeSlab(mfi.validbox(),2,0);
+        Box bx2d = makeSlab(grow(mfi.validbox(), ng), 2, 0);
         compute_W(bx2d, W, mf_Huon.const_array(mfi), mf_Hvom.const_array(mfi),
                   vec_z_w[lev]->const_array(mfi), vec_h[lev]->const_array(mfi), N);
 
@@ -237,12 +252,11 @@ REMORA::set_massflux_3d (int lev, MultiFab& mf_Huon, MultiFab& mf_Hvom)
         Array4<Real      > const& Huon = mf_Huon.array(mfi);
         Array4<Real const> const& u    = xvel_new[lev]->const_array(mfi);
         Array4<Real const> const& Hz   = vec_Hz[lev]->const_array(mfi);
-        Array4<Real const> const& pn   = vec_pn[lev]->const_array(mfi);
+        Array4<Real const> const& on_u = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
 
         ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real on_u = two / (pn(i-1,j,0)+pn(i,j,0));
-            Huon(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i-1,j,k))*u(i,j,k)* on_u;
+            Huon(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i-1,j,k))*u(i,j,k)* on_u(i,j,0);
         });
     }
 #ifdef _OPENMP
@@ -253,12 +267,11 @@ REMORA::set_massflux_3d (int lev, MultiFab& mf_Huon, MultiFab& mf_Hvom)
         Array4<Real      > const& Hvom = mf_Hvom.array(mfi);
         Array4<Real const> const& v    = yvel_new[lev]->const_array(mfi);
         Array4<Real const> const& Hz   = vec_Hz[lev]->const_array(mfi);
-        Array4<Real const> const& pm   = vec_pm[lev]->const_array(mfi);
+        Array4<Real const> const& om_v = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
 
         ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real om_v= two / (pm(i,j-1,0)+pm(i,j,0));
-            Hvom(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k)* om_v;
+            Hvom(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k)* om_v(i,j,0);
         });
     }
 }

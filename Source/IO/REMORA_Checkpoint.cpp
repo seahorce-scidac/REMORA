@@ -94,9 +94,13 @@ REMORA::WriteCheckpointFile ()
        }
        HeaderFile << "\n";
 
-       // write out array of t_new, which counts from start_time
+       // write out the time at each level, on the model clock: start_time plus the
+       // elapsed time t_new. Double, like start_time, so the offset survives a
+       // single-precision build. This is the line a reader of the header, such as
+       // the coupled ERF-REMORA driver, takes for the time, so it carries the offset
+       // as a plotfile header's time does.
        for (int i = 0; i < t_new.size(); ++i) {
-           HeaderFile << t_new[i] << " ";
+           HeaderFile << model_time(t_new[i]) << " ";
        }
        HeaderFile << "\n";
 
@@ -106,9 +110,16 @@ REMORA::WriteCheckpointFile ()
            HeaderFile << '\n';
        }
 
-       // start_time, the origin t_new counts from. Last, so a reader that predates it
-       // stops before it; a checkpoint without it holds t_new on the model clock.
-       HeaderFile << "start_time " << start_time << "\n";
+       // The split behind that time: start_time, the origin t_new counts from, and
+       // t_new itself. A restart that keeps start_time takes t_new from here and so
+       // continues the elapsed clock bit for bit, which the rounded sum above cannot
+       // promise. Trailing lines, so a reader that predates them stops before them.
+       HeaderFile << "time_origin " << start_time << "\n";
+       HeaderFile << "elapsed_time";
+       for (int i = 0; i < t_new.size(); ++i) {
+           HeaderFile << " " << t_new[i];
+       }
+       HeaderFile << "\n";
 
        // History record for this step: the one just written if output came at
        // this step, otherwise the next. A restart numbers records and chunk
@@ -220,6 +231,18 @@ REMORA::WriteCheckpointFile ()
        VisMF::Write(*(vec_Akp[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akp"));
        VisMF::Write(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akv"));
        VisMF::Write(*(vec_Akt[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akt"));
+
+       // The end-of-step snapshots a subcycled finer level interpolates between (see
+       // roll_2d_snapshot and store_2d_flux). Each step rolls the previous step's into the
+       // start of its own, so a restart needs them to take its first step as an
+       // uninterrupted run would.
+       if (lev < int(vec_zeta_crse_new.size()) && vec_zeta_crse_new[lev]) {
+           VisMF::Write(*(vec_zeta_crse_new[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "zeta_crse"));
+       }
+       if (!Dubar_fresh[lev]) {
+           VisMF::Write(*(vec_Dubar_new[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Dubar"));
+           VisMF::Write(*(vec_Dvbar_new[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Dvbar"));
+       }
    }
 
 #ifdef REMORA_USE_PARTICLES
@@ -328,14 +351,15 @@ REMORA::ReadCheckpointFile ()
         }
     }
 
-    // read in array of t_new. Kept in double until the origin it counts from is known.
-    Vector<double> chk_t_new(t_new.size(), 0.0);
+    // read in the time line. Kept in double until the trailing lines say what it
+    // holds: the model-clock time, or elapsed time since an origin given there.
+    Vector<double> chk_time(t_new.size(), 0.0);
     std::getline(is, line);
     {
         std::istringstream lis(line);
         int i = 0;
-        while (lis >> word && i < chk_t_new.size()) {
-            chk_t_new[i++] = std::stod(word);
+        while (lis >> word && i < chk_time.size()) {
+            chk_time[i++] = std::stod(word);
         }
     }
 
@@ -346,29 +370,78 @@ REMORA::ReadCheckpointFile ()
         GotoNextLine(is);
     }
 
-    // The origin the checkpoint's t_new counts from. A checkpoint without this
-    // line holds t_new on the model clock.
+    // Trailing "keyword value(s)" lines, in any order. Which are present says how
+    // the time line was written:
+    //   time_origin and elapsed_time: the time line is on the model clock, and
+    //       these carry the start_time and t_new it was summed from;
+    //   start_time alone: the time line is t_new, elapsed since that origin;
+    //   neither: the time line is on the model clock.
+    bool have_time_origin = false;
+    bool have_start_time = false;
+    double chk_time_origin = 0.0;
     double chk_start_time = 0.0;
-    if (is >> word && word == "start_time") {
-        is >> chk_start_time;
+    Vector<double> chk_elapsed;
+    while (std::getline(is, line)) {
+        std::istringstream lis(line);
+        if (!(lis >> word)) { continue; }
+        if (word == "time_origin") {
+            lis >> chk_time_origin;
+            have_time_origin = true;
+        } else if (word == "elapsed_time") {
+            double value;
+            while (lis >> value) { chk_elapsed.push_back(value); }
+        } else if (word == "start_time") {
+            lis >> chk_start_time;
+            have_start_time = true;
+        } else if (word == "history_count") {
+            // History record for this step. Without it, history output starts over.
+            lis >> history_count;
+        }
     }
 
-    // History record for this step. Without it, history output starts over.
-    if (is >> word && word == "history_count") {
-        is >> history_count;
+    // A checkpoint that records its origin can say whether this run moved it.
+    // Rebasing keeps the model clock right, but everything keyed to elapsed time
+    // shifts with the origin, so say so rather than let a forcing ramp restart
+    // or an indicator window move without a word.
+    const bool origin_known = have_time_origin || have_start_time;
+    const double chk_origin = have_time_origin ? chk_time_origin : chk_start_time;
+    if (origin_known && chk_origin != start_time && ParallelDescriptor::IOProcessor()) {
+        std::ostringstream msg;
+        msg.precision(17);
+        msg << "remora.start_time is " << start_time << " but the checkpoint "
+            << restart_chkfile << " was written with start_time " << chk_origin
+            << ". The model clock continues where the checkpoint left off, but"
+            << " the elapsed time the solver sees is rebased by "
+            << (chk_origin - start_time) << " s, so anything keyed to elapsed time"
+            << " moves with it: analytic forcing that ramps from the start of the run,"
+            << " refinement indicator start_time/end_time windows, and the"
+            << " plot_int_time/check_int_time cadence. NetCDF time axes and"
+            << " start_total_time/end_total_time windows stay where they were."
+            << " Keep remora.start_time unchanged to continue the run as it was.";
+        amrex::Warning(msg.str());
     }
 
-    // Rebase onto this run's start_time. Take t_new verbatim when the origin is
-    // unchanged, the usual case, so a restart reproduces the run it continues.
+    // Rebase onto this run's start_time. Take the elapsed time verbatim when the
+    // origin is unchanged, the usual case, so a restart reproduces the run it
+    // continues.
     for (int lev = 0; lev < t_new.size(); ++lev) {
-        t_new[lev] = (chk_start_time == start_time)
-                   ? static_cast<Real>(chk_t_new[lev])
-                   : elapsed_time(chk_start_time + chk_t_new[lev]);
+        if (have_time_origin) {
+            const bool same_origin = (chk_time_origin == start_time)
+                                  && (lev < chk_elapsed.size());
+            t_new[lev] = same_origin ? static_cast<Real>(chk_elapsed[lev])
+                                     : elapsed_time(chk_time[lev]);
+        } else if (have_start_time) {
+            t_new[lev] = (chk_start_time == start_time)
+                       ? static_cast<Real>(chk_time[lev])
+                       : elapsed_time(chk_start_time + chk_time[lev]);
+        } else {
+            t_new[lev] = elapsed_time(chk_time[lev]);
+        }
     }
 
     for (int lev = 0; lev <= finest_level; ++lev) {
-        // create a distribution mapping
-        DistributionMapping dm { chk_ba[lev], ParallelDescriptor::NProcs() };
+        // The same mapping a fresh start gives this BoxArray, remora.load_balance included
+        DistributionMapping dm = MakeDistributionMap(lev, chk_ba[lev]);
 
         MakeNewLevelFromScratch (lev, t_new[lev], chk_ba[lev], dm);
     }
@@ -475,11 +548,35 @@ REMORA::ReadCheckpointFile ()
        VisMF::Read(*(vec_Akt[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akt"));
        VisMF::Read(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akv"));
 
+       // The subcycling snapshots (see WriteCheckpointFile). A checkpoint written before they
+       // were saved, or at a level that had not taken a step, leaves them as a fresh level
+       // starts them: the free surface is not interpolated in time for one step, and the old
+       // flux snapshot is set to the new one.
+       const std::string zeta_crse_name = amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "zeta_crse");
+       if (VisMF::Exist(zeta_crse_name)) {
+           if (int(vec_zeta_crse_new.size()) <= lev) {
+               vec_zeta_crse_old.resize(lev+1);
+               vec_zeta_crse_new.resize(lev+1);
+           }
+           const MultiFab& like = *vec_zeta[lev];
+           vec_zeta_crse_old[lev] = std::make_unique<MultiFab>(like.boxArray(), like.DistributionMap(),
+                                                               like.nComp(), like.nGrowVect());
+           vec_zeta_crse_new[lev] = std::make_unique<MultiFab>(like.boxArray(), like.DistributionMap(),
+                                                               like.nComp(), like.nGrowVect());
+           VisMF::Read(*(vec_zeta_crse_new[lev]), zeta_crse_name);
+       }
+       const std::string dubar_name = amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Dubar");
+       if (VisMF::Exist(dubar_name)) {
+           VisMF::Read(*(vec_Dubar_new[lev]), dubar_name);
+           VisMF::Read(*(vec_Dvbar_new[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Dvbar"));
+           Dubar_fresh[lev] = 0;
+       }
+
        stretch_transform(lev);
 
     }
 
 #ifdef REMORA_USE_PARTICLES
-   particleData.Restart((amrex::ParGDBBase*)GetParGDB(),restart_chkfile);
+   particleData.Restart((amrex::ParGDBBase*)GetParGDB(),restart_chkfile,vec_z_phys_nd);
 #endif
 }
