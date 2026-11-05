@@ -1454,6 +1454,11 @@ public:
                             const amrex::MultiFab& crse, amrex::Real time,
                             amrex::Interpolater* mapper, int bccomp);
 
+    /** \brief Coarse data ready for a coarse-to-fine interpolation: ghost cells exchanged,
+     *         and those beyond a wall made to agree with their periodic images */
+    amrex::MultiFab& coarse_for_interp (int crse_lev, amrex::MultiFab& crse,
+                                        amrex::MultiFab& scratch);
+
     /** \brief Fill a new MultiFab by copying in phi from valid region and filling ghost cells without applying boundary conditions */
     void FillPatchNoBC (int lev, amrex::Real time,
                     amrex::MultiFab& mf_to_be_filled,
