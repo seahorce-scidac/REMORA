@@ -1101,6 +1101,15 @@ REMORA::set_derived_metrics (int lev)
  * at any refinement ratio from 2 up. The interpolation is conservative-linear, which
  * reproduces a linear field exactly.
  *
+ * The coarse data is copied without periodicity. Across a periodic edge, FillBoundary has
+ * already put the wrapped values in the coarse ghost cells, but a ghost cell that also lies
+ * beyond a wall (a corner where the seam meets a non-periodic face) keeps the value continued
+ * from the file's ring, while its periodic image keeps the other side's. A periodic copy
+ * would give that cell both as sources, and which one wins is not defined: on a GPU it varies
+ * from run to run (#775). Copied without periodicity, each cell comes from the coarse level's
+ * own ghost cell. The fine level's ghost cells across a periodic edge are then refilled from
+ * its valid cells, wrapped as on level 0.
+ *
  * @param[in   ] lev    the refined level
  * @param[inout] fine   its coordinate array
  * @param[in   ] crse   the coarser level's
@@ -1115,8 +1124,12 @@ REMORA::interp_grid_coords_from_coarse (int lev, MultiFab& fine, const MultiFab&
         interior_bcs[0].setHi(dir, BCType::int_dir);
     }
     const IntVect ng = fine.nGrowVect();
-    amrex::InterpFromCoarseLevel(fine, ng, ng, crse, 0, 0, 1, geom[lev-1], geom[lev],
+    const Geometry& cg = geom[lev-1];
+    const Geometry crse_geom_nonperiodic(cg.Domain(), cg.ProbDomain(), cg.Coord(),
+                                         Array<int,AMREX_SPACEDIM>{AMREX_D_DECL(0,0,0)});
+    amrex::InterpFromCoarseLevel(fine, ng, ng, crse, 0, 0, 1, crse_geom_nonperiodic, geom[lev],
                                  ref_ratio[lev-1], &cell_cons_interp, interior_bcs, 0);
+    fine.FillBoundary(geom[lev].periodicity());
 }
 
 /**
