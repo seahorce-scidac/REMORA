@@ -64,8 +64,8 @@ face_write_box (const amrex::Box& cc, const amrex::Box& subdomain, const amrex::
  *
  * A grid's u, v and psi points include the faces on both of its sides, so neighbouring grids
  * would both write the points they share. The values agree, but overlapping file regions in
- * one collective put_varn overran a buffer inside Open MPI's OMPIO (issue #758, a heap
- * overflow on 3 or more ranks; ROMIO tolerated it). Giving each point to the lowest-numbered
+ * one collective put_varn made Open MPI's OMPIO overrun a buffer (a heap overflow on 3 or
+ * more ranks; ROMIO tolerated it). Giving each point to the lowest-numbered
  * grid whose write box holds it means every file point is written exactly once, whatever the
  * layout: aligned level-0 boxes, misaligned refined grids, dropped dry boxes.
  */
@@ -1673,7 +1673,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //
-            // Each u point once, by the lowest-numbered grid that holds it (#758)
+            // Each u point once, by the lowest-numbered grid that holds it
             for (const Box& tmp_bx : owned_write_boxes(plotMF->boxArray(), mfi.index(), subdomain,
                                                        IntVect(1,0,0), IntVect(0,1,0))) {
             Box tmp_bx_2d(tmp_bx);
@@ -1766,7 +1766,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //
-            // Each v point once, by the lowest-numbered grid that holds it (#758)
+            // Each v point once, by the lowest-numbered grid that holds it
             for (const Box& tmp_bx : owned_write_boxes(plotMF->boxArray(), mfi.index(), subdomain,
                                                        IntVect(0,1,0), IntVect(1,0,0))) {
             // amrex::Print() << "    BX " << bx << std::endl;
@@ -1863,7 +1863,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //
-            // Each psi point once, by the lowest-numbered grid that holds it (#758)
+            // Each psi point once, by the lowest-numbered grid that holds it
             for (const Box& tmp_bx : owned_write_boxes(plotMF->boxArray(), mfi.index(), subdomain,
                                                        IntVect(1,1,0), IntVect(0,0,0))) {
 
