@@ -12,10 +12,8 @@ Inputs
 The REMORA executable reads run-time information from an “inputs” file which you put on the command line.
 This section describes the inputs which can be specified either in the inputs file or on the command line.
 If a value is specified on the command line, that value will override a value specified in the inputs file.
-Biology options are documented in :ref:`sec:Fennel`. That section covers the
-``remora.fennel.*`` parameters, biology initial-condition selection
-(``remora.biology_ic_type``), and the options used to validate the port against
-ROMS (``remora.use_biology_cpp_answer``, ``remora.biology_debug``).
+Biology options are documented in :ref:`sec:Biology`, with the
+model parameters on :ref:`sec:Fennel` and :ref:`sec:ECB`.
 
    .. note::
       There is an extension found in `REMORA/TOOLS/vscode` that can be used to highlight syntax of REMORA input files in Visual Studio Code. See the `REMORA/TOOLS/vscode/remora-input/README.md` file for information on how to install this extension.
@@ -1389,7 +1387,7 @@ every step and must be accounted for in plotfiles and in boundary and climatolog
 files.
 
 Dye and biology coexist freely, so ``remora.nscalar = 2`` with a Fennel model carrying
-11 tracers gives 15 components in the order shown above. See :ref:`sec:Fennel`.
+11 tracers gives 15 components in the order shown above. See :ref:`sec:Biology`.
 
 With ``remora.ic_type = netcdf`` each dye's initial field is read from the initial
 file under its own name -- ``tracer``, ``tracer_1``, and so on -- stored with the
