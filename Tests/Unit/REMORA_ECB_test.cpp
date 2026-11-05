@@ -86,9 +86,9 @@ check_ecb_reference()
           horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
         MultiFab sv(
           horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
-        MultiFab bu(
+        MultiFab bstr_u(
           horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
-        MultiFab bv(
+        MultiFab bstr_v(
           horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
         MultiFab wu(
           horizontal, mapping, 1, 1, MFInfo().SetArena(The_Managed_Arena()));
@@ -102,8 +102,8 @@ check_ecb_reference()
         mask.setVal(mask_value);
         su.setVal(stress);
         sv.setVal(stress * Real(0.5));
-        bu.setVal(bottom);
-        bv.setVal(bottom * Real(0.5));
+        bstr_u.setVal(bottom);
+        bstr_v.setVal(bottom * Real(0.5));
         wu.setVal(wind);
         wv.setVal(0.);
         Gpu::streamSynchronize();
@@ -156,8 +156,8 @@ check_ecb_reference()
           .stress_v = &sv,
           .wind_u = &wu,
           .wind_v = &wv,
-          .bottom_stress_u = &bu,
-          .bottom_stress_v = &bv};
+          .bottom_stress_u = &bstr_u,
+          .bottom_stress_v = &bstr_v};
         model->advance(context);
         Gpu::streamSynchronize();
         for (MFIter mfi(next); mfi.isValid(); ++mfi) {

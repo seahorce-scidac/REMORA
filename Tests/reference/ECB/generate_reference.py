@@ -102,7 +102,7 @@ def adapter(kernel, module, bulk):
       real(r8) :: t(0:1,0:1,nz,3,20)
       real(r8) :: hz(0:1,0:1,nz),zr(0:1,0:1,nz)
       real(r8) :: zw(0:1,0:1,0:nz),srf(0:1,0:1)
-      real(r8) :: su(0:1,0:1),sv(0:1,0:1),bu(0:1,0:1),bv(0:1,0:1)
+      real(r8) :: su(0:1,0:1),sv(0:1,0:1),bstr_u(0:1,0:1),bstr_v(0:1,0:1)
       real(r8) :: rm(0:1,0:1),ph(0:1,0:1)
       integer :: i,j,k,c
       if (.not.allocated(idbio)) CALL initialize_biology
@@ -129,12 +129,12 @@ def adapter(kernel, module, bulk):
       srf=shortwave
       su={'wind' if bulk else 'stress'}
       sv={'0.d0' if bulk else 'stress*0.5d0'}
-      bu=bottom
-      bv=bottom*0.5d0
+      bstr_u=bottom
+      bstr_v=bottom*0.5d0
       rm=mask
       ph=8.d0
       CALL ecb_tile(1,0,0,1,0,1,nz,20,0,1,0,1,1,2,rm,
-     &              hz,zr,zw,srf,su,sv,bu,bv,ph,t)
+     &              hz,zr,zw,srf,su,sv,bstr_u,bstr_v,ph,t)
       do c=1,20
         do k=1,nz
           new(k,c)=t(0,0,k,2,c)
