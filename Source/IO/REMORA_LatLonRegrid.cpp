@@ -2,6 +2,7 @@
 #include "REMORA_LatLonRegridMath.H"
 #include "REMORA_NCFile.H"
 
+#include <AMReX.H>
 #include <AMReX_GpuContainers.H>
 #include <AMReX_Utility.H>
 #include <AMReX_ParallelDescriptor.H>
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <sstream>
 
 #ifdef REMORA_USE_NETCDF
@@ -201,6 +203,35 @@ find_source_grid (const std::string& file_name, const std::string& field_name,
     return g;
 }
 
+/**
+ * Weights already built, for the fields that follow on the same source grid. An entry is
+ * found again by the source axes as the file stores them, the target points and the forcing
+ * layout, which together fix the weights. It holds them only weakly, so they are freed with
+ * the last field that uses them; the cache is emptied at finalize.
+ */
+struct WeightsEntry
+{
+    std::vector<double> lon, lat;
+    Box domain;
+    BoxArray ba;
+    DistributionMapping dm;
+    const MultiFab* target_lon = nullptr;
+    const MultiFab* target_lat = nullptr;
+    std::weak_ptr<const MultiFab> weights;
+    std::weak_ptr<const iMultiFab> indices;
+};
+
+std::vector<WeightsEntry>& weights_cache ()
+{
+    static std::vector<WeightsEntry> cache;
+    static bool registered = false;
+    if (!registered) {
+        amrex::ExecOnFinalize([] () { weights_cache().clear(); });
+        registered = true;
+    }
+    return cache;
+}
+
 } // namespace
 
 using latlon_regrid::is_valid;
@@ -260,10 +291,31 @@ LatLonRegrid::define (const std::string& file_name, const std::string& field_nam
               " degrees, more than once around the globe.");
     }
 
-    weights.define(like.boxArray(), like.DistributionMap(), stencil_size, IntVect(1,1,0));
-    indices.define(like.boxArray(), like.DistributionMap(), 3*stencil_size, IntVect(1,1,0));
-    weights.setVal(0.0);
-    indices.setVal(-1);
+    // Every rank holds the same axes and layout, so every rank finds the same entry, or none
+    auto& cache = weights_cache();
+    cache.erase(std::remove_if(cache.begin(), cache.end(),
+                               [] (const WeightsEntry& e) { return e.weights.expired(); }),
+                cache.end());
+    for (const auto& e : cache) {
+        if (e.lon == lon_file && e.lat == lat_file && e.domain == domain &&
+            e.ba == like.boxArray() && e.dm == like.DistributionMap() &&
+            e.target_lon == &target_lon && e.target_lat == &target_lat) {
+            weights = e.weights.lock();
+            indices = e.indices.lock();
+            if (weights && indices) {
+                amrex::Print() << "Interpolating " << field_name << " from " << summary()
+                               << ", with the weights of an earlier field on it" << std::endl;
+                return;
+            }
+        }
+    }
+
+    auto w   = std::make_shared<MultiFab>(like.boxArray(), like.DistributionMap(), stencil_size,
+                                          IntVect(1,1,0));
+    auto idx = std::make_shared<iMultiFab>(like.boxArray(), like.DistributionMap(),
+                                           3*stencil_size, IntVect(1,1,0));
+    w->setVal(0.0);
+    idx->setVal(-1);
 
     // Target coordinates on the forcing layout, with the ring
     MultiFab lon(like.boxArray(), like.DistributionMap(), 1, IntVect(1,1,0));
@@ -271,13 +323,18 @@ LatLonRegrid::define (const std::string& file_name, const std::string& field_nam
     lon.ParallelCopy(target_lon, 0, 0, 1, IntVect(1,1,0), IntVect(1,1,0));
     lat.ParallelCopy(target_lat, 0, 0, 1, IntVect(1,1,0), IntVect(1,1,0));
 
-    build_weights(lon, lat);
+    build_weights(lon, lat, *w, *idx);
+    weights = w;
+    indices = idx;
+    cache.push_back({lon_file, lat_file, domain, like.boxArray(), like.DistributionMap(),
+                     &target_lon, &target_lat, weights, indices});
 
     amrex::Print() << "Interpolating " << field_name << " from " << summary() << std::endl;
 }
 
 void
-LatLonRegrid::build_weights (const MultiFab& lon, const MultiFab& lat)
+LatLonRegrid::build_weights (const MultiFab& lon, const MultiFab& lat,
+                             MultiFab& weights_out, iMultiFab& indices_out) const
 {
     Gpu::DeviceVector<Real> d_lon(nlon), d_lat(nlat);
     {
@@ -297,12 +354,12 @@ LatLonRegrid::build_weights (const MultiFab& lon, const MultiFab& lat)
     ReduceData<int, Real, Real, Real, Real> reduce_data(reduce_op);
     using ReduceTuple = typename decltype(reduce_data)::Type;
 
-    for (MFIter mfi(weights); mfi.isValid(); ++mfi) {
+    for (MFIter mfi(weights_out); mfi.isValid(); ++mfi) {
         const Box bx = target_box(mfi);
         auto const& lon_a = lon.const_array(mfi);
         auto const& lat_a = lat.const_array(mfi);
-        auto const& w   = weights.array(mfi);
-        auto const& idx = indices.array(mfi);
+        auto const& w   = weights_out.array(mfi);
+        auto const& idx = indices_out.array(mfi);
 
         reduce_op.eval(bx, reduce_data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
         {
@@ -406,8 +463,8 @@ LatLonRegrid::interpolate (const FArrayBox& src_fab, MultiFab& dst) const
     for (MFIter mfi(dst); mfi.isValid(); ++mfi) {
         const Box bx = target_box(mfi);
         auto const& d   = dst.array(mfi);
-        auto const& w   = weights.const_array(mfi);
-        auto const& idx = indices.const_array(mfi);
+        auto const& w   = weights->const_array(mfi);
+        auto const& idx = indices->const_array(mfi);
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
