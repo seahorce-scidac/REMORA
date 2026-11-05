@@ -214,9 +214,24 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         });
     }
 
-    for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, t_old[lev], *vec_tke[lev], GetVecOfPtrs(vec_tke), tke_bc(), BdyVars::null, icomp, false, false);
-        FillPatch(lev, t_old[lev], *vec_gls[lev], GetVecOfPtrs(vec_gls), tke_bc(), BdyVars::null, icomp, false, false);
+    if (lev == 0) {
+        // At level 0 each FillPatch below is an exchange of one component followed by its
+        // boundary conditions, which read and write only that component. So exchange all
+        // components of both fields at once, then apply the conditions in the old order.
+        amrex::FillBoundary(Vector<MultiFab*>{vec_tke[lev].get(), vec_gls[lev].get()},
+                            geom[lev].periodicity());
+        const MultiFab no_calc;
+        for (int icomp=0; icomp<3; icomp++) {
+            FillPatchBCs(lev, t_old[lev], *vec_tke[lev], tke_bc(), BdyVars::null, icomp, 1,
+                         0, 0, zero, no_calc);
+            FillPatchBCs(lev, t_old[lev], *vec_gls[lev], tke_bc(), BdyVars::null, icomp, 1,
+                         0, 0, zero, no_calc);
+        }
+    } else {
+        for (int icomp=0; icomp<3; icomp++) {
+            FillPatch(lev, t_old[lev], *vec_tke[lev], GetVecOfPtrs(vec_tke), tke_bc(), BdyVars::null, icomp, false, false);
+            FillPatch(lev, t_old[lev], *vec_gls[lev], GetVecOfPtrs(vec_gls), tke_bc(), BdyVars::null, icomp, false, false);
+        }
     }
 }
 
@@ -931,14 +946,33 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         });
     }
 
-    for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, t_old[lev], *mf_tke, GetVecOfPtrs(vec_tke), tke_bc(), BdyVars::null, icomp, false, false);
-        FillPatch(lev, t_old[lev], *mf_gls, GetVecOfPtrs(vec_gls), tke_bc(), BdyVars::null, icomp, false, false);
+    if (lev == 0) {
+        // At level 0 these fills are exchanges followed, for tke, gls and Akt, by boundary
+        // conditions that read and write only the component being filled: one batched
+        // exchange, then the conditions in the old order.
+        amrex::FillBoundary(Vector<MultiFab*>{mf_tke, mf_gls, mf_Akt, mf_Akv, mf_Akp, mf_Akk},
+                            geom[lev].periodicity());
+        const MultiFab no_calc;
+        for (int icomp=0; icomp<3; icomp++) {
+            FillPatchBCs(lev, t_old[lev], *mf_tke, tke_bc(), BdyVars::null, icomp, 1,
+                         0, 0, zero, no_calc);
+            FillPatchBCs(lev, t_old[lev], *mf_gls, tke_bc(), BdyVars::null, icomp, 1,
+                         0, 0, zero, no_calc);
+        }
+        for (int icomp=0; icomp<NAT; icomp++) {
+            FillPatchBCs(lev, t_old[lev], *mf_Akt, zvel_bc(), BdyVars::null, icomp, 1,
+                         0, 0, zero, no_calc);
+        }
+    } else {
+        for (int icomp=0; icomp<3; icomp++) {
+            FillPatch(lev, t_old[lev], *mf_tke, GetVecOfPtrs(vec_tke), tke_bc(), BdyVars::null, icomp, false, false);
+            FillPatch(lev, t_old[lev], *mf_gls, GetVecOfPtrs(vec_gls), tke_bc(), BdyVars::null, icomp, false, false);
+        }
+        for (int icomp=0; icomp<NAT; icomp++) {
+            FillPatch(lev, t_old[lev], *mf_Akt, GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null, icomp, false, false);
+        }
+        FillPatchNoBC(lev, t_old[lev], *mf_Akv, GetVecOfPtrs(vec_Akv), BdyVars::null);
+        FillPatchNoBC(lev, t_old[lev], *mf_Akp, GetVecOfPtrs(vec_Akp), BdyVars::null);
+        FillPatchNoBC(lev, t_old[lev], *mf_Akk, GetVecOfPtrs(vec_Akk), BdyVars::null);
     }
-    for (int icomp=0; icomp<NAT; icomp++) {
-        FillPatch(lev, t_old[lev], *mf_Akt, GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null, icomp, false, false);
-    }
-    FillPatchNoBC(lev, t_old[lev], *mf_Akv, GetVecOfPtrs(vec_Akv), BdyVars::null);
-    FillPatchNoBC(lev, t_old[lev], *mf_Akp, GetVecOfPtrs(vec_Akp), BdyVars::null);
-    FillPatchNoBC(lev, t_old[lev], *mf_Akk, GetVecOfPtrs(vec_Akk), BdyVars::null);
 }
