@@ -37,6 +37,57 @@ plot_2d_var_requested (const amrex::Vector<std::string>& names, const std::strin
     return false;
 }
 
+/**
+ * \brief The box a grid writes for a face- or node-centered variable: its valid box made nodal
+ *        in the directions of nodal, and grown by one point into the ghost row beyond the
+ *        subdomain in the directions of edge where the grid meets the subdomain's edge.
+ */
+amrex::Box
+face_write_box (const amrex::Box& cc, const amrex::Box& subdomain, const amrex::IntVect& nodal,
+                const amrex::IntVect& edge)
+{
+    amrex::Box b(cc);
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (nodal[d]) { b.surroundingNodes(d); }
+    }
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (!edge[d]) { continue; }
+        if (b.smallEnd(d) == subdomain.smallEnd(d)) { b.growLo(d, 1); }
+        if (b.bigEnd(d) == subdomain.bigEnd(d)) { b.growHi(d, 1); }
+    }
+    return b;
+}
+
+/**
+ * \brief The parts of grid i's write box (face_write_box) that no lower-numbered grid of the
+ *        level writes.
+ *
+ * A grid's u, v and psi points include the faces on both of its sides, so neighbouring grids
+ * would both write the points they share. The values agree, but overlapping file regions in
+ * one collective put_varn made Open MPI's OMPIO overrun a buffer (a heap overflow on 3 or
+ * more ranks; ROMIO tolerated it). Giving each point to the lowest-numbered
+ * grid whose write box holds it means every file point is written exactly once, whatever the
+ * layout: aligned level-0 boxes, misaligned refined grids, dropped dry boxes.
+ */
+amrex::BoxList
+owned_write_boxes (const amrex::BoxArray& ba, int i, const amrex::Box& subdomain,
+                   const amrex::IntVect& nodal, const amrex::IntVect& edge)
+{
+    const amrex::Box mine = face_write_box(ba[i], subdomain, nodal, edge);
+    amrex::BoxList bl(mine);
+    // Write boxes reach one point beyond their grid, so only grids within two cells can overlap
+    for (const auto& is : ba.intersections(amrex::grow(ba[i], 2))) {
+        const int j = is.first;
+        if (j >= i) { continue; }
+        const amrex::Box theirs = face_write_box(ba[j], subdomain, nodal, edge);
+        if (!theirs.intersects(mine)) { continue; }
+        amrex::BoxList left(mine.ixType());
+        for (const amrex::Box& b : bl) { left.join(amrex::boxDiff(b, theirs)); }
+        bl = std::move(left);
+    }
+    return bl;
+}
+
 /** \brief Abort on a PnetCDF error */
 void
 nc_check (int ierr)
@@ -1622,12 +1673,9 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //
-            Box tmp_bx(bx);
-            tmp_bx.surroundingNodes(0);
-            if (tmp_bx.smallEnd()[1] == subdomain.smallEnd()[1])
-                tmp_bx.growLo(1, 1);
-            if (tmp_bx.bigEnd()[1] == subdomain.bigEnd()[1])
-                tmp_bx.growHi(1, 1);
+            // Each u point once, by the lowest-numbered grid that holds it
+            for (const Box& tmp_bx : owned_write_boxes(plotMF->boxArray(), mfi.index(), subdomain,
+                                                       IntVect(1,0,0), IntVect(0,1,0))) {
             Box tmp_bx_2d(tmp_bx);
             tmp_bx_2d.makeSlab(2, 0);
 
@@ -1704,6 +1752,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
                 auto nc_plot_var = collector.var(ncf, "mask_u");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
+            } // owned_write_boxes
         } // in subdomain
     } // mfi
 
@@ -1717,12 +1766,9 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //
-            Box tmp_bx(bx);
-            tmp_bx.surroundingNodes(1);
-            if (tmp_bx.smallEnd()[0] == subdomain.smallEnd()[0])
-                tmp_bx.growLo(0, 1);
-            if (tmp_bx.bigEnd()[0] == subdomain.bigEnd()[0])
-                tmp_bx.growHi(0, 1);
+            // Each v point once, by the lowest-numbered grid that holds it
+            for (const Box& tmp_bx : owned_write_boxes(plotMF->boxArray(), mfi.index(), subdomain,
+                                                       IntVect(0,1,0), IntVect(1,0,0))) {
             // amrex::Print() << "    BX " << bx << std::endl;
             // amrex::Print() << "TMP_BX " << tmp_bx << std::endl;
 
@@ -1804,6 +1850,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
 
+            } // owned_write_boxes
         } // in subdomain
     } // mfi
 
@@ -1816,9 +1863,9 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //
-            Box tmp_bx(bx);
-            tmp_bx.surroundingNodes(0);
-            tmp_bx.surroundingNodes(1);
+            // Each psi point once, by the lowest-numbered grid that holds it
+            for (const Box& tmp_bx : owned_write_boxes(plotMF->boxArray(), mfi.index(), subdomain,
+                                                       IntVect(1,1,0), IntVect(0,0,0))) {
 
             Box tmp_bx_2d(tmp_bx);
             tmp_bx_2d.makeSlab(2, 0);
@@ -1856,6 +1903,7 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
             }
 
             } // header
+            } // owned_write_boxes
         } // in subdomain
     } // mfi
 
