@@ -133,11 +133,9 @@ because its ``srflx`` is kinematic; REMORA does not.
 
 ``configure`` rejects ``AttSW <= 0``, ``AttChl < 0``, ``slCexc <= 0`` and
 ``K_Phy <= 0``, each of which divides by zero in the kernel.
-A column must contain at least two layers, and each grid box must span its
-entire vertical column. Horizontal decomposition is allowed; vertically
-split grid boxes fail explicitly. CPU tiles split the kernel horizontally
-only, whatever ``remora.omp_tile_size`` sets in z, and the answer does not
-depend on the tiling.
+A column must contain at least two layers. Like Fennel, the kernel works on
+whole columns, which REMORA's grids and CPU tiles always provide; the answer
+does not depend on the horizontal tiling.
 
 Every checkpoint ``Header`` ends with a ``cons_names`` line listing the
 cell-centered components in order, and restart rejects a checkpoint whose list

@@ -172,9 +172,18 @@ void check_profiles_and_noops ()
 
 void check_ecb_reference ();
 
+// The kernels assume whole columns, which REMORA's main.cpp guarantees by
+// never tiling in z. AMReX's own default tile splits z every 8 cells, so set
+// the same z tile here.
+void set_remora_tile_size ()
+{
+    ParmParse pp("fabarray");
+    pp.addarr("mfiter_tile_size", std::vector<int>{1024000, 1024000, 1024000});
+}
+
 int main (int argc, char* argv[])
 {
-    amrex::Initialize(argc, argv);
+    amrex::Initialize(argc, argv, true, MPI_COMM_WORLD, set_remora_tile_size);
     {
         check_ecb_reference();
         check_layouts();

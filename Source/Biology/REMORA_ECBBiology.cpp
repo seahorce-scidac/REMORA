@@ -229,19 +229,8 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
     int nw = 0;
     const int sw_FC = nw++;
 
-    // Sinking and light attenuation run down each whole column, so tile only
-    // horizontally, whatever fabarray.mfiter_tile_size says about z.
-    MFItInfo mfi_info;
-    if (TilingIfNotGPU()) {
-        IntVect column_tile = FabArrayBase::mfiter_tile_size;
-        column_tile[2] = 1024000;
-        mfi_info.EnableTiling(column_tile);
-    }
-    for (MFIter mfi(mf_cons_new, mfi_info); mfi.isValid(); ++mfi) {
+    for (MFIter mfi(mf_cons_new, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Box bx = mfi.tilebox();
-        if (bx.smallEnd(2) != 0 || bx.bigEnd(2) != N - 1) {
-            amrex::Abort("ECB requires each grid box to contain the entire vertical column");
-        }
         Box bx2d = bx;
         bx2d.makeSlab(2, 0);
         Box wbx = surroundingNodes(bx, 2);
