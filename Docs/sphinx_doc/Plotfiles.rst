@@ -172,7 +172,9 @@ Notes
 
 -  REMORA writes CDF-5 files, which have no practical size limit. Some MPI builds still fail on writes
    larger than 2 GB — a limit of the MPI-IO layer, not the file format. If a large write crashes, see the
-   MPICH note in :ref:`the NetCDF build instructions<netcdf>`, or use a native AMReX plotfile.
+   MPICH note in :ref:`the NetCDF build instructions<netcdf>`, or use a native AMReX plotfile. With Open MPI
+   4.1.x, a write that aborts with ``free(): invalid next size`` is an Open MPI MPI-IO bug; the same
+   instructions give the workaround.
 
 -  Velocity components are defined on faces within the REMORA code, but are averaged onto
    cell centers when written in amrex/native plotfiles. They are not averaged when writing

@@ -46,6 +46,18 @@ See sections below for compiler-specific instructions for how to enable NetCDF s
       **When built with some MPI implementations, PnetCDF will crash when writing files larger than 2GB. Building
       with MPICH v4.2.2 will likely solve this issue.**
 
+   .. note::
+      **With Open MPI 4.1.x, NetCDF output can abort at the first write with** ``free(): invalid next size``
+      **and then hang.** This was seen on 3 or more ranks on a NetCDF-initialised grid (issue #758). The heap
+      overflow is in Open MPI's default MPI-IO implementation, ``ompio``, in a collective write (valgrind
+      places it in ``mca_fbtl_posix_pwritev``). Selecting Open MPI's ROMIO implementation instead avoids it:
+
+      .. code:: shell
+
+                mpiexec --mca io ^ompio -n 4 <REMORA executable> <inputs file>
+
+      or, equivalently, ``export OMPI_MCA_io=^ompio`` before running.
+
 
 GNU Make
 ~~~~~~~~
