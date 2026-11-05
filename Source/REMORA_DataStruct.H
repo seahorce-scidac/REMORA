@@ -548,7 +548,7 @@ struct SolverChoice {
         } else if ( amrex::toLower(wind_type_string) == "netcdf") {
             wind_type = WindType::netcdf;
         } else {
-            amrex::Abort("Don't know this smflux_type");
+            amrex::Abort("Don't know this wind_type");
         }
 
         if (wind_specified) {
