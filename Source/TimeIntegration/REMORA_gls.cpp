@@ -2,6 +2,21 @@
 
 using namespace amrex;
 
+namespace {
+/**
+ * std::pow for the GLS exponents, which are run-time parameters and often 0 or 1
+ * (gls_m + gls_n/2 and -gls_n for k-epsilon). A pow with error under 1 ulp (glibc: 0.52)
+ * returns x for pow(x,1) and 1 for pow(x,0), so skipping the call keeps the result.
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real gls_pow (Real x, Real y) noexcept
+{
+    if (y == Real(1.0)) { return x; }
+    if (y == Real(0.0)) { return Real(1.0); }
+    return std::pow(x, y);
+}
+}
+
 /**
  * @param[in   ] lev            level to operate on
  * @param[inout] mf_gls         turbulent generic length scale
@@ -700,20 +715,20 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             gls(i,j,k,nnew) = gls(i,j,k,nnew)+dt_lev
                                 *cff_Hz*Pprod*gls(i,j,k,nstp) / std::max(tke(i,j,k,nstp),gls_Kmin);
 
-            Real gls_exp_exp1 = std::pow(gls(i,j,k,nstp),gls_exp1);
+            Real gls_exp_exp1 = gls_pow(gls(i,j,k,nstp),gls_exp1);
             Real gls_exp_mexp1 = one / (gls_exp_exp1);
-            Real tke_exp_mexp1 = std::pow(tke(i,j,k,nstp),-tke_exp1);
-            Real tke_exp_exp2 = std::pow(tke(i,j,k,nstp),tke_exp2);
+            Real tke_exp_mexp1 = gls_pow(tke(i,j,k,nstp),-tke_exp1);
+            Real tke_exp_exp2 = gls_pow(tke(i,j,k,nstp),tke_exp2);
 
             // Compute dissipation of turbulent energy (m3/s3).
             Real wall_fac = one;
             if (Lmy25) {
                 wall_fac=one+gls_E2/(vonKar*vonKar)*
-                        std::pow(gls_exp_exp1*cmu_fac1*
+                        gls_pow(gls_exp_exp1*cmu_fac1*
                          tke_exp_mexp1*
                          (one/ (z_w(i,j,k)-z_w(i,j,0))),2)+
                         Real(0.25)/(vonKar*vonKar)*
-                        std::pow(gls_exp_exp1*cmu_fac1*
+                        gls_pow(gls_exp_exp1*cmu_fac1*
                          tke_exp_mexp1*
                          (one/ (z_w(i,j,N+1)-z_w(i,j,k))),2);
             }
@@ -756,10 +771,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                                         gls_Kmin);
 
             gls(i,j,N+1,nnew)=std::max(cmu0_exp_p*
-                                    std::pow(tke(i,j,N+1,nnew),gls_m)*
-                                    std::pow(L_sft*Zos_eff,gls_n), gls_Pmin);
-            Real cff_gls = gls_fac4*std::pow(vonKar*Zob_min,gls_n);
-            gls(i,j,0,nnew)=std::max(cff_gls*std::pow(tke(i,j,0,nnew),(gls_m)), gls_Pmin);
+                                    gls_pow(tke(i,j,N+1,nnew),gls_m)*
+                                    gls_pow(L_sft*Zos_eff,gls_n), gls_Pmin);
+            Real cff_gls = gls_fac4*gls_pow(vonKar*Zob_min,gls_n);
+            gls(i,j,0,nnew)=std::max(cff_gls*gls_pow(tke(i,j,0,nnew),(gls_m)), gls_Pmin);
 
             // Solve tri-diagonal system for turbulent kinetic energy.
             // Might be N instead of N-1?
@@ -782,13 +797,13 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
             // Solve tri-diagonal system for generic statistical field.
             Real cff_tke = Real(0.5) * (tke(i,j,N+1,nnew) + tke(i,j,N,nnew));
-            Real gls_fluxt = dt_lev*gls_fac3*std::pow(cff_tke,gls_m)*
-                             std::pow(L_sft,(gls_n))*
-                             std::pow(Zos_eff+Real(0.5)*Hz(i,j,N),gls_n-one)*
+            Real gls_fluxt = dt_lev*gls_fac3*gls_pow(cff_tke,gls_m)*
+                             gls_pow(L_sft,(gls_n))*
+                             gls_pow(Zos_eff+Real(0.5)*Hz(i,j,N),gls_n-one)*
                              Real(0.5)*(Akp(i,j,N+1)+Akp(i,j,N));
             cff_tke=Real(0.5)*(tke(i,j,0,nnew)+tke(i,j,1,nnew));
-            Real gls_fluxb = dt_lev*gls_fac2*std::pow(cff_tke,gls_m)*
-                              std::pow(Real(0.5)*Hz(i,j,0)+Zob_min,gls_n-one)*
+            Real gls_fluxb = dt_lev*gls_fac2*gls_pow(cff_tke,gls_m)*
+                              gls_pow(Real(0.5)*Hz(i,j,0)+Zob_min,gls_n-one)*
                               Real(0.5)*(Akp(i,j,0)+Akp(i,j,1));
             Real cff_BCP = one / BCP(i,j,N);
             CF(i,j,N) = cff_BCP * FCP(i,j,N-1);
@@ -805,23 +820,28 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         });
 
         // Compute vertical mixing coefficients (m2/s).
+        // pow(tke,-tke_exp1) and pow(tke,gls_m) are one call when the exponents agree (gls_n = -1)
+        const bool same_exp_m = (-tke_exp1 == gls_m);
         ParallelFor(grow(bx,2,-1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew),gls_Kmin);
-            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew),gls_Pmin);
+            const Real tke_new = std::max(tke(i,j,k,nnew),gls_Kmin);
+            tke(i,j,k,nnew) = tke_new;
+            Real gls_new = std::max(gls(i,j,k,nnew),gls_Pmin);
             Real gls_comparison = gls_fac5 *
-                                    std::pow(tke(i,j,k,nnew),tke_exp4)*
-                                    std::pow(std::sqrt(std::max(Real(0.0),
+                                    gls_pow(tke_new,tke_exp4)*
+                                    gls_pow(std::sqrt(std::max(Real(0.0),
                                           buoy2(i,j,k)))+eps,-gls_n);
-            gls(i,j,k,nnew) = (gls_n >= Real(0.0)) ? std::min(gls(i,j,k,nnew),gls_comparison) : std::max(gls(i,j,k,nnew),gls_comparison);
+            gls_new = (gls_n >= Real(0.0)) ? std::min(gls_new,gls_comparison) : std::max(gls_new,gls_comparison);
+            const Real tke_pow_m = gls_pow(tke_new,gls_m);
+            const Real tke_pow_mexp1 = same_exp_m ? tke_pow_m : gls_pow(tke_new,(-tke_exp1));
             Real Ls_lmt;
             Real Ls_unlmt=std::max(eps,
-                                   std::pow(gls(i,j,k,nnew),( gls_exp1))*cmu_fac1*
-                                   std::pow(tke(i,j,k,nnew),(-tke_exp1)));
+                                   gls_pow(gls_new,( gls_exp1))*cmu_fac1*
+                                   tke_pow_mexp1);
             // Some problems are very sensitive to this condition (ultimate cause of
             // some discrepancies in BoundaryLayer test between CPU and GPU)
             Ls_lmt = (buoy2(i,j,k) > Real(0.0)) ? std::min(Ls_unlmt,
-                                                std::sqrt(Real(0.56)*tke(i,j,k,nnew)/
+                                                std::sqrt(Real(0.56)*tke_new/
                                                 (std::max(Real(0.0),buoy2(i,j,k))+eps))) : Ls_unlmt;
             //
             // L <= kappa*Depth (ROMS gls_corstep.F). The Galperin limit above
@@ -831,14 +851,14 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             //  Recompute gls based on limited length scale
             //
             gls(i,j,k,nnew)=std::max(cmu0_exp_p*
-                                           std::pow(tke(i,j,k,nnew),gls_m)*
-                                           std::pow(Ls_lmt,gls_n), gls_Pmin);
+                                           tke_pow_m*
+                                           gls_pow(Ls_lmt,gls_n), gls_Pmin);
 
             //   Compute nondimensional stability functions for tracers (Sh) and
             //   momentum (Sm).
             Real Sh, Sm;
             Real Gh=std::min(gls_Gh0,-buoy2(i,j,k)*Ls_lmt*Ls_lmt/
-                            (two*tke(i,j,k,nnew)));
+                            (two*tke_new));
             Gh=std::min(Gh,Gh-(Gh-gls_Ghcri)*(Gh-gls_Ghcri)/
                        (Gh+gls_Gh0-two*gls_Ghcri));
             Gh=std::max(Gh,gls_Ghmin);
@@ -851,7 +871,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 Real Gm=(gls_b0/gls_fac6-gls_b1*Gh+gls_b3*gls_fac6*(Gh*Gh))/
                              (gls_b2-gls_b4*gls_fac6*Gh);
                 Gm=std::min(Gm,shear2(i,j,k)*Ls_lmt*Ls_lmt/
-                            (two*tke(i,j,k,nnew)));
+                            (two*tke_new));
                 /////Gm=std::min(Gm,(gls_s1*gls_fac6*Gh-gls_s0)/(gls_s2*gls_fac6));
                 //
                 //  Compute stability functions
@@ -882,7 +902,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             //  tracers.  Average ql over the two timesteps rather than using
             //  the new Lscale and just averaging tke.
 
-            Real ql=sqrt2*Real(0.5)*(Ls_lmt*std::sqrt(tke(i,j,k,nnew))+
+            Real ql=sqrt2*Real(0.5)*(Ls_lmt*std::sqrt(tke_new)+
                                   Lscale(i,j,k)*std::sqrt(tke(i,j,k,nstp)));
             Akv(i,j,k)=Akv_bak+Sm*ql;
             for (int n=0; n<NAT; n++) {
