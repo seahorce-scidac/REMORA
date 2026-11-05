@@ -53,11 +53,6 @@ class ECBBiology final : public Biology
 {
   public:
     std::string name() const override { return "ecb"; }
-    std::string checkpoint_identity() const override
-    {
-        return "ecb/roms-31cabd318c9379429c365c308b9e0f2ee166a6fc/"
-               "po4-talk-rw14-v1";
-    }
     void configure(const std::string& remora_prefix) override;
     const BiologyDeclaration& declaration() const noexcept override
     {

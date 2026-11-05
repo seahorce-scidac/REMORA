@@ -140,8 +140,8 @@ cell-centered components in order, and restart rejects a checkpoint whose list
 differs from the run's, even when the counts agree. This check is not specific
 to biology: it also catches a changed ``remora.nscalar``. Checkpoints written
 before the line existed are checked by count only. A separate versioned
-``BiologyHeader`` records the biology model identity, which restart also
-checks. Changing rate parameters alone is permitted. Legacy checkpoints without
+``BiologyHeader`` records the biology model name, which restart also checks;
+it does not record the ROMS version the port follows. Changing rate parameters alone is permitted. Legacy checkpoints without
 ``BiologyHeader`` remain accepted for Fennel and none; ECB requires it.
 
 Validation and remaining work
