@@ -621,7 +621,8 @@ REMORA::WritePlotFile (int istep_for_plot)
             if (containerHasElement(plot_var_names_3d, plot_var_name) ) {
                 MultiFab temp_dat(plotMF[lev].boxArray(), plotMF[lev].DistributionMap(), 1, 1);
                 temp_dat.setVal(0);
-                particleData.GetMeshPlotVar(plot_var_name, temp_dat, lev);
+                particleData.GetMeshPlotVar(plot_var_name, temp_dat, lev,
+                                             *vec_Hz[lev], *vec_pm[lev], *vec_pn[lev]);
                 MultiFab::Copy(plotMF[lev], temp_dat, 0, mf_comp, 1, 0);
                 mf_comp += 1;
             }

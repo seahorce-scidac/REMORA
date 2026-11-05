@@ -78,7 +78,11 @@ Output
 Particles are written to AMReX-native plotfiles, but not yet to NetCDF output. To plot the number of
 particles per cell as a mesh variable, add ``<species>_count`` (for example
 ``tracer_particles_count``) to ``remora.plot_vars_3d``; the particle mass density is available the
-same way as ``<species>_mass_density``:
+same way as ``<species>_mass_density``. The density is a cloud-in-cell deposit over the cells around
+each particle, with the vertical weights taken from its level index :math:`s` so that it follows the
+terrain-following levels, divided by each cell's physical volume :math:`H_z/(p_m p_n)`. Weight that
+would fall below the bed, above the free surface or across a non-periodic side goes to the edge cell,
+so the deposit keeps all the mass:
 
 ::
 
