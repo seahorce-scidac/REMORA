@@ -20,1013 +20,857 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 */
-// Native port of ROMS ECB; see Docs/sphinx_doc/ECB.rst for pinned
-// source/options.
+// Native port of ROMS ECB (ROMS/Nonlinear/Biology/ecb.h); see
+// Docs/sphinx_doc/ECB.rst for the pinned source and option set.
 #include <REMORA_ECBBiology.H>
 #include <REMORA_BiologyCarbonate.H>
+#include <REMORA_BiologyGasExchange.H>
 #include <REMORA_DataStruct.H>
-#include <REMORA_Constants.H>
 #include <AMReX_FArrayBox.H>
-#include <AMReX_IArrayBox.H>
 #include <AMReX_MFIter.H>
 #include <AMReX_ParmParse.H>
 #include <cmath>
 #include <iterator>
+
 using namespace amrex;
+
 namespace {
-// Local scratch inventory follows ROMS idbio, after temperature and salinity.
-enum ECBComponent {
-    sc_temp,
-    sc_salt,
-    sc_no3,
-    sc_nh4,
-    sc_chlo,
-    sc_phyt,
-    sc_zoop,
-    sc_lden,
-    sc_sden,
-    sc_don,
-    sc_po4,
-    sc_ldec,
-    sc_sdec,
-    sc_tic,
-    sc_talk,
-    sc_doc,
-    sc_oxyg,
-    sc_rdon,
-    sc_rdoc,
-    sc_calc
-};
-constexpr int NumScratch = sc_calc + 1;
-constexpr int NumECBTracers = NumScratch - sc_no3;
-// State tracer name of each scratch biology component, sc_no3 to sc_calc. The
-// kernel finds each one's state component by name, so the declared order is
-// free to change.
-const char* const ecb_tracer_names[NumECBTracers] = {
-  "NO3",        "NH4",        "chlorophyll", "phytoplankton", "zooplankton",
-  "LdetritusN", "SdetritusN", "DON",         "PO4",           "LdetritusC",
-  "SdetritusC", "TIC",        "alkalinity",  "DOC",           "oxygen",
-  "Rdon",       "Rdoc",       "calcium"};
-} // namespace
-namespace REMORABiology {
+// State tracer names, in the order REMORA lays them out. The kernel looks each
+// one up by name, so this order is only the plotfile and checkpoint layout.
+const char* const ecb_tracer_names[] = {
+    "NO3", "NH4", "chlorophyll", "phytoplankton", "zooplankton",
+    "LdetritusN", "SdetritusN", "DON", "PO4", "LdetritusC",
+    "SdetritusC", "TIC", "alkalinity", "DOC", "oxygen",
+    "Rdon", "Rdoc", "calcium"};
+}
+
 void
-ECBBiology::configure(const std::string& remora_prefix)
+REMORABiology::ECBParameters::init_params (const std::string& remora_prefix)
 {
     ParmParse pp(remora_prefix + ".ecb");
-    for (const char* option :
-         {"carbon", "oxygen", "bio_sediment", "denitrification", "po4",
-          "talk_nonconserv", "co2_schmidt", "oxygen_schmidt", "pco2air_type",
-          "pco2_rz", "sediment_proxy", "net_sulfate_reduction", "wet_dry"}) {
-        if (pp.contains(option))
-            Abort(
-              "ECB implements a fixed ROMS option set; unsupported option: " +
-              remora_prefix + ".ecb." + option);
+
+    // ECB is ported with one ROMS option set; reject the Fennel-style switches
+    // rather than ignore them.
+    for (const char* option : {"carbon", "oxygen", "bio_sediment", "denitrification", "po4",
+                               "talk_nonconserv", "co2_schmidt", "oxygen_schmidt",
+                               "pco2air_type", "pco2_rz", "sediment_proxy",
+                               "net_sulfate_reduction", "wet_dry"}) {
+        if (pp.contains(option)) {
+            amrex::Abort("ECB implements a fixed ROMS option set; unsupported option: " +
+                         remora_prefix + ".ecb." + option);
+        }
     }
-    pp.query("BioIter", m_parameters.BioIter);
-    pp.get("AttSW", m_parameters.AttSW);
-    pp.get("AttChl", m_parameters.AttChl);
-    pp.get("Chl2C_m", m_parameters.Chl2C_m);
-    pp.get("ChlMin", m_parameters.ChlMin);
-    pp.get("CoagR", m_parameters.CoagR);
-    pp.get("D_p5NH4", m_parameters.D_p5NH4);
-    pp.get("I_thNH4", m_parameters.I_thNH4);
-    pp.get("K_NH4", m_parameters.K_NH4);
-    pp.get("K_NO3", m_parameters.K_NO3);
-    pp.get("K_PO4", m_parameters.K_PO4);
-    pp.get("K_Phy", m_parameters.K_Phy);
-    pp.get("LDeRRN", m_parameters.LDeRRN);
-    pp.get("LDeRRC", m_parameters.LDeRRC);
-    pp.get("NitriR", m_parameters.NitriR);
-    pp.get("PARfrac", m_parameters.PARfrac);
-    pp.get("PhyCN", m_parameters.PhyCN);
-    pp.get("R_P2N", m_parameters.R_P2N);
-    pp.get("PhyIS", m_parameters.PhyIS);
-    pp.get("PhyMin", m_parameters.PhyMin);
-    pp.get("PhyMR", m_parameters.PhyMR);
-    pp.get("SDeRRN", m_parameters.SDeRRN);
-    pp.get("SDeRRC", m_parameters.SDeRRC);
-    pp.get("RDeRRN", m_parameters.RDeRRN);
-    pp.get("RDeRRC", m_parameters.RDeRRC);
-    pp.get("Vp0", m_parameters.Vp0);
-    pp.get("wLDet", m_parameters.wLDet);
-    pp.get("wPhy", m_parameters.wPhy);
-    pp.get("wSDet", m_parameters.wSDet);
-    pp.get("ZooAE_N", m_parameters.ZooAE_N);
-    pp.get("ZooBM", m_parameters.ZooBM);
-    pp.get("ZooCN", m_parameters.ZooCN);
-    pp.get("ZooER", m_parameters.ZooER);
-    pp.get("ZooGR", m_parameters.ZooGR);
-    pp.get("ZooMin", m_parameters.ZooMin);
-    pp.get("ZooMR", m_parameters.ZooMR);
-    pp.get("ElDON", m_parameters.ElDON);
-    pp.get("EsDON", m_parameters.EsDON);
-    pp.get("deltN", m_parameters.deltN);
-    pp.get("deltC", m_parameters.deltC);
-    pp.get("gammaC", m_parameters.gammaC);
-    pp.get("slCexc", m_parameters.slCexc);
-    pp.get("pCO2air", m_parameters.pCO2air);
+
+    pp.queryAdd("BioIter", BioIter);
+    pp.queryAdd("AttSW", AttSW);
+    pp.queryAdd("AttChl", AttChl);
+    pp.queryAdd("PARfrac", PARfrac);
+    pp.queryAdd("Vp0", Vp0);
+    pp.queryAdd("I_thNH4", I_thNH4);
+    pp.queryAdd("D_p5NH4", D_p5NH4);
+    pp.queryAdd("NitriR", NitriR);
+    pp.queryAdd("K_NO3", K_NO3);
+    pp.queryAdd("K_NH4", K_NH4);
+    pp.queryAdd("K_PO4", K_PO4);
+    pp.queryAdd("K_Phy", K_Phy);
+    pp.queryAdd("Chl2C_m", Chl2C_m);
+    pp.queryAdd("ChlMin", ChlMin);
+    pp.queryAdd("PhyCN", PhyCN);
+    pp.queryAdd("R_P2N", R_P2N);
+    pp.queryAdd("PhyIS", PhyIS);
+    pp.queryAdd("PhyMin", PhyMin);
+    pp.queryAdd("PhyMR", PhyMR);
+    pp.queryAdd("ElDON", ElDON);
+    pp.queryAdd("EsDON", EsDON);
+    pp.queryAdd("deltN", deltN);
+    pp.queryAdd("deltC", deltC);
+    pp.queryAdd("gammaC", gammaC);
+    pp.queryAdd("slCexc", slCexc);
+    pp.queryAdd("ZooAE_N", ZooAE_N);
+    pp.queryAdd("ZooBM", ZooBM);
+    pp.queryAdd("ZooCN", ZooCN);
+    pp.queryAdd("ZooER", ZooER);
+    pp.queryAdd("ZooGR", ZooGR);
+    pp.queryAdd("ZooMin", ZooMin);
+    pp.queryAdd("ZooMR", ZooMR);
+    pp.queryAdd("LDeRRN", LDeRRN);
+    pp.queryAdd("LDeRRC", LDeRRC);
+    pp.queryAdd("CoagR", CoagR);
+    pp.queryAdd("SDeRRN", SDeRRN);
+    pp.queryAdd("SDeRRC", SDeRRC);
+    pp.queryAdd("RDeRRN", RDeRRN);
+    pp.queryAdd("RDeRRC", RDeRRC);
+    pp.queryAdd("wPhy", wPhy);
+    pp.queryAdd("wLDet", wLDet);
+    pp.queryAdd("wSDet", wSDet);
+    pp.queryAdd("pCO2air", pCO2air);
+
     // Reject values that divide by zero in the kernel, where they would
     // otherwise surface as NaN in the tracers with no diagnostic.
-    auto require =
-      [&](bool ok, const char* name, const char* condition, Real value) {
-          if (!ok) {
-              Abort(
-                remora_prefix + ".ecb." + name + " must be " + condition +
-                "; got " + std::to_string(value));
-          }
-      };
-    const auto& prm = m_parameters;
+    auto require = [&] (bool ok, const char* name, const char* condition, Real value) {
+        if (!ok) {
+            amrex::Abort(remora_prefix + ".ecb." + name + " must be " + condition +
+                         "; got " + std::to_string(value));
+        }
+    };
     // Light attenuation divides by (AttSW + AttChl*chl + DOC term) * dz.
-    require(prm.AttSW > Real(0.0), "AttSW", "positive", prm.AttSW);
-    require(prm.AttChl >= Real(0.0), "AttChl", "non-negative", prm.AttChl);
+    require(AttSW > Real(0.0), "AttSW", "positive", AttSW);
+    require(AttChl >= Real(0.0), "AttChl", "non-negative", AttChl);
     // Carbon excess uptake divides by slCexc.
-    require(prm.slCexc > Real(0.0), "slCexc", "positive", prm.slCexc);
+    require(slCexc > Real(0.0), "slCexc", "positive", slCexc);
     // Grazing divides by K_Phy + phyt^2, which is K_Phy when phyt is zero.
-    require(prm.K_Phy > Real(0.0), "K_Phy", "positive", prm.K_Phy);
-    m_declaration.tracer_names.assign(
-      std::begin(ecb_tracer_names), std::end(ecb_tracer_names));
+    require(K_Phy > Real(0.0), "K_Phy", "positive", K_Phy);
+}
+
+void
+REMORABiology::ECBBiology::configure (const std::string& remora_prefix)
+{
+    m_parameters.init_params(remora_prefix);
+    m_declaration.tracer_names.assign(std::begin(ecb_tracer_names), std::end(ecb_tracer_names));
     m_declaration.plot_aliases = {"ecb"};
 }
+
 void
-ECBBiology::advance(const BiologyAdvanceContext& context) const
+REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
 {
-    if (m_parameters.BioIter <= 0)
+    const auto parms = m_parameters;
+    if (parms.BioIter <= 0) {
         return;
-    const bool bulk = context.solver_choice.bulk_fluxes;
-    if (
-      !context.hz || !context.z_w || !context.mask || !context.shortwave ||
-      !context.bottom_stress_u || !context.bottom_stress_v ||
-      (bulk && (!context.wind_u || !context.wind_v)) ||
-      (!bulk && (!context.stress_u || !context.stress_v)))
-        Abort("ECB requires Hz, z_w, mask, shortwave, bottom stresses and "
-              "surface wind/stress");
-    const int nz = context.top_layer + 1;
-    if (nz < 2)
-        Abort("ECB sinking requires at least two vertical layers");
-    const int base = context.component_start;
-    // State component of each scratch component: temperature and salinity,
-    // then each biology tracer looked up by name in the declaration.
-    GpuArray<int, NumScratch> state_comp;
-    state_comp[sc_temp] = Temp_comp;
-    state_comp[sc_salt] = Salt_comp;
-    for (int n = 0; n < NumECBTracers; ++n) {
-        state_comp[sc_no3 + n] =
-          m_declaration.component_index(ecb_tracer_names[n], base);
-        AMREX_ALWAYS_ASSERT(state_comp[sc_no3 + n] >= 0);
     }
-    const Real dt = context.dt;
-    if (dt <= 0)
-        Abort("ECB requires a positive timestep when BioIter > 0");
+
+    auto const& mf_cons_old = context.old_state;
+    auto& mf_cons_new = context.new_state;
+    const bool do_bulk_flux = context.solver_choice.bulk_fluxes;
+    const int N = context.top_layer + 1;   // number of vertical layers
+    const Real dt_lev = context.dt;
     const Real rho0 = context.solver_choice.rho0;
-    const auto p = m_parameters;
-    for (MFIter mfi(context.new_state, false); mfi.isValid(); ++mfi) {
-        Box column = mfi.tilebox();
-        if (column.smallEnd(2) != 0 || column.bigEnd(2) != nz - 1)
-            Abort("ECB requires each grid box to contain the entire vertical "
-                  "column");
-        Box horizontal = column;
-        horizontal.makeSlab(2, 0);
-        Box work = column;
-        work.setBig(2, nz);
-        // Bio and Bio_old use zero-based physical layers; the column work
-        // arrays retain ROMS's indices 0..nz for an auditable sinking stencil.
-        FArrayBox storage(work, 49, The_Async_Arena());
-        IArrayBox source(work, 1, The_Async_Arena());
-        const auto bio = storage.array(0);
-        const auto bio_old = storage.array(20);
-        const auto fc = storage.array(40);
-        const auto hz_inv = storage.array(41);
-        const auto hz_inv2 = storage.array(42);
-        const auto hz_inv3 = storage.array(43);
-        const auto wl = storage.array(44);
-        const auto wr = storage.array(45);
-        const auto bl = storage.array(46);
-        const auto br = storage.array(47);
-        const auto qc = storage.array(48);
-        const auto ksource = source.array();
-        const auto old = context.old_state.const_array(mfi);
-        const auto next = context.new_state.array(mfi);
-        const auto hz = context.hz->const_array(mfi);
-        const auto z_w = context.z_w->const_array(mfi);
-        const auto mask = context.mask->const_array(mfi);
-        const auto srflx = context.shortwave->const_array(mfi);
-        const auto bustr = context.bottom_stress_u->const_array(mfi);
-        const auto bvstr = context.bottom_stress_v->const_array(mfi);
-        Array4<const Real> sustr, svstr, uwind, vwind;
-        if (bulk) {
+
+    if (context.hz == nullptr || context.z_w == nullptr || context.mask == nullptr ||
+        context.shortwave == nullptr ||
+        context.bottom_stress_u == nullptr || context.bottom_stress_v == nullptr ||
+        (do_bulk_flux && (context.wind_u == nullptr || context.wind_v == nullptr)) ||
+        (!do_bulk_flux && (context.stress_u == nullptr || context.stress_v == nullptr))) {
+        amrex::Abort("ECB biology requires Hz, z_w, rmask, srflx, bottom stresses, and "
+                     "either uwind/vwind (bulk_fluxes) or sustr/svstr");
+    }
+    if (N < 2) {
+        amrex::Abort("ECB sinking requires at least two vertical layers");
+    }
+    if (dt_lev <= Real(0.0)) {
+        amrex::Abort("ECB requires a positive timestep when BioIter > 0");
+    }
+
+    // Set time-stepping according to the number of iterations.
+    const Real dtdays = dt_lev * Real(1.0 / 86400.0) / Real(parms.BioIter);
+
+    // Air-sea exchange always uses the Wanninkhof (2014) relations (ROMS
+    // RW14_OXYGEN_SC and RW14_CO2_SC).
+    const SchmidtCoefficients o2_schmidt = GasExchange::O2Wanninkhof2014;
+    const SchmidtCoefficients co2_schmidt = GasExchange::CO2Wanninkhof2014;
+
+    // Set biological tracer component identifiers, looked up by name.
+    auto const& decl = m_declaration;
+    auto comp = [&] (const char* name) {
+        const int c = decl.component_index(name, context.component_start);
+        AMREX_ALWAYS_ASSERT(c >= 0);
+        return c;
+    };
+    const int c_no3 = comp("NO3");
+    const int c_nh4 = comp("NH4");
+    const int c_chlo = comp("chlorophyll");
+    const int c_phyt = comp("phytoplankton");
+    const int c_zoop = comp("zooplankton");
+    const int c_lden = comp("LdetritusN");
+    const int c_sden = comp("SdetritusN");
+    const int c_don = comp("DON");
+    const int c_po4 = comp("PO4");
+    const int c_ldec = comp("LdetritusC");
+    const int c_sdec = comp("SdetritusC");
+    const int c_tic = comp("TIC");
+    const int c_talk = comp("alkalinity");
+    const int c_doc = comp("DOC");
+    const int c_oxyg = comp("oxygen");
+    const int c_rdon = comp("Rdon");
+    const int c_rdoc = comp("Rdoc");
+    const int c_calc = comp("calcium");
+
+    // Scratch arrays mirror the ROMS Bio, qc, bR, bL, WR, WL, and
+    // inverse-thickness work arrays, but use per-tile FArrayBox storage.
+    int ncell = 0;
+    const int sc_no3 = ncell++;
+    const int sc_nh4 = ncell++;
+    const int sc_chlo = ncell++;
+    const int sc_phyt = ncell++;
+    const int sc_zoop = ncell++;
+    const int sc_lden = ncell++;
+    const int sc_sden = ncell++;
+    const int sc_don = ncell++;
+    const int sc_po4 = ncell++;
+    const int sc_ldec = ncell++;
+    const int sc_sdec = ncell++;
+    const int sc_tic = ncell++;
+    const int sc_talk = ncell++;
+    const int sc_doc = ncell++;
+    const int sc_oxyg = ncell++;
+    const int sc_rdon = ncell++;
+    const int sc_rdoc = ncell++;
+    const int sc_calc = ncell++;
+    const int sc_temp = ncell++;
+    const int sc_salt = ncell++;
+    const int sc_inv_hz = ncell++;
+    const int sc_inv_hz2 = ncell++;
+    const int sc_inv_hz3 = ncell++;
+    const int sc_qc = ncell++;
+    const int sc_bR = ncell++;
+    const int sc_bL = ncell++;
+    const int sc_WR = ncell++;
+    const int sc_WL = ncell++;
+
+    int nw = 0;
+    const int sw_FC = nw++;
+
+    // Sinking and light attenuation run down each whole column, so tile only
+    // horizontally, whatever fabarray.mfiter_tile_size says about z.
+    MFItInfo mfi_info;
+    if (TilingIfNotGPU()) {
+        IntVect column_tile = FabArrayBase::mfiter_tile_size;
+        column_tile[2] = 1024000;
+        mfi_info.EnableTiling(column_tile);
+    }
+    for (MFIter mfi(mf_cons_new, mfi_info); mfi.isValid(); ++mfi) {
+        Box bx = mfi.tilebox();
+        if (bx.smallEnd(2) != 0 || bx.bigEnd(2) != N - 1) {
+            amrex::Abort("ECB requires each grid box to contain the entire vertical column");
+        }
+        Box bx2d = bx;
+        bx2d.makeSlab(2, 0);
+        Box wbx = surroundingNodes(bx, 2);
+
+        FArrayBox fab_cell(bx, ncell, amrex::The_Async_Arena());
+        fab_cell.template setVal<RunOn::Device>(Real(0.0));
+        FArrayBox fab_w(wbx, nw, amrex::The_Async_Arena());
+        fab_w.template setVal<RunOn::Device>(Real(0.0));
+
+        auto no3 = fab_cell.array(sc_no3);
+        auto nh4 = fab_cell.array(sc_nh4);
+        auto chlo = fab_cell.array(sc_chlo);
+        auto phyt = fab_cell.array(sc_phyt);
+        auto zoop = fab_cell.array(sc_zoop);
+        auto lden = fab_cell.array(sc_lden);
+        auto sden = fab_cell.array(sc_sden);
+        auto don = fab_cell.array(sc_don);
+        auto po4 = fab_cell.array(sc_po4);
+        auto ldec = fab_cell.array(sc_ldec);
+        auto sdec = fab_cell.array(sc_sdec);
+        auto tic = fab_cell.array(sc_tic);
+        auto talk = fab_cell.array(sc_talk);
+        auto doc = fab_cell.array(sc_doc);
+        auto oxyg = fab_cell.array(sc_oxyg);
+        auto rdon_s = fab_cell.array(sc_rdon);
+        auto rdoc_s = fab_cell.array(sc_rdoc);
+        auto calc = fab_cell.array(sc_calc);
+        auto temp = fab_cell.array(sc_temp);
+        auto salt = fab_cell.array(sc_salt);
+        auto inv_hz = fab_cell.array(sc_inv_hz);
+        auto inv_hz2 = fab_cell.array(sc_inv_hz2);
+        auto inv_hz3 = fab_cell.array(sc_inv_hz3);
+        auto qc = fab_cell.array(sc_qc);
+        auto bR = fab_cell.array(sc_bR);
+        auto bL = fab_cell.array(sc_bL);
+        auto WR = fab_cell.array(sc_WR);
+        auto WL = fab_cell.array(sc_WL);
+        auto FC = fab_w.array(sw_FC);
+
+        Array4<Real const> const& state_old = mf_cons_old.const_array(mfi);
+        Array4<Real> const& state_new = mf_cons_new.array(mfi);
+        Array4<Real const> const& Hz = context.hz->const_array(mfi);
+        Array4<Real const> const& z_w = context.z_w->const_array(mfi);
+        Array4<Real const> const& srflx = context.shortwave->const_array(mfi);
+        Array4<Real const> const& mskr = context.mask->const_array(mfi);
+        Array4<Real const> const& bustr = context.bottom_stress_u->const_array(mfi);
+        Array4<Real const> const& bvstr = context.bottom_stress_v->const_array(mfi);
+        // ROMS takes the gas-exchange transfer velocity from Uwind/Vwind
+        // under BULK_FLUXES and from the surface stress otherwise; only the
+        // selected pair is read.
+        Array4<Real const> sustr;
+        Array4<Real const> svstr;
+        Array4<Real const> uwind;
+        Array4<Real const> vwind;
+        if (do_bulk_flux) {
             uwind = context.wind_u->const_array(mfi);
             vwind = context.wind_v->const_array(mfi);
         } else {
             sustr = context.stress_u->const_array(mfi);
             svstr = context.stress_v->const_array(mfi);
         }
-        ParallelFor(
-          horizontal, [=] AMREX_GPU_DEVICE(int i, int j, int) noexcept {
-              if (mask(i, j, 0) == Real(0.0))
-                  return;
-              constexpr int nsink = 6;
-              int iter, ibio, isink, itrc, k, ks;
-              constexpr Real eps = Real(1.0e-20);
-              Real u10squ;
-              constexpr Real a_o2 = Real(1920.4);
-              constexpr Real b_o2 = Real(135.6);
-              constexpr Real c_o2 = Real(5.2122);
-              constexpr Real d_o2 = Real(0.10939);
-              constexpr Real e_o2 = Real(0.00093777);
-              constexpr Real oa0 = Real(2.00907);
-              constexpr Real oa1 = Real(3.22014);
-              constexpr Real oa2 = Real(4.05010);
-              constexpr Real oa3 = Real(4.94457);
-              constexpr Real oa4 = -Real(0.256847);
-              constexpr Real oa5 = Real(3.88767);
-              constexpr Real ob0 = -Real(0.00624523);
-              constexpr Real ob1 = -Real(0.00737614);
-              constexpr Real ob2 = -Real(0.0103410);
-              constexpr Real ob3 = -Real(0.00817083);
-              constexpr Real oc0 = -Real(0.000000488682);
-              constexpr Real roxno3 = Real(8.625);
-              constexpr Real roxnh4 = Real(6.625);
-              constexpr Real k_ntr = Real(1.0);
-              constexpr Real k_dnf = k_ntr;
-              constexpr Real k_wno3 = Real(0.5);
-              constexpr Real k_bo2 = Real(26.5);
-              Real l2mol = Real(1000.0) / Real(22.3916);
-              constexpr Real a_co2 = Real(2116.8);
-              constexpr Real b_co2 = Real(136.25);
-              constexpr Real c_co2 = Real(4.7353);
-              constexpr Real d_co2 = Real(0.092307);
-              constexpr Real e_co2 = Real(0.0007555);
-              constexpr Real a1 = -Real(60.2409);
-              constexpr Real a2 = Real(93.4517);
-              constexpr Real a3 = Real(23.3585);
-              constexpr Real b1 = Real(0.023517);
-              constexpr Real b2 = -Real(0.023656);
-              constexpr Real b3 = Real(0.0047036);
-              Real att, attfac, expatt, itop, par;
-              Real epp, l_nh4, l_no3, ltot, vp;
-              constexpr Real minval = Real(1.0e-6);
-              Real l_po4, lmin, mu;
-              Real chl2c, dtdays, t_ppmax, inhnh4;
-              Real cff, cff1, cff2, cff3, cff4, cff5, cff6;
-              Real cff7, cff8;
-              Real fac, fac1, fac2, fac3;
-              Real cffl, cffr, cu, dltl, dltr;
-              Real schmidtn_ox, o2satu, o2_flux;
-              Real ts, aa;
-              Real c_flux_reminel, c_flux_remines, c_flux_reminer;
-              Real co2_flux, co2_sol, schmidtn, tempk;
-              Real f_ntr, f_dnf;
-              Real lbo2, o2satb;
-              Real n_flux_assim;
-              Real n_flux_coagd, n_flux_coagp;
-              Real n_flux_egest;
-              Real n_flux_newprod, n_flux_regprod;
-              Real n_flux_nitrifi;
-              Real n_flux_pmortal, n_flux_zmortal;
-              Real n_flux_reminel, n_flux_remines, n_flux_reminer;
-              Real n_flux_zexcret, n_flux_zmetabo;
-              // cbe is always set before use; initialize it for
-              // -Wmaybe-uninitialized.
-              Real resuspr, cbe = Real(0.0), ustarb;
-              Real c_exc_up, qdoc, rdoc, cnbur;
-              Real g_gmax, qdon, rdon;
-              Real n_flux_sloppy_ldon, n_flux_sloppy_sldon;
-              int idsink[6];
-              Real wbio[6];
-              Real parsur, pco2;
-              // Subcycle the complete ordered ECB reaction/column calculation.
-              dtdays = dt * Real(1.0 / 86400.0) / Real(p.BioIter);
-              idsink[0] = sc_phyt;
-              idsink[1] = sc_chlo;
-              idsink[2] = sc_sden;
-              idsink[3] = sc_lden;
-              idsink[4] = sc_sdec;
-              idsink[5] = sc_ldec;
-              wbio[1 - 1] = p.wPhy;
-              wbio[2 - 1] = p.wPhy;
-              wbio[3 - 1] = p.wSDet;
-              wbio[4 - 1] = p.wLDet;
-              wbio[5 - 1] = p.wSDet;
-              wbio[6 - 1] = p.wLDet;
-              for (k = 1; k <= nz; k += 1) {
-                  hz_inv(i, j, k) = Real(1.0) / hz(i, j, k - 1);
-              }
-              for (k = 1; k <= nz - 1; k += 1) {
-                  hz_inv2(i, j, k) =
-                    Real(1.0) / (hz(i, j, k - 1) + hz(i, j, k + 1 - 1));
-              }
-              for (k = 2; k <= nz - 1; k += 1) {
-                  hz_inv3(i, j, k) =
-                    Real(1.0) / (hz(i, j, k - 1 - 1) + hz(i, j, k - 1) +
-                                 hz(i, j, k + 1 - 1));
-              }
-              // Reference extraction applies positivity and TIC bounds to
-              // Bio_old.
-              for (itrc = 1; itrc <= 18; itrc += 1) {
-                  ibio = (itrc + 1);
-                  for (k = 1; k <= nz; k += 1) {
-                      bio_old(i, j, k - 1, ibio) = amrex::max(
-                        Real(0.0),
-                        old(i, j, k - 1, state_comp[ibio]));
-                      bio(i, j, k - 1, ibio) = bio_old(i, j, k - 1, ibio);
-                  }
-              }
-              for (k = 1; k <= nz; k += 1) {
-                  bio_old(i, j, k - 1, sc_tic) =
-                    amrex::min(bio_old(i, j, k - 1, sc_tic), Real(3000.0));
-                  bio_old(i, j, k - 1, sc_tic) =
-                    amrex::max(bio_old(i, j, k - 1, sc_tic), Real(1.0));
-                  bio(i, j, k - 1, sc_tic) = bio_old(i, j, k - 1, sc_tic);
-              }
-              for (k = 1; k <= nz; k += 1) {
-                  bio(i, j, k - 1, sc_temp) =
-                    amrex::min(old(i, j, k - 1, 0), Real(35.0));
-                  bio(i, j, k - 1, sc_salt) =
-                    amrex::max(old(i, j, k - 1, 1), Real(0.0));
-              }
-              // REMORA stores srflx in W/m2, so only PARfrac applies. ROMS
-              // ecb.h multiplies by rho0*Cp because its srflx is kinematic
-              // (degC m/s).
-              parsur = p.PARfrac * srflx(i, j, 0);
-              // Primary production, exudation and nitrification, from surface
-              // down.
-              for (iter = 1; iter <= p.BioIter; iter += 1) {
-                  par = parsur;
-                  if (parsur > Real(0.0)) {
-                      for (k = nz; k >= 1; k += -1) {
-                          attfac = amrex::max(
-                                     bio(i, j, k - 1, sc_doc) +
-                                       bio(i, j, k - 1, sc_rdoc) - Real(70.819),
-                                     Real(0.0)) *
-                                   Real(3.786e-3);
-                          att =
-                            (p.AttSW + p.AttChl * bio(i, j, k - 1, sc_chlo) +
-                             attfac) *
-                            (z_w(i, j, k) - z_w(i, j, k - 1));
-                          expatt = std::exp(-att);
-                          itop = par;
-                          par = itop * (Real(1.0) - expatt) / att;
-                          cff = p.PhyCN * Real(12.0);
-                          chl2c = amrex::min(
-                            bio(i, j, k - 1, sc_chlo) /
-                              (bio(i, j, k - 1, sc_phyt) * cff + eps),
-                            p.Chl2C_m);
-                          vp = amrex::max(
-                            p.Vp0 *
-                              std::exp(
-                                Real(0.08065) * bio(i, j, k - 1, sc_temp)),
-                            Real(4.00));
-                          fac1 = par * p.PhyIS;
-                          epp = vp / std::sqrt(vp * vp + fac1 * fac1);
-                          t_ppmax = epp * fac1;
-                          cff1 = bio(i, j, k - 1, sc_nh4) * p.K_NH4;
-                          cff2 = bio(i, j, k - 1, sc_no3) * p.K_NO3;
-                          inhnh4 = Real(1.0) / (Real(1.0) + cff1);
-                          l_nh4 = cff1 / (Real(1.0) + cff1);
-                          l_no3 = cff2 * inhnh4 / (Real(1.0) + cff2);
-                          ltot = l_no3 + l_nh4;
-                          cff3 = bio(i, j, k - 1, sc_po4) * p.K_PO4;
-                          l_po4 = cff3 / (Real(1.0) + cff3);
-                          lmin = amrex::min(ltot, l_po4);
-                          mu = dtdays * t_ppmax * lmin;
-                          cff4 = mu * bio(i, j, k - 1, sc_phyt) * l_no3 /
-                                 amrex::max(minval, ltot) /
-                                 amrex::max(minval, bio(i, j, k - 1, sc_no3));
-                          cff5 = mu * bio(i, j, k - 1, sc_phyt) * l_nh4 /
-                                 amrex::max(minval, ltot) /
-                                 amrex::max(minval, bio(i, j, k - 1, sc_nh4));
-                          cff6 = p.R_P2N * mu * bio(i, j, k - 1, sc_phyt) /
-                                 amrex::max(minval, bio(i, j, k - 1, sc_po4));
-                          bio(i, j, k - 1, sc_no3) =
-                            bio(i, j, k - 1, sc_no3) / (Real(1.0) + cff4);
-                          bio(i, j, k - 1, sc_nh4) =
-                            bio(i, j, k - 1, sc_nh4) / (Real(1.0) + cff5);
-                          bio(i, j, k - 1, sc_po4) =
-                            bio(i, j, k - 1, sc_po4) / (Real(1.0) + cff6);
-                          n_flux_newprod = bio(i, j, k - 1, sc_no3) * cff4;
-                          n_flux_regprod = bio(i, j, k - 1, sc_nh4) * cff5;
-                          f_ntr = bio(i, j, k - 1, sc_oxyg) /
-                                  (bio(i, j, k - 1, sc_oxyg) + k_ntr);
-                          f_dnf = k_dnf / (bio(i, j, k - 1, sc_oxyg) + k_dnf) *
-                                  bio(i, j, k - 1, sc_no3) /
-                                  (bio(i, j, k - 1, sc_no3) + k_wno3);
-                          bio(i, j, k - 1, sc_phyt) =
-                            bio(i, j, k - 1, sc_phyt) +
-                            (Real(1.0) - p.EsDON - (f_ntr + f_dnf) * p.ElDON) *
-                              (n_flux_newprod + n_flux_regprod);
-                          bio(i, j, k - 1, sc_chlo) =
-                            bio(i, j, k - 1, sc_chlo) +
-                            (dtdays * t_ppmax * t_ppmax * lmin * lmin *
-                             p.Chl2C_m * bio(i, j, k - 1, sc_chlo)) /
-                              (p.PhyIS * amrex::max(chl2c, eps) * par + eps);
-                          bio(i, j, k - 1, sc_don) =
-                            bio(i, j, k - 1, sc_don) +
-                            p.EsDON * (n_flux_newprod + n_flux_regprod);
-                          bio(i, j, k - 1, sc_nh4) =
-                            bio(i, j, k - 1, sc_nh4) +
-                            (f_ntr + f_dnf) * p.ElDON *
-                              (n_flux_newprod + n_flux_regprod);
-                          bio(i, j, k - 1, sc_talk) =
-                            bio(i, j, k - 1, sc_talk) +
-                            (f_ntr + f_dnf) * p.ElDON *
-                              (n_flux_newprod + n_flux_regprod);
-                          bio(i, j, k - 1, sc_oxyg) =
-                            bio(i, j, k - 1, sc_oxyg) +
-                            roxno3 * n_flux_newprod + roxnh4 * n_flux_regprod -
-                            roxnh4 * f_ntr * p.ElDON *
-                              (n_flux_newprod + n_flux_regprod);
-                          bio(i, j, k - 1, sc_oxyg) =
-                            amrex::max(bio(i, j, k - 1, sc_oxyg), Real(0.0));
-                          cff1 = p.PhyCN * (n_flux_newprod + n_flux_regprod);
-                          cff1 =
-                            amrex::min(cff1, bio(i, j, k - 1, sc_tic) - eps);
-                          bio(i, j, k - 1, sc_tic) =
-                            bio(i, j, k - 1, sc_tic) - cff1;
-                          c_exc_up = p.gammaC * p.PhyCN * dtdays * t_ppmax *
-                                     bio(i, j, k - 1, sc_phyt) *
-                                     (Real(1.0) - ltot);
-                          c_exc_up = amrex::min(
-                            c_exc_up,
-                            amrex::max(bio(i, j, k - 1, sc_tic), Real(0.0)) /
-                              p.slCexc);
-                          bio(i, j, k - 1, sc_tic) =
-                            bio(i, j, k - 1, sc_tic) - c_exc_up * p.slCexc;
-                          bio(i, j, k - 1, sc_doc) =
-                            bio(i, j, k - 1, sc_doc) + c_exc_up * p.slCexc;
-                          bio(i, j, k - 1, sc_oxyg) =
-                            bio(i, j, k - 1, sc_oxyg) + c_exc_up;
-                          bio(i, j, k - 1, sc_doc) =
-                            bio(i, j, k - 1, sc_doc) +
-                            p.PhyCN * p.EsDON *
-                              (n_flux_newprod + n_flux_regprod);
-                          bio(i, j, k - 1, sc_tic) =
-                            bio(i, j, k - 1, sc_tic) +
-                            p.PhyCN * p.ElDON * (f_ntr + f_dnf) *
-                              (n_flux_newprod + n_flux_regprod);
-                          bio(i, j, k - 1, sc_talk) =
-                            bio(i, j, k - 1, sc_talk) + n_flux_newprod -
-                            n_flux_regprod;
-                          fac2 =
-                            amrex::max(bio(i, j, k - 1, sc_oxyg), Real(0.0));
-                          fac3 = amrex::max(fac2 / (k_ntr + fac2), Real(0.0));
-                          fac1 = dtdays * p.NitriR * fac3;
-                          cff1 = (par - p.I_thNH4) /
-                                 (p.D_p5NH4 + par - Real(2.0) * p.I_thNH4);
-                          cff2 = Real(1.0) - amrex::max(Real(0.0), cff1);
-                          cff3 = fac1 * cff2;
-                          bio(i, j, k - 1, sc_nh4) =
-                            bio(i, j, k - 1, sc_nh4) / (Real(1.0) + cff3);
-                          n_flux_nitrifi = bio(i, j, k - 1, sc_nh4) * cff3;
-                          bio(i, j, k - 1, sc_no3) =
-                            bio(i, j, k - 1, sc_no3) + n_flux_nitrifi;
-                          bio(i, j, k - 1, sc_oxyg) =
-                            bio(i, j, k - 1, sc_oxyg) -
-                            Real(2.0) * n_flux_nitrifi;
-                          bio(i, j, k - 1, sc_talk) =
-                            bio(i, j, k - 1, sc_talk) -
-                            Real(2.0) * n_flux_nitrifi;
-                          par = itop * expatt;
-                      }
-                  } else {
-                      for (k = nz; k >= 1; k += -1) {
-                          f_ntr = bio(i, j, k - 1, sc_oxyg) /
-                                  (bio(i, j, k - 1, sc_oxyg) + k_ntr);
-                          cff3 = dtdays * p.NitriR * f_ntr;
-                          bio(i, j, k - 1, sc_nh4) =
-                            bio(i, j, k - 1, sc_nh4) / (Real(1.0) + cff3);
-                          n_flux_nitrifi = bio(i, j, k - 1, sc_nh4) * cff3;
-                          bio(i, j, k - 1, sc_no3) =
-                            bio(i, j, k - 1, sc_no3) + n_flux_nitrifi;
-                          bio(i, j, k - 1, sc_oxyg) =
-                            bio(i, j, k - 1, sc_oxyg) -
-                            Real(2.0) * n_flux_nitrifi;
-                          bio(i, j, k - 1, sc_oxyg) =
-                            amrex::max(Real(0.0), bio(i, j, k - 1, sc_oxyg));
-                          bio(i, j, k - 1, sc_talk) =
-                            bio(i, j, k - 1, sc_talk) -
-                            Real(2.0) * n_flux_nitrifi;
-                      }
-                  }
-                  // Grazing and phytoplankton mortality.
-                  cff2 = dtdays * p.PhyMR;
-                  for (k = 1; k <= nz; k += 1) {
-                      fac1 = dtdays * p.ZooGR *
-                             std::exp(Real(0.0875) * bio(i, j, k - 1, sc_temp));
-                      cff1 = fac1 * bio(i, j, k - 1, sc_zoop) *
-                             bio(i, j, k - 1, sc_phyt) /
-                             (p.K_Phy + bio(i, j, k - 1, sc_phyt) *
-                                          bio(i, j, k - 1, sc_phyt));
-                      cff3 = Real(1.0) / (Real(1.0) + cff1);
-                      bio(i, j, k - 1, sc_phyt) =
-                        cff3 * bio(i, j, k - 1, sc_phyt);
-                      bio(i, j, k - 1, sc_chlo) =
-                        cff3 * bio(i, j, k - 1, sc_chlo);
-                      n_flux_assim =
-                        cff1 * bio(i, j, k - 1, sc_phyt) * p.ZooAE_N;
-                      n_flux_egest = bio(i, j, k - 1, sc_phyt) * cff1 *
-                                     (Real(1.0) - p.ZooAE_N);
-                      bio(i, j, k - 1, sc_zoop) =
-                        bio(i, j, k - 1, sc_zoop) + n_flux_assim;
-                      g_gmax = bio(i, j, k - 1, sc_phyt) *
-                               bio(i, j, k - 1, sc_phyt) /
-                               (p.K_Phy + bio(i, j, k - 1, sc_phyt) *
-                                            bio(i, j, k - 1, sc_phyt));
-                      qdon = Real(0.71) * g_gmax;
-                      bio(i, j, k - 1, sc_lden) =
-                        bio(i, j, k - 1, sc_lden) +
-                        n_flux_egest * (Real(1.0) - qdon);
-                      n_flux_sloppy_ldon =
-                        n_flux_egest * qdon * (Real(1.0) - p.deltN);
-                      n_flux_sloppy_sldon = n_flux_egest * qdon * p.deltN;
-                      bio(i, j, k - 1, sc_don) =
-                        bio(i, j, k - 1, sc_don) + n_flux_sloppy_sldon;
-                      bio(i, j, k - 1, sc_nh4) =
-                        bio(i, j, k - 1, sc_nh4) + n_flux_sloppy_ldon;
-                      bio(i, j, k - 1, sc_talk) =
-                        bio(i, j, k - 1, sc_talk) + n_flux_sloppy_ldon;
-                      n_flux_pmortal =
-                        cff2 *
-                        amrex::max(
-                          bio(i, j, k - 1, sc_phyt) - p.PhyMin, Real(0.0));
-                      bio(i, j, k - 1, sc_phyt) =
-                        bio(i, j, k - 1, sc_phyt) - n_flux_pmortal;
-                      bio(i, j, k - 1, sc_chlo) =
-                        bio(i, j, k - 1, sc_chlo) -
-                        cff2 *
-                          amrex::max(
-                            bio(i, j, k - 1, sc_chlo) - p.ChlMin, Real(0.0));
-                      bio(i, j, k - 1, sc_sden) =
-                        bio(i, j, k - 1, sc_sden) + n_flux_pmortal;
-                      qdoc = qdon;
-                      bio(i, j, k - 1, sc_ldec) =
-                        bio(i, j, k - 1, sc_ldec) +
-                        p.PhyCN * n_flux_egest * (Real(1.0) - qdoc);
-                      bio(i, j, k - 1, sc_tic) =
-                        bio(i, j, k - 1, sc_tic) +
-                        p.PhyCN * n_flux_egest * qdoc * (Real(1.0) - p.deltC);
-                      bio(i, j, k - 1, sc_doc) =
-                        bio(i, j, k - 1, sc_doc) +
-                        p.PhyCN * n_flux_egest * qdoc * p.deltC;
-                      bio(i, j, k - 1, sc_sdec) =
-                        bio(i, j, k - 1, sc_sdec) + p.PhyCN * n_flux_pmortal;
-                      bio(i, j, k - 1, sc_tic) =
-                        bio(i, j, k - 1, sc_tic) +
-                        (p.PhyCN - p.ZooCN) * n_flux_assim;
-                      bio(i, j, k - 1, sc_oxyg) =
-                        bio(i, j, k - 1, sc_oxyg) - roxnh4 * n_flux_sloppy_ldon;
-                      bio(i, j, k - 1, sc_oxyg) =
-                        amrex::max(Real(0.0), bio(i, j, k - 1, sc_oxyg));
-                  }
-                  // Zooplankton mortality, excretion and basal metabolism.
-                  cff1 = dtdays * p.ZooBM;
-                  fac2 = dtdays * p.ZooMR;
-                  fac3 = dtdays * p.ZooER;
-                  for (k = 1; k <= nz; k += 1) {
-                      fac1 = fac3 * bio(i, j, k - 1, sc_phyt) *
-                             bio(i, j, k - 1, sc_phyt) /
-                             (p.K_Phy + bio(i, j, k - 1, sc_phyt) *
-                                          bio(i, j, k - 1, sc_phyt));
-                      cff2 = fac2 * bio(i, j, k - 1, sc_zoop);
-                      cff3 = fac1 * p.ZooAE_N;
-                      bio(i, j, k - 1, sc_zoop) =
-                        bio(i, j, k - 1, sc_zoop) / (Real(1.0) + cff2 + cff3);
-                      n_flux_zmortal = cff2 * bio(i, j, k - 1, sc_zoop);
-                      n_flux_zexcret = cff3 * bio(i, j, k - 1, sc_zoop);
-                      bio(i, j, k - 1, sc_nh4) =
-                        bio(i, j, k - 1, sc_nh4) + n_flux_zexcret;
-                      bio(i, j, k - 1, sc_po4) =
-                        bio(i, j, k - 1, sc_po4) + p.R_P2N * n_flux_zexcret;
-                      bio(i, j, k - 1, sc_sden) =
-                        bio(i, j, k - 1, sc_sden) + n_flux_zmortal;
-                      n_flux_zmetabo =
-                        cff1 *
-                        amrex::max(
-                          bio(i, j, k - 1, sc_zoop) - p.ZooMin, Real(0.0));
-                      bio(i, j, k - 1, sc_zoop) =
-                        bio(i, j, k - 1, sc_zoop) - n_flux_zmetabo;
-                      bio(i, j, k - 1, sc_nh4) =
-                        bio(i, j, k - 1, sc_nh4) + n_flux_zmetabo;
-                      bio(i, j, k - 1, sc_po4) =
-                        bio(i, j, k - 1, sc_po4) + p.R_P2N * n_flux_zmetabo;
-                      bio(i, j, k - 1, sc_oxyg) =
-                        bio(i, j, k - 1, sc_oxyg) -
-                        roxnh4 * (n_flux_zmetabo + n_flux_zexcret);
-                      bio(i, j, k - 1, sc_oxyg) =
-                        amrex::max(Real(0.), bio(i, j, k - 1, sc_oxyg));
-                      bio(i, j, k - 1, sc_sdec) =
-                        bio(i, j, k - 1, sc_sdec) + p.ZooCN * n_flux_zmortal;
-                      bio(i, j, k - 1, sc_tic) =
-                        bio(i, j, k - 1, sc_tic) +
-                        p.ZooCN * (n_flux_zmetabo + n_flux_zexcret);
-                      bio(i, j, k - 1, sc_talk) = bio(i, j, k - 1, sc_talk) +
-                                                  n_flux_zmetabo +
-                                                  n_flux_zexcret;
-                  }
-                  // Coagulation into large detritus.
-                  fac1 = dtdays * p.CoagR;
-                  for (k = 1; k <= nz; k += 1) {
-                      cff1 = fac1 * (bio(i, j, k - 1, sc_sden) +
-                                     bio(i, j, k - 1, sc_phyt));
-                      cff2 = Real(1.0) / (Real(1.0) + cff1);
-                      bio(i, j, k - 1, sc_phyt) =
-                        bio(i, j, k - 1, sc_phyt) * cff2;
-                      bio(i, j, k - 1, sc_chlo) =
-                        bio(i, j, k - 1, sc_chlo) * cff2;
-                      bio(i, j, k - 1, sc_sden) =
-                        bio(i, j, k - 1, sc_sden) * cff2;
-                      bio(i, j, k - 1, sc_sdec) =
-                        bio(i, j, k - 1, sc_sdec) * cff2;
-                      n_flux_coagp = bio(i, j, k - 1, sc_phyt) * cff1;
-                      n_flux_coagd = bio(i, j, k - 1, sc_sden) * cff1;
-                      bio(i, j, k - 1, sc_lden) =
-                        bio(i, j, k - 1, sc_lden) + n_flux_coagp + n_flux_coagd;
-                      bio(i, j, k - 1, sc_ldec) =
-                        bio(i, j, k - 1, sc_ldec) + p.PhyCN * n_flux_coagp +
-                        bio(i, j, k - 1, sc_sdec) * cff1;
-                  }
-                  for (k = 1; k <= nz; k += 1) {
-                      f_ntr = bio(i, j, k - 1, sc_oxyg) /
-                              (bio(i, j, k - 1, sc_oxyg) + k_ntr);
-                      f_dnf = k_dnf / (bio(i, j, k - 1, sc_oxyg) + k_dnf) *
-                              bio(i, j, k - 1, sc_no3) /
-                              (bio(i, j, k - 1, sc_no3) + k_wno3);
-                      cff = dtdays *
-                            std::exp(Real(0.0875) * bio(i, j, k - 1, sc_temp));
-                      cff1 = cff * p.SDeRRN;
-                      cff2 = cff1 * p.deltN;
-                      cff3 = cff1 * (Real(1.0) - p.deltN);
-                      cff4 = cff * p.LDeRRN;
-                      cff5 = cff4 * p.deltN;
-                      cff6 = cff4 * (Real(1.0) - p.deltN);
-                      rdon = cff * p.RDeRRN;
-                      fac = (f_ntr + f_dnf);
-                      bio(i, j, k - 1, sc_sden) =
-                        bio(i, j, k - 1, sc_sden) /
-                        (Real(1.0) + cff2 + cff3 * fac);
-                      bio(i, j, k - 1, sc_lden) =
-                        bio(i, j, k - 1, sc_lden) /
-                        (Real(1.0) + cff5 + cff6 * fac);
-                      bio(i, j, k - 1, sc_don) =
-                        bio(i, j, k - 1, sc_don) / (Real(1.0) + rdon * fac);
-                      n_flux_remines = bio(i, j, k - 1, sc_sden) * cff3 * fac;
-                      n_flux_reminel = bio(i, j, k - 1, sc_lden) * cff6 * fac;
-                      n_flux_reminer = bio(i, j, k - 1, sc_don) * rdon * fac;
-                      bio(i, j, k - 1, sc_nh4) =
-                        bio(i, j, k - 1, sc_nh4) + n_flux_remines +
-                        n_flux_reminel + n_flux_reminer;
-                      bio(i, j, k - 1, sc_po4) =
-                        bio(i, j, k - 1, sc_po4) +
-                        p.R_P2N *
-                          (n_flux_remines + n_flux_reminel + n_flux_reminer);
-                      cff7 = (bio(i, j, k - 1, sc_don) * rdon +
-                              bio(i, j, k - 1, sc_sden) * cff3 +
-                              bio(i, j, k - 1, sc_lden) * cff6) *
-                             roxnh4 / (bio(i, j, k - 1, sc_oxyg) + k_ntr);
-                      bio(i, j, k - 1, sc_oxyg) =
-                        bio(i, j, k - 1, sc_oxyg) / (Real(1.0) + cff7);
-                      bio(i, j, k - 1, sc_talk) =
-                        bio(i, j, k - 1, sc_talk) + n_flux_remines +
-                        n_flux_reminel + n_flux_reminer;
-                      cff8 = (bio(i, j, k - 1, sc_sden) * cff3 +
-                              bio(i, j, k - 1, sc_lden) * cff6 +
-                              bio(i, j, k - 1, sc_don) * rdon) *
-                             Real(5.3) / (bio(i, j, k - 1, sc_oxyg) + k_dnf) *
-                             k_dnf / (bio(i, j, k - 1, sc_no3) + k_wno3);
-                      bio(i, j, k - 1, sc_no3) =
-                        bio(i, j, k - 1, sc_no3) / (Real(1.0) + cff8);
-                      bio(i, j, k - 1, sc_talk) =
-                        bio(i, j, k - 1, sc_talk) +
-                        bio(i, j, k - 1, sc_no3) * cff8;
-                      bio(i, j, k - 1, sc_don) =
-                        bio(i, j, k - 1, sc_don) +
-                        bio(i, j, k - 1, sc_sden) * cff2 +
-                        bio(i, j, k - 1, sc_lden) * cff5;
-                  }
-                  // Air-sea exchange uses the reference Schmidt/rate
-                  // coefficient pair.
-                  cff1 = rho0 * Real(550.0);
-                  cff2 = dtdays * Real(0.251) * Real(24.0) / Real(100.0);
-                  k = nz;
-                  u10squ =
-                    bulk ? uwind(i, j, 0) * uwind(i, j, 0) +
-                             vwind(i, j, 0) * vwind(i, j, 0)
-                         : cff1 * std::sqrt(
-                                    std::pow(
-                                      (Real(0.5) *
-                                       (sustr(i, j, 0) + sustr(i + 1, j, 0))),
-                                      2) +
-                                    std::pow(
-                                      (Real(0.5) *
-                                       (svstr(i, j, 0) + svstr(i, j + 1, 0))),
-                                      2));
-                  schmidtn_ox =
-                    a_o2 -
-                    bio(i, j, k - 1, sc_temp) *
-                      (b_o2 -
-                       bio(i, j, k - 1, sc_temp) *
-                         (c_o2 - bio(i, j, k - 1, sc_temp) *
-                                   (d_o2 - bio(i, j, k - 1, sc_temp) * e_o2)));
-                  cff3 = cff2 * u10squ * std::sqrt(Real(660.0) / schmidtn_ox);
-                  ts = std::log(
-                    (Real(298.15) - bio(i, j, k - 1, sc_temp)) /
-                    (Real(273.15) + bio(i, j, k - 1, sc_temp)));
-                  aa =
-                    oa0 +
-                    ts *
-                      (oa1 + ts * (oa2 + ts * (oa3 + ts * (oa4 + ts * oa5)))) +
-                    bio(i, j, k - 1, sc_salt) *
-                      (ob0 + ts * (ob1 + ts * (ob2 + ts * ob3))) +
-                    oc0 * bio(i, j, k - 1, sc_salt) * bio(i, j, k - 1, sc_salt);
-                  o2satu = l2mol * std::exp(aa);
-                  o2_flux = cff3 * (o2satu - bio(i, j, k - 1, sc_oxyg));
-                  bio(i, j, k - 1, sc_oxyg) =
-                    bio(i, j, k - 1, sc_oxyg) + o2_flux * hz_inv(i, j, k);
-                  for (k = 1; k <= nz; k += 1) {
-                      f_ntr = bio(i, j, k - 1, sc_oxyg) /
-                              (bio(i, j, k - 1, sc_oxyg) + k_ntr);
-                      f_dnf = k_dnf / (bio(i, j, k - 1, sc_oxyg) + k_dnf) *
-                              bio(i, j, k - 1, sc_no3) /
-                              (bio(i, j, k - 1, sc_no3) + k_wno3);
-                      cff = dtdays *
-                            std::exp(Real(0.0875) * bio(i, j, k - 1, sc_temp));
-                      cff1 = cff * p.SDeRRC;
-                      cff2 = cff1 * p.deltC;
-                      cff3 = cff1 * (Real(1.0) - p.deltC);
-                      cff4 = cff * p.LDeRRC;
-                      cff5 = cff4 * p.deltC;
-                      cff6 = cff4 * (Real(1.0) - p.deltC);
-                      rdoc = cff * p.RDeRRC;
-                      fac = (f_ntr + f_dnf);
-                      bio(i, j, k - 1, sc_sdec) =
-                        bio(i, j, k - 1, sc_sdec) /
-                        (Real(1.0) + cff2 + cff3 * fac);
-                      bio(i, j, k - 1, sc_ldec) =
-                        bio(i, j, k - 1, sc_ldec) /
-                        (Real(1.0) + cff5 + cff6 * fac);
-                      bio(i, j, k - 1, sc_doc) =
-                        bio(i, j, k - 1, sc_doc) / (Real(1.0) + rdoc * fac);
-                      c_flux_remines = bio(i, j, k - 1, sc_sdec) * cff3 * fac;
-                      c_flux_reminel = bio(i, j, k - 1, sc_ldec) * cff6 * fac;
-                      c_flux_reminer = bio(i, j, k - 1, sc_doc) * rdoc * fac;
-                      bio(i, j, k - 1, sc_tic) =
-                        bio(i, j, k - 1, sc_tic) + c_flux_remines +
-                        c_flux_reminel + c_flux_reminer;
-                      bio(i, j, k - 1, sc_doc) =
-                        bio(i, j, k - 1, sc_doc) +
-                        cff2 * bio(i, j, k - 1, sc_sdec) +
-                        cff5 * bio(i, j, k - 1, sc_ldec);
-                  }
-                  k = nz;
-                  pco2 = REMORABiology::pco2_water(
-                    bio(i, j, k - 1, sc_temp), bio(i, j, k - 1, sc_salt),
-                    bio(i, j, k - 1, sc_tic), bio(i, j, k - 1, sc_talk));
-                  // The remineralization loop reuses cff2, so restore the rate
-                  // coefficient; u10squ from the O2 exchange is still current.
-                  cff2 = dtdays * Real(0.251) * Real(24.0) / Real(100.0);
-                  schmidtn =
-                    a_co2 -
-                    bio(i, j, k - 1, sc_temp) *
-                      (b_co2 - bio(i, j, k - 1, sc_temp) *
-                                 (c_co2 - bio(i, j, k - 1, sc_temp) *
-                                            (d_co2 - bio(i, j, k - 1, sc_temp) *
-                                                       e_co2)));
-                  cff3 = cff2 * u10squ * std::sqrt(Real(660.0) / schmidtn);
-                  tempk =
-                    Real(0.01) * (bio(i, j, k - 1, sc_temp) + Real(273.15));
-                  co2_sol = std::exp(
-                    a1 + a2 / tempk + a3 * std::log(tempk) +
-                    bio(i, j, k - 1, sc_salt) *
-                      (b1 + tempk * (b2 + b3 * tempk)));
-                  co2_flux = cff3 * co2_sol * (p.pCO2air - pco2);
-                  bio(i, j, k - 1, sc_tic) =
-                    bio(i, j, k - 1, sc_tic) + co2_flux * hz_inv(i, j, k);
-                  // PPM/WENO sinking with the reference monotone boundary
-                  // closures.
-                  for (isink = 1; isink <= nsink; isink += 1) {
-                      ibio = idsink[isink - 1];
-                      for (k = 1; k <= nz; k += 1) {
-                          qc(i, j, k) =
-                            amrex::max(bio(i, j, k - 1, ibio), Real(0.));
-                      }
-                      for (k = nz - 1; k >= 1; k += -1) {
-                          fc(i, j, k) =
-                            (qc(i, j, k + 1) - qc(i, j, k)) * hz_inv2(i, j, k);
-                      }
-                      for (k = 2; k <= nz - 1; k += 1) {
-                          dltr = hz(i, j, k - 1) * fc(i, j, k);
-                          dltl = hz(i, j, k - 1) * fc(i, j, k - 1);
-                          cff = hz(i, j, k - 1 - 1) +
-                                Real(2.0) * hz(i, j, k - 1) +
-                                hz(i, j, k + 1 - 1);
-                          cffr = cff * fc(i, j, k);
-                          cffl = cff * fc(i, j, k - 1);
-                          if ((dltr * dltl) <= Real(0.0)) {
-                              dltr = Real(0.0);
-                              dltl = Real(0.0);
-                          } else if (std::abs(dltr) > std::abs(cffl)) {
-                              dltr = cffl;
-                          } else if (std::abs(dltl) > std::abs(cffr)) {
-                              dltl = cffr;
-                          }
-                          cff = (dltr - dltl) * hz_inv3(i, j, k);
-                          dltr = dltr - cff * hz(i, j, k + 1 - 1);
-                          dltl = dltl + cff * hz(i, j, k - 1 - 1);
-                          br(i, j, k) = qc(i, j, k) + dltr;
-                          bl(i, j, k) = qc(i, j, k) - dltl;
-                          wr(i, j, k) = std::pow((Real(2.0) * dltr - dltl), 2);
-                          wl(i, j, k) = std::pow((dltr - Real(2.0) * dltl), 2);
-                      }
-                      cff = Real(1.0e-14);
-                      for (k = 2; k <= nz - 2; k += 1) {
-                          dltl = amrex::max(cff, wl(i, j, k));
-                          dltr = amrex::max(cff, wr(i, j, k + 1));
-                          br(i, j, k) =
-                            (dltr * br(i, j, k) + dltl * bl(i, j, k + 1)) /
-                            (dltr + dltl);
-                          bl(i, j, k + 1) = br(i, j, k);
-                      }
-                      fc(i, j, nz) = Real(0.0);
-                      br(i, j, nz) = qc(i, j, nz);
-                      bl(i, j, nz) = qc(i, j, nz);
-                      br(i, j, nz - 1) = qc(i, j, nz);
-                      bl(i, j, 2) = qc(i, j, 1);
-                      br(i, j, 1) = qc(i, j, 1);
-                      bl(i, j, 1) = qc(i, j, 1);
-                      for (k = 1; k <= nz; k += 1) {
-                          dltr = br(i, j, k) - qc(i, j, k);
-                          dltl = qc(i, j, k) - bl(i, j, k);
-                          cffr = Real(2.0) * dltr;
-                          cffl = Real(2.0) * dltl;
-                          if ((dltr * dltl) < Real(0.0)) {
-                              dltr = Real(0.0);
-                              dltl = Real(0.0);
-                          } else if (std::abs(dltr) > std::abs(cffl)) {
-                              dltr = cffl;
-                          } else if (std::abs(dltl) > std::abs(cffr)) {
-                              dltl = cffr;
-                          }
-                          br(i, j, k) = qc(i, j, k) + dltr;
-                          bl(i, j, k) = qc(i, j, k) - dltl;
-                      }
-                      cff = dtdays * std::abs(wbio[isink - 1]);
-                      for (k = 1; k <= nz; k += 1) {
-                          fc(i, j, k - 1) = Real(0.0);
-                          wl(i, j, k) = z_w(i, j, k - 1) + cff;
-                          wr(i, j, k) = hz(i, j, k - 1) * qc(i, j, k);
-                          ksource(i, j, k) = k;
-                      }
-                      for (k = 1; k <= nz; k += 1) {
-                          for (ks = k; ks <= nz - 1; ks += 1) {
-                              if (wl(i, j, k) > z_w(i, j, ks)) {
-                                  ksource(i, j, k) = ks + 1;
-                                  fc(i, j, k - 1) =
-                                    fc(i, j, k - 1) + wr(i, j, ks);
-                              }
-                          }
-                      }
-                      for (k = 1; k <= nz; k += 1) {
-                          ks = ksource(i, j, k);
-                          cu = amrex::min(
-                            Real(1.0), (wl(i, j, k) - z_w(i, j, ks - 1)) *
-                                         hz_inv(i, j, ks));
-                          fc(i, j, k - 1) =
-                            fc(i, j, k - 1) +
-                            hz(i, j, ks - 1) * cu *
-                              (bl(i, j, ks) +
-                               cu * (Real(0.5) * (br(i, j, ks) - bl(i, j, ks)) -
-                                     (Real(1.5) - cu) *
-                                       (br(i, j, ks) + bl(i, j, ks) -
-                                        Real(2.0) * qc(i, j, ks))));
-                      }
-                      for (k = 1; k <= nz; k += 1) {
-                          bio(i, j, k - 1, ibio) =
-                            qc(i, j, k) +
-                            (fc(i, j, k) - fc(i, j, k - 1)) * hz_inv(i, j, k);
-                      }
-                      // Stress-dependent resuspension and instantaneous
-                      // sediment recycling/burial.
-                      cff2 = Real(4.0) / Real(16.0);
-                      cff3 = Real(115.0) / Real(16.0);
-                      cff4 = Real(106.0) / Real(16.0);
-                      if (
-                        (ibio == sc_phyt) || (ibio == sc_sdec) ||
-                        (ibio == sc_ldec) || (ibio == sc_sden) ||
-                        (ibio == sc_lden)) {
-                          ustarb = std::sqrt(std::sqrt(
-                            std::pow(
-                              (Real(0.5) *
-                               (bustr(i, j, 0) + bustr(i + 1, j, 0))),
-                              2) +
-                            std::pow(
-                              (Real(0.5) *
-                               (bvstr(i, j, 0) + bvstr(i, j + 1, 0))),
-                              2)));
-                          resuspr = amrex::min(
-                            std::pow(ustarb, 2) / Real(9.61e-6), Real(1.0));
-                          cff1 = fc(i, j, 0) * hz_inv(i, j, 1) *
-                                 (Real(1.0) - resuspr);
-                          cff5 = fc(i, j, 0) * hz_inv(i, j, 1) * resuspr;
-                          if (
-                            (ibio == sc_phyt) || (ibio == sc_sden) ||
-                            (ibio == sc_lden)) {
-                              bio(i, j, 0, sc_sden) =
-                                bio(i, j, 0, sc_sden) + cff5;
-                          }
-                          if ((ibio == sc_sdec) || (ibio == sc_ldec)) {
-                              bio(i, j, 0, sc_sdec) =
-                                bio(i, j, 0, sc_sdec) + cff5;
-                          }
-                          if (ibio == sc_phyt) {
-                              bio(i, j, 0, sc_sdec) =
-                                bio(i, j, 0, sc_sdec) + cff5 * p.PhyCN;
-                          }
-                      }
-                      if (
-                        (ibio == sc_phyt) || (ibio == sc_sden) ||
-                        (ibio == sc_lden)) {
-                          if (ibio == sc_phyt) {
-                              cnbur = p.PhyCN;
-                          } else {
-                              cnbur = Real(9.3);
-                          }
-                          cff5 = Real(0.01);
-                          fac1 = cnbur * Real(12.0) / Real(1000.0) * cff1 *
-                                 hz(i, j, 1 - 1) * (Real(365.0) / dtdays);
-                          cbe = amrex::min(
-                            Real(0.50),
-                            Real(0.023) * std::pow(fac1, Real(0.5797)));
-                          cff1 = (Real(1.0) - cbe) * cff1;
-                          ts = std::log(
-                            (Real(298.15) - bio(i, j, 0, sc_temp)) /
-                            (Real(273.15) + bio(i, j, 0, sc_temp)));
-                          aa =
-                            oa0 +
-                            ts * (oa1 +
-                                  ts * (oa2 +
-                                        ts * (oa3 + ts * (oa4 + ts * oa5)))) +
-                            bio(i, j, 0, sc_salt) *
-                              (ob0 + ts * (ob1 + ts * (ob2 + ts * ob3))) +
-                            oc0 * bio(i, j, 0, sc_salt) * bio(i, j, 0, sc_salt);
-                          o2satb = l2mol * std::exp(aa);
-                          lbo2 = (k_bo2 * (o2satb - bio(i, j, 0, sc_oxyg))) /
-                                 (o2satb * (bio(i, j, 0, sc_oxyg) + k_bo2));
-                          fac = cff1 * (Real(1.0) + Real(3.0) * lbo2);
-                          bio(i, j, 0, sc_nh4) =
-                            bio(i, j, 0, sc_nh4) + cff2 * fac;
-                          bio(i, j, 0, sc_talk) =
-                            bio(i, j, 0, sc_talk) + cff2 * fac;
-                          bio(i, j, 0, sc_don) =
-                            bio(i, j, 0, sc_don) + cff5 * fac;
-                          bio(i, j, 0, sc_oxyg) =
-                            bio(i, j, 0, sc_oxyg) -
-                            cff1 * cff3 * (Real(1.0) - lbo2);
-                      }
-                      if (
-                        (ibio == sc_phyt) || (ibio == sc_sdec) ||
-                        (ibio == sc_ldec)) {
-                          if (ibio == sc_phyt) {
-                              cff1 = cff1 / (Real(1.0) - cbe);
-                          }
-                          fac1 = Real(12.0) / Real(1000.0) * cff1 *
-                                 hz(i, j, 1 - 1) * (Real(365.0) / dtdays);
-                          if (ibio == sc_phyt) {
-                              fac1 = fac1 * p.PhyCN;
-                          }
-                          cbe = amrex::min(
-                            Real(0.50),
-                            Real(0.023) * std::pow(fac1, Real(0.5797)));
-                          if (ibio == sc_phyt) {
-                              fac2 = p.PhyCN;
-                          } else {
-                              fac2 = Real(1.0);
-                          }
-                          cff1 = (Real(1.0) - cbe) * cff1;
-                          cff5 = Real(0.01);
-                          fac = fac2 * cff1;
-                          bio(i, j, 0, sc_doc) =
-                            bio(i, j, 0, sc_doc) + fac * cff5;
-                          bio(i, j, 0, sc_tic) =
-                            bio(i, j, 0, sc_tic) + fac * (Real(1.0) - cff5);
-                      }
-                  }
-              }
-              for (k = 1; k <= nz; k += 1) {
-                  bio(i, j, k - 1, sc_tic) =
-                    amrex::min(bio(i, j, k - 1, sc_tic), Real(3000.0));
-                  bio(i, j, k - 1, sc_tic) =
-                    amrex::max(bio(i, j, k - 1, sc_tic), Real(1.0));
-              }
-              for (itrc = 1; itrc <= 18; itrc += 1) {
-                  ibio = (itrc + 1);
-                  for (k = 1; k <= nz; k += 1) {
-                      cff = bio(i, j, k - 1, ibio) - bio_old(i, j, k - 1, ibio);
-                      cff = cff * mask(i, j, 0);
-                      next(i, j, k - 1, state_comp[ibio]) =
-                        next(i, j, k - 1, state_comp[ibio]) +
-                        cff * hz(i, j, k - 1);
-                  }
-              }
-          });
+
+        ParallelFor(bx2d, [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
+        {
+            constexpr Real zero = Real(0.0);
+            // Land columns contribute nothing: the increment below is scaled by rmask.
+            if (mskr(i,j,0) == zero) return;
+
+            constexpr Real one = Real(1.0);
+            constexpr Real two = Real(2.0);
+            constexpr Real eps = Real(1.0e-20);
+            constexpr Real minval = Real(1.0e-6);
+            constexpr Real cff_weno = Real(1.0e-14);
+
+            constexpr Real rOxNO3 = Real(8.625);       // 138/16
+            constexpr Real rOxNH4 = Real(6.625);       // 106/16
+            constexpr Real rOxNH4Denit = Real(115.0) / Real(16.0);
+            constexpr Real denitrification_NH4_fraction = Real(4.0) / Real(16.0);
+            constexpr Real K_Nitri = Real(1.0);        // O2 half-saturation, nitrification
+            constexpr Real K_Denit = K_Nitri;          // O2 half-saturation, denitrification
+            constexpr Real K_wNO3 = Real(0.5);         // NO3 half-saturation, denitrification
+            constexpr Real K_bO2 = Real(26.5);         // O2 half-saturation, sediment denitrification
+            constexpr Real TIC_min = Real(1.0);
+            constexpr Real TIC_max = Real(3000.0);
+
+            // Compute inverse thickness to avoid repeated divisions.
+            for (int k = 0; k < N; ++k) {
+                inv_hz(i,j,k) = one / Hz(i,j,k);
+            }
+            for (int k = 0; k < N - 1; ++k) {
+                inv_hz2(i,j,k) = one / (Hz(i,j,k) + Hz(i,j,k+1));
+            }
+            for (int k = 1; k < N - 1; ++k) {
+                inv_hz3(i,j,k) = one / (Hz(i,j,k-1) + Hz(i,j,k) + Hz(i,j,k+1));
+            }
+
+            // Extract biological variables from tracer arrays, place them into
+            // scratch arrays, and restrict their values to be positive definite.
+            // TIC is also bounded, as in ROMS.
+            for (int k = 0; k < N; ++k) {
+                no3(i,j,k) = amrex::max(zero, state_old(i,j,k,c_no3));
+                nh4(i,j,k) = amrex::max(zero, state_old(i,j,k,c_nh4));
+                chlo(i,j,k) = amrex::max(zero, state_old(i,j,k,c_chlo));
+                phyt(i,j,k) = amrex::max(zero, state_old(i,j,k,c_phyt));
+                zoop(i,j,k) = amrex::max(zero, state_old(i,j,k,c_zoop));
+                lden(i,j,k) = amrex::max(zero, state_old(i,j,k,c_lden));
+                sden(i,j,k) = amrex::max(zero, state_old(i,j,k,c_sden));
+                don(i,j,k) = amrex::max(zero, state_old(i,j,k,c_don));
+                po4(i,j,k) = amrex::max(zero, state_old(i,j,k,c_po4));
+                ldec(i,j,k) = amrex::max(zero, state_old(i,j,k,c_ldec));
+                sdec(i,j,k) = amrex::max(zero, state_old(i,j,k,c_sdec));
+                tic(i,j,k) = amrex::max(amrex::min(amrex::max(zero, state_old(i,j,k,c_tic)),
+                                                   TIC_max), TIC_min);
+                talk(i,j,k) = amrex::max(zero, state_old(i,j,k,c_talk));
+                doc(i,j,k) = amrex::max(zero, state_old(i,j,k,c_doc));
+                oxyg(i,j,k) = amrex::max(zero, state_old(i,j,k,c_oxyg));
+                rdon_s(i,j,k) = amrex::max(zero, state_old(i,j,k,c_rdon));
+                rdoc_s(i,j,k) = amrex::max(zero, state_old(i,j,k,c_rdoc));
+                calc(i,j,k) = amrex::max(zero, state_old(i,j,k,c_calc));
+                temp(i,j,k) = amrex::min(state_old(i,j,k,Temp_comp), Real(35.0));
+                salt(i,j,k) = amrex::max(state_old(i,j,k,Salt_comp), zero);
+            }
+
+            // Calculate surface Photosynthetically Available Radiation (PAR).
+            // REMORA stores srflx in W/m2, so only PARfrac applies. ROMS ecb.h
+            // multiplies by rho0*Cp because its srflx is kinematic (degC m/s).
+            const Real PARsur = parms.PARfrac * srflx(i,j,0);
+
+            // Subcycle the complete ordered ECB reaction/column calculation.
+            for (int iter = 0; iter < parms.BioIter; ++iter) {
+
+                // Primary production, exudation and nitrification. Light is
+                // attenuated from the surface down, so PAR at a depth depends
+                // on the whole column above it.
+                if (PARsur > zero) {
+                    Real PAR = PARsur;
+                    for (int k = N - 1; k >= 0; --k) {
+                        const Real attfac = amrex::max(doc(i,j,k) + rdoc_s(i,j,k) - Real(70.819), zero) *
+                                            Real(3.786e-3);
+                        const Real Att = (parms.AttSW + parms.AttChl * chlo(i,j,k) + attfac) *
+                                         (z_w(i,j,k+1) - z_w(i,j,k));
+                        const Real ExpAtt = std::exp(-Att);
+                        const Real Itop = PAR;
+                        PAR = Itop * (one - ExpAtt) / Att;
+
+                        const Real cff = parms.PhyCN * Real(12.0);
+                        const Real Chl2C = amrex::min(chlo(i,j,k) / (phyt(i,j,k) * cff + eps), parms.Chl2C_m);
+                        const Real Vp = amrex::max(parms.Vp0 * std::exp(Real(0.08065) * temp(i,j,k)), Real(4.00));
+                        const Real fac1 = PAR * parms.PhyIS;
+                        const Real Epp = Vp / std::sqrt(Vp * Vp + fac1 * fac1);
+                        const Real t_PPmax = Epp * fac1;
+
+                        // Nutrient limitation.
+                        Real cff1 = nh4(i,j,k) * parms.K_NH4;
+                        const Real cff2 = no3(i,j,k) * parms.K_NO3;
+                        const Real inhNH4 = one / (one + cff1);
+                        const Real L_NH4 = cff1 / (one + cff1);
+                        const Real L_NO3 = cff2 * inhNH4 / (one + cff2);
+                        const Real LTOT = L_NO3 + L_NH4;
+                        const Real cff3 = po4(i,j,k) * parms.K_PO4;
+                        const Real L_PO4 = cff3 / (one + cff3);
+                        const Real LMIN = amrex::min(LTOT, L_PO4);
+
+                        // Nutrient uptake.
+                        const Real mu = dtdays * t_PPmax * LMIN;
+                        const Real cff4 = mu * phyt(i,j,k) * L_NO3 /
+                                          amrex::max(minval, LTOT) / amrex::max(minval, no3(i,j,k));
+                        const Real cff5 = mu * phyt(i,j,k) * L_NH4 /
+                                          amrex::max(minval, LTOT) / amrex::max(minval, nh4(i,j,k));
+                        const Real cff6 = parms.R_P2N * mu * phyt(i,j,k) / amrex::max(minval, po4(i,j,k));
+                        no3(i,j,k) = no3(i,j,k) / (one + cff4);
+                        nh4(i,j,k) = nh4(i,j,k) / (one + cff5);
+                        po4(i,j,k) = po4(i,j,k) / (one + cff6);
+                        const Real N_Flux_NewProd = no3(i,j,k) * cff4;
+                        const Real N_Flux_RegProd = nh4(i,j,k) * cff5;
+
+                        // Phytoplankton growth and DON exudation.
+                        Real f_ntr = oxyg(i,j,k) / (oxyg(i,j,k) + K_Nitri);
+                        const Real f_dnf = K_Denit / (oxyg(i,j,k) + K_Denit) * no3(i,j,k) /
+                                           (no3(i,j,k) + K_wNO3);
+                        phyt(i,j,k) = phyt(i,j,k) + (one - parms.EsDON - (f_ntr + f_dnf) * parms.ElDON) *
+                                                    (N_Flux_NewProd + N_Flux_RegProd);
+                        chlo(i,j,k) = chlo(i,j,k) + (dtdays * t_PPmax * t_PPmax * LMIN * LMIN *
+                                                     parms.Chl2C_m * chlo(i,j,k)) /
+                                                    (parms.PhyIS * amrex::max(Chl2C, eps) * PAR + eps);
+                        don(i,j,k) = don(i,j,k) + parms.EsDON * (N_Flux_NewProd + N_Flux_RegProd);
+                        nh4(i,j,k) = nh4(i,j,k) + (f_ntr + f_dnf) * parms.ElDON *
+                                                  (N_Flux_NewProd + N_Flux_RegProd);
+                        talk(i,j,k) = talk(i,j,k) + (f_ntr + f_dnf) * parms.ElDON *
+                                                    (N_Flux_NewProd + N_Flux_RegProd);
+                        oxyg(i,j,k) = oxyg(i,j,k) + rOxNO3 * N_Flux_NewProd + rOxNH4 * N_Flux_RegProd -
+                                      rOxNH4 * f_ntr * parms.ElDON * (N_Flux_NewProd + N_Flux_RegProd);
+                        oxyg(i,j,k) = amrex::max(oxyg(i,j,k), zero);
+
+                        // Carbon uptake and carbon-excess DOC exudation.
+                        cff1 = parms.PhyCN * (N_Flux_NewProd + N_Flux_RegProd);
+                        cff1 = amrex::min(cff1, tic(i,j,k) - eps);
+                        tic(i,j,k) = tic(i,j,k) - cff1;
+                        Real C_exc_up = parms.gammaC * parms.PhyCN * dtdays * t_PPmax * phyt(i,j,k) *
+                                        (one - LTOT);
+                        C_exc_up = amrex::min(C_exc_up, amrex::max(tic(i,j,k), zero) / parms.slCexc);
+                        tic(i,j,k) = tic(i,j,k) - C_exc_up * parms.slCexc;
+                        doc(i,j,k) = doc(i,j,k) + C_exc_up * parms.slCexc;
+                        oxyg(i,j,k) = oxyg(i,j,k) + C_exc_up;
+                        doc(i,j,k) = doc(i,j,k) + parms.PhyCN * parms.EsDON * (N_Flux_NewProd + N_Flux_RegProd);
+                        tic(i,j,k) = tic(i,j,k) + parms.PhyCN * parms.ElDON * (f_ntr + f_dnf) *
+                                                  (N_Flux_NewProd + N_Flux_RegProd);
+                        talk(i,j,k) = talk(i,j,k) + N_Flux_NewProd - N_Flux_RegProd;
+
+                        // Light-inhibited nitrification.
+                        const Real fac2 = amrex::max(oxyg(i,j,k), zero);
+                        const Real fac3 = amrex::max(fac2 / (K_Nitri + fac2), zero);
+                        const Real fac1_n = dtdays * parms.NitriR * fac3;
+                        const Real cff1_n = (PAR - parms.I_thNH4) / (parms.D_p5NH4 + PAR - two * parms.I_thNH4);
+                        const Real cff2_n = one - amrex::max(zero, cff1_n);
+                        const Real cff3_n = fac1_n * cff2_n;
+                        nh4(i,j,k) = nh4(i,j,k) / (one + cff3_n);
+                        const Real N_Flux_Nitrifi = nh4(i,j,k) * cff3_n;
+                        no3(i,j,k) = no3(i,j,k) + N_Flux_Nitrifi;
+                        oxyg(i,j,k) = oxyg(i,j,k) - two * N_Flux_Nitrifi;
+                        talk(i,j,k) = talk(i,j,k) - two * N_Flux_Nitrifi;
+
+                        // Light attenuation at the bottom of the grid cell, the
+                        // starting PAR value for the next (deeper) cell.
+                        PAR = Itop * ExpAtt;
+                    }
+                } else {
+                    // Night: nitrification without light inhibition.
+                    for (int k = N - 1; k >= 0; --k) {
+                        const Real f_ntr = oxyg(i,j,k) / (oxyg(i,j,k) + K_Nitri);
+                        const Real cff3 = dtdays * parms.NitriR * f_ntr;
+                        nh4(i,j,k) = nh4(i,j,k) / (one + cff3);
+                        const Real N_Flux_Nitrifi = nh4(i,j,k) * cff3;
+                        no3(i,j,k) = no3(i,j,k) + N_Flux_Nitrifi;
+                        oxyg(i,j,k) = oxyg(i,j,k) - two * N_Flux_Nitrifi;
+                        oxyg(i,j,k) = amrex::max(zero, oxyg(i,j,k));
+                        talk(i,j,k) = talk(i,j,k) - two * N_Flux_Nitrifi;
+                    }
+                }
+
+                // Phytoplankton grazing by zooplankton, sloppy feeding and
+                // phytoplankton mortality.
+                {
+                    const Real cff2 = dtdays * parms.PhyMR;
+                    for (int k = 0; k < N; ++k) {
+                        const Real fac1 = dtdays * parms.ZooGR * std::exp(Real(0.0875) * temp(i,j,k));
+                        const Real cff1 = fac1 * zoop(i,j,k) * phyt(i,j,k) /
+                                          (parms.K_Phy + phyt(i,j,k) * phyt(i,j,k));
+                        const Real cff3 = one / (one + cff1);
+                        phyt(i,j,k) = cff3 * phyt(i,j,k);
+                        chlo(i,j,k) = cff3 * chlo(i,j,k);
+                        const Real N_Flux_Assim = cff1 * phyt(i,j,k) * parms.ZooAE_N;
+                        const Real N_Flux_Egest = phyt(i,j,k) * cff1 * (one - parms.ZooAE_N);
+                        zoop(i,j,k) = zoop(i,j,k) + N_Flux_Assim;
+                        const Real G_Gmax = phyt(i,j,k) * phyt(i,j,k) /
+                                            (parms.K_Phy + phyt(i,j,k) * phyt(i,j,k));
+                        const Real qDON = Real(0.71) * G_Gmax;
+                        lden(i,j,k) = lden(i,j,k) + N_Flux_Egest * (one - qDON);
+                        const Real N_Flux_Sloppy_ldon = N_Flux_Egest * qDON * (one - parms.deltN);
+                        const Real N_Flux_Sloppy_sldon = N_Flux_Egest * qDON * parms.deltN;
+                        don(i,j,k) = don(i,j,k) + N_Flux_Sloppy_sldon;
+                        nh4(i,j,k) = nh4(i,j,k) + N_Flux_Sloppy_ldon;
+                        talk(i,j,k) = talk(i,j,k) + N_Flux_Sloppy_ldon;
+                        const Real N_Flux_Pmortal = cff2 * amrex::max(phyt(i,j,k) - parms.PhyMin, zero);
+                        phyt(i,j,k) = phyt(i,j,k) - N_Flux_Pmortal;
+                        chlo(i,j,k) = chlo(i,j,k) - cff2 * amrex::max(chlo(i,j,k) - parms.ChlMin, zero);
+                        sden(i,j,k) = sden(i,j,k) + N_Flux_Pmortal;
+                        const Real qDOC = qDON;
+                        ldec(i,j,k) = ldec(i,j,k) + parms.PhyCN * N_Flux_Egest * (one - qDOC);
+                        tic(i,j,k) = tic(i,j,k) + parms.PhyCN * N_Flux_Egest * qDOC * (one - parms.deltC);
+                        doc(i,j,k) = doc(i,j,k) + parms.PhyCN * N_Flux_Egest * qDOC * parms.deltC;
+                        sdec(i,j,k) = sdec(i,j,k) + parms.PhyCN * N_Flux_Pmortal;
+                        tic(i,j,k) = tic(i,j,k) + (parms.PhyCN - parms.ZooCN) * N_Flux_Assim;
+                        oxyg(i,j,k) = oxyg(i,j,k) - rOxNH4 * N_Flux_Sloppy_ldon;
+                        oxyg(i,j,k) = amrex::max(zero, oxyg(i,j,k));
+                    }
+                }
+
+                // Zooplankton mortality, excretion and basal metabolism.
+                {
+                    const Real cff1 = dtdays * parms.ZooBM;
+                    const Real fac2 = dtdays * parms.ZooMR;
+                    const Real fac3 = dtdays * parms.ZooER;
+                    for (int k = 0; k < N; ++k) {
+                        const Real fac1 = fac3 * phyt(i,j,k) * phyt(i,j,k) /
+                                          (parms.K_Phy + phyt(i,j,k) * phyt(i,j,k));
+                        const Real cff2 = fac2 * zoop(i,j,k);
+                        const Real cff3 = fac1 * parms.ZooAE_N;
+                        zoop(i,j,k) = zoop(i,j,k) / (one + cff2 + cff3);
+                        const Real N_Flux_Zmortal = cff2 * zoop(i,j,k);
+                        const Real N_Flux_Zexcret = cff3 * zoop(i,j,k);
+                        nh4(i,j,k) = nh4(i,j,k) + N_Flux_Zexcret;
+                        po4(i,j,k) = po4(i,j,k) + parms.R_P2N * N_Flux_Zexcret;
+                        sden(i,j,k) = sden(i,j,k) + N_Flux_Zmortal;
+                        const Real N_Flux_Zmetabo = cff1 * amrex::max(zoop(i,j,k) - parms.ZooMin, zero);
+                        zoop(i,j,k) = zoop(i,j,k) - N_Flux_Zmetabo;
+                        nh4(i,j,k) = nh4(i,j,k) + N_Flux_Zmetabo;
+                        po4(i,j,k) = po4(i,j,k) + parms.R_P2N * N_Flux_Zmetabo;
+                        oxyg(i,j,k) = oxyg(i,j,k) - rOxNH4 * (N_Flux_Zmetabo + N_Flux_Zexcret);
+                        oxyg(i,j,k) = amrex::max(zero, oxyg(i,j,k));
+                        sdec(i,j,k) = sdec(i,j,k) + parms.ZooCN * N_Flux_Zmortal;
+                        tic(i,j,k) = tic(i,j,k) + parms.ZooCN * (N_Flux_Zmetabo + N_Flux_Zexcret);
+                        talk(i,j,k) = talk(i,j,k) + N_Flux_Zmetabo + N_Flux_Zexcret;
+                    }
+                }
+
+                // Coagulation of phytoplankton and small detritus into large detritus.
+                {
+                    const Real fac1 = dtdays * parms.CoagR;
+                    for (int k = 0; k < N; ++k) {
+                        const Real cff1 = fac1 * (sden(i,j,k) + phyt(i,j,k));
+                        const Real cff2 = one / (one + cff1);
+                        phyt(i,j,k) = phyt(i,j,k) * cff2;
+                        chlo(i,j,k) = chlo(i,j,k) * cff2;
+                        sden(i,j,k) = sden(i,j,k) * cff2;
+                        sdec(i,j,k) = sdec(i,j,k) * cff2;
+                        const Real N_Flux_CoagP = phyt(i,j,k) * cff1;
+                        const Real N_Flux_CoagD = sden(i,j,k) * cff1;
+                        lden(i,j,k) = lden(i,j,k) + N_Flux_CoagP + N_Flux_CoagD;
+                        ldec(i,j,k) = ldec(i,j,k) + parms.PhyCN * N_Flux_CoagP + sdec(i,j,k) * cff1;
+                    }
+                }
+
+                // Nitrogen remineralization of detritus and semilabile DON,
+                // aerobic and by denitrification.
+                for (int k = 0; k < N; ++k) {
+                    const Real f_ntr = oxyg(i,j,k) / (oxyg(i,j,k) + K_Nitri);
+                    const Real f_dnf = K_Denit / (oxyg(i,j,k) + K_Denit) * no3(i,j,k) / (no3(i,j,k) + K_wNO3);
+                    const Real cff = dtdays * std::exp(Real(0.0875) * temp(i,j,k));
+                    const Real cff1 = cff * parms.SDeRRN;
+                    const Real cff2 = cff1 * parms.deltN;
+                    const Real cff3 = cff1 * (one - parms.deltN);
+                    const Real cff4 = cff * parms.LDeRRN;
+                    const Real cff5 = cff4 * parms.deltN;
+                    const Real cff6 = cff4 * (one - parms.deltN);
+                    const Real rdon = cff * parms.RDeRRN;
+                    const Real fac = (f_ntr + f_dnf);
+                    sden(i,j,k) = sden(i,j,k) / (one + cff2 + cff3 * fac);
+                    lden(i,j,k) = lden(i,j,k) / (one + cff5 + cff6 * fac);
+                    don(i,j,k) = don(i,j,k) / (one + rdon * fac);
+                    const Real N_Flux_RemineS = sden(i,j,k) * cff3 * fac;
+                    const Real N_Flux_RemineL = lden(i,j,k) * cff6 * fac;
+                    const Real N_Flux_RemineR = don(i,j,k) * rdon * fac;
+                    nh4(i,j,k) = nh4(i,j,k) + N_Flux_RemineS + N_Flux_RemineL + N_Flux_RemineR;
+                    po4(i,j,k) = po4(i,j,k) + parms.R_P2N * (N_Flux_RemineS + N_Flux_RemineL + N_Flux_RemineR);
+                    const Real cff7 = (don(i,j,k) * rdon + sden(i,j,k) * cff3 + lden(i,j,k) * cff6) * rOxNH4 /
+                                      (oxyg(i,j,k) + K_Nitri);
+                    oxyg(i,j,k) = oxyg(i,j,k) / (one + cff7);
+                    talk(i,j,k) = talk(i,j,k) + N_Flux_RemineS + N_Flux_RemineL + N_Flux_RemineR;
+                    const Real cff8 = (sden(i,j,k) * cff3 + lden(i,j,k) * cff6 + don(i,j,k) * rdon) * Real(5.3) /
+                                      (oxyg(i,j,k) + K_Denit) * K_Denit / (no3(i,j,k) + K_wNO3);
+                    no3(i,j,k) = no3(i,j,k) / (one + cff8);
+                    talk(i,j,k) = talk(i,j,k) + no3(i,j,k) * cff8;
+                    don(i,j,k) = don(i,j,k) + sden(i,j,k) * cff2 + lden(i,j,k) * cff5;
+                }
+
+                // Surface O2 gas exchange.
+                const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr, i, j, rho0);
+                {
+                    const int k = N - 1;
+                    const Real cff2 = transfer_rate(o2_schmidt, dtdays);
+                    const Real SchmidtN_Ox = schmidt_number(o2_schmidt, temp(i,j,k));
+                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN_Ox);
+                    const Real O2satu = o2_saturation(temp(i,j,k), salt(i,j,k));
+                    const Real O2_Flux = cff3 * (O2satu - oxyg(i,j,k));
+                    oxyg(i,j,k) = oxyg(i,j,k) + O2_Flux * inv_hz(i,j,k);
+                }
+
+                // Carbon remineralization of detritus and semilabile DOC.
+                for (int k = 0; k < N; ++k) {
+                    const Real f_ntr = oxyg(i,j,k) / (oxyg(i,j,k) + K_Nitri);
+                    const Real f_dnf = K_Denit / (oxyg(i,j,k) + K_Denit) * no3(i,j,k) / (no3(i,j,k) + K_wNO3);
+                    const Real cff = dtdays * std::exp(Real(0.0875) * temp(i,j,k));
+                    const Real cff1 = cff * parms.SDeRRC;
+                    const Real cff2 = cff1 * parms.deltC;
+                    const Real cff3 = cff1 * (one - parms.deltC);
+                    const Real cff4 = cff * parms.LDeRRC;
+                    const Real cff5 = cff4 * parms.deltC;
+                    const Real cff6 = cff4 * (one - parms.deltC);
+                    const Real rdoc = cff * parms.RDeRRC;
+                    const Real fac = (f_ntr + f_dnf);
+                    sdec(i,j,k) = sdec(i,j,k) / (one + cff2 + cff3 * fac);
+                    ldec(i,j,k) = ldec(i,j,k) / (one + cff5 + cff6 * fac);
+                    doc(i,j,k) = doc(i,j,k) / (one + rdoc * fac);
+                    const Real C_Flux_RemineS = sdec(i,j,k) * cff3 * fac;
+                    const Real C_Flux_RemineL = ldec(i,j,k) * cff6 * fac;
+                    const Real C_Flux_RemineR = doc(i,j,k) * rdoc * fac;
+                    tic(i,j,k) = tic(i,j,k) + C_Flux_RemineS + C_Flux_RemineL + C_Flux_RemineR;
+                    doc(i,j,k) = doc(i,j,k) + cff2 * sdec(i,j,k) + cff5 * ldec(i,j,k);
+                }
+
+                // Surface CO2 gas exchange.
+                {
+                    const int k = N - 1;
+                    const Real pCO2 = pco2_water(temp(i,j,k), salt(i,j,k), tic(i,j,k), talk(i,j,k));
+                    const Real cff2 = transfer_rate(co2_schmidt, dtdays);
+                    const Real SchmidtN = schmidt_number(co2_schmidt, temp(i,j,k));
+                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN);
+                    const Real CO2_sol = co2_solubility(temp(i,j,k), salt(i,j,k));
+                    const Real CO2_Flux = cff3 * CO2_sol * (parms.pCO2air - pCO2);
+                    tic(i,j,k) = tic(i,j,k) + CO2_Flux * inv_hz(i,j,k);
+                }
+
+                // Vertical sinking terms: phytoplankton, chlorophyll, small and
+                // large nitrogen detritus, and small and large carbon detritus,
+                // by the ROMS PPM/WENO scheme with its monotone boundary closures.
+                for (int isink = 0; isink < 6; ++isink) {
+                    Array4<Real> bio = phyt;
+                    Real wbio = parms.wPhy;
+                    if (isink == 1) {
+                        bio = chlo;
+                        wbio = parms.wPhy;
+                    } else if (isink == 2) {
+                        bio = sden;
+                        wbio = parms.wSDet;
+                    } else if (isink == 3) {
+                        bio = lden;
+                        wbio = parms.wLDet;
+                    } else if (isink == 4) {
+                        bio = sdec;
+                        wbio = parms.wSDet;
+                    } else if (isink == 5) {
+                        bio = ldec;
+                        wbio = parms.wLDet;
+                    }
+                    const bool phyt_sink = (isink == 0);
+                    const bool nitrogen_sink = (isink == 0 || isink == 2 || isink == 3);
+                    const bool carbon_sink = (isink == 4 || isink == 5);
+
+                    for (int k = 0; k < N; ++k) {
+                        qc(i,j,k) = amrex::max(bio(i,j,k), zero);
+                    }
+
+                    // Reconstruct vertical profile of selected biological
+                    // constituent "Bio" in terms of a set of parabolic segments
+                    // within each grid box. Then, compute semi-Lagrangian flux
+                    // due to sinking.
+                    for (int iface = N - 1; iface >= 1; --iface) {
+                        FC(i,j,iface) = (qc(i,j,iface) - qc(i,j,iface-1)) * inv_hz2(i,j,iface-1);
+                    }
+                    for (int k = 1; k < N - 1; ++k) {
+                        Real dltR = Hz(i,j,k) * FC(i,j,k+1);
+                        Real dltL = Hz(i,j,k) * FC(i,j,k);
+                        Real cff = Hz(i,j,k-1) + two * Hz(i,j,k) + Hz(i,j,k+1);
+                        const Real cffR = cff * FC(i,j,k+1);
+                        const Real cffL = cff * FC(i,j,k);
+
+                        // Apply PPM monotonicity constraint to prevent
+                        // oscillations within the grid box.
+                        if ((dltR * dltL) <= zero) {
+                            dltR = zero;
+                            dltL = zero;
+                        } else if (std::abs(dltR) > std::abs(cffL)) {
+                            dltR = cffL;
+                        } else if (std::abs(dltL) > std::abs(cffR)) {
+                            dltL = cffR;
+                        }
+
+                        // Compute right and left side values (bR,bL) of
+                        // parabolic segments within grid box Hz(k); (WR,WL) are
+                        // measures of quadratic variations.
+                        cff = (dltR - dltL) * inv_hz3(i,j,k);
+                        dltR = dltR - cff * Hz(i,j,k+1);
+                        dltL = dltL + cff * Hz(i,j,k-1);
+                        bR(i,j,k) = qc(i,j,k) + dltR;
+                        bL(i,j,k) = qc(i,j,k) - dltL;
+                        WR(i,j,k) = std::pow((two * dltR - dltL), 2);
+                        WL(i,j,k) = std::pow((dltR - two * dltL), 2);
+                    }
+                    for (int k = 1; k < N - 2; ++k) {
+                        const Real dltL = amrex::max(cff_weno, WL(i,j,k));
+                        const Real dltR = amrex::max(cff_weno, WR(i,j,k+1));
+                        bR(i,j,k) = (dltR * bR(i,j,k) + dltL * bL(i,j,k+1)) / (dltR + dltL);
+                        bL(i,j,k+1) = bR(i,j,k);
+                    }
+                    FC(i,j,N) = zero;              // no-flux boundary condition
+                    bR(i,j,N-1) = qc(i,j,N-1);     // default strictly monotonic
+                    bL(i,j,N-1) = qc(i,j,N-1);     // conditions
+                    bR(i,j,N-2) = qc(i,j,N-1);
+                    bL(i,j,1) = qc(i,j,0);         // bottom grid boxes are
+                    bR(i,j,0) = qc(i,j,0);         // re-assumed to be
+                    bL(i,j,0) = qc(i,j,0);         // piecewise constant.
+
+                    // Apply monotonicity constraint again, since the reconciled
+                    // interfacial values may cause a non-monotonic behavior of
+                    // the parabolic segments inside the grid box.
+                    for (int k = 0; k < N; ++k) {
+                        Real dltR = bR(i,j,k) - qc(i,j,k);
+                        Real dltL = qc(i,j,k) - bL(i,j,k);
+                        const Real cffR = two * dltR;
+                        const Real cffL = two * dltL;
+                        if ((dltR * dltL) < zero) {
+                            dltR = zero;
+                            dltL = zero;
+                        } else if (std::abs(dltR) > std::abs(cffL)) {
+                            dltR = cffL;
+                        } else if (std::abs(dltL) > std::abs(cffR)) {
+                            dltL = cffR;
+                        }
+                        bR(i,j,k) = qc(i,j,k) + dltR;
+                        bL(i,j,k) = qc(i,j,k) - dltL;
+                    }
+
+                    // After this moment reconstruction is considered complete.
+                    // The next stage is to compute vertical advective fluxes,
+                    // FC. It is expected that sinking may occur relatively fast,
+                    // the algorithm is designed to be free of CFL criterion,
+                    // which is achieved by allowing integration bounds for
+                    // semi-Lagrangian advective flux to use as many grid boxes
+                    // in upstream direction as necessary.
+                    const Real cff_w = dtdays * std::abs(wbio);
+                    for (int k = 0; k < N; ++k) {
+                        FC(i,j,k) = zero;
+                        WL(i,j,k) = z_w(i,j,k) + cff_w;
+                        WR(i,j,k) = Hz(i,j,k) * qc(i,j,k);
+                    }
+                    for (int k = 0; k < N; ++k) {
+                        int ksource = k;
+                        for (int ks = k; ks < N - 1; ++ks) {
+                            if (WL(i,j,k) > z_w(i,j,ks+1)) {
+                                ksource = ks + 1;
+                                FC(i,j,k) = FC(i,j,k) + WR(i,j,ks);
+                            }
+                        }
+                        const int ks = ksource;
+                        const Real cu = amrex::min(one, (WL(i,j,k) - z_w(i,j,ks)) * inv_hz(i,j,ks));
+                        FC(i,j,k) = FC(i,j,k) +
+                                    Hz(i,j,ks) * cu *
+                                    (bL(i,j,ks) + cu * (Real(0.5) * (bR(i,j,ks) - bL(i,j,ks)) -
+                                     (Real(1.5) - cu) * (bR(i,j,ks) + bL(i,j,ks) - two * qc(i,j,ks))));
+                    }
+                    for (int k = 0; k < N; ++k) {
+                        bio(i,j,k) = qc(i,j,k) + (FC(i,j,k+1) - FC(i,j,k)) * inv_hz(i,j,k);
+                    }
+
+                    // Stress-dependent resuspension and instantaneous sediment
+                    // recycling and burial of the material reaching the bottom.
+                    Real cff1 = zero;
+                    Real cbe = zero;
+                    if (nitrogen_sink || carbon_sink) {
+                        const Real ustarb = std::sqrt(std::sqrt(
+                            std::pow((Real(0.5) * (bustr(i,j,0) + bustr(i+1,j,0))), 2) +
+                            std::pow((Real(0.5) * (bvstr(i,j,0) + bvstr(i,j+1,0))), 2)));
+                        const Real resuspr = amrex::min(std::pow(ustarb, 2) / Real(9.61e-6), one);
+                        cff1 = FC(i,j,0) * inv_hz(i,j,0) * (one - resuspr);
+                        const Real cff5 = FC(i,j,0) * inv_hz(i,j,0) * resuspr;
+                        if (nitrogen_sink) {
+                            sden(i,j,0) = sden(i,j,0) + cff5;
+                        }
+                        if (carbon_sink) {
+                            sdec(i,j,0) = sdec(i,j,0) + cff5;
+                        }
+                        if (phyt_sink) {
+                            sdec(i,j,0) = sdec(i,j,0) + cff5 * parms.PhyCN;
+                        }
+                    }
+                    if (nitrogen_sink) {
+                        // Nitrogen burial efficiency, then sediment
+                        // denitrification of the rest.
+                        const Real CNbur = phyt_sink ? parms.PhyCN : Real(9.3);
+                        const Real cff5 = Real(0.01);
+                        const Real fac1 = CNbur * Real(12.0) / Real(1000.0) * cff1 * Hz(i,j,0) *
+                                          (Real(365.0) / dtdays);
+                        cbe = amrex::min(Real(0.50), Real(0.023) * std::pow(fac1, Real(0.5797)));
+                        cff1 = (one - cbe) * cff1;
+                        const Real O2satb = o2_saturation(temp(i,j,0), salt(i,j,0));
+                        const Real LBO2 = (K_bO2 * (O2satb - oxyg(i,j,0))) / (O2satb * (oxyg(i,j,0) + K_bO2));
+                        const Real fac = cff1 * (one + Real(3.0) * LBO2);
+                        nh4(i,j,0) = nh4(i,j,0) + denitrification_NH4_fraction * fac;
+                        talk(i,j,0) = talk(i,j,0) + denitrification_NH4_fraction * fac;
+                        don(i,j,0) = don(i,j,0) + cff5 * fac;
+                        oxyg(i,j,0) = oxyg(i,j,0) - cff1 * rOxNH4Denit * (one - LBO2);
+                    }
+                    if (phyt_sink || carbon_sink) {
+                        // Carbon burial efficiency; phytoplankton reuses the
+                        // flux before the nitrogen burial above.
+                        if (phyt_sink) {
+                            cff1 = cff1 / (one - cbe);
+                        }
+                        Real fac1 = Real(12.0) / Real(1000.0) * cff1 * Hz(i,j,0) * (Real(365.0) / dtdays);
+                        if (phyt_sink) {
+                            fac1 = fac1 * parms.PhyCN;
+                        }
+                        cbe = amrex::min(Real(0.50), Real(0.023) * std::pow(fac1, Real(0.5797)));
+                        const Real fac2 = phyt_sink ? parms.PhyCN : one;
+                        cff1 = (one - cbe) * cff1;
+                        const Real cff5 = Real(0.01);
+                        const Real fac = fac2 * cff1;
+                        doc(i,j,0) = doc(i,j,0) + fac * cff5;
+                        tic(i,j,0) = tic(i,j,0) + fac * (one - cff5);
+                    }
+                }
+            }
+
+            for (int k = 0; k < N; ++k) {
+                tic(i,j,k) = amrex::min(tic(i,j,k), TIC_max);
+                tic(i,j,k) = amrex::max(tic(i,j,k), TIC_min);
+            }
+
+            // Update global tracer variables: add the Hz-weighted increment,
+            // relative to the same restricted old values the scratch started
+            // from, to the incoming state.
+            const Real rmask = mskr(i,j,0);
+            for (int k = 0; k < N; ++k) {
+                auto add_increment = [&] (Array4<Real> const& bio, int c) {
+                    const Real old_value = amrex::max(zero, state_old(i,j,k,c));
+                    state_new(i,j,k,c) += (bio(i,j,k) - old_value) * rmask * Hz(i,j,k);
+                };
+                add_increment(no3, c_no3);
+                add_increment(nh4, c_nh4);
+                add_increment(chlo, c_chlo);
+                add_increment(phyt, c_phyt);
+                add_increment(zoop, c_zoop);
+                add_increment(lden, c_lden);
+                add_increment(sden, c_sden);
+                add_increment(don, c_don);
+                add_increment(po4, c_po4);
+                add_increment(ldec, c_ldec);
+                add_increment(sdec, c_sdec);
+                const Real old_tic = amrex::max(amrex::min(amrex::max(zero, state_old(i,j,k,c_tic)),
+                                                           TIC_max), TIC_min);
+                state_new(i,j,k,c_tic) += (tic(i,j,k) - old_tic) * rmask * Hz(i,j,k);
+                add_increment(talk, c_talk);
+                add_increment(doc, c_doc);
+                add_increment(oxyg, c_oxyg);
+                add_increment(rdon_s, c_rdon);
+                add_increment(rdoc_s, c_rdoc);
+                add_increment(calc, c_calc);
+            }
+        });
     }
 }
-} // namespace REMORABiology

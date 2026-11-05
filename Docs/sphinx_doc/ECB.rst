@@ -53,10 +53,12 @@ example using analytic physics, a uniform ECB initial condition, one passive
 dye and bulk forcing. Its numerical parameters exercise the equations; they
 are not a calibrated Chesapeake Bay setup.
 
-All 42 rate/optical/stoichiometric parameters used by this variant are required
-under ``remora.ecb``. Their names and units follow ROMS. There are no inherited
-Fennel defaults. ``BioIter`` defaults to 1; a nonpositive value disables the
-source update. Input half-saturation coefficients ``K_NO3``, ``K_NH4`` and
+The 42 rate, optical and stoichiometric parameters are read from
+``remora.ecb``, with names and units following ROMS. Each defaults to the value
+ROMS ``External/bio_ECB.in`` sets at the pinned commit, not to the Fennel value
+of the same name; ``REMORA_ECBBiology.H`` documents each one. ``BioIter``
+defaults to 1; a nonpositive value disables the source update. ``AttSW``,
+``slCexc`` and ``K_Phy`` must be positive and ``AttChl`` non-negative. Input half-saturation coefficients ``K_NO3``, ``K_NH4`` and
 ``K_PO4`` are the inverse values used by the ROMS kernel (m3/mmol).
 ``wPhy``, ``wSDet`` and ``wLDet`` are in m/day; rates are in day^-1 unless
 specified otherwise in the reference parameter descriptions.
@@ -133,7 +135,9 @@ because its ``srflx`` is kinematic; REMORA does not.
 ``K_Phy <= 0``, each of which divides by zero in the kernel.
 A column must contain at least two layers, and each grid box must span its
 entire vertical column. Horizontal decomposition is allowed; vertically
-split grid boxes fail explicitly. CPU tiling does not split this kernel.
+split grid boxes fail explicitly. CPU tiles split the kernel horizontally
+only, whatever ``remora.omp_tile_size`` sets in z, and the answer does not
+depend on the tiling.
 
 Every checkpoint ``Header`` ends with a ``cons_names`` line listing the
 cell-centered components in order, and restart rejects a checkpoint whose list
