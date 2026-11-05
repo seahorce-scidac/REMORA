@@ -1,5 +1,6 @@
 #include <REMORA_FennelBiology.H>
 #include <REMORA_BiologyCarbonate.H>
+#include <REMORA_BiologyGasExchange.H>
 #include <REMORA_DataStruct.H>
 #include <REMORA_Constants.H>
 #include <REMORA_DateClock.H>
@@ -305,42 +306,18 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
     // transfer velocity. Each pair belongs to one published relation, so they
     // are selected together rather than independently; ROMS makes the same
     // pairings with RW14_OXYGEN_SC, OCMIP_OXYGEN_SC and RW14_CO2_SC.
-    Real A_O2 = Real(1953.4);       // Schmidt number
-    Real B_O2 = Real(128.0);        // coefficients from
-    Real C_O2 = Real(3.9918);       // Wanninkhof (1992)
-    Real D_O2 = Real(0.050091);
-    Real E_O2 = Real(0.0);
-    Real o2_rate = Real(0.31);
+    // The sets live in REMORA_BiologyGasExchange.H, shared with ECB; Keeling
+    // et al. (1998) gives a slightly smaller Sc up to about 35C, and ROMS pairs
+    // it with the 1992 rate coefficient, not the 2014 one.
+    SchmidtCoefficients o2_schmidt = GasExchange::O2Wanninkhof1992;
     if (parms.o2_schmidt == REMORABiology::O2SchmidtType::wanninkhof2014) {
-        A_O2 = Real(1920.4);
-        B_O2 = Real(135.6);
-        C_O2 = Real(5.2122);
-        D_O2 = Real(0.10939);
-        E_O2 = Real(0.00093777);
-        o2_rate = Real(0.251);
+        o2_schmidt = GasExchange::O2Wanninkhof2014;
     } else if (parms.o2_schmidt == REMORABiology::O2SchmidtType::ocmip) {
-        // Keeling et al. (1998); Sc is slightly smaller up to about 35C. ROMS
-        // pairs this set with the 1992 rate coefficient, not the 2014 one.
-        A_O2 = Real(1638.0);
-        B_O2 = Real(81.83);
-        C_O2 = Real(1.483);
-        D_O2 = Real(0.008004);
-        E_O2 = Real(0.0);
+        o2_schmidt = GasExchange::O2OCMIP;
     }
-
-    Real A_CO2 = Real(2073.1);      // Schmidt number
-    Real B_CO2 = Real(125.62);      // coefficients from
-    Real C_CO2 = Real(3.6276);      // Wanninkhof (1992)
-    Real D_CO2 = Real(0.043219);
-    Real E_CO2 = Real(0.0);
-    Real co2_rate = Real(0.31);
+    SchmidtCoefficients co2_schmidt = GasExchange::CO2Wanninkhof1992;
     if (parms.co2_schmidt == REMORABiology::CO2SchmidtType::wanninkhof2014) {
-        A_CO2 = Real(2116.8);
-        B_CO2 = Real(136.25);
-        C_CO2 = Real(4.7353);
-        D_CO2 = Real(0.092307);
-        E_CO2 = Real(0.0007555);
-        co2_rate = Real(0.251);
+        co2_schmidt = GasExchange::CO2Wanninkhof2014;
     }
 
     // Atmospheric pCO2 varies in time but not in space, so evaluate it once
@@ -515,29 +492,10 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
             constexpr Real minval = Real(1.0e-6);
             constexpr Real cff_weno = Real(1.0e-14);
 
-            constexpr Real OA0 = Real(2.00907);       // Oxygen
-            constexpr Real OA1 = Real(3.22014);       // saturation
-            constexpr Real OA2 = Real(4.05010);       // coefficients
-            constexpr Real OA3 = Real(4.94457);
-            constexpr Real OA4 = Real(-0.256847);
-            constexpr Real OA5 = Real(3.88767);
-            constexpr Real OB0 = Real(-0.00624523);
-            constexpr Real OB1 = Real(-0.00737614);
-            constexpr Real OB2 = Real(-0.0103410);
-            constexpr Real OB3 = Real(-0.00817083);
-            constexpr Real OC0 = Real(-0.000000488682);
             constexpr Real rOxNO3 = Real(8.625);       // 138/16
             constexpr Real rOxNH4 = Real(6.625);       // 106/16
             constexpr Real rOxNH4Denit = Real(115.0) / Real(16.0);
             constexpr Real denitrification_NH4_fraction = Real(4.0) / Real(16.0);
-            constexpr Real l2mol = Real(1000.0) / Real(22.3916); // liter to mol
-
-            constexpr Real A1 = Real(-60.2409);       // surface
-            constexpr Real A2 = Real(93.4517);        // CO2
-            constexpr Real A3 = Real(23.3585);        // solubility
-            constexpr Real B1 = Real(0.023517);       // coefficients
-            constexpr Real B2 = Real(-0.023656);
-            constexpr Real B3 = Real(0.0047036);
 
             // Compute inverse thickness to avoid repeated divisions.
             //
@@ -986,37 +944,17 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
                     // Surface O2 gas exchange.
                     //
                     // Compute surface O2 gas exchange.
-                    const Real cff1 = rho0 * Real(550.0);
-                    const Real cff2 = dtdays * o2_rate * Real(24.0) / Real(100.0);
+                    const Real cff2 = transfer_rate(o2_schmidt, dtdays);
                     const int k = N;
 
-                    Real u10squ;
                     // Compute O2 transfer velocity: u10squared (u10 in m/s).
-                    if (do_bulk_flux) {
-                        u10squ = uwind(i,j,0) * uwind(i,j,0) + vwind(i,j,0) * vwind(i,j,0);
-                    } else {
-                        u10squ = cff1 *
-                        std::sqrt((Real(0.5) * (sustr(i,j,0) + sustr(i+1,j,0))) *
-                                  (Real(0.5) * (sustr(i,j,0) + sustr(i+1,j,0))) +
-                                  (Real(0.5) * (svstr(i,j,0) + svstr(i,j+1,0))) *
-                                  (Real(0.5) * (svstr(i,j,0) + svstr(i,j+1,0))));
-                    }
-                    const Real SchmidtN_Ox = A_O2 - temp(i,j,k) *
-                        (B_O2 - temp(i,j,k) *
-                         (C_O2 - temp(i,j,k) *
-                          (D_O2 - temp(i,j,k) * E_O2)));
-                    const Real cff3 = cff2 * u10squ * std::sqrt(Real(660.0) / SchmidtN_Ox);
+                    const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr,
+                                                    i, j, rho0);
+                    const Real SchmidtN_Ox = schmidt_number(o2_schmidt, temp(i,j,k));
+                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN_Ox);
 
-                    // Calculate O2 saturation concentration using Garcia and
-                    // Gordon L and O (1992) formula, (EXP(AA) is in ml/l).
-                    const Real TS = std::log((Real(298.15) - temp(i,j,k)) /
-                                             (Real(273.15) + temp(i,j,k)));
-                    const Real AA = OA0 + TS * (OA1 + TS * (OA2 + TS * (OA3 + TS * (OA4 + TS * OA5)))) +
-                                    salt(i,j,k) * (OB0 + TS * (OB1 + TS * (OB2 + TS * OB3))) +
-                                    OC0 * salt(i,j,k) * salt(i,j,k);
-
-                    // Convert from ml/l to mmol/m3.
-                    const Real O2satu = l2mol * std::exp(AA);
+                    // O2 saturation concentration [mmol/m3], Garcia and Gordon (1992).
+                    const Real O2satu = o2_saturation(temp(i,j,k), salt(i,j,k));
 
                     // Add in O2 gas exchange.
                     const Real O2_Flux = cff3 * (O2satu - oxyg(i,j,k));
@@ -1068,33 +1006,16 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
                                                         tic(i,j,k), talk(i,j,k));
 
                     // Compute surface CO2 gas exchange.
-                    const Real cff1 = rho0 * Real(550.0);
-                    const Real cff2 = dtdays * co2_rate * Real(24.0) / Real(100.0);
+                    const Real cff2 = transfer_rate(co2_schmidt, dtdays);
 
                     // Compute CO2 transfer velocity: u10squared (u10 in m/s).
-                    Real u10squ;
-                    if (do_bulk_flux) {
-                        u10squ = uwind(i,j,0) * uwind(i,j,0) + vwind(i,j,0) * vwind(i,j,0);
-                    } else {
-                        u10squ = cff1 *
-                        std::sqrt((Real(0.5) * (sustr(i,j,0) + sustr(i+1,j,0))) *
-                                  (Real(0.5) * (sustr(i,j,0) + sustr(i+1,j,0))) +
-                                  (Real(0.5) * (svstr(i,j,0) + svstr(i,j+1,0))) *
-                                  (Real(0.5) * (svstr(i,j,0) + svstr(i,j+1,0))));
-                    }
-                    const Real SchmidtN = A_CO2 - temp(i,j,k) *
-                        (B_CO2 - temp(i,j,k) *
-                         (C_CO2 - temp(i,j,k) *
-                          (D_CO2 - temp(i,j,k) * E_CO2)));
-                    const Real cff3 = cff2 * u10squ * std::sqrt(Real(660.0) / SchmidtN);
+                    const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr,
+                                                    i, j, rho0);
+                    const Real SchmidtN = schmidt_number(co2_schmidt, temp(i,j,k));
+                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN);
 
-                    // Calculate CO2 solubility [mol/(kg.atm)] using Weiss
-                    // (1974) formula.
-                    const Real TempK = Real(0.01) * (temp(i,j,k) + Real(273.15));
-                    const Real CO2_sol = std::exp(A1 +
-                                                  A2 / TempK +
-                                                  A3 * std::log(TempK) +
-                                                  salt(i,j,k) * (B1 + TempK * (B2 + B3 * TempK)));
+                    // CO2 solubility [mol/(kg.atm)], Weiss (1974).
+                    const Real CO2_sol = co2_solubility(temp(i,j,k), salt(i,j,k));
 
                     // Add in CO2 gas exchange.
                     const Real CO2_Flux = cff3 * CO2_sol * (pco2air - pCO2);
