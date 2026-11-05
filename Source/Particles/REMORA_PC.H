@@ -351,16 +351,22 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
         void WriteOutput ( const std::string& a_fname, const std::string& a_name,
                            const amrex::Vector<amrex::MultiFab>* a_xy = nullptr );
 
-        /*! Compute mass density */
-        virtual void massDensity ( amrex::MultiFab& a_mf, const int& a_lev, const int& a_comp = 0) const;
+        /*! Compute mass density, per unit of physical cell volume Hz/(pm*pn) */
+        virtual void massDensity ( amrex::MultiFab& a_mf, const int& a_lev,
+                                   amrex::MultiFab const& a_Hz, amrex::MultiFab const& a_pm,
+                                   amrex::MultiFab const& a_pn, const int& a_comp = 0) const;
 
-        /*! Compute mesh variable from particles */
-        virtual void computeMeshVar(    const std::string&  a_var_name,
-                                        amrex::MultiFab&    a_mf,
-                                        const int           a_lev) const
+        /*! Compute mesh variable from particles. a_Hz, a_pm and a_pn are the level's cell
+         *  thickness and inverse horizontal metrics, for variables per unit volume. */
+        virtual void computeMeshVar(    const std::string&      a_var_name,
+                                        amrex::MultiFab&        a_mf,
+                                        const int               a_lev,
+                                        amrex::MultiFab const&  a_Hz,
+                                        amrex::MultiFab const&  a_pm,
+                                        amrex::MultiFab const&  a_pn) const
         {
             if (a_var_name == "mass_density") {
-                massDensity( a_mf, a_lev );
+                massDensity( a_mf, a_lev, a_Hz, a_pm, a_pn );
             } else {
                 a_mf.setVal(zero);
             }

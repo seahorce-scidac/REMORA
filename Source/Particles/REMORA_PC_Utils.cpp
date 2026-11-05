@@ -1,20 +1,34 @@
 #ifdef REMORA_USE_PARTICLES
 
-#include <AMReX_ParticleInterpolators.H>
 #include <AMReX_ParticleHeader.H>
+#include <AMReX_ParticleMesh.H>
 #include <REMORA_Constants.H>
 #include <REMORA_PC.H>
 
 using namespace amrex;
 
 /**
+ * Mass per unit physical volume, by cloud-in-cell deposit in index space. Horizontally the
+ * weights come from the particle's position in the uniform coordinates it moves in, and
+ * vertically from its level index s (cell k spans s in [k, k+1]), so the deposit lands in
+ * the cells around the particle whatever the stretching of the levels. Weight that would
+ * fall below the bed, above the free surface or across a non-periodic side of the domain
+ * goes to the edge cell instead, so no mass is lost. The deposited mass is then divided by
+ * each cell's volume, Hz/(pm*pn).
+ *
  * @param a_mf     Multifab to calculate over
  * @param a_lev    level to calculate on
+ * @param a_Hz     cell thickness on this level
+ * @param a_pm     inverse grid spacing in x on this level
+ * @param a_pn     inverse grid spacing in y on this level
  * @param a_comp   component to calculate
  */
 void REMORAPC::massDensity ( MultiFab&  a_mf,
-                          const int& a_lev,
-                          const int& a_comp ) const
+                             const int& a_lev,
+                             MultiFab const& a_Hz,
+                             MultiFab const& a_pm,
+                             MultiFab const& a_pn,
+                             const int& a_comp ) const
 {
     BL_PROFILE("REMORAPC::massDensity()");
 
@@ -24,23 +38,74 @@ void REMORAPC::massDensity ( MultiFab&  a_mf,
     const auto& geom = Geom(a_lev);
     const auto plo = geom.ProbLoArray();
     const auto dxi = geom.InvCellSizeArray();
+    const auto dlo = lbound(geom.Domain());
+    const auto dhi = ubound(geom.Domain());
+    const bool clamp_x = !geom.isPeriodic(0);
+    const bool clamp_y = !geom.isPeriodic(1);
 
-    const Real inv_cell_volume = dxi[0]*dxi[1]*dxi[2];
     a_mf.setVal(zero);
 
     ParticleToMesh( *this, a_mf, a_lev,
         [=] AMREX_GPU_DEVICE (  const REMORAPC::ParticleTileType::ConstParticleTileDataType& ptd,
                                 int i, Array4<Real> const& rho)
         {
-            auto p = ptd.m_aos[i];
-            ParticleInterpolator::Linear interp(p, plo, dxi);
-            interp.ParticleToMesh ( p, rho, 0, a_comp, 1,
-                [=] AMREX_GPU_DEVICE ( const REMORAPC::ParticleType&, int)
-                {
-                    auto mass = ptd.m_rdata[REMORAParticlesRealIdxSoA::mass][i];
-                    return static_cast<Real>(mass*inv_cell_volume);
-                });
+            const auto& p = ptd.m_aos[i];
+            const auto mass = static_cast<Real>(ptd.m_rdata[REMORAParticlesRealIdxSoA::mass][i]);
+
+            // Lower cell of the stencil and the weight of the upper one, from the
+            // fractional cell-centred index a_xc
+            auto cic = [] (Real a_xc, int a_lo, int a_hi, bool a_clamp, int& a_i0, Real& a_w1)
+            {
+                a_i0 = static_cast<int>(amrex::Math::floor(a_xc));
+                a_w1 = a_xc - static_cast<Real>(a_i0);
+                if (a_clamp) {
+                    if (a_i0 < a_lo) {
+                        a_i0 = a_lo; a_w1 = zero;
+                    } else if (a_i0 >= a_hi) {
+                        a_i0 = a_hi; a_w1 = zero;
+                    }
+                }
+            };
+
+            int i0, j0, k0;
+            Real wx, wy, wz;
+            cic((static_cast<Real>(p.pos(0)) - plo[0])*dxi[0] - myhalf, dlo.x, dhi.x, clamp_x, i0, wx);
+            cic((static_cast<Real>(p.pos(1)) - plo[1])*dxi[1] - myhalf, dlo.y, dhi.y, clamp_y, j0, wy);
+            cic(static_cast<Real>(ptd.m_rdata[REMORAParticlesRealIdxSoA::s][i]) - myhalf,
+                dlo.z, dhi.z, true, k0, wz);
+
+            for (int kk = 0; kk <= 1; ++kk) {
+                const Real fz = kk ? wz : one - wz;
+                if (fz == zero) { continue; }
+                for (int jj = 0; jj <= 1; ++jj) {
+                    const Real fy = jj ? wy : one - wy;
+                    if (fy == zero) { continue; }
+                    for (int ii = 0; ii <= 1; ++ii) {
+                        const Real fx = ii ? wx : one - wx;
+                        if (fx == zero) { continue; }
+                        Gpu::Atomic::AddNoRet(&rho(i0+ii, j0+jj, k0+kk, a_comp), fx*fy*fz*mass);
+                    }
+                }
+            }
         });
+
+    // Mass per cell to mass per unit volume
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(a_mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.tilebox();
+        const Array4<Real> rho = a_mf.array(mfi);
+        const Array4<Real const> Hz = a_Hz.const_array(mfi);
+        const Array4<Real const> pm = a_pm.const_array(mfi);
+        const Array4<Real const> pn = a_pn.const_array(mfi);
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            rho(i,j,k,a_comp) = (Hz(i,j,k) > zero)
+                              ? rho(i,j,k,a_comp) * pm(i,j,0) * pn(i,j,0) / Hz(i,j,k) : zero;
+        });
+    }
 
     return;
 }
