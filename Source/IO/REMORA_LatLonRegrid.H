@@ -46,10 +46,13 @@ struct LatLonRegridOptions
  * the layout the coupling remap uses: up to four weights, and the (i, j, k) source index of
  * each. They depend only on the source axes and the target points, not on the variable, so
  * every field on the same source grid and forcing layout shares one copy: define() hands out
- * the weights an earlier field built, when there is one still in use. apply() reads one record of the field, sets aside source values equal to the
- * variable's _FillValue or missing_value (or not finite), unpacks the rest with its
- * scale_factor and add_offset, renormalizes the remaining weights, and gives a target point
- * whose four corners are all missing the nearest valid source value within
+ * the weights an earlier field built, when there is one still in use. It also finds the
+ * box of source cells this rank's stencils and nearest-valid search can reach (across the
+ * seam of a periodic longitude, when that is shorter), and apply() reads only that box of
+ * each record, every rank at once in a collective read. apply() sets aside source values
+ * equal to the variable's _FillValue or missing_value (or not finite), unpacks the rest
+ * with its scale_factor and add_offset, renormalizes the remaining weights, and gives a
+ * target point whose four corners are all missing the nearest valid source value within
  * LatLonRegridOptions::fill_max_rings cells.
  */
 class LatLonRegrid
@@ -100,6 +103,7 @@ public:
     void build_weights (const amrex::MultiFab& lon, const amrex::MultiFab& lat,
                         amrex::MultiFab& w, amrex::iMultiFab& idx) const;
     void interpolate (const amrex::FArrayBox& src, amrex::MultiFab& dst) const;
+    amrex::Box find_source_box () const;
 
     /** \brief Number of stencil points per target cell */
     static constexpr int stencil_size = 4;
@@ -127,6 +131,9 @@ private:
      *  other field on the same source grid and forcing layout */
     std::shared_ptr<const amrex::MultiFab> weights;
     std::shared_ptr<const amrex::iMultiFab> indices;
+
+    /** Source cells this rank reads, as (i = lon, j = lat); empty when it has no target cells */
+    amrex::Box source_box;
 };
 
 #endif // REMORA_USE_NETCDF

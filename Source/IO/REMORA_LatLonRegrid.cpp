@@ -303,6 +303,7 @@ LatLonRegrid::define (const std::string& file_name, const std::string& field_nam
             weights = e.weights.lock();
             indices = e.indices.lock();
             if (weights && indices) {
+                source_box = find_source_box();
                 amrex::Print() << "Interpolating " << field_name << " from " << summary()
                                << ", with the weights of an earlier field on it" << std::endl;
                 return;
@@ -328,6 +329,7 @@ LatLonRegrid::define (const std::string& file_name, const std::string& field_nam
     indices = idx;
     cache.push_back({lon_file, lat_file, domain, like.boxArray(), like.DistributionMap(),
                      &target_lon, &target_lat, weights, indices});
+    source_box = find_source_box();
 
     amrex::Print() << "Interpolating " << field_name << " from " << summary() << std::endl;
 }
@@ -399,34 +401,98 @@ LatLonRegrid::build_weights (const MultiFab& lon, const MultiFab& lat,
     }
 }
 
+Box
+LatLonRegrid::find_source_box () const
+{
+    // Corner 0 of the stencil of every target cell this rank fills. The other corners lie
+    // within one cell of it, and so does the cell the nearest-valid search centers on, so
+    // the cells read lie within fill_max_rings + 1 of it. Along a periodic longitude the
+    // corners are also taken half way round, so that a range across the seam (as on a
+    // 0 .. 360 axis near Greenwich) is found as one range there.
+    const int half = nlon / 2, N = nlon;
+    ReduceOps<ReduceOpMin, ReduceOpMax, ReduceOpMin, ReduceOpMax, ReduceOpMin, ReduceOpMax> reduce_op;
+    ReduceData<int, int, int, int, int, int> reduce_data(reduce_op);
+    using ReduceTuple = typename decltype(reduce_data)::Type;
+    const int big = std::numeric_limits<int>::max();
+    for (MFIter mfi(*indices); mfi.isValid(); ++mfi) {
+        const Box bx = target_box(mfi);
+        auto const& idx = indices->const_array(mfi);
+        reduce_op.eval(bx, reduce_data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
+        {
+            const int i0 = idx(i,j,k,0), j0 = idx(i,j,k,1);
+            if (i0 < 0) { return { big, -big, big, -big, big, -big }; }
+            const int is = (i0 + half) % N;
+            return { i0, i0, j0, j0, is, is };
+        });
+    }
+    ReduceTuple r = reduce_data.value(reduce_op);
+    int ilo = amrex::get<0>(r), ihi = amrex::get<1>(r);
+    int jlo = amrex::get<2>(r), jhi = amrex::get<3>(r);
+    const int islo = amrex::get<4>(r), ishi = amrex::get<5>(r);
+    if (ilo > ihi) { return Box(); }
+    if (periodic_lon && ishi - islo < ihi - ilo) {
+        ilo = islo - half;
+        ihi = ishi - half;
+    }
+
+    const int R = fill_max_rings + 1;
+    ilo -= R; ihi += R; jlo -= R; jhi += R;
+    jlo = amrex::max(jlo, 0); jhi = amrex::min(jhi, nlat-1);
+    if (!periodic_lon) {
+        ilo = amrex::max(ilo, 0); ihi = amrex::min(ihi, nlon-1);
+    } else if (ihi - ilo + 1 >= nlon) {
+        ilo = 0; ihi = nlon-1;
+    } else if (ilo < 0) {
+        // Starting in [0, nlon); a box past the last longitude wraps to the first
+        ilo += nlon; ihi += nlon;
+    }
+    return Box(IntVect(ilo, jlo, 0), IntVect(ihi, jhi, 0));
+}
+
 void
 LatLonRegrid::apply (const std::string& file_name, const std::string& field_name, int itime,
                      MultiFab& dst) const
 {
-    Vector<NDArray<Real>> arrays(1);
-    ReadNetCDFFile(file_name, {field_name}, arrays, true, itime);
-
-    std::vector<Real> buf(static_cast<std::size_t>(nlon) * nlat);
-    if (ParallelDescriptor::IOProcessor()) {
-        const auto shape = arrays[0].get_vshape();
-        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(shape.size() == 3 && shape[1] == nlat && shape[2] == nlon,
+    // Each rank reads its own box of the record, (time, lat, lon) in the file: one piece,
+    // or two when the box runs past the last longitude and wraps to the first. Every rank
+    // joins both collective reads, with an empty count for a piece it does not have.
+    const bool any = source_box.ok();
+    const int ilo = source_box.smallEnd(0), jlo = source_box.smallEnd(1);
+    const int ni = any ? source_box.length(0) : 0, nj = any ? source_box.length(1) : 0;
+    const int ni_east = std::min(ni, nlon - ilo);    // columns ilo .. nlon-1
+    const int ni_wrap = ni - ni_east;                // columns 0 .. ni_wrap-1, after them
+    std::vector<Real> east(static_cast<std::size_t>(ni_east) * nj);
+    std::vector<Real> wrap(static_cast<std::size_t>(ni_wrap) * nj);
+    {
+        auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
+        const auto var = ncf.var(field_name);
+        const auto shape = var.shape();
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(shape.size() == 3 && shape[1] == nlat && shape[2] == nlon &&
+                                         itime >= 0 && itime < shape[0],
             "Lat-lon forcing record of '" + field_name + "' has an unexpected shape");
-        // Missing-data markers are compared exactly and in the stored (packed) values, as CF
-        // defines them, then the data unpacked. A marker becomes NaN, which the interpolation
-        // sets aside.
-        const double nan = std::numeric_limits<double>::quiet_NaN();
-        const Real* raw = arrays[0].get_data();
-        for (std::size_t c = 0; c < buf.size(); ++c) {
-            const double v = static_cast<double>(raw[c]);
+        const MPI_Offset row = any ? jlo : 0;
+        var.get_all(east.data(), {itime, row, ni_east > 0 ? ilo : 0}, {ni_east > 0 ? 1 : 0, nj, ni_east});
+        var.get_all(wrap.data(), {itime, row, 0}, {ni_wrap > 0 ? 1 : 0, nj, ni_wrap});
+        ncf.close();
+    }
+
+    // Missing-data markers are compared exactly and in the stored (packed) values, as CF
+    // defines them, then the data unpacked. A marker becomes NaN, which the interpolation
+    // sets aside. (lat, lon) row-major in the file is (i = lon, j = lat) in a FAB, indexed
+    // as the source grid is, so the stencil's indices apply unchanged.
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    std::vector<Real> buf(static_cast<std::size_t>(ni) * nj);
+    for (int n = 0; n < nj; ++n) {
+        for (int m = 0; m < ni; ++m) {
+            const double v = static_cast<double>(m < ni_east ? east[n*ni_east + m]
+                                                             : wrap[n*ni_wrap + m - ni_east]);
             const bool marker = (has_fill && v == fill_value) || (has_missing && v == missing_value);
-            buf[c] = static_cast<Real>(marker ? nan : v * scale_factor + add_offset);
+            buf[n*ni + m] = static_cast<Real>(marker ? nan : v * scale_factor + add_offset);
         }
     }
-    ParallelDescriptor::Bcast(buf.data(), buf.size(), ParallelDescriptor::IOProcessorNumber());
 
-    // (lat, lon) row-major in the file is (i = lon, j = lat) in a FAB
-    FArrayBox src(Box(IntVect(0,0,0), IntVect(nlon-1, nlat-1, 0)), 1);
-    Gpu::copy(Gpu::hostToDevice, buf.begin(), buf.end(), src.dataPtr());
+    FArrayBox src(any ? source_box : Box(IntVect(0), IntVect(0)), 1);
+    if (any) { Gpu::copy(Gpu::hostToDevice, buf.begin(), buf.end(), src.dataPtr()); }
 
     interpolate(src, dst);
 
@@ -457,6 +523,8 @@ LatLonRegrid::interpolate (const FArrayBox& src_fab, MultiFab& dst) const
 {
     auto const& src = src_fab.const_array();
     const int Nx = nlon, Ny = nlat, R = fill_max_rings;
+    // A column before the box's first is one it reads past the last longitude
+    const int i_first = src_fab.box().smallEnd(0);
     const bool periodic = periodic_lon, fx = flip_lon, fy = flip_lat;
     const Real nan = std::numeric_limits<Real>::quiet_NaN();
 
@@ -472,7 +540,8 @@ LatLonRegrid::interpolate (const FArrayBox& src_fab, MultiFab& dst) const
 
             Real sum = Real(0.0), wsum = Real(0.0);
             for (int s = 0; s < stencil_size; ++s) {
-                const Real v = src(idx(i,j,k,3*s), idx(i,j,k,3*s+1), 0);
+                const int m = idx(i,j,k,3*s);
+                const Real v = src(m < i_first ? m + Nx : m, idx(i,j,k,3*s+1), 0);
                 if (w(i,j,k,s) > Real(0.0) && is_valid(v)) {
                     sum  += w(i,j,k,s) * v;
                     wsum += w(i,j,k,s);
@@ -498,7 +567,7 @@ LatLonRegrid::interpolate (const FArrayBox& src_fab, MultiFab& dst) const
                     int m = ci + di;
                     if (periodic) { m = ((m % Nx) + Nx) % Nx; }
                     else if (m < 0 || m >= Nx) { continue; }
-                    const Real v = src(m, n, 0);
+                    const Real v = src(m < i_first ? m + Nx : m, n, 0);
                     if (!is_valid(v)) { continue; }
                     Real dx = Real(m) - xf;
                     if (periodic) { dx -= Real(Nx) * std::round(dx / Real(Nx)); }
