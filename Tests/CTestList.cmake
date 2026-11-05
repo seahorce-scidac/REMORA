@@ -927,6 +927,14 @@ set(DROP_BULK "remora.bulk_fluxes=true remora.uwind_type=constant remora.vwind_t
 add_test_layout(DogboneAnalytic_drop_bulk DogboneAnalytic_landlayout "remora_exec"
                 "plt00020" "chk00020" "${DROP_BULK} ${FULL_LAYOUT}" "${DROP_BULK} remora.drop_dry_boxes=true"
                 "level 0 keeps 24 of 32 boxes")
+# A build with particles drops no box (REMORA_land_layout.cpp), so there these would compare
+# the full layout with itself, or, for drop_bulk, look for a box count that is never printed
+# (#793). They are skipped instead.
+if(REMORA_ENABLE_PARTICLES)
+    set_tests_properties(DogboneAnalytic_drop DogboneAnalytic_MLdrop DogboneAnalytic_drop_ghosts
+                         DogboneAnalytic_drop_restart DogboneAnalytic_drop_bulk
+                         PROPERTIES DISABLED TRUE)
+endif()
 
 #=============================================================================
 # Boxes hold whole water columns. A small amr.max_grid_size cuts the domain in x and y only,
