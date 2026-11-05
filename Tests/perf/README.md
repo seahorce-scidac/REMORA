@@ -39,6 +39,14 @@ prints `IDENTICAL` or the largest relative difference `fcompare` reported.
 `-x "k=v ..."` adds inputs to every run; `-x "$(cat Tests/perf/inputs/gls.in)"` turns on GLS
 vertical mixing (the settings of `Exec/Upwelling/inputs_gls`), the costliest kernel, and
 use a separate `-w` directory so those runs do not mix with the default ones.
+`-B dir` keeps the source trees and built binaries in a build directory shared between
+work directories. A revision is rebuilt only when it resolves to a different commit or the
+make command changes (a branch name follows its remote tip; a commit SHA never moves), so
+one build directory with a fresh `-w` per comparison reuses old builds and keeps each
+summary table to the runs of that comparison. Each work directory gets its own copy of the
+binaries it runs, so rebuilding for a later comparison cannot change a queued job; two
+invocations sharing a build directory must not build at the same time. Without `-B`, the
+work directory holds the builds too.
 `-N` adds one Nsight Systems run of each revision to the GPU job, after the timed runs, with
 rank 0 under `nsys profile` (CUDA, NVTX, MPI and OS-runtime traces; TinyProfiler regions show
 up as NVTX ranges). Each writes `runs/gpu_upwelling_4gpu_<label>_nsys/profile.nsys-rep` for the

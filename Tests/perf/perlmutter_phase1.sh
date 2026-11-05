@@ -11,7 +11,9 @@
 #                  p2:perf-phase2"                          ["base:<merge-base> new:HEAD"]
 #   -b ref         baseline ref (shorthand for the first pair, label "base")
 #   -n ref         new ref (shorthand for a second pair, label "new")
-#   -w dir         work directory for sources, binaries and runs
+#   -w dir         work directory for job scripts, binaries and runs
+#   -B dir         build directory for the source trees and the built binaries, shared
+#                  between work directories so a revision built once is reused  [= -w]
 #                                                           [$SCRATCH/remora_perf/<date>]
 #   -g dir         directory holding the GS_toy*.nc Gulf Stream files; the nested case is
 #                  skipped when not given
@@ -39,13 +41,13 @@ set -euo pipefail
 
 ACCOUNT=""; ARCH=both; REVS=""; BASE=""; NEW=""; WORK=""; GULF=""; SIZE="512 1024 40"
 NSTEP=10; QOS=debug; JOBS=16; SUBMIT=1; CPU_CFGS="128x1 64x2 32x4"; TILES=""; FPCONTRACT=off
-XINPUTS=""; NSYS=0
-while getopts "A:a:r:b:n:w:g:s:t:q:j:Sc:T:F:x:N" opt; do
+XINPUTS=""; NSYS=0; BUILD=""
+while getopts "A:a:r:b:n:w:g:s:t:q:j:Sc:T:F:x:NB:" opt; do
     case $opt in
         A) ACCOUNT=$OPTARG;; a) ARCH=$OPTARG;; r) REVS=$OPTARG;; b) BASE=$OPTARG;; n) NEW=$OPTARG;;
         w) WORK=$OPTARG;; g) GULF=$OPTARG;; s) SIZE=$OPTARG;; t) NSTEP=$OPTARG;;
         q) QOS=$OPTARG;; j) JOBS=$OPTARG;; S) SUBMIT=0;; c) CPU_CFGS=$OPTARG;; T) TILES=$OPTARG;;
-        F) FPCONTRACT=$OPTARG;; x) XINPUTS=$OPTARG;; N) NSYS=1;;
+        F) FPCONTRACT=$OPTARG;; x) XINPUTS=$OPTARG;; N) NSYS=1;; B) BUILD=$OPTARG;;
         *) echo "unknown option"; exit 1;;
     esac
 done
@@ -124,12 +126,17 @@ if [ -n "$GULF" ]; then
         || { echo "-g: $GULF has no GS_toy*.nc files"; exit 1; }
 fi
 [ -n "$WORK" ] || WORK=${SCRATCH:-$HOME}/remora_perf/$(date +%Y%m%d_%H%M)
-mkdir -p "$WORK/bin" "$WORK/runs"
+mkdir -p "$WORK/bin" "$WORK/runs" && WORK=$(cd "$WORK" && pwd)
+# Source trees and built binaries live in the build directory; each work directory keeps a
+# copy of the binaries it runs, so a later build cannot change a job that is still queued.
+# Two invocations sharing a build directory must not build at the same time.
+[ -n "$BUILD" ] || BUILD=$WORK
+mkdir -p "$BUILD/bin" && BUILD=$(cd "$BUILD" && pwd)
 for i in "${!LABELS[@]}"; do
     sha=$(resolve_ref "${REFS[$i]}") || exit 1
     printf '%-8s %s\n' "${LABELS[$i]}" "$(git -C "$REPO" log -1 --format='%h %ad %s' --date=short "$sha")"
 done
-echo "revisions: $REVS  (baseline $BASE_LABEL)  work $WORK"
+echo "revisions: $REVS  (baseline $BASE_LABEL)  work $WORK  builds ${BUILD:-$WORK}"
 
 # ---------------------------------------------------------------- environment and builds
 if [ -f "$REPO/Build/saul-env.sh" ] && command -v module > /dev/null; then
@@ -138,7 +145,7 @@ fi
 build_one () {   # build_one <label> <ref> <cpu|gpu>
     # One source tree per revision and architecture: `make clean` empties the whole
     # tmp_build_dir, so a shared tree would lose the other architecture's objects.
-    local tag=$1 ref=$2 arch=$3 src=$WORK/src_${1}_$3 flags sha
+    local tag=$1 ref=$2 arch=$3 src=$BUILD/src_${1}_$3 flags sha
     sha=$(resolve_ref "$ref") || exit 1
     if [ ! -d "$src" ]; then
         git -C "$REPO" worktree add --detach "$src" "$sha"
@@ -161,27 +168,30 @@ build_one () {   # build_one <label> <ref> <cpu|gpu>
     # makefiles do, so a tree reused for another revision or another command line would
     # keep stale objects. Start that configuration over when either differs from the
     # record of the last build here.
-    local record="$sha $cmd" recfile=$WORK/bin/remora_${tag}_${arch}.build
+    local record="$sha $cmd" recfile=$BUILD/bin/remora_${tag}_${arch}.build
     if [ ! -f "$recfile" ] || [ "$(cat "$recfile")" != "$record" ]; then
         (cd "$src/Exec" && $cmd clean > /dev/null 2>&1) || true
     fi
-    (cd "$src/Exec" && $cmd -j "$JOBS" > "$WORK/build_${tag}_${arch}.log" 2>&1) \
-        || { echo "build of $tag ($arch) failed, see $WORK/build_${tag}_${arch}.log"; exit 1; }
+    (cd "$src/Exec" && $cmd -j "$JOBS" > "$BUILD/build_${tag}_${arch}.log" 2>&1) \
+        || { echo "build of $tag ($arch) failed, see $BUILD/build_${tag}_${arch}.log"; exit 1; }
     echo "$record" > "$recfile"
     local exe
     exe=$(ls -t "$src"/Exec/REMORA3d.gnu.*.ex | head -1)
-    cp "$exe" "$WORK/bin/remora_${tag}_${arch}"
+    cp "$exe" "$BUILD/bin/remora_${tag}_${arch}"
+    [ "$BUILD" = "$WORK" ] || cp "$BUILD/bin/remora_${tag}_${arch}" "$WORK/bin/remora_${tag}_${arch}"
     echo "built $WORK/bin/remora_${tag}_${arch} from $(git -C "$src" rev-parse --short HEAD)"
 }
 build_fcompare () {
-    [ -x "$WORK/bin/fcompare" ] && return
-    local src   # any source tree built in this run has the AMReX submodule
-    src=$(ls -d "$WORK"/src_${LABELS[-1]}_* 2>/dev/null | head -1)
-    [ -n "$src" ] || { echo "no source tree to build fcompare from"; exit 1; }
-    (cd "$src/Submodules/AMReX/Tools/Plotfile" && make -j "$JOBS" programs=fcompare \
-        > "$WORK/build_fcompare.log" 2>&1) \
-        || { echo "fcompare build failed, see $WORK/build_fcompare.log"; exit 1; }
-    cp "$src"/Submodules/AMReX/Tools/Plotfile/fcompare*.ex "$WORK/bin/fcompare"
+    if [ ! -x "$BUILD/bin/fcompare" ]; then
+        local src   # any source tree built in this run has the AMReX submodule
+        src=$(ls -d "$BUILD"/src_${LABELS[-1]}_* 2>/dev/null | head -1)
+        [ -n "$src" ] || { echo "no source tree to build fcompare from"; exit 1; }
+        (cd "$src/Submodules/AMReX/Tools/Plotfile" && make -j "$JOBS" programs=fcompare \
+            > "$BUILD/build_fcompare.log" 2>&1) \
+            || { echo "fcompare build failed, see $BUILD/build_fcompare.log"; exit 1; }
+        cp "$src"/Submodules/AMReX/Tools/Plotfile/fcompare*.ex "$BUILD/bin/fcompare"
+    fi
+    [ "$BUILD" = "$WORK" ] || cp "$BUILD/bin/fcompare" "$WORK/bin/fcompare"
 }
 for arch in cpu gpu; do
     if [ $ARCH = both ] || [ $ARCH = $arch ]; then
