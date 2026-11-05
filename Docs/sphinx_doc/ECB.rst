@@ -5,7 +5,7 @@ ECB Biology
 
 ``remora.biology_model = ecb`` selects a native C++ port of the Estuarine
 Carbon Biogeochemistry model through the common ``Biology`` interface.
-ECB owns its parameters, ordered inventory and column kernel. Analytic profiles
+ECB owns its parameters, tracer inventory and column kernel. Analytic profiles
 belong to the application, following the reviewed Stage A API. Temperature,
 salinity and passive dyes precede its biology block as for Fennel.
 
@@ -82,10 +82,15 @@ implement the common ``init_analytic_biology`` hook for a spatial one and use
 below and requires every active tracer; that path still needs an ECB execution
 validation case.
 
-.. list-table:: Ordered ECB fields and NetCDF/output names
+Every interface refers to ECB tracers by name: the constant initial values,
+NetCDF initialization, plot variables and the kernel itself, which looks up
+each tracer's state component from its name. The order below is only the
+order of the components in plotfiles and checkpoints.
+
+.. list-table:: ECB tracer names and units
    :header-rows: 1
 
-   * - Names, in order
+   * - Names
      - Units
    * - NO3, NH4
      - mmol N/m3
@@ -130,12 +135,14 @@ A column must contain at least two layers, and each grid box must span its
 entire vertical column. Horizontal decomposition is allowed; vertically
 split grid boxes fail explicitly. CPU tiling does not split this kernel.
 
-New checkpoints contain a versioned ``BiologyHeader`` sidecar recording model
-variant identity and every conserved component name in order. Restart rejects
-an identity or ordering mismatch even when component counts agree. Changing
-rate parameters alone is permitted. The existing checkpoint data formats are
-reused. Legacy checkpoints without the sidecar remain accepted for Fennel and
-none, with their original count-only identity limits; ECB requires the sidecar.
+Every checkpoint ``Header`` ends with a ``cons_names`` line listing the
+cell-centered components in order, and restart rejects a checkpoint whose list
+differs from the run's, even when the counts agree. This check is not specific
+to biology: it also catches a changed ``remora.nscalar``. Checkpoints written
+before the line existed are checked by count only. A separate versioned
+``BiologyHeader`` records the biology model identity, which restart also
+checks. Changing rate parameters alone is permitted. Legacy checkpoints without
+``BiologyHeader`` remain accepted for Fennel and none; ECB requires it.
 
 Validation and remaining work
 -----------------------------

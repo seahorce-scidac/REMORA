@@ -26,17 +26,26 @@ mkdir -p runA runB alias mismatch
 "$compare" -a -r 0 --abs_tol 0 runA/plt00003 alias/plt00003
 # Save the metadata so rerunning this test leaves the original checkpoint intact.
 cp runA/chk00002/BiologyHeader saved_biology_header
-restore_header() { cp saved_biology_header runA/chk00002/BiologyHeader; }
+cp runA/chk00002/Header saved_header
+restore_header() {
+    cp saved_biology_header runA/chk00002/BiologyHeader
+    cp saved_header runA/chk00002/Header
+}
 trap restore_header EXIT
 for mutation in identity ordering missing; do
     case "$mutation" in
         identity)
             sed '2s/.*/none/' saved_biology_header > runA/chk00002/BiologyHeader
-            message='Checkpoint biology identity/layout differs'
+            message='Checkpoint biology identity differs'
             ;;
         ordering)
-            sed '4s/.*/salt/' saved_biology_header > runA/chk00002/BiologyHeader
-            message='Checkpoint scalar ordering differs'
+            # Same count, different order: the generic Header layout check.
+            sed '/^cons_names /s/ temp salt / salt temp /' saved_header > runA/chk00002/Header
+            if cmp -s saved_header runA/chk00002/Header; then
+                echo "Header has no cons_names line to reorder" >&2
+                exit 1
+            fi
+            message='Checkpoint cell-centered components differ'
             ;;
         missing)
             mv runA/chk00002/BiologyHeader missing_biology_header

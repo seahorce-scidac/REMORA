@@ -31,6 +31,7 @@ SOFTWARE.
 #include <AMReX_MFIter.H>
 #include <AMReX_ParmParse.H>
 #include <cmath>
+#include <iterator>
 using namespace amrex;
 namespace {
 // Local scratch inventory follows ROMS idbio, after temperature and salinity.
@@ -56,6 +57,16 @@ enum ECBComponent {
     sc_rdoc,
     sc_calc
 };
+constexpr int NumScratch = sc_calc + 1;
+constexpr int NumECBTracers = NumScratch - sc_no3;
+// State tracer name of each scratch biology component, sc_no3 to sc_calc. The
+// kernel finds each one's state component by name, so the declared order is
+// free to change.
+const char* const ecb_tracer_names[NumECBTracers] = {
+  "NO3",        "NH4",        "chlorophyll", "phytoplankton", "zooplankton",
+  "LdetritusN", "SdetritusN", "DON",         "PO4",           "LdetritusC",
+  "SdetritusC", "TIC",        "alkalinity",  "DOC",           "oxygen",
+  "Rdon",       "Rdoc",       "calcium"};
 } // namespace
 namespace REMORABiology {
 void
@@ -132,11 +143,8 @@ ECBBiology::configure(const std::string& remora_prefix)
     require(prm.slCexc > Real(0.0), "slCexc", "positive", prm.slCexc);
     // Grazing divides by K_Phy + phyt^2, which is K_Phy when phyt is zero.
     require(prm.K_Phy > Real(0.0), "K_Phy", "positive", prm.K_Phy);
-    m_declaration.tracer_names = {
-      "NO3",        "NH4",        "chlorophyll", "phytoplankton", "zooplankton",
-      "LdetritusN", "SdetritusN", "DON",         "PO4",           "LdetritusC",
-      "SdetritusC", "TIC",        "alkalinity",  "DOC",           "oxygen",
-      "Rdon",       "Rdoc",       "calcium"};
+    m_declaration.tracer_names.assign(
+      std::begin(ecb_tracer_names), std::end(ecb_tracer_names));
     m_declaration.plot_aliases = {"ecb"};
 }
 void
@@ -156,6 +164,16 @@ ECBBiology::advance(const BiologyAdvanceContext& context) const
     if (nz < 2)
         Abort("ECB sinking requires at least two vertical layers");
     const int base = context.component_start;
+    // State component of each scratch component: temperature and salinity,
+    // then each biology tracer looked up by name in the declaration.
+    GpuArray<int, NumScratch> state_comp;
+    state_comp[sc_temp] = Temp_comp;
+    state_comp[sc_salt] = Salt_comp;
+    for (int n = 0; n < NumECBTracers; ++n) {
+        state_comp[sc_no3 + n] =
+          m_declaration.component_index(ecb_tracer_names[n], base);
+        AMREX_ALWAYS_ASSERT(state_comp[sc_no3 + n] >= 0);
+    }
     const Real dt = context.dt;
     if (dt <= 0)
         Abort("ECB requires a positive timestep when BioIter > 0");
@@ -309,7 +327,7 @@ ECBBiology::advance(const BiologyAdvanceContext& context) const
                   for (k = 1; k <= nz; k += 1) {
                       bio_old(i, j, k - 1, ibio) = amrex::max(
                         Real(0.0),
-                        old(i, j, k - 1, ibio < 2 ? ibio : base + ibio - 2));
+                        old(i, j, k - 1, state_comp[ibio]));
                       bio(i, j, k - 1, ibio) = bio_old(i, j, k - 1, ibio);
                   }
               }
@@ -1003,8 +1021,8 @@ ECBBiology::advance(const BiologyAdvanceContext& context) const
                   for (k = 1; k <= nz; k += 1) {
                       cff = bio(i, j, k - 1, ibio) - bio_old(i, j, k - 1, ibio);
                       cff = cff * mask(i, j, 0);
-                      next(i, j, k - 1, base + ibio - 2) =
-                        next(i, j, k - 1, base + ibio - 2) +
+                      next(i, j, k - 1, state_comp[ibio]) =
+                        next(i, j, k - 1, state_comp[ibio]) +
                         cff * hz(i, j, k - 1);
                   }
               }

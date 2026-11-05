@@ -24,8 +24,9 @@ are problem-specific and belong to the problem, not the model (see Initial
 Data and Restarts below).
 
 The lifecycle is ``configure`` followed by ``declaration`` before scalar
-allocation, then ``advance`` each step. The declaration fixes tracer order and
-output aliases for the run. The advance context supplies immutable old
+allocation, then ``advance`` each step. The declaration fixes the tracer names,
+their layout in the state, and output aliases for the run; interfaces look
+tracers up by name, with ``component_index``. The advance context supplies immutable old
 concentrations, the existing mutable new state, geometry/forcing views, the
 step duration, and model time. The model adds its concentration change
 multiplied by layer thickness to the new state; it must preserve incoming
@@ -389,9 +390,10 @@ average-down, using the same ``remora.biology_ic_type`` selection.
 
 Checkpoints contain the active conserved state, including Fennel tracers. Restart
 with the same Fennel component options used to create the checkpoint. Changing
-``po4``, ``carbon``, ``oxygen``, or ``odu`` across a restart changes the scalar
-layout and is not supported unless the checkpoint was produced with a compatible
-layout.
+``po4``, ``carbon``, ``oxygen``, ``odu`` or ``river_don`` across a restart
+changes the scalar layout and is not supported. The checkpoint ``Header``
+records the component names in order, so restart aborts on such a change
+instead of reading tracers into the wrong slots.
 
 Boundary conditions for the Fennel tracers offer the same options as temperature
 and salinity, including the file-driven ``clamped`` and ``orlanski_rad_nudg``

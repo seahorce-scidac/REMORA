@@ -128,14 +128,21 @@ REMORA::WriteCheckpointFile ()
                                 ? history_count - 1 : history_count;
        HeaderFile << "history_count " << history_record << "\n";
 
-       // A component count alone cannot distinguish ecosystems or dye layouts.
-       // Keep the existing Header readable by older checkpoint consumers.
+       // The cell-centered components in order. The count above cannot tell
+       // apart layouts of the same size, such as different dye counts or
+       // biology models, and the data are stored by position.
+       HeaderFile << "cons_names " << cons_names.size();
+       for (const auto& name : cons_names) {
+           HeaderFile << " " << name;
+       }
+       HeaderFile << "\n";
+
+       // Biology model identity, beyond the tracer names checked above.
        const std::string biology_file = checkpointname + "/BiologyHeader";
        std::ofstream biology_header(biology_file);
        if (!biology_header.good()) amrex::FileOpenFailed(biology_file);
-       biology_header << "REMORA_BIOLOGY 1\n" << m_biology->checkpoint_identity()
-                      << "\n" << cons_names.size() << "\n";
-       for (const auto& name : cons_names) biology_header << name << "\n";
+       biology_header << "REMORA_BIOLOGY 2\n" << m_biology->checkpoint_identity()
+                      << "\n";
        biology_header.close();
        if (!biology_header.good()) amrex::Abort("Failed writing " + biology_file);
    }
@@ -277,19 +284,15 @@ REMORA::ReadCheckpointFile ()
         Vector<char> buffer;
         ParallelDescriptor::ReadAndBcastFile(biology_file, buffer);
         std::istringstream metadata(buffer.dataPtr());
-        std::string schema, identity, name;
-        int version = 0, components = 0;
-        metadata >> schema >> version >> identity >> components;
-        if (!metadata || schema != "REMORA_BIOLOGY" || version != 1 ||
-            identity != m_biology->checkpoint_identity() || components != ncons) {
-            amrex::Abort("Checkpoint biology identity/layout differs from this run: " + biology_file);
+        std::string schema, identity;
+        int version = 0;
+        metadata >> schema >> version >> identity;
+        // Version 1 also listed the component names, now checked from Header.
+        if (!metadata || schema != "REMORA_BIOLOGY" ||
+            (version != 1 && version != 2) ||
+            identity != m_biology->checkpoint_identity()) {
+            amrex::Abort("Checkpoint biology identity differs from this run: " + biology_file);
         }
-        for (const auto& expected : cons_names) {
-            metadata >> name;
-            if (!metadata || name != expected)
-                amrex::Abort("Checkpoint scalar ordering differs from this run: " + biology_file);
-        }
-        if (metadata >> name) amrex::Abort("Unexpected trailing checkpoint biology metadata: " + biology_file);
     } else if (!m_biology->accepts_legacy_checkpoint()) {
         amrex::Abort("Selected biology requires checkpoint identity metadata: " + biology_file);
     }
@@ -435,6 +438,23 @@ REMORA::ReadCheckpointFile ()
         } else if (word == "history_count") {
             // History record for this step. Without it, history output starts over.
             lis >> history_count;
+        } else if (word == "cons_names") {
+            // Same count, checked above, is not the same layout: the data are
+            // stored by position. Older checkpoints lack this line.
+            int count = 0;
+            lis >> count;
+            Vector<std::string> chk_names;
+            std::string name;
+            while (lis >> name) { chk_names.push_back(name); }
+            if (count != static_cast<int>(chk_names.size()) || chk_names != cons_names) {
+                std::string have, want;
+                for (const auto& n : chk_names) { have += " " + n; }
+                for (const auto& n : cons_names) { want += " " + n; }
+                amrex::Abort("Checkpoint cell-centered components differ from this run."
+                             "\n  checkpoint:" + have + "\n  this run:  " + want +
+                             "\nThe layout is set by remora.nscalar and"
+                             " remora.biology_model and its options.");
+            }
         }
     }
 
