@@ -1,4 +1,5 @@
 #include <REMORA.H>
+#include <limits>
 
 using namespace amrex;
 
@@ -7,7 +8,9 @@ namespace {
  * std::pow for the GLS exponents, which are run-time parameters and for the usual closures
  * are small multiples of 1/2 (k-epsilon: 1, -1, 3/2). Those are evaluated with sqrt,
  * multiplies and divides, which cost a few ns where a pow call costs ~17. pow(x,1) = x and
- * pow(x,0) = 1 are exact; the others can differ from std::pow by about an ulp.
+ * pow(x,0) = 1 are exact; for a positive finite x the others can differ from std::pow by
+ * about an ulp. A zero or infinite x goes to std::pow, since the sqrt paths would not match
+ * it there (sqrt(-0) is -0 and sqrt(-inf) is NaN).
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Real gls_pow (Real x, Real y) noexcept
@@ -15,6 +18,9 @@ Real gls_pow (Real x, Real y) noexcept
     if (y == Real(1.0)) { return x; }
     if (y == Real(0.0)) { return Real(1.0); }
     if (y == Real(-1.0)) { return Real(1.0) / x; }
+    if (!(std::abs(x) > Real(0.0) && std::abs(x) < std::numeric_limits<Real>::infinity())) {
+        return std::pow(x, y);
+    }
     if (y == Real(1.5)) { return x * std::sqrt(x); }
     if (y == Real(0.5)) { return std::sqrt(x); }
     if (y == Real(-0.5)) { return Real(1.0) / std::sqrt(x); }
@@ -751,7 +757,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                           FCP(i,j,k)-FCP(i,j,k-1);
         });
 
-        // Compute production and dissipation terms.
+        // Compute production and dissipation terms. The surface length-scale factors depend
+        // on host constants only, so they are evaluated once here rather than per column.
+        const Real pow_Lsft_Zos = gls_pow(L_sft*Zos_eff,gls_n);
+        const Real pow_Lsft = gls_pow(L_sft,gls_n);
         ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             Real Zob_min = std::max(ZoBot(i,j,0), Real(0.0001));
@@ -775,7 +784,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
             gls(i,j,N+1,nnew)=std::max(cmu0_exp_p*
                                     gls_pow(tke(i,j,N+1,nnew),gls_m)*
-                                    gls_pow(L_sft*Zos_eff,gls_n), gls_Pmin);
+                                    pow_Lsft_Zos, gls_Pmin);
             Real cff_gls = gls_fac4*gls_pow(vonKar*Zob_min,gls_n);
             gls(i,j,0,nnew)=std::max(cff_gls*gls_pow(tke(i,j,0,nnew),(gls_m)), gls_Pmin);
 
@@ -801,7 +810,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             // Solve tri-diagonal system for generic statistical field.
             Real cff_tke = Real(0.5) * (tke(i,j,N+1,nnew) + tke(i,j,N,nnew));
             Real gls_fluxt = dt_lev*gls_fac3*gls_pow(cff_tke,gls_m)*
-                             gls_pow(L_sft,(gls_n))*
+                             pow_Lsft*
                              gls_pow(Zos_eff+Real(0.5)*Hz(i,j,N),gls_n-one)*
                              Real(0.5)*(Akp(i,j,N+1)+Akp(i,j,N));
             cff_tke=Real(0.5)*(tke(i,j,0,nnew)+tke(i,j,1,nnew));
