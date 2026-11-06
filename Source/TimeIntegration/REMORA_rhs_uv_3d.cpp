@@ -236,8 +236,8 @@ REMORA::rhs_uv_3d (int lev,
     // (the divergence of the fluxes above) and the vertical advection, and add the result
     // and the surface and bottom stresses to the depth integrals rufrc and rvfrc. The
     // vertical flux FC at the top face of a level is computed there and kept in a 2D buffer
-    // as the flux at the bottom face of the next level; it is zero through the bottom and
-    // the surface.
+    // as the flux at the bottom face of the next level. Only outflow carries horizontal
+    // momentum through the bottom; the surface flux is zero.
     //
     AMREX_ASSERT(xbx.smallEnd(2) == 0 && xbx.bigEnd(2) == N);
     AMREX_ASSERT(ybx.smallEnd(2) == 0 && ybx.bigEnd(2) == N);
@@ -248,6 +248,7 @@ REMORA::rhs_uv_3d (int lev,
     auto FCu = fab_FCu.array();
     auto FCv = fab_FCv.array();
 
+    const bool bottom_exchange = GetBottomExchangeTransport(lev) != nullptr;
     const int upstream3 = (uv_hadv_scheme == AdvectionScheme::upstream3) ? 1 : 0;
     AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
     [&] (auto const& fu, auto const& fv) {
@@ -262,7 +263,11 @@ REMORA::rhs_uv_3d (int lev,
         // Vertical flux at w-level kf
         auto FC = [&] (int kf) -> Real
         {
-            if (kf == 0 || kf == N+1) {
+            if (kf == 0) {
+                return bottom_exchange ? Real(0.5) *
+                    (amrex::min(W(i,j,0),Real(0.0)) +
+                     amrex::min(W(i-1,j,0),Real(0.0))) * uold(i,j,0,nrhs) : zero;
+            } else if (kf == N+1) {
                 return zero;
             } else if (UP3 == 1) {
                 if (kf == 1) {
@@ -312,7 +317,11 @@ REMORA::rhs_uv_3d (int lev,
         // Vertical flux at w-level kf
         auto FC = [&] (int kf) -> Real
         {
-            if (kf == 0 || kf == N+1) {
+            if (kf == 0) {
+                return bottom_exchange ? Real(0.5) *
+                    (amrex::min(W(i,j,0),Real(0.0)) +
+                     amrex::min(W(i,j-1,0),Real(0.0))) * vold(i,j,0,nrhs) : zero;
+            } else if (kf == N+1) {
                 return zero;
             } else if (UP3 == 1) {
                 if (kf == 1) {

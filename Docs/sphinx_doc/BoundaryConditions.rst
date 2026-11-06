@@ -17,6 +17,10 @@ Boundaries in the z-direction always correspond to the sea floor and surface. Bo
 ``remora.rdrag`` (see :ref:`Physics Parameters<list-of-parameters-15>`), and surface wind
 stress is specified by the function ``init_analytic_smflux`` in ``prob.cpp``.
 
+The bottom is impermeable by default. Optional :ref:`water and tracer exchange
+through the bottom <sec:bottom-exchange>` can be supplied by constant or analytic
+forcing, a rho-point NetCDF file, or a coupler.
+
 REMORA also implements the ROMS bulk fluxes parameterization with optional evaporation-precipitation. The
 parametrization can be turned on with ``remora.bulk_fluxes``. Further options can be found in the
 :ref:`parameter list <list-of-parameters-bulk-fluxes>`.

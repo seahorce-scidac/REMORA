@@ -22,6 +22,14 @@ public:
      */
     virtual ~ProblemBase () = default;
 
+    /** Fill q [m/s, into ocean] and all incoming tracer concentrations on rho slabs.
+     * time is elapsed model time at the midpoint of the slow step. */
+    virtual void bottom_exchange (
+        int /*lev*/, amrex::Real /*time*/, const amrex::Geometry& /*geom*/,
+        REMORA const& /*remora*/, amrex::MultiFab& /*q_and_concentrations*/) {
+        amrex::Abort("bottom_exchange_type=analytic requires ProblemBase::bottom_exchange");
+    }
+
     virtual void
     init_analytic_prob (
         int /*lev*/,

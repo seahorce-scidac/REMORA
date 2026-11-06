@@ -139,6 +139,11 @@ void REMORA::store_particle_omega (int lev, const MultiFab& mf_W)
 
         // The tile, with the first ghost column where it touches the edge of the grid
         const Box bx2d = makeSlab(mfi.growntilebox(IntVect(1,1,0)), 2, 0);
+        if (GetBottomExchangeTransport(lev)) {
+            ParallelFor(bx2d, [=] AMREX_GPU_DEVICE (int i,int j,int) {
+                omega(i,j,0) = W(i,j,0)*pm(i,j,0)*pn(i,j,0);
+            });
+        }
         ParallelFor(bx2d, N, [=] AMREX_GPU_DEVICE (int i, int j, int, int kk)
         {
             omega(i,j,kk+1) = W(i,j,kk+1) * pm(i,j,0) * pn(i,j,0);

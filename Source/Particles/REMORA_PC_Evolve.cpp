@@ -189,8 +189,8 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
                 a_ydot = a_v * interpolate_horizontal(cc, 0, pnarr) / dxi[1];
             };
 
-            // omega vanishes at the bed and the surface, so only the time
-            // discretization can carry a particle past them: reflect it back
+            // Keep the particle boundaries reflecting, including when water
+            // exchanges through the bed. Seepage does not create/remove particles.
             const auto reflect = [=] (Real a_s)
             {
                 if (a_s < zero) { a_s = -a_s; }
