@@ -571,10 +571,14 @@ add_test_r(Upwelling_qdrag              "remora_exec" "plt00010")
 add_test_r(Upwelling_logdrag            "remora_exec" "plt00010")
 add_test_r(Upwelling_Fennel             "remora_exec" "plt00010")
 add_test_r(Upwelling_ECB                "remora_exec" "plt00003")
-# The biology kernels must not depend on how CPU tiles split a box: rerun each
-# biology case with small horizontal tiles against its untiled gold file.
-add_test_r_gold(Upwelling_Fennel_tiled  "remora_exec" "plt00010" Upwelling_Fennel)
-add_test_r_gold(Upwelling_ECB_tiled     "remora_exec" "plt00003" Upwelling_ECB)
+# The biology kernels must not depend on how CPU tiles split a box: run each model on
+# Seamount, whose biology varies in both x and y, untiled and with small horizontal
+# tiles, and require the two runs to agree. (Upwelling is uniform in x, so it cannot
+# show a kernel that mixes up columns across x tile edges.)
+add_test_r_selfcompare(Seamount_Fennel_tiled "remora_exec" "plt00003"
+    "remora.omp_tile_size=1024000 1024000 1024000" "remora.omp_tile_size=2 3 1024000")
+add_test_r_selfcompare(Seamount_ECB_tiled    "remora_exec" "plt00003"
+    "remora.omp_tile_size=1024000 1024000 1024000" "remora.omp_tile_size=2 3 1024000")
 add_test_r(Channel_Test                 "remora_exec" "plt00010")
 add_test_r(DoubleGyre                   "remora_exec" "plt00010")
 add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")

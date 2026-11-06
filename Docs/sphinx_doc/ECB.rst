@@ -109,9 +109,11 @@ Validation
 ==========
 
 The tests parallel Fennel's. ``Upwelling_ECB`` (8x8x8, three steps, analytic
-physics and constant biology) compares against a gold file, and
-``Upwelling_ECB_tiled`` reruns it with small horizontal CPU tiles against the
-same gold file. The ``BiologyInterface`` unit test checks the tracer layout and
+physics and constant biology) compares against a gold file.
+``Seamount_ECB_tiled`` runs ECB on Seamount, whose biology varies in both x and
+y, untiled and with small horizontal CPU tiles, and requires the two runs to
+agree. Upwelling is uniform in x, so it could not show a kernel that mixes up
+columns across x tile edges. The ``BiologyInterface`` unit test checks the tracer layout and
 name lookup, the default parameters, constant initialization and the disabled
 update. During the port the kernel matched the reference ROMS Fortran exactly
 on single-column cases; that comparison is not kept as a test.
