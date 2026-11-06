@@ -369,6 +369,8 @@ REMORA::advance_2d (int lev,
         Array4<Real const> const& DUon = mf_DUon.const_array(mfi);
         Array4<Real const> const& DVom = mf_DVom.const_array(mfi);
 
+        const auto bottom = GetBottomExchangeTransport(lev) ? GetBottomExchangeTransport(lev)->const_array(mfi)
+                                                            : Array4<Real const>();
         auto Dnew     = mf.array(mfi,Dnew_comp);
         auto zwrk     = mf.array(mfi,zwrk_comp);
         auto gzeta    = mf.array(mfi,gzeta_comp);
@@ -449,11 +451,13 @@ REMORA::advance_2d (int lev,
             if (sch.value == first_step) {
                 rhs_zeta = (DUon(i,j,0)-DUon(i+1,j,0))+
                            (DVom(i,j,0)-DVom(i,j+1,0));
+                if (bottom) { rhs_zeta += bottom(i,j,0); }
                 zeta_new = (zeta(i,j,0,kstp)+ pmn(i,j,0)*zcff1*rhs_zeta) * mskr(i,j,0);
                 zw = Real(0.5)*(zeta(i,j,0,kstp)+zeta_new);
             } else if (sch.value == leapfrog) {
                 rhs_zeta = (DUon(i,j,0)-DUon(i+1,j,0))+
                            (DVom(i,j,0)-DVom(i,j+1,0));
+                if (bottom) { rhs_zeta += bottom(i,j,0); }
                 zeta_new = (zeta(i,j,0,kstp)+
                             pmn(i,j,0)*zcff1*rhs_zeta) * mskr(i,j,0);
                 zw = zcff5*zeta(i,j,0,krhs)+
@@ -461,6 +465,7 @@ REMORA::advance_2d (int lev,
             } else {
                 Real cff=zcff1*((DUon(i,j,0)-DUon(i+1,j,0))+
                                 (DVom(i,j,0)-DVom(i,j+1,0)));
+                if (bottom) { cff += zcff1*bottom(i,j,0); }
                 zeta_new = zeta(i,j,0,kstp)+
                     pmn(i,j,0)*(cff+
                                 zcff2*rzeta(i,j,0,kstp)-

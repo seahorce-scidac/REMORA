@@ -1,6 +1,7 @@
 #ifndef _REMORA_DATA_STRUCT_H_
 #define _REMORA_DATA_STRUCT_H_
 
+#include <limits>
 #include <string>
 #include <iostream>
 #include <array>
@@ -88,6 +89,9 @@ enum class WindType {
     analytic, netcdf
 };
 
+/** \brief Provider of water and advected tracers through the bed. */
+enum class BottomExchangeType { none, constant, analytic, netcdf, coupler };
+
 /** \brief masks */
 enum class MaskType {
     none, analytic, netcdf
@@ -137,6 +141,33 @@ struct SolverChoice {
     void init_params (int ncons, int nscalar, const amrex::Vector<std::string>& cons_names)
     {
         amrex::ParmParse pp(pp_prefix);
+
+        std::string bottom_type = "none";
+        pp.queryAdd("bottom_exchange_type", bottom_type);
+        bottom_type = amrex::toLower(bottom_type);
+        if (bottom_type == "none") { bottom_exchange_type = BottomExchangeType::none; }
+        else if (bottom_type == "constant") { bottom_exchange_type = BottomExchangeType::constant; }
+        else if (bottom_type == "analytic") { bottom_exchange_type = BottomExchangeType::analytic; }
+        else if (bottom_type == "netcdf") { bottom_exchange_type = BottomExchangeType::netcdf; }
+        else if (bottom_type == "coupler") { bottom_exchange_type = BottomExchangeType::coupler; }
+        else { amrex::Abort("Unknown remora.bottom_exchange_type: " + bottom_type); }
+        pp.queryAdd("bottom_q", bottom_q);
+        bottom_cons.assign(ncons, std::numeric_limits<amrex::Real>::quiet_NaN());
+        for (int n=0; n<ncons; ++n) {
+            pp.query(("bottom_" + cons_names[n]).c_str(), bottom_cons[n]);
+        }
+        pp.queryAdd("bottom_exchange_diagnostics", bottom_exchange_diagnostics);
+        pp.queryAdd("bottom_exchange_max_courant", bottom_exchange_max_courant);
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(bottom_exchange_max_courant > 0 &&
+            bottom_exchange_max_courant <= 1, "bottom_exchange_max_courant must be in (0,1]");
+        if (bottom_exchange_type == BottomExchangeType::netcdf) {
+#ifdef REMORA_USE_NETCDF
+            pp.getarr("bottom_exchange_file", bottom_exchange_files);
+            pp.queryAdd("bottom_time_name", bottom_time_name);
+#else
+            amrex::Abort("Bottom NetCDF forcing requires REMORA_USE_NETCDF");
+#endif
+        }
 
         // Which horizontal advection scheme for tracers
         static std::string tracer_hadv_string = "upstream3";
@@ -928,6 +959,14 @@ struct SolverChoice {
     bool        qair_is_percent       = false;
     std::string longwave_netcdf_varname = "lwrad";
 
+
+    BottomExchangeType bottom_exchange_type = BottomExchangeType::none;
+    amrex::Real bottom_q = 0;
+    amrex::Vector<amrex::Real> bottom_cons;
+    amrex::Vector<std::string> bottom_exchange_files;
+    std::string bottom_time_name = "bottom_time";
+    bool bottom_exchange_diagnostics = false;
+    amrex::Real bottom_exchange_max_courant = amrex::Real(0.5);
 
     bool        do_rivers             = false;
     bool        do_rivers_temp        = true;

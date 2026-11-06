@@ -2,3 +2,5 @@ CEXE_headers += REMORA_DateClock.H
 CEXE_headers += REMORA_TimeUnits.H
 CEXE_headers += REMORA_DepthStretchTransform.H
 CEXE_headers += REMORA_MaskedAverageDown.H
+
+CEXE_headers += REMORA_BottomExchange.H

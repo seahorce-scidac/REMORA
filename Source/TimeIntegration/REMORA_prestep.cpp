@@ -165,7 +165,10 @@ REMORA::prestep (int lev,
             prestep_t_advection(lev, bx, gbx, S_old.array(mfi,i_comp),
                                 mf_scalarcache.array(mfi,i_comp), Hz, Huon, Hvom,
                                 W, DC, FC, sstore, z_w, h, pm, pn, msku, mskv, river_pos,
-                                river_source, iic, ntfirst,
+                                river_source,
+                                GetBottomExchangeTransport(lev) ? GetBottomExchangeTransport(lev)->const_array(mfi,i_comp+1) : Array4<Real const>(),
+                                GetBottomExchangeTransport(lev) ? GetBottomExchangeTransport(lev)->const_array(mfi) : Array4<Real const>(),
+                                iic, ntfirst,
                                 nrhs, N, dt_lev);
         }
 
