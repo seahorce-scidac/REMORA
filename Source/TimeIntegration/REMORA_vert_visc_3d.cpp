@@ -52,11 +52,6 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
         AK(i,j,k) = Real(0.5) * (Akv(i-ioff,j-joff,k)+Akv(i,j,k));
     });
 
-    Gpu::streamSynchronize();
-#ifdef AMREX_USE_GPU
-    Gpu::synchronize();
-#else
-#endif
     /////////////////// This and the following loop is the first non-matching thing that affects plotfile comparison for cuda
     // NOTE: vertical viscosity term for tracers is identical except AK=Akt
     const Real sixth = one / Real(6.0);
@@ -88,11 +83,6 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
         CF(i,j,k) *= cff;
         DC(i,j,k) = cff * (phi(i,j,k  ,nnew) - phi(i,j,k-1,nnew) - FC(i,j,k)*DC(i,j,k-1));
     });
-#ifdef AMREX_USE_GPU
-    Gpu::synchronize();
-#else
-#endif
-    Gpu::streamSynchronize();
     ParallelFor(makeSlab(phi_bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         DC(i,j,N+1) = zero;
@@ -103,10 +93,6 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
             DC(i,j,k) -= CF(i,j,k)*DC(i,j,k+1);
         }
     });
-
-#ifdef AMREX_USE_GPU
-    Gpu::synchronize();
-#endif
 
     ParallelFor(surroundingNodes(phi_bx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
