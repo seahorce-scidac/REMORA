@@ -22,11 +22,14 @@ the command line. For example, 512 x 512 x 32 cells:
     remora_exec Exec/IdealMiniGrid/inputs_frc remora.n_cell=512 512 32 \\
         remora.prob_lo=0 0 -5000 remora.prob_hi=512000 512000 0 \\
         remora.bc.xlo.type=slipwall remora.bc.xhi.type=slipwall \\
-        remora.bc.ylo.type=slipwall remora.bc.yhi.type=slipwall remora.fixed_dt=60 \\
+        remora.bc.ylo.type=slipwall remora.bc.yhi.type=slipwall \\
+        remora.fixed_dt=60 remora.ndtfast=30 \\
         remora.nc_grid_file_0=scaling/scaling_grd.nc remora.nc_init_file_0=scaling/scaling_ini.nc \\
         remora.nc_frc_file=scaling/scaling_frc.nc
 
-prob_hi is n_cell times --dx (1000 m by default) and prob_lo's depth is --depth. With
+prob_hi is n_cell times --dx (1000 m by default) and prob_lo's depth is --depth. Keep the
+barotropic step fixed_dt/ndtfast below about dx / sqrt(9.8 * depth) (4.5 s for the defaults):
+with a larger one the run blows up without stopping, and its plotfiles say nothing. With
 remora.max_step=0 a run reads every file and stops, which isolates the cost of reading.
 
 Formats: NETCDF3_64BIT_DATA (CDF-5, the default), NETCDF4 (compressed with zlib level 4
