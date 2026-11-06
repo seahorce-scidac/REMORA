@@ -57,4 +57,3 @@ CEXE_headers += REMORA_InitAnalyticHMix_IdealMiniGrid.H
 CEXE_headers += REMORA_InitAnalyticVMix_IdealMiniGrid.H   
 CEXE_headers += REMORA_InitAnalyticHMix_Seamount.H
 CEXE_headers += REMORA_InitAnalyticVMix_IdealMiniGrid.H   
-

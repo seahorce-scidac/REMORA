@@ -92,8 +92,8 @@ documents each one.
 ``BioIter`` (default 1) sets the iterations of the update; 0 or less disables
 it. ``K_NO3``, ``K_NH4`` and ``K_PO4`` are inverse half-saturations
 [m3/mmol], sinking velocities are in m/day, and rates in day-1 unless stated
-otherwise. ``AttSW``, ``slCexc`` and ``K_Phy`` must be positive and ``AttChl``
-non-negative, since each divides in the kernel.
+otherwise. ``slCexc``, ``K_Phy`` and ``pCO2air`` must be positive and ``AttSW`` and
+``AttChl`` non-negative.
 
 Forcing
 =======

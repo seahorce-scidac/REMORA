@@ -113,7 +113,8 @@ paths, so field order stays contractual across option sets.
 
 ROMS tracer index equals REMORA component + 1 throughout
 (`itemp`=1/`Temp_comp`=0, `isalt`=2/`Salt_comp`=1, `iNO3_`=3/`Tracer_comp`=2),
-verified against `fennel_mod.h:523-561` and `REMORA_FennelBiology.H` (the `Fennel::components` mapping).
+verified against `fennel_mod.h:523-561`; the bridge lists the tracers in that order (`roms_names`
+in `REMORA_FennelBridge.cpp`) and finds each REMORA component by name.
 
 ## Debug levels
 

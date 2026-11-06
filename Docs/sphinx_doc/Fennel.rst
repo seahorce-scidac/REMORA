@@ -91,9 +91,9 @@ Parameters
 ==========
 
 Each parameter is set as ``remora.fennel.<name>``. Defaults follow ROMS; units
-are in ``REMORA_FennelBiology.H``. ``AttSW`` and ``K_Phy`` must be positive and
-``AttChl`` non-negative, since each divides in the kernel, and with ``carbon`` a
-constant ``pCO2air`` must be positive.
+are in ``REMORA_FennelBiology.H``. ``K_Phy`` must be positive and ``AttSW`` and
+``AttChl`` non-negative, and with ``carbon`` a constant ``pCO2air`` must be
+positive.
 
 +-------------+-------------+---------------------------------------------+
 | Parameter   | Default     | Meaning                                     |

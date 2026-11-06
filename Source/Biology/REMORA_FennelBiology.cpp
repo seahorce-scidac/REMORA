@@ -163,8 +163,9 @@ FennelParameters::init_params (const std::string& remora_prefix)
                          "; got " + std::to_string(value));
         }
     };
-    // Light attenuation divides by (AttSW + AttChl*chl) * dz.
-    require(AttSW > Real(0.0), "AttSW", "positive", AttSW);
+    // Light attenuation (AttSW + AttChl*chl) * dz may be zero, which the
+    // kernel handles, but a negative coefficient would amplify light with depth.
+    require(AttSW >= Real(0.0), "AttSW", "non-negative", AttSW);
     require(AttChl >= Real(0.0), "AttChl", "non-negative", AttChl);
     // Grazing divides by K_Phy + phyt^2, which is K_Phy when phyt is zero.
     require(K_Phy > Real(0.0), "K_Phy", "positive", K_Phy);
@@ -684,7 +685,8 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
                         const Real Att = (parms.AttSW + parms.AttChl * chlo(i,j,k)) * thickness;
                         const Real ExpAtt = std::exp(-Att);
                         const Real Itop = PAR;
-                        const Real PARavg = Itop * (one - ExpAtt) / Att;
+                        // Mean PAR over the cell; Itop when nothing attenuates.
+                        const Real PARavg = (Att > zero) ? Itop * (one - ExpAtt) / Att : Itop;
 
                         // Compute Chlorophyll-a phytoplankton ratio,
                         // [mg Chla / mg C].

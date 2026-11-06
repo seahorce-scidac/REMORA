@@ -12,16 +12,24 @@ missing_header=$5
 shift 5
 mkdir -p runA runB mismatch
 
+# Print a log and stop, so a failure shows its cause in the ctest output.
+fail_with () {
+    cat "$1" >&2
+    echo "$2" >&2
+    exit 1
+}
+
 # A restart from the checkpoint must reproduce the continuous run exactly.
 (
     cd runA
     "$@" "$input" > ../run.log 2>&1
-)
+) || fail_with run.log "The continuous run failed"
 (
     cd runB
     "$@" "$input" remora.restart="../runA/$chk" remora.check_int=-1 > ../restart.log 2>&1
-)
-"$compare" -a -r 0 --abs_tol 0 "runA/$plt" "runB/$plt"
+) || fail_with restart.log "The restart run failed"
+"$compare" -a -r 0 --abs_tol 0 "runA/$plt" "runB/$plt" > compare.log 2>&1 \
+    || fail_with compare.log "The restart does not reproduce the continuous run"
 
 # Save the metadata so rerunning this test leaves the original checkpoint intact.
 cp "runA/$chk/BiologyHeader" saved_biology_header

@@ -18,7 +18,7 @@
         amrex::Error("The BioToy analytic biology profile is Fennel's;"
                      " remora.biology_model = " + biology.name() +
                      " needs its own profile or"
-                     " remora.biology_ic_type = netcdf.");
+                     " remora.biology_ic_type = constant or netcdf.");
     }
     auto& mf_cons = context.state;
     auto const& bio_declaration = biology.declaration();
