@@ -142,10 +142,10 @@ read_biology_full_domain_from_netcdf (int /*lev*/,
  * @param ngrow     grow cells the read asks for, i.e. cum_ref_ratios[hires_*_level]
  *
  * A high-resolution file has to carry the refined domain plus ngrow rings on every side
- * (Docs/sphinx_doc/Inputs.rst). Checking that up front is not a nicety: BuildFABsFromNetCDFFile
- * copies on intersection and fill_fab_from_arrays only asserts that the destination box is big
- * enough for the source, so a file with too FEW grow cells reads cleanly and silently leaves
- * the outer rings of the FAB at whatever they held -- which then gets averaged down into
+ * (Docs/sphinx_doc/Inputs.rst). Checking that up front is not a nicety: the readers
+ * (BuildLocalFABsFromNetCDFFile) read only what the file holds and are copied on intersection,
+ * so a file with too FEW grow cells reads cleanly and silently leaves the outer rings of the
+ * destination at whatever they held -- which then gets averaged down into
  * level 0. Only rho-point variables are checked; that is enough to catch an undersized file,
  * and it avoids re-deriving the staggered offsets here.
  */

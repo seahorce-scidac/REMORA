@@ -1050,14 +1050,11 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
     // Aggregated over boxes: whether each tracer's coefficient came from the file
     Vector<int> cons_coeff_read(ncons, 0);
 
-    // The coefficients are read cell-centered and copied into face MultiFabs too.
-    Box region;
+    Vector<const MultiFab*> coeff_mfs;
     for (const auto& coeff : vec_nudg_coeff) {
-        if (lev < static_cast<int>(coeff.size()) && coeff[lev]) {
-            const Box b = nc_local_region(*coeff[lev]);
-            if (b.ok()) { region = region.ok() ? region.minBox(b) : b; }
-        }
+        if (lev < static_cast<int>(coeff.size())) { coeff_mfs.push_back(coeff[lev].get()); }
     }
+    const Box region = nc_local_region(coeff_mfs);
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -1352,14 +1349,17 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
     // cell centers under a coarse cell is its center, exactly on a uniform grid and to
     // second order on a curvilinear one. Longitude and angle are first made continuous so
     // that cells either side of a branch cut average to a value between them.
-    // unwrap_to_first_cell needs the whole field, so every rank reads all of it.
+    // unwrap_to_first_cell needs the whole field in one FAB. The full-domain MultiFabs are
+    // one box per level, so the rank that owns it reads the whole field and the rest nothing.
+    AMREX_ALWAYS_ASSERT(vec_pm_full_domain[hires_grid_level]->boxArray().size() == 1);
+    const Box sph_region = nc_local_region(*vec_pm_full_domain[hires_grid_level]);
     Vector<FArrayBox> NC_lonr_fab(1), NC_latr_fab(1), NC_angler_fab(1);
     const bool have_rho = read_optional_grid_vars_from_netcdf(
-        nc_hires_grid_box, nc_all_region(), nc_grid_file_hires, {"lon_rho", "lat_rho"},
+        nc_hires_grid_box, sph_region, nc_grid_file_hires, {"lon_rho", "lat_rho"},
         {&NC_lonr_fab[0], &NC_latr_fab[0]}, "high-resolution spherical rho coordinates",
         cum_ref_ratios[hires_grid_level]);
     const bool have_angle = read_optional_grid_vars_from_netcdf(
-        nc_hires_grid_box, nc_all_region(), nc_grid_file_hires, {"angle"}, {&NC_angler_fab[0]},
+        nc_hires_grid_box, sph_region, nc_grid_file_hires, {"angle"}, {&NC_angler_fab[0]},
         "high-resolution grid rotation angle", cum_ref_ratios[hires_grid_level]);
 
     if (have_rho) {

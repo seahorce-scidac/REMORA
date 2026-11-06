@@ -3,7 +3,8 @@
  *
  * Reads one small file, written in every format the linked PnetCDF can create, through the
  * readers REMORA's NetCDF inputs go through: ReadNetCDFFile, the attribute and variable
- * queries, and the time-units offset.
+ * queries, the time-units offset, and the per-rank reader BuildLocalFABsFromNetCDFFile,
+ * which is compared cell for cell with BuildFABsFromNetCDFFile.
  *
  * CDF-5 is always tested. NetCDF-4 and NetCDF-4 classic model are tested when PnetCDF has
  * its NetCDF-4 driver (PNETCDF_DRIVER_NETCDF4), and so is a compressed NetCDF-4 fixture,
@@ -11,10 +12,11 @@
  * reach netCDF-C and parallel HDF5 underneath, so this is also the check that the driver
  * was built and linked correctly.
  *
- * Run it on more than one rank. The readers open a file on every rank and then read on the
- * I/O rank alone while the others wait at the close. netCDF-C turns on HDF5's collective
- * metadata reads for a parallel open, so a read that needed metadata on one rank only would
- * hang here rather than pass.
+ * Run it on more than one rank. The per-rank reader is collective, and the cases include a
+ * rank with nothing to read, which still has to take part with an empty request; netCDF-C
+ * reads HDF5 metadata collectively, so a rank that skipped a call would hang here. The
+ * one-rank readers open the file on the I/O rank alone, and a compressed variable, which
+ * netCDF-C will not read in independent mode, checks that they read it collectively.
  *
  * The expected values are the ones written, so every comparison is exact: the readers
  * convert to double, which holds every short, float and double written here.
@@ -127,19 +129,34 @@ void write_file (const std::string& fname, int cmode)
 
 /**
  * BuildLocalFABsFromNetCDFFile against BuildFABsFromNetCDFFile: copy each into a
- * MultiFab split over several boxes and both ranks, as the model's readers do, and
- * require the same value in every cell, ghost cells included. Covers a record
- * variable, a variable with no time dimension, and one staggered in x.
+ * MultiFab, as the model's readers do, and require the same value in every cell, ghost
+ * cells included. Covers a record variable, a variable with no time dimension, and one
+ * staggered in x, on two layouts: several boxes over every rank, and a single box, which
+ * leaves every rank but one with nothing to read.
  */
+void check_local_reads_on (const std::string& fname, const amrex::Box& domain,
+                           const amrex::BoxArray& ba);
+
 void check_local_reads (const std::string& fname)
 {
     using amrex::Box;
     using amrex::IntVect;
     const Box domain(IntVect(0, 0, 0), IntVect(nx - 3, ny - 3, 0));
-    amrex::BoxArray ba(domain);
-    ba.maxSize(IntVect(4, 3, 1));
+    amrex::BoxArray split(domain);
+    split.maxSize(IntVect(4, 3, 1));
+    check(fname + ": local reads split the domain", split.size() > 2);
+    for (const amrex::BoxArray& ba : {split, amrex::BoxArray(domain)}) {
+        check_local_reads_on(fname, domain, ba);
+    }
+}
+
+void check_local_reads_on (const std::string& fname, const amrex::Box& domain,
+                           const amrex::BoxArray& ba)
+{
+    using amrex::Box;
+    using amrex::IntVect;
     const amrex::DistributionMapping dm(ba);
-    check(fname + ": local reads split the domain", ba.size() > 2);
+    const std::string layout = " (" + std::to_string(ba.size()) + " boxes)";
 
     // What each file variable covers: the domain and one ring of ghost cells at rho points,
     // and faces 0 to nx-2 (one row of ghosts in y) for ubar.
@@ -158,18 +175,29 @@ void check_local_reads (const std::string& fname)
         serial.setVal(-999.0);
         local.setVal(-999.0);
 
+        // Filled and copied the way the model does it, on the device in a GPU build.
         amrex::FArrayBox serial_fab, local_fab;
         BuildFABsFromNetCDFFile<amrex::FArrayBox, amrex::Real>(
             domain, fname, {c.name}, {c.type}, {&serial_fab}, c.one_time, 1);
         BuildLocalFABsFromNetCDFFile<amrex::FArrayBox, amrex::Real>(
             domain, nc_local_region(local), fname, {c.name}, {c.type}, {&local_fab}, c.one_time, 1);
+        for (amrex::MFIter mfi(local, false); mfi.isValid(); ++mfi) {
+            serial[mfi].template copy<amrex::RunOn::Device>(serial_fab);
+            local[mfi].template copy<amrex::RunOn::Device>(local_fab);
+        }
+
+        // Checked on the host, from copies in host-accessible memory.
+        const amrex::MFInfo host_info = amrex::MFInfo().SetArena(amrex::The_Pinned_Arena());
+        amrex::MultiFab serial_h(bat, dm, 1, IntVect(1, 1, 0), host_info);
+        amrex::MultiFab local_h(bat, dm, 1, IntVect(1, 1, 0), host_info);
+        amrex::MultiFab::Copy(serial_h, serial, 0, 0, 1, IntVect(1, 1, 0));
+        amrex::MultiFab::Copy(local_h, local, 0, 0, 1, IntVect(1, 1, 0));
+        amrex::Gpu::streamSynchronize();
 
         int mismatch = 0, unfilled = 0;
-        for (amrex::MFIter mfi(local, false); mfi.isValid(); ++mfi) {
-            serial[mfi].template copy<amrex::RunOn::Host>(serial_fab);
-            local[mfi].template copy<amrex::RunOn::Host>(local_fab);
-            const auto s = serial.const_array(mfi);
-            const auto l = local.const_array(mfi);
+        for (amrex::MFIter mfi(local_h, false); mfi.isValid(); ++mfi) {
+            const auto s = serial_h.const_array(mfi);
+            const auto l = local_h.const_array(mfi);
             amrex::LoopOnCpu(mfi.fabbox(), [&] (int i, int j, int k) {
                 if (s(i, j, k) != l(i, j, k)) { ++mismatch; }
             });
@@ -179,8 +207,9 @@ void check_local_reads (const std::string& fname)
         }
         amrex::ParallelDescriptor::ReduceIntSum(mismatch);
         amrex::ParallelDescriptor::ReduceIntSum(unfilled);
-        check(fname + ": local read of " + c.name + " matches the serial read", mismatch == 0);
-        check(fname + ": local read of " + c.name + " fills every cell the file covers", unfilled == 0);
+        check(fname + ": local read of " + c.name + " matches the serial read" + layout, mismatch == 0);
+        check(fname + ": local read of " + c.name + " fills every cell the file covers" + layout,
+              unfilled == 0);
     }
 }
 

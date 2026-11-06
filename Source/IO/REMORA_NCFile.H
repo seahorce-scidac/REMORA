@@ -2,7 +2,6 @@
 #define _REMORA_NCFILE_H_
 
 #include <initializer_list>
-#include <limits>
 #include <sstream>
 #include <string>
 #include <ctime>
@@ -415,40 +414,34 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
 }
 
 /**
- * \brief The bounding box, as cells, of the index range of every FAB, ghost
- * cells included, that this rank owns in each of \p mfs: the region
- * BuildLocalFABsFromNetCDFFile has to read for a copy into them. Empty on a
- * rank that owns none.
+ * \brief The cell-centered bounding box of every FAB, ghost cells included,
+ * that this rank owns in each of \p mfs: the region BuildLocalFABsFromNetCDFFile
+ * has to read for a copy into them. Empty on a rank that owns none. Null
+ * entries are skipped.
  *
- * A FAB's index range is kept as it is, whatever its staggering, because a
- * copy on intersection between FABs of different staggering intersects index
- * ranges. A staggered FAB therefore asks for one more cell than it holds.
+ * One box per rank keeps each variable to one collective read per rank. Its
+ * cost is the bounding box: a rank whose FABs lie far apart reads, and holds,
+ * everything between them.
  */
 inline amrex::Box
-nc_local_region (std::initializer_list<const amrex::MultiFab*> mfs)
+nc_local_region (const amrex::Vector<const amrex::MultiFab*>& mfs)
 {
     amrex::Box region;
     for (const amrex::MultiFab* mf : mfs) {
         if (mf == nullptr) { continue; }
         for (amrex::MFIter mfi(*mf, false); mfi.isValid(); ++mfi) {
-            const amrex::Box& fb = mfi.fabbox();
-            const amrex::Box b(fb.smallEnd(), fb.bigEnd());
+            const amrex::Box b = amrex::convert(mfi.fabbox(), amrex::IndexType::TheCellType());
             region = region.ok() ? region.minBox(b) : b;
         }
     }
     return region;
 }
 
-/**
- * \brief A region holding all of any file's data, for BuildLocalFABsFromNetCDFFile
- * callers that need the whole field on every rank, such as one that unwraps a
- * longitude relative to the field's first cell. Every rank then reads all of it.
- */
+//! nc_local_region for a fixed list of MultiFabs
 inline amrex::Box
-nc_all_region ()
+nc_local_region (std::initializer_list<const amrex::MultiFab*> mfs)
 {
-    const int big = std::numeric_limits<int>::max() / 4;
-    return amrex::Box(amrex::IntVect(-big), amrex::IntVect(big));
+    return nc_local_region(amrex::Vector<const amrex::MultiFab*>(mfs));
 }
 
 //! nc_local_region for one MultiFab
@@ -553,25 +546,21 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
         // The file stores x fastest, then y, then z: the FAB's own order, so
         // the hyperslab reads straight into it. A rank with nothing to read
         // still gets a valid one-cell FAB.
-        FAB tmp;
-        const amrex::Box tmp_box = local.ok() ? local
-                                              : amrex::Box(data_box.smallEnd(), data_box.smallEnd(),
-                                                           data_box.ixType());
+        const amrex::Box fab_bx = local.ok() ? local
+                                             : amrex::Box(data_box.smallEnd(), data_box.smallEnd(),
+                                                          data_box.ixType());
+        fab_vars[iv]->resize(fab_bx, 1);
 #ifdef AMREX_USE_GPU
-        tmp.resize(tmp_box, 1, amrex::The_Pinned_Arena());
-#else
-        tmp.resize(tmp_box, 1);
-#endif
+        // fab_vars live on the device; read on the host and copy over.
+        FAB tmp(fab_bx, 1, amrex::The_Pinned_Arena());
         if (!local.ok()) { tmp.template setVal<amrex::RunOn::Host>(0.0); }
         var.get_all(tmp.dataPtr(), start, count);
-
-        fab_vars[iv]->resize(tmp_box, 1);
-#ifdef AMREX_USE_GPU
         amrex::Gpu::copy(amrex::Gpu::hostToDevice,
                          tmp.dataPtr(), tmp.dataPtr() + tmp.size(),
                          fab_vars[iv]->dataPtr());
 #else
-        fab_vars[iv]->copy(tmp, tmp_box, 0, tmp_box, 0, 1);
+        if (!local.ok()) { fab_vars[iv]->template setVal<amrex::RunOn::Host>(0.0); }
+        var.get_all(fab_vars[iv]->dataPtr(), start, count);
 #endif
     }
     ncf.close();

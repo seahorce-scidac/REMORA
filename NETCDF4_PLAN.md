@@ -136,13 +136,16 @@ field to every rank. Now:
   intersection is unchanged. One hyperslab per rank (the bounding box of its
   FABs) avoids `varn`, which the NetCDF-4 driver lacks. A rank with no boxes
   reads nothing but still takes part in the collective call.
-- `nc_local_region` gives that region from the MultiFabs a caller fills. It
-  keeps each FAB's index range, because some callers copy a cell-centered
-  field into a face MultiFab (the nudging coefficients).
+- `nc_local_region` gives that region from the MultiFabs a caller fills: the
+  cell-centered bounding box of the FABs the rank owns. A rank whose FABs lie
+  far apart reads everything between them. AMReX's default space-filling-curve
+  distribution keeps a rank's boxes together. If measurements show otherwise,
+  the fix is one read per FAB, with every rank making the same number of calls.
 - Switched: `NCTimeSeries` (forcing and climatology records) and every
   init/grid reader in `REMORA_ReadFromInitNetcdf.cpp`, including the hires
-  readers. The hires `lon_rho`/`angle` reads use `nc_all_region()`, so every
-  rank gets the whole field, because `unwrap_to_first_cell` needs it.
+  readers. The hires full-domain MultiFabs are one box per level, so on that
+  path the rank that owns the box reads the whole field and the others read
+  nothing. `unwrap_to_first_cell` relies on that and asserts it.
 - Still on one rank: boundary files (`NCTimeSeriesBoundary`, small slabs),
   rivers, lat-lon forcing (its grid is not the model's decomposition), and
   metadata queries.
@@ -155,8 +158,46 @@ controls (empty or shrunken regions) fail. The `NCFormats` unit test now
 compares the two readers cell for cell on a 6-box MultiFab, for a record
 variable, a static one and a face-centered one; a one-cell shrink fails it.
 
-Not measured: speed or per-rank memory at scale. That needs a grid much larger
-than the 4-core machine allows; do it on Perlmutter.
+The same runs also pass in a Debug build with assertions, `amrex.init_snan=1`
+and FPE traps.
+
+Local measurement (`Tests/tools/make_read_scaling_data.py`, 768 x 768 x 16
+cells, start-up only, 4 ranks): peak RSS per rank 980-1047 MB with the
+branch against 1152-1441 MB at the base commit. Start-up took about 2.0 s
+against 2.5 s, but those timings overlapped a build. At 1 rank memory is the
+same, as it should be. The real test is at scale on Perlmutter, below.
+
+### Perlmutter test
+
+1. **Modules.** Use `PrgEnv-gnu`, `cray-mpich`, `cray-hdf5-parallel` and
+   `cray-netcdf-hdf5parallel`, and do not load `cray-parallel-netcdf`.
+   Check `nc-config --has-parallel4` (must be `yes`) and
+   `nc-config --has-pnetcdf`. If the second is `yes`, PnetCDF's README says the
+   combination is unsupported; try it anyway, and if it fails, build netCDF-C
+   with `--enable-parallel4 --disable-pnetcdf` against `cray-hdf5-parallel`.
+2. **PnetCDF with the driver**, into `$PNC=$CFS/<project>/$USER/pnetcdf-nc4`
+   or `$HOME`. Configure with `CC=cc CXX=CC --with-netcdf4=$NETCDF_DIR
+   --disable-fortran --prefix=$PNC`. Check that the configure summary says
+   `NetCDF-4 support - enabled`, that `$PNC/bin/pnetcdf-config --netcdf4`
+   prints `enabled`, and that `ldd $PNC/lib/libpnetcdf.so` lists `libnetcdf`.
+   If it doesn't, rebuild with `LIBS=-lnetcdf`.
+3. **REMORA** with CMake, so the unit test is built: put `$PNC/lib/pkgconfig`
+   first on `PKG_CONFIG_PATH` and `$PNC/lib` first on `LD_LIBRARY_PATH`, then
+   configure with `-DREMORA_ENABLE_MPI=ON -DREMORA_ENABLE_PNETCDF=ON
+   -DREMORA_ENABLE_TESTS=ON -DREMORA_ENABLE_FCOMPARE=ON`. Check with
+   `ldd Build/Exec/remora_exec | grep pnetcdf`. Build the base commit
+   (`a54d74b7`) the same way, in a second directory, as the reference.
+4. **Correctness**, in an interactive CPU allocation: `ctest -R NCFormats`.
+   Then compare the IdealMiniGrid and BioToy decks, the base binary on
+   `_classic64` inputs against the branch on CDF-5 and `nccopy -k nc4 -d 4 -s`
+   copies, with `amrex_fcompare`, at 4, 64 and 256 ranks. Use a perturbed
+   climatology for `inputs_clim_nudg`.
+5. **Scale**: generate 1536 x 1536 x 32 (and 3072 x 3072 x 32) inputs with
+   `make_read_scaling_data.py`, in CDF-5 and NetCDF-4 (`--format NETCDF4`).
+   Then run `inputs_frc` with `remora.max_step=0` at 128, 512 and 2048
+   ranks (1, 4 and 16 nodes), base versus branch. Record the wall time and
+   each rank's peak RSS (`srun ... /usr/bin/time -f "%M %e"`). Put the input
+   files on `$SCRATCH`, striped (`lfs setstripe -c 16`).
 
 Found along the way, all present at the base commit, not fixed:
 - `inputs_clim_nudg`'s climatology equals its initial state (and is constant

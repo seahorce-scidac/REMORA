@@ -139,8 +139,8 @@ double ReadNetCDFTimeOffsetDays (const std::string& fname,
  * @param var_names Names of the variables to test for
  * @returns whether every named variable is present in the file
  *
- * Use this before calling BuildFABsFromNetCDFFile() on optional variables:
- * ReadNetCDFFile() calls ncf.var(name) unconditionally, so a missing variable
+ * Use this before reading optional variables: the readers call ncf.var(name)
+ * unconditionally, so a missing variable
  * is a hard failure rather than a recoverable one. The answer is broadcast so
  * every rank agrees before any collective read is attempted.
  */

@@ -44,8 +44,7 @@ set_tests_properties(LatLonRegrid PROPERTIES
 
 # The NetCDF readers against every file format the linked PnetCDF can create,
 # NetCDF-4 included when PnetCDF has its NetCDF-4 driver. Two ranks, because the
-# readers read on one rank while the rest wait, which is what a NetCDF-4 file
-# would deadlock on.
+# per-rank reader is collective and is tested with a rank that has nothing to read.
 if (REMORA_ENABLE_PNETCDF)
   set(remora_ncformats_test_exe_name remora_ncformats_tests)
   add_executable(${remora_ncformats_test_exe_name}
