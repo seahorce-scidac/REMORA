@@ -61,6 +61,24 @@ REMORABiology::ECBParameters::init_params (const std::string& remora_prefix)
         }
     }
 
+    // The ROMS Fortran kernel and the parity diagnostics exist only for Fennel,
+    // so asking for either with ECB is an error rather than a silent C++ run.
+    {
+        ParmParse pp_remora(remora_prefix);
+        int use_cpp = 1;
+        int debug = 0;
+        pp_remora.query("use_biology_cpp_answer", use_cpp);
+        pp_remora.query("biology_debug", debug);
+        if (use_cpp != 1) {
+            amrex::Abort(remora_prefix + ".use_biology_cpp_answer = 0 selects the ROMS Fortran "
+                         "kernel, which exists only for Fennel, not ECB.");
+        }
+        if (debug > 0) {
+            amrex::Abort(remora_prefix + ".biology_debug > 0 requests the parity diagnostics, "
+                         "which exist only for Fennel, not ECB.");
+        }
+    }
+
     pp.queryAdd("BioIter", BioIter);
     pp.queryAdd("AttSW", AttSW);
     pp.queryAdd("AttChl", AttChl);

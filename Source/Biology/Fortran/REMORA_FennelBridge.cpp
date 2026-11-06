@@ -20,6 +20,7 @@
 #include <REMORA_DataStruct.H>
 #include <REMORA_Constants.H>
 
+#include <string>
 #include <vector>
 
 #include "REMORA_Fennel_Fortran_Interface.H"
@@ -74,18 +75,29 @@ REMORABiology::FennelBiology::advance_fortran (const BiologyAdvanceContext& cont
 
     // The ROMS buffer is temperature, salinity, then the biology tracers packed
     // contiguously: buffer slot 0 is itemp, slot 1 is isalt, slot 2 is iNO3_, and so on.
-    // The ROMS biology slots follow fennel_mod.h:527-561, which is also the order
-    // FennelBiology::configure declares the tracers in. Each slot's REMORA component is
-    // looked up by that declared name, so passive (dye) scalars between salinity and the
-    // biology block are skipped.
-    const auto& bio_names = m_declaration.tracer_names;
-    const int nbt  = static_cast<int>(bio_names.size());
+    // The ROMS biology slots follow fennel_mod.h:527-561. List the tracer names in that
+    // order here, independently of the order FennelBiology::configure declares them in,
+    // and look each slot's REMORA component up by name, which also skips any passive
+    // (dye) scalars between salinity and the biology block.
+    std::vector<std::string> roms_names = {"NO3", "NH4", "chlorophyll", "phytoplankton",
+                                           "zooplankton", "LdetritusN", "SdetritusN"};
+    if (parms.river_don) { roms_names.emplace_back("RdetritusN"); }
+    if (parms.po4) { roms_names.emplace_back("PO4"); }
+    if (parms.carbon) {
+        roms_names.insert(roms_names.end(), {"LdetritusC", "SdetritusC", "TIC", "alkalinity"});
+    }
+    if (parms.carbon && parms.river_don) { roms_names.emplace_back("RdetritusC"); }
+    if (parms.oxygen) { roms_names.emplace_back("oxygen"); }
+    if (parms.odu) { roms_names.emplace_back("ODU"); }
+    const int nbt  = static_cast<int>(roms_names.size());
     const int ntrc = nbt + 2;
+    AMREX_ALWAYS_ASSERT(nbt == static_cast<int>(m_declaration.tracer_names.size()));
 
     std::vector<int> slot_comp(ntrc);
     for (int slot = 0; slot < ntrc; ++slot) {
         slot_comp[slot] = (slot < Tracer_comp)
-            ? slot : m_declaration.component_index(bio_names[slot - Tracer_comp], Bio_comp);
+            ? slot : m_declaration.component_index(roms_names[slot - Tracer_comp], Bio_comp);
+        AMREX_ALWAYS_ASSERT(slot_comp[slot] >= 0);
     }
     auto cons_comp_for_slot = [&slot_comp] (int slot) noexcept {
         return slot_comp[slot];

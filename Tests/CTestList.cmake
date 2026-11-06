@@ -981,3 +981,5 @@ function(add_test_checkpoint_restart TEST_NAME CHKFILE PLTFILE MISSING_HEADER)
         LABELS "regression")
 endfunction()
 add_test_checkpoint_restart(Upwelling_Fennel_restart "chk00005" "plt00010" accept)
+# ECB takes no checkpoint without BiologyHeader.
+add_test_checkpoint_restart(Upwelling_ECB_restart    "chk00002" "plt00003" reject)
