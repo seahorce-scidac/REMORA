@@ -36,12 +36,9 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
     // yhi: ori = 4
     // zhi: ori = 5
 
-    amrex::Gpu::DeviceVector<BCRec> bcrs_d(ncomp);
-#ifdef AMREX_USE_GPU
-    Gpu::htod_memcpy_async(bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
-#else
-    std::memcpy(bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
-#endif
+    // Staged through pinned memory and freed in stream order, so nothing here has to wait
+    // for the kernels below to finish
+    Gpu::AsyncArray<BCRec> bcrs_d(bcrs.data(), ncomp);
     const amrex::BCRec* bc_ptr = bcrs_d.data();
     const auto* bc_extdir_vals_ptr = m_bc_extdir_vals_d.data();
 
@@ -258,6 +255,4 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
             });
         }
     }
-
-    Gpu::streamSynchronize();
 }

@@ -40,12 +40,9 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
     //      0 is used as starting index for bcrs
     amrex::setBC(bx, domain, bccomp, 0, ncomp, m_domain_bcs_type, bcrs);
 
-    amrex::Gpu::DeviceVector<BCRec> bcrs_d(ncomp);
-#ifdef AMREX_USE_GPU
-    Gpu::htod_memcpy_async(bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
-#else
-    std::memcpy(bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
-#endif
+    // Staged through pinned memory and freed in stream order, so nothing here has to wait
+    // for the kernels below to finish
+    Gpu::AsyncArray<BCRec> bcrs_d(bcrs.data(), ncomp);
     const amrex::BCRec* bc_ptr = bcrs_d.data();
     const auto* bc_extdir_vals_ptr = m_bc_extdir_vals_d.data();
 
@@ -127,6 +124,4 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
     }
 
     // Never need to apply a boundary condition to the top
-
-    Gpu::streamSynchronize();
 }
