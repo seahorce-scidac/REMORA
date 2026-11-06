@@ -35,9 +35,11 @@ void REMORAPhysBCFunct::operator() (MultiFab& mf, const MultiFab& msk, int icomp
             gdomain.grow(i, nghost[i]);
         }
     }
-    const bool null_mf_calc = (mf_calc.ok()) ? false : true;
-    const bool null_mf_msku = (mf_msku.ok()) ? false : true;
-    const bool null_mf_mskv = (mf_mskv.ok()) ? false : true;
+    // An absent MultiFab is passed as a default-constructed one. isDefined tells it apart
+    // locally; ok() would also run an MFIter loop and an MPI reduction on every fill.
+    const bool null_mf_calc = !mf_calc.isDefined();
+    const bool null_mf_msku = !mf_msku.isDefined();
+    const bool null_mf_mskv = !mf_mskv.isDefined();
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
