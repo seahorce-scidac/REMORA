@@ -34,11 +34,18 @@ void check_full_columns (int lev, const BoxArray& ba, const Geometry& geom)
  * CPU builds tile in 16x16 columns by default (main.cpp), and the threads of a rank share
  * the tiles of its boxes. When tiling is turned off (remora.omp_tile_size at least the box
  * size), the threads share whole boxes instead, so a rank with fewer boxes than threads
- * leaves threads idle. Say so, naming the knobs that fix it.
+ * leaves threads idle. Say so, naming the knobs that fix it, the first time each level is
+ * made; a regrid does not repeat it. Every rank makes the same levels, so every rank takes
+ * the same path to the collective reduction.
  */
 void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm)
 {
 #ifdef AMREX_USE_OMP
+    static Vector<int> checked;
+    if (lev >= checked.size()) { checked.resize(lev+1, 0); }
+    if (checked[lev]) { return; }
+    checked[lev] = 1;
+
     // Tiling is on when a tile is smaller than some box in x or y; inputs often write
     // "1024 1024 1024" to mean no tiling, so compare with the boxes, not a fixed value.
     const int nthreads = OpenMP::get_max_threads();
