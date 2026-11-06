@@ -25,6 +25,7 @@ SOFTWARE.
 #include <REMORA_ECBBiology.H>
 #include <REMORA_BiologyCarbonate.H>
 #include <REMORA_BiologyGasExchange.H>
+#include <REMORA_BiologySinking.H>
 #include <REMORA_DataStruct.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_MFIter.H>
@@ -324,7 +325,6 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
             constexpr Real two = Real(2.0);
             constexpr Real eps = Real(1.0e-20);
             constexpr Real minval = Real(1.0e-6);
-            constexpr Real cff_weno = Real(1.0e-14);
 
             constexpr Real rOxNO3 = Real(8.625);       // 138/16
             constexpr Real rOxNH4 = Real(6.625);       // 106/16
@@ -682,111 +682,13 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
                     const bool nitrogen_sink = (isink == 0 || isink == 2 || isink == 3);
                     const bool carbon_sink = (isink == 4 || isink == 5);
 
+                    // Sink the particulate concentration, restricted to be
+                    // positive; FC(i,j,0) is then the flux reaching the bottom.
                     for (int k = 0; k < N; ++k) {
                         qc(i,j,k) = amrex::max(bio(i,j,k), zero);
                     }
-
-                    // Reconstruct vertical profile of selected biological
-                    // constituent "Bio" in terms of a set of parabolic segments
-                    // within each grid box. Then, compute semi-Lagrangian flux
-                    // due to sinking.
-                    for (int iface = N - 1; iface >= 1; --iface) {
-                        FC(i,j,iface) = (qc(i,j,iface) - qc(i,j,iface-1)) * inv_hz2(i,j,iface-1);
-                    }
-                    for (int k = 1; k < N - 1; ++k) {
-                        Real dltR = Hz(i,j,k) * FC(i,j,k+1);
-                        Real dltL = Hz(i,j,k) * FC(i,j,k);
-                        Real cff = Hz(i,j,k-1) + two * Hz(i,j,k) + Hz(i,j,k+1);
-                        const Real cffR = cff * FC(i,j,k+1);
-                        const Real cffL = cff * FC(i,j,k);
-
-                        // Apply PPM monotonicity constraint to prevent
-                        // oscillations within the grid box.
-                        if ((dltR * dltL) <= zero) {
-                            dltR = zero;
-                            dltL = zero;
-                        } else if (std::abs(dltR) > std::abs(cffL)) {
-                            dltR = cffL;
-                        } else if (std::abs(dltL) > std::abs(cffR)) {
-                            dltL = cffR;
-                        }
-
-                        // Compute right and left side values (bR,bL) of
-                        // parabolic segments within grid box Hz(k); (WR,WL) are
-                        // measures of quadratic variations.
-                        cff = (dltR - dltL) * inv_hz3(i,j,k);
-                        dltR = dltR - cff * Hz(i,j,k+1);
-                        dltL = dltL + cff * Hz(i,j,k-1);
-                        bR(i,j,k) = qc(i,j,k) + dltR;
-                        bL(i,j,k) = qc(i,j,k) - dltL;
-                        WR(i,j,k) = std::pow((two * dltR - dltL), 2);
-                        WL(i,j,k) = std::pow((dltR - two * dltL), 2);
-                    }
-                    for (int k = 1; k < N - 2; ++k) {
-                        const Real dltL = amrex::max(cff_weno, WL(i,j,k));
-                        const Real dltR = amrex::max(cff_weno, WR(i,j,k+1));
-                        bR(i,j,k) = (dltR * bR(i,j,k) + dltL * bL(i,j,k+1)) / (dltR + dltL);
-                        bL(i,j,k+1) = bR(i,j,k);
-                    }
-                    FC(i,j,N) = zero;              // no-flux boundary condition
-                    bR(i,j,N-1) = qc(i,j,N-1);     // default strictly monotonic
-                    bL(i,j,N-1) = qc(i,j,N-1);     // conditions
-                    bR(i,j,N-2) = qc(i,j,N-1);
-                    bL(i,j,1) = qc(i,j,0);         // bottom grid boxes are
-                    bR(i,j,0) = qc(i,j,0);         // re-assumed to be
-                    bL(i,j,0) = qc(i,j,0);         // piecewise constant.
-
-                    // Apply monotonicity constraint again, since the reconciled
-                    // interfacial values may cause a non-monotonic behavior of
-                    // the parabolic segments inside the grid box.
-                    for (int k = 0; k < N; ++k) {
-                        Real dltR = bR(i,j,k) - qc(i,j,k);
-                        Real dltL = qc(i,j,k) - bL(i,j,k);
-                        const Real cffR = two * dltR;
-                        const Real cffL = two * dltL;
-                        if ((dltR * dltL) < zero) {
-                            dltR = zero;
-                            dltL = zero;
-                        } else if (std::abs(dltR) > std::abs(cffL)) {
-                            dltR = cffL;
-                        } else if (std::abs(dltL) > std::abs(cffR)) {
-                            dltL = cffR;
-                        }
-                        bR(i,j,k) = qc(i,j,k) + dltR;
-                        bL(i,j,k) = qc(i,j,k) - dltL;
-                    }
-
-                    // After this moment reconstruction is considered complete.
-                    // The next stage is to compute vertical advective fluxes,
-                    // FC. It is expected that sinking may occur relatively fast,
-                    // the algorithm is designed to be free of CFL criterion,
-                    // which is achieved by allowing integration bounds for
-                    // semi-Lagrangian advective flux to use as many grid boxes
-                    // in upstream direction as necessary.
-                    const Real cff_w = dtdays * std::abs(wbio);
-                    for (int k = 0; k < N; ++k) {
-                        FC(i,j,k) = zero;
-                        WL(i,j,k) = z_w(i,j,k) + cff_w;
-                        WR(i,j,k) = Hz(i,j,k) * qc(i,j,k);
-                    }
-                    for (int k = 0; k < N; ++k) {
-                        int ksource = k;
-                        for (int ks = k; ks < N - 1; ++ks) {
-                            if (WL(i,j,k) > z_w(i,j,ks+1)) {
-                                ksource = ks + 1;
-                                FC(i,j,k) = FC(i,j,k) + WR(i,j,ks);
-                            }
-                        }
-                        const int ks = ksource;
-                        const Real cu = amrex::min(one, (WL(i,j,k) - z_w(i,j,ks)) * inv_hz(i,j,ks));
-                        FC(i,j,k) = FC(i,j,k) +
-                                    Hz(i,j,ks) * cu *
-                                    (bL(i,j,ks) + cu * (Real(0.5) * (bR(i,j,ks) - bL(i,j,ks)) -
-                                     (Real(1.5) - cu) * (bR(i,j,ks) + bL(i,j,ks) - two * qc(i,j,ks))));
-                    }
-                    for (int k = 0; k < N; ++k) {
-                        bio(i,j,k) = qc(i,j,k) + (FC(i,j,k+1) - FC(i,j,k)) * inv_hz(i,j,k);
-                    }
+                    sink_column(i, j, N, dtdays * std::abs(wbio), bio, qc, bR, bL, WR, WL, FC,
+                                Hz, z_w, inv_hz, inv_hz2, inv_hz3);
 
                     // Stress-dependent resuspension and instantaneous sediment
                     // recycling and burial of the material reaching the bottom.
