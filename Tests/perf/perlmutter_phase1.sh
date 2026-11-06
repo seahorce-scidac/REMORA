@@ -301,7 +301,7 @@ cat > "$WORK/gpu_wrap.sh" <<'EOF'
 #!/bin/bash
 export CUDA_VISIBLE_DEVICES=$((3-SLURM_LOCALID))
 if [ -n "${NSYS_OUT:-}" ] && [ "$SLURM_PROCID" = 0 ]; then
-    exec nsys profile --trace=cuda,nvtx,mpi,osrt --force-overwrite true -o "$NSYS_OUT" "$@"
+    exec nsys profile --trace=cuda,nvtx,mpi,osrt --mpi-impl=mpich --force-overwrite true -o "$NSYS_OUT" "$@"
 fi
 exec "$@"
 EOF

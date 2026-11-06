@@ -48,7 +48,8 @@ binaries it runs, so rebuilding for a later comparison cannot change a queued jo
 invocations sharing a build directory must not build at the same time. Without `-B`, the
 work directory holds the builds too.
 `-N` adds one Nsight Systems run of each revision to the GPU job, after the timed runs, with
-rank 0 under `nsys profile` (CUDA, NVTX, MPI and OS-runtime traces; TinyProfiler regions show
+rank 0 under `nsys profile` (CUDA, NVTX, MPI and OS-runtime traces, MPI as Cray MPICH;
+TinyProfiler regions show
 up as NVTX ranges). Each writes `runs/gpu_upwelling_4gpu_<label>_nsys/profile.nsys-rep` for the
 Nsight Systems timeline and `stats_*.csv` summaries of GPU kernels, CUDA API calls and NVTX
 ranges, and the job output lists the ten costliest kernels and the launch count. These runs
