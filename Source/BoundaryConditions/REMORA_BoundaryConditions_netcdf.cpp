@@ -53,8 +53,7 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
     AMREX_ALWAYS_ASSERT(mf_to_fill.nComp() >= icomp_to_fill + ncomp);
 
     const Real eps= Real(1.0e-20);
-    // An absent mf_calc is a default-constructed MultiFab: isDefined tells it apart without
-    // the MFIter loop and MPI reduction of ok()
+    // An absent mf_calc is passed as a default-constructed MultiFab
     const bool null_mf_calc = !mf_calc.isDefined();
 
     for (int icomp = 0; icomp < ncomp; icomp++) // This covers every tracer if doing scalars

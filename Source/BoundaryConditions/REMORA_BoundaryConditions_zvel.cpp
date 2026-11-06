@@ -35,11 +35,6 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
     // yhi: ori = 4
     // zhi: ori = 5
 
-    //! Based on BCRec for the domain, we need to make BCRec for this Box
-    // bccomp is used as starting index for m_domain_bcs_type
-    //      0 is used as starting index for bcrs
-    amrex::setBC(bx, domain, bccomp, 0, ncomp, m_domain_bcs_type, bcrs);
-
     // A single component, so the kernels take its BCRec by value
     const BCRec bcr = bcrs[0];
     const auto* bc_extdir_vals_ptr = m_bc_extdir_vals_d.data();

@@ -910,7 +910,7 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
     MultiFab calc_copy;
     const MultiFab* calc = &mf_calc;
     int icomp_calc_used = icomp_calc;
-    if (!mf_calc.ok()) {
+    if (!mf_calc.isDefined()) {
         bool radiation = false;
         for (int n = 0; n < ncomp; ++n) {
             const BCRec& bcr = domain_bcs_type[bccomp+n];

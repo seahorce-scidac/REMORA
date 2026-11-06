@@ -52,7 +52,6 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
         AK(i,j,k) = Real(0.5) * (Akv(i-ioff,j-joff,k)+Akv(i,j,k));
     });
 
-    /////////////////// This and the following loop is the first non-matching thing that affects plotfile comparison for cuda
     // NOTE: vertical viscosity term for tracers is identical except AK=Akt
     const Real sixth = one / Real(6.0);
 
