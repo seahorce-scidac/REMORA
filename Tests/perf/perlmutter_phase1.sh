@@ -163,7 +163,11 @@ build_one () {   # build_one <label> <ref> <cpu|gpu>
         # -ffp-contract=off (Docs: Performance tuning). -F fast allows FMA fusion everywhere.
         flags="USE_OMP=TRUE USE_CUDA=FALSE XTRA_CXXFLAGS=-ffp-contract=$FPCONTRACT"
     fi
-    local cmd="make COMP=gnu USE_MPI=TRUE USE_PNETCDF=TRUE TINY_PROFILE=TRUE USE_PARTICLES=FALSE $flags"
+    # Build as a production run would: Exec/GNUmakefile sets TEST = TRUE, which defines
+    # AMREX_TESTING and so fills every new array with signalling NaNs (amrex.init_snan), and
+    # USE_ASSERTION = TRUE; both cost time that a timing should not include.
+    local cmd="make COMP=gnu DEBUG=FALSE TEST=FALSE USE_ASSERTION=FALSE USE_MPI=TRUE USE_PNETCDF=TRUE"
+    cmd="$cmd TINY_PROFILE=TRUE USE_PARTICLES=FALSE $flags"
     # GNU make rebuilds an object when its sources change, not when its flags or the
     # makefiles do, so a tree reused for another revision or another command line would
     # keep stale objects. Start that configuration over when either differs from the
@@ -301,7 +305,12 @@ cat > "$WORK/gpu_wrap.sh" <<'EOF'
 #!/bin/bash
 export CUDA_VISIBLE_DEVICES=$((3-SLURM_LOCALID))
 if [ -n "${NSYS_OUT:-}" ] && [ "$SLURM_PROCID" = 0 ]; then
-    exec nsys profile --trace=cuda,nvtx,mpi,osrt --force-overwrite true -o "$NSYS_OUT" "$@"
+    # CUDA and NVTX only by default: MPI and OS-runtime tracing (NSYS_TRACE=cuda,nvtx,mpi,osrt)
+    # made the profiled run too slow to finish in a debug-queue job. No CPU sampling.
+    trace=${NSYS_TRACE:-cuda,nvtx}
+    mpi=""; case $trace in *mpi*) mpi="--mpi-impl=mpich";; esac
+    exec nsys profile --trace=$trace $mpi --sample=none --cpuctxsw=none \
+        --force-overwrite true -o "$NSYS_OUT" "$@"
 fi
 exec "$@"
 EOF
@@ -349,12 +358,14 @@ command -v nsys > /dev/null || { echo "nsys not found; load the cudatoolkit modu
 for v in $labels; do
     out=$W/runs/gpu_upwelling_4gpu_${v}_nsys; mkdir -p "$out"
     echo "=== nsys $v  $(date +%T)"
-    NSYS_OUT=$out/profile $SRUN "$W/bin/remora_${v}_gpu" "$inp" remora.plot_int=-1 \
+    # bounded, so one slow profile cannot use up the job: NSYS_TIMEOUT seconds per revision
+    NSYS_OUT=$out/profile timeout ${NSYS_TIMEOUT:-600} $SRUN "$W/bin/remora_${v}_gpu" "$inp" remora.plot_int=-1 \
         remora.check_int=-1 $xin amrex.use_gpu_aware_mpi=1 > "$out/log" 2>&1 \
         || echo "   NSYS RUN FAILED: $out/log"
     [ -f "$out/profile.nsys-rep" ] || { echo "   no report written"; continue; }
     nsys stats --report cuda_gpu_kern_sum,cuda_api_sum,nvtx_sum --format csv \
-        --force-export true -o "$out/stats" "$out/profile.nsys-rep" > "$out/stats.log" 2>&1
+        --force-export true --force-overwrite true -o "$out/stats" "$out/profile.nsys-rep" \
+        > "$out/stats.log" 2>&1
     k=$(ls "$out"/stats*cuda_gpu_kern_sum*.csv 2>/dev/null | head -1)
     [ -n "$k" ] || { echo "   no kernel summary, see $out/stats.log"; continue; }
     echo "   top GPU kernels: % of GPU kernel time, calls, name"
