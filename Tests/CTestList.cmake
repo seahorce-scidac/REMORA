@@ -570,6 +570,11 @@ add_test_r(Upwelling_NLEOS              "remora_exec" "plt00010")
 add_test_r(Upwelling_qdrag              "remora_exec" "plt00010")
 add_test_r(Upwelling_logdrag            "remora_exec" "plt00010")
 add_test_r(Upwelling_Fennel             "remora_exec" "plt00010")
+add_test_r(Upwelling_ECB                "remora_exec" "plt00003")
+# The biology kernels must not depend on how CPU tiles split a box: rerun each
+# biology case with small horizontal tiles against its untiled gold file.
+add_test_r_gold(Upwelling_Fennel_tiled  "remora_exec" "plt00010" Upwelling_Fennel)
+add_test_r_gold(Upwelling_ECB_tiled     "remora_exec" "plt00003" Upwelling_ECB)
 add_test_r(Channel_Test                 "remora_exec" "plt00010")
 add_test_r(DoubleGyre                   "remora_exec" "plt00010")
 add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
@@ -958,18 +963,21 @@ add_test_abort(DogboneAnalytic_split_column_abort "remora_exec" "Boxes must hold
 #=============================================================================
 
 
-# ECB uses the same tracer transport/output/checkpoint path as Fennel.
-function(add_test_biology_restart TEST_NAME)
+# Checkpoint restart and mismatch checks: a restart from CHKFILE must reproduce PLTFILE
+# exactly, and restart must reject a checkpoint whose BiologyHeader model or Header
+# component list differs from the run's. MISSING_HEADER (accept|reject) says whether a
+# checkpoint without BiologyHeader restarts, as it does for models taking legacy files.
+function(add_test_checkpoint_restart TEST_NAME CHKFILE PLTFILE MISSING_HEADER)
     setup_test()
     resolve_test_exe("${TEST_DIR}" "remora_exec" TEST_EXE)
     # MPI_COMMANDS is deliberately split into launcher arguments for this script.
-    separate_arguments(BIOLOGY_MPI_COMMANDS NATIVE_COMMAND "${MPI_COMMANDS}")
+    separate_arguments(CHECKPOINT_MPI_COMMANDS NATIVE_COMMAND "${MPI_COMMANDS}")
     add_test(NAME ${TEST_NAME} COMMAND sh
-        ${CMAKE_CURRENT_SOURCE_DIR}/check_biology_restart.sh
-        ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${FCOMPARE_EXE} ${PLOT_GOLD}
-        ${BIOLOGY_MPI_COMMANDS} ${TEST_EXE})
+        ${CMAKE_CURRENT_SOURCE_DIR}/check_checkpoint_restart.sh
+        ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${FCOMPARE_EXE} ${CHKFILE} ${PLTFILE}
+        ${MISSING_HEADER} ${CHECKPOINT_MPI_COMMANDS} ${TEST_EXE})
     set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 5400
         PROCESSORS ${NP} WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}"
         LABELS "regression")
 endfunction()
-add_test_biology_restart(Upwelling_ECB)
+add_test_checkpoint_restart(Upwelling_Fennel_restart "chk00005" "plt00010" accept)

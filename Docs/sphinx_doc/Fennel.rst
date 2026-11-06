@@ -91,7 +91,9 @@ Parameters
 ==========
 
 Each parameter is set as ``remora.fennel.<name>``. Defaults follow ROMS; units
-are in ``REMORA_FennelBiology.H``.
+are in ``REMORA_FennelBiology.H``. ``AttSW`` and ``K_Phy`` must be positive and
+``AttChl`` non-negative, since each divides in the kernel, and with ``carbon`` a
+constant ``pCO2air`` must be positive.
 
 +-------------+-------------+---------------------------------------------+
 | Parameter   | Default     | Meaning                                     |
@@ -301,10 +303,15 @@ secular trend depends on the calendar's leap-day branch; moving the run one
 day changes the gold file by about 3e-8 relative, well above the 1e-11
 tolerance.
 
-``Upwelling_Fennel_hires_init`` and ``Upwelling_Fennel_hires_init_ic`` check
-the analytic profile and its average-down from a high-resolution level, and
-the ``BiologyInterface`` unit test checks the tracer layout for every option
-combination. Left to the Fortran-bridge comparison: ``po4``, ``odu``,
+``Upwelling_Fennel_tiled`` reruns the case with small horizontal CPU tiles
+against the same gold file. ``Upwelling_Fennel_hires_init`` and
+``Upwelling_Fennel_hires_init_ic`` check the analytic profile and its
+average-down from a high-resolution level. ``Upwelling_Fennel_restart`` checks
+that a restart reproduces the run exactly and that restart rejects a
+checkpoint with a different model or component layout (see
+:ref:`sec:Biology`). The ``BiologyInterface`` unit test checks the tracer
+layout and name lookup for every option combination, the default parameters,
+constant initialization, the analytic profile and the disabled update. Left to the Fortran-bridge comparison: ``po4``, ``odu``,
 ``denitrification``, ``bio_sediment = false``, ``BioIter > 1``, the ``data``
 form of ``pco2air_type``, the ``w92`` and ``ocmip`` relations, and NetCDF
 biology initialization.

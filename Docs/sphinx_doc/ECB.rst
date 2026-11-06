@@ -108,17 +108,13 @@ have at least two layers.
 Validation
 ==========
 
-The ``BiologyInterface`` unit test compares ECB with 24 column cases computed
-by the reference ROMS Fortran, with bounds checking, and currently agrees
-exactly. The cases cover day and night, low nutrients and oxygen, gas
-exchange, resuspension, sinking across several layers, masks, iteration and
-layer counts, and dye offsets. The generator, source hashes and fixture format
-are in ``Tests/reference/ECB``; Fortran and NumPy are needed only to
-regenerate the cases.
-
-``Upwelling_ECB`` runs the model in REMORA against a gold file and checks that
-a restart, the ``ecb`` plot alias and horizontal CPU tiling each reproduce the
-run exactly, and that restart rejects a mismatched checkpoint.
+The tests parallel Fennel's. ``Upwelling_ECB`` (8x8x8, three steps, analytic
+physics and constant biology) compares against a gold file, and
+``Upwelling_ECB_tiled`` reruns it with small horizontal CPU tiles against the
+same gold file. The ``BiologyInterface`` unit test checks the tracer layout and
+name lookup, the default parameters, constant initialization and the disabled
+update. During the port the kernel matched the reference ROMS Fortran exactly
+on single-column cases; that comparison is not kept as a test.
 
 Not yet validated: a full ROMS and REMORA simulation compared side by side,
 NetCDF initialization, river, boundary and climatology forcing, mesh
