@@ -56,6 +56,9 @@ the job. Each writes `runs/gpu_upwelling_4gpu_<label>_nsys/profile.nsys-rep` for
 Nsight Systems timeline and `stats_*.csv` summaries of GPU kernels, CUDA API calls and NVTX
 ranges, and the job output lists the ten costliest kernels and the launch count. These runs
 are slowed by the profiler and are left out of the `summarize.py` table.
+Builds use `TEST=FALSE USE_ASSERTION=FALSE` whatever `Exec/GNUmakefile` says: its `TEST = TRUE` turns
+on AMReX's signalling-NaN fill of every new array (`amrex.init_snan`), which a profile showed as
+the costliest GPU kernel, so timings made before this change include that fill.
 Every CPU build, the baseline included, is compiled with `-ffp-contract=off` (`-F fast` to
 allow FMA fusion in all of them instead), so a baseline that predates REMORA's default does
 not differ at roundoff for that reason alone. A source tree that is reused for another
