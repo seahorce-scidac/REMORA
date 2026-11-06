@@ -20,10 +20,10 @@ corrected on.
 
 ## Build and Test
 
-- `cmake -S . -B Build -DCMAKE_BUILD_TYPE=Debug -DREMORA_ENABLE_MPI=ON
+- `cmake -S . -B Build -DCMAKE_BUILD_TYPE=Release -DREMORA_ENABLE_MPI=ON
   -DREMORA_ENABLE_ALL_WARNINGS=ON -DREMORA_ENABLE_TESTS=ON -DREMORA_ENABLE_FCOMPARE=ON`:
-  the CI configuration (`.github/workflows/ci.yml`). Without `REMORA_ENABLE_FCOMPARE` every
-  comparison test fails as "not found".
+  a test build. Without `REMORA_ENABLE_FCOMPARE` every comparison test fails as "not found".
+  CI (`.github/workflows/ci.yml`) uses the same flags with `Debug`.
 - `cmake --build Build -j 4`, then `ctest --test-dir Build -j 2 --output-on-failure`. Each
   regression test runs on 2 MPI ranks.
 - `-DREMORA_ENABLE_PNETCDF=ON` is the only way to define `REMORA_USE_NETCDF`. There is no
@@ -113,9 +113,10 @@ GPU and build-configuration traps that CPU builds miss:
 
 - Register tests in `Tests/CTestList.cmake` with the existing helpers (`add_test_r`,
   `add_test_equiv`, `add_test_abort`, ...). Run `ctest -R <Name>` first, then the full suite.
-- The final ctest before pushing is the Debug CI configuration above. Debug traps FPEs on
-  signalling NaNs that Release misses. For a quick single run in Release, add
-  `amrex.init_snan=1 amrex.fpe_trap_invalid=1`.
+- Before pushing or opening a PR, a local Release or test build and ctest is enough; don't
+  run a local Debug build, which takes too long. CI's Debug build traps FPEs on signalling
+  NaNs that Release misses, so check its result after pushing. To reproduce a Debug trap in a
+  Release run, add `amrex.init_snan=1 amrex.fpe_trap_invalid=1`.
 - CI has no NetCDF; NetCDF cases run only in the nightly suite. Prefer tests that need no
   NetCDF. Also build the no-PnetCDF configuration when the work was done in a PnetCDF build.
 - Before reporting a failure or bug, reproduce it on unchanged `development`. CI passes there.
