@@ -53,7 +53,51 @@ Sources: `~/Downloads/pnetcdf-1.14.0/src/drivers/nc4io`,
    NetCDF-4 driver. If it wasn't, document a self-built PnetCDF that sits on
    top of `cray-hdf5-parallel` and `cray-netcdf-hdf5parallel`.
 
+### Phase 0 status (local machine)
+
+Done. Ubuntu's `libhdf5-mpi-dev` (HDF5 1.10.10) and `libnetcdf-mpi-dev`
+(netCDF-C 4.9.0, `NC_HAS_PARALLEL4 1`, `NC_HAS_PNETCDF 0`) are enough; nothing
+had to be built besides PnetCDF. PnetCDF 1.14.0 is installed with the driver at
+`~/PnetCDF-nc4` (source in `~/software/pnetcdf-nc4-src`), configured with
+
+    ./configure --prefix=$HOME/PnetCDF-nc4 \
+        --with-netcdf4=/usr/lib/x86_64-linux-gnu/netcdf/mpi \
+        CPPFLAGS="-I/usr/lib/x86_64-linux-gnu/netcdf/mpi/include -I/usr/include/hdf5/openmpi" \
+        LDFLAGS="-L/usr/lib/x86_64-linux-gnu -L/usr/lib/x86_64-linux-gnu/hdf5/openmpi" \
+        LIBS=-lnetcdf_mpi --disable-fortran
+
+Two traps found:
+- Without `LIBS=-lnetcdf_mpi`, `libpnetcdf.so` leaves `nc_open_par` and the
+  other `nc_*` symbols undefined and records no dependency (`Libs.private` is
+  empty), so an application link could pick up the serial `/usr/local`
+  netCDF-C.
+- The shell profile puts `~/PnetCDF/lib` on `LD_LIBRARY_PATH`, which beats the
+  executable's RUNPATH, so a REMORA built against `~/PnetCDF-nc4` still loads
+  the driverless library unless `LD_LIBRARY_PATH` is changed.
+
+Perlmutter is still open.
+
 ## Phase 1: Reading (small PR)
+
+### Phase 1 findings
+
+- **Compressed NetCDF-4 variables cannot be read in independent mode.**
+  netCDF-C (`libsrc4/nc4var.c`, 4.9.2 and 4.9.3) refuses independent access to
+  any variable with a zlib, shuffle or fletcher32 filter, reads included.
+  PnetCDF's `begin_indep_data` then fails at the first such variable (REMORA
+  ignored the return code), and the I/O rank's independent read aborts with
+  "Operation not allowed in collective data mode". netCDF-C also turns on
+  HDF5's collective metadata reads for every parallel open.
+- So the readers now open each file on the I/O rank alone
+  (`NCFile::open_local`, `MPI_COMM_SELF`) and read it with the collective calls,
+  which are trivially collective on one rank. This replaces the plan's item 4
+  ("leave the rank-0-reads-and-broadcasts pattern alone"): the pattern stays,
+  but the other ranks no longer open the file.
+- Numeric type conversion needed no work: every read goes through
+  `ncmpi_get_var*_double/float/int`, which convert from any numeric type.
+  NC_STRING attributes cannot be read through PnetCDF at all, so they now abort
+  with the attribute, variable and file named.
+
 
 1. **Clear error when the driver is missing.** In `NCFile::open`, call
    `ncmpi_inq_file_format` first. If the file is `NC_FORMAT_NETCDF4` or

@@ -81,19 +81,17 @@ Instructions for how to specify domain boundary conditions, with usage examples 
 Imposing Boundary and Initial Conditions from NetCDF File
 =========================================================
 
-Grid, initial, and time-dependent boundary data can be specified using NetCDF files, as in ROMS. REMORA expects files in the same format as ROMS, in NetCDF classic format (32- or 64-bit). NetCDF4-classic does not work. If the file format is incorrect, REMORA will exit with the error:
+Grid, initial, and time-dependent boundary data can be specified using NetCDF files, as in ROMS. Every input file can be in any classic format (CDF-1, CDF-2 or CDF-5). NetCDF-4 files, including the NetCDF-4 classic model and compressed (deflated) variables, can be read too, when PnetCDF was built with NetCDF-4 support (see :ref:`NetCDF-4 input files <netcdf4>`). Otherwise REMORA exits with an error that names the file and says it is NetCDF-4.
+
+A NetCDF-4 file is read through the classic data model: variables and attributes in groups other than the root group are not seen, and text attributes must be character arrays (``NC_CHAR``), not ``NC_STRING``. REMORA names the attribute and exits if it finds an ``NC_STRING`` one.
+
+Any NetCDF file can be converted to CDF-5 by running:
 
 .. code:: shell
 
-   NetCDF: Attempt to use feature that was not turned on when netCDF was built.
+    nccopy -k cdf5 old_file.nc converted_file.nc
 
-Other versions of NetCDF files can be converted to 64-bit NetCDF classic by running the command:
-
-.. code:: shell
-
-    ncks -5 old_file.nc converted_file.nc
-
-The utility ``ncks`` is part of the NCO suite.
+or, with the NCO suite, ``ncks -5 old_file.nc converted_file.nc``.
 
 Without the high-resolution options below, ``remora.ic_type = netcdf`` needs both ``remora.nc_init_file_0`` and ``remora.nc_grid_file_0``. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
 

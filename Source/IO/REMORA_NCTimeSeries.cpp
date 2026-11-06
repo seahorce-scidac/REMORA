@@ -153,10 +153,9 @@ NCTimeSeries::source_grid (const amrex::Vector<std::string>& a_file_names,
     bool any_latlon = false, all_uniform = true;
     for (const auto& file_name : a_file_names) {
         int kind = 0;
-        {
-            auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
-            ncmpi_begin_indep_data(ncf.ncid);
-            if (amrex::ParallelDescriptor::IOProcessor() && ncf.has_var(a_field_name)) {
+        if (amrex::ParallelDescriptor::IOProcessor()) {
+            auto ncf = ncutils::NCFile::open_local(file_name);
+            if (ncf.has_var(a_field_name)) {
                 const auto var = ncf.var(a_field_name);
                 if (var.ndim() == 1) {
                     kind = 1;
@@ -166,8 +165,8 @@ NCTimeSeries::source_grid (const amrex::Vector<std::string>& a_file_names,
                 }
             }
             ncf.close();
-            amrex::ParallelDescriptor::Bcast(&kind, 1, amrex::ParallelDescriptor::IOProcessorNumber());
         }
+        amrex::ParallelDescriptor::Bcast(&kind, 1, amrex::ParallelDescriptor::IOProcessorNumber());
         if (kind == 0 && LatLonRegrid::has_latlon_axes(file_name, a_field_name)) { kind = 2; }
         any_latlon = any_latlon || kind == 2;
         all_uniform = all_uniform && kind == 1;
@@ -223,15 +222,13 @@ void NCTimeSeries::Initialize() {
         double l_cycle_length = 0.0;
         int l_is_spatially_uniform = 0;
         // Shape check verdict, decided on the IO rank and broadcast so that every rank
-        // leaves the collective file calls below before any of them aborts.
+        // aborts together.
         int l_shape_mismatch = 0;
         std::vector<long long> l_file_shape(4, 0);
 
-        auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
-        ncmpi_begin_indep_data(ncf.ncid);
-
         if (amrex::ParallelDescriptor::IOProcessor())
         {
+            auto ncf = ncutils::NCFile::open_local(file_name);
             auto time_var = ncf.var(time_name);
 
             l_is_cycle = time_var.has_attr("cycle_length");
@@ -274,9 +271,8 @@ void NCTimeSeries::Initialize() {
                 l_shape_mismatch = matches_native_shape(
                         file_shape, native_spatial_shape(domain, mf_var->ixType(), is2d)) ? 0 : 1;
             }
+            ncf.close();
         }
-
-        ncf.close();
 
         const int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
         int is_cycle_int = l_is_cycle ? 1 : 0;

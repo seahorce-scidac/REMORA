@@ -81,6 +81,9 @@ struct NDArray
 
 /** \brief Read in data from netcdf file and save to data arrays
  *
+ * Only the I/O processor opens the file and fills \p arrays; the other ranks
+ * return at once, and the caller broadcasts what it needs.
+ *
  * @param[in   ] fname       file name to read from
  * @param[in   ] names       field names to read
  * @param[inout] arrays      vector of data arrays to fill
@@ -93,10 +96,9 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
 {
     AMREX_ASSERT(arrays.size() == names.size());
 
-    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER );
-    ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
+        auto ncf = ncutils::NCFile::open_local(fname);
 
         /*
         // get the dimension information
@@ -145,10 +147,10 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
             //     amrex::Print() << dim << ", " ;
             // amrex::Print()  << ")" << std::endl;
 
-            ncf.var(vname_to_read).get(dataPtr, start, shape);
+            ncf.var(vname_to_read).get_all(dataPtr, start, shape);
         }
+        ncf.close();
     }
-    ncf.close();
 }
 
 /**

@@ -46,6 +46,29 @@ See sections below for compiler-specific instructions for how to enable NetCDF s
       **When built with some MPI implementations, PnetCDF will crash when writing files larger than 2GB. Building
       with MPICH v4.2.2 will likely solve this issue.**
 
+.. _netcdf4:
+
+NetCDF-4 input files
+^^^^^^^^^^^^^^^^^^^^
+
+REMORA reads NetCDF-4 (HDF5) input files through PnetCDF's NetCDF-4 driver, which hands them to the netCDF-C library. The driver is off by default. To turn it on:
+
+#. Install HDF5 with parallel support, and a netCDF-C built against it with parallel I/O (``nc-config --has-parallel4`` reports ``yes``). netCDF-C must not itself be built with PnetCDF support. Ubuntu, for example, provides both as ``libhdf5-mpi-dev`` and ``libnetcdf-mpi-dev``.
+#. Configure PnetCDF with ``--with-netcdf4=<netCDF-C install directory>``. If netCDF-C's library has a name other than ``libnetcdf``, as Ubuntu's ``libnetcdf_mpi`` does, pass it with ``LIBS``, so that PnetCDF records it as a dependency, e.g.:
+
+   .. code:: shell
+
+             ./configure --prefix=$PNETCDF_DIR \
+                         --with-netcdf4=/usr/lib/x86_64-linux-gnu/netcdf/mpi \
+                         LIBS=-lnetcdf_mpi
+
+   The configure summary should report ``NetCDF-4 support - enabled``, and ``$PNETCDF_DIR/bin/pnetcdf-config --netcdf4`` should print ``enabled``.
+#. Build REMORA against it as above.
+
+At run time, make sure the executable loads this PnetCDF library and not another one: ``LD_LIBRARY_PATH`` takes precedence over the library path recorded at build time, so a different PnetCDF on it is the one used. ``ldd remora_exec`` shows which one is loaded. A REMORA built against a PnetCDF without the driver, or run with one, stops with an error naming the NetCDF-4 file it could not open.
+
+The ``NCFormats`` unit test (``ctest -R NCFormats``) writes and reads a small file in each format the linked PnetCDF supports, and reads a compressed NetCDF-4 file, so it checks that the driver works.
+
 
 GNU Make
 ~~~~~~~~

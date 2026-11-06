@@ -160,10 +160,9 @@ check_hires_dims_from_netcdf (const std::string& fname,
     const long need_x = static_cast<long>(domain.length(0)) + 2L * ngrow[0];
     const long need_y = static_cast<long>(domain.length(1)) + 2L * ngrow[1];
 
-    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
-    ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
+        auto ncf = ncutils::NCFile::open_local(fname);
         if (!ncf.has_var(var_name)) {
             // Say so here. The reader that follows would otherwise fail inside ncmpi_inq_varid,
             // which names neither the file nor the variable it was asked for.
@@ -177,8 +176,8 @@ check_hires_dims_from_netcdf (const std::string& fname,
                 too_small = (found_x < need_x || found_y < need_y) ? 1 : 0;
             }
         }
+        ncf.close();
     }
-    ncf.close();
 
     const int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     amrex::ParallelDescriptor::Bcast(&too_small, 1, ioproc);
