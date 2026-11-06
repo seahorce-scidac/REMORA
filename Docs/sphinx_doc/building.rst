@@ -62,8 +62,23 @@ REMORA reads NetCDF-4 (HDF5) input files through PnetCDF's NetCDF-4 driver, whic
                          --with-netcdf4=/usr/lib/x86_64-linux-gnu/netcdf/mpi \
                          LIBS=-lnetcdf_mpi
 
-   The configure summary should report ``NetCDF-4 support - enabled``, and ``$PNETCDF_DIR/bin/pnetcdf-config --netcdf4`` should print ``enabled``.
-#. Build REMORA against it as above.
+   On Perlmutter, with ``cray-hdf5-parallel`` and ``cray-netcdf-hdf5parallel`` loaded (and ``cray-parallel-netcdf`` not loaded), the library is ``libnetcdf_parallel``:
+
+   .. code:: shell
+
+             ./configure --prefix=$PNETCDF_DIR --with-netcdf4=$NETCDF_DIR --disable-fortran \
+                         CC=cc CXX=CC LIBS="-L$NETCDF_DIR/lib -lnetcdf_parallel"
+
+   Without the right ``LIBS``, the build stops linking ``ncmpigen`` with undefined references to ``nc_open_par`` and the other ``nc_*`` functions.
+
+   The configure summary should report ``NetCDF-4 support - enabled``, ``$PNETCDF_DIR/bin/pnetcdf-config --netcdf4`` should print ``enabled``, and ``ldd $PNETCDF_DIR/lib/libpnetcdf.so`` should list the netCDF-C and HDF5 libraries.
+#. Check that ``pkg-config --libs pnetcdf`` works with ``$PNETCDF_DIR/lib/pkgconfig`` on ``PKG_CONFIG_PATH``. PnetCDF's ``pnetcdf.pc`` names ``netcdf`` as a requirement, so it fails with ``Package 'netcdf', required by 'pnetcdf', not found`` when netCDF-C has no ``netcdf.pc`` on the path, as on Perlmutter. Add netCDF-C's ``pkgconfig`` directory to ``PKG_CONFIG_PATH`` if it has one. Otherwise, since ``libpnetcdf.so`` already loads netCDF-C itself (the ``ldd`` check above), delete the requirement:
+
+   .. code:: shell
+
+             sed -i '/^[[:space:]]*Requires/d' $PNETCDF_DIR/lib/pkgconfig/pnetcdf.pc
+
+#. Build REMORA against it as above, starting from an empty CMake cache if an earlier configure failed to find PnetCDF.
 
 At run time, make sure the executable loads this PnetCDF library and not another one: ``LD_LIBRARY_PATH`` takes precedence over the library path recorded at build time, so a different PnetCDF on it is the one used. ``ldd remora_exec`` shows which one is loaded. A REMORA built against a PnetCDF without the driver, or run with one, stops with an error naming the NetCDF-4 file it could not open.
 
