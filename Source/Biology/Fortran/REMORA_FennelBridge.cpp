@@ -20,6 +20,8 @@
 #include <REMORA_DataStruct.H>
 #include <REMORA_Constants.H>
 
+#include <vector>
+
 #include "REMORA_Fennel_Fortran_Interface.H"
 
 using namespace amrex;
@@ -72,17 +74,21 @@ REMORABiology::FennelBiology::advance_fortran (const BiologyAdvanceContext& cont
 
     // The ROMS buffer is temperature, salinity, then the biology tracers packed
     // contiguously: buffer slot 0 is itemp, slot 1 is isalt, slot 2 is iNO3_, and so on.
-    // REMORA may carry passive (dye) scalars between salinity and the biology block, so
-    // the buffer slot maps to a REMORA component through cons_comp_for_slot below rather
-    // than being the component itself. The Fennel ordering in
-    // REMORA_FennelBiology.H::Fennel::components() matches fennel_mod.h:527-561 exactly, so one rule
-    // covers every biology tracer.
-    const int nbt  = REMORABiology::Fennel::num_tracers(parms);
+    // The ROMS biology slots follow fennel_mod.h:527-561, which is also the order
+    // FennelBiology::configure declares the tracers in. Each slot's REMORA component is
+    // looked up by that declared name, so passive (dye) scalars between salinity and the
+    // biology block are skipped.
+    const auto& bio_names = m_declaration.tracer_names;
+    const int nbt  = static_cast<int>(bio_names.size());
     const int ntrc = nbt + 2;
 
-    const int l_bio_comp = Bio_comp;
-    auto cons_comp_for_slot = [l_bio_comp] (int slot) noexcept {
-        return (slot < Tracer_comp) ? slot : l_bio_comp + (slot - Tracer_comp);
+    std::vector<int> slot_comp(ntrc);
+    for (int slot = 0; slot < ntrc; ++slot) {
+        slot_comp[slot] = (slot < Tracer_comp)
+            ? slot : m_declaration.component_index(bio_names[slot - Tracer_comp], Bio_comp);
+    }
+    auto cons_comp_for_slot = [&slot_comp] (int slot) noexcept {
+        return slot_comp[slot];
     };
 
     // ROMS N(ng) is a level count; REMORA N is the last valid k index.

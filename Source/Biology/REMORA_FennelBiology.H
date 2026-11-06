@@ -199,8 +199,9 @@ struct FennelParameters {
 
 namespace Fennel {
 static constexpr int NumBaseTracers = 7;
-static constexpr int NumCarbonTracers = 4;
 
+/** \brief State component of each Fennel tracer, or -1 when the run does
+ *         not carry it. Built from the declaration by tracer name. */
 struct Components {
     int no3 = -1;
     int nh4 = -1;
@@ -220,43 +221,6 @@ struct Components {
     int odu = -1;
 };
 
-/** \brief Map the Fennel tracers onto cons components starting at \p base.
- *
- * \p base is REMORA::bio_comp_start(), which is Tracer_comp plus the number of passive
- * (dye) scalars. Passing it explicitly keeps biology working when a run carries dye as
- * well, since the biology block then does not start at Tracer_comp.
- */
-inline Components components (FennelParameters const& parameters, int base) noexcept
-{
-    int comp = base;
-    Components c;
-    c.no3 = comp++;
-    c.nh4 = comp++;
-    c.chlo = comp++;
-    c.phyt = comp++;
-    c.zoop = comp++;
-    c.lden = comp++;
-    c.sden = comp++;
-    c.rden = parameters.river_don ? comp++ : -1;
-    c.po4 = parameters.po4 ? comp++ : -1;
-    c.ldec = parameters.carbon ? comp++ : -1;
-    c.sdec = parameters.carbon ? comp++ : -1;
-    c.tic = parameters.carbon ? comp++ : -1;
-    c.talk = parameters.carbon ? comp++ : -1;
-    c.rdec = (parameters.carbon && parameters.river_don) ? comp++ : -1;
-    c.oxyg = parameters.oxygen ? comp++ : -1;
-    c.odu = parameters.odu ? comp++ : -1;
-    return c;
-}
-
-inline int num_tracers (FennelParameters const& parameters) noexcept
-{
-    return NumBaseTracers + (parameters.po4 ? 1 : 0) +
-           (parameters.carbon ? NumCarbonTracers : 0) +
-           (parameters.river_don ? 1 : 0) +
-           ((parameters.river_don && parameters.carbon) ? 1 : 0) +
-           (parameters.oxygen ? 1 : 0) + (parameters.odu ? 1 : 0);
-}
 }
 
 
@@ -276,6 +240,7 @@ private:
     int m_debug = 0;
     int m_debug_i = 2;
     int m_debug_j = 2;
+    Fennel::Components components (int component_start) const;
 #ifdef REMORA_USE_FENNEL_FORT
     void advance_fortran (const BiologyAdvanceContext& context) const;
 #endif

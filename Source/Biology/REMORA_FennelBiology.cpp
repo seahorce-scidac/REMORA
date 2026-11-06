@@ -155,6 +155,20 @@ FennelParameters::init_params (const std::string& remora_prefix)
                      "alkalinity is a carbon-block tracer");
     }
 
+    // Reject values that divide by zero in the kernel, where they would
+    // otherwise surface as NaN in the tracers with no diagnostic.
+    auto require = [&] (bool ok, const char* name, const char* condition, Real value) {
+        if (!ok) {
+            amrex::Abort(remora_prefix + ".fennel." + name + " must be " + condition +
+                         "; got " + std::to_string(value));
+        }
+    };
+    // Light attenuation divides by (AttSW + AttChl*chl) * dz.
+    require(AttSW > Real(0.0), "AttSW", "positive", AttSW);
+    require(AttChl >= Real(0.0), "AttChl", "non-negative", AttChl);
+    // Grazing divides by K_Phy + phyt^2, which is K_Phy when phyt is zero.
+    require(K_Phy > Real(0.0), "K_Phy", "positive", K_Phy);
+
     static std::string pco2air_type_string = "constant";
     pp.queryAdd("pco2air_type", pco2air_type_string);
     const std::string pco2air_type_ci = amrex::toLower(pco2air_type_string);
@@ -193,6 +207,13 @@ FennelParameters::init_params (const std::string& remora_prefix)
     } else {
         amrex::Abort("Unknown remora.fennel.oxygen_schmidt: " + o2_schmidt_string +
                      ". Expected wanninkhof1992, wanninkhof2014, or ocmip.");
+    }
+
+    // A non-positive atmospheric pCO2 reverses the sign of the air-sea flux. Only
+    // the surface CO2 exchange reads it, so a run without carbon is unaffected.
+    if (carbon && pco2air_type == PCO2AirType::constant && pCO2air <= Real(0.0)) {
+        amrex::Abort("remora.fennel.pCO2air must be a positive partial pressure; got "
+                     + std::to_string(pCO2air) + " ppmv.");
     }
 }
 
@@ -251,6 +272,36 @@ FennelBiology::configure (const std::string& remora_prefix)
     m_declaration.plot_aliases = {"fennel"};
 }
 
+REMORABiology::Fennel::Components
+REMORABiology::FennelBiology::components (int component_start) const
+{
+    // Look each tracer up by name, so nothing here depends on the order the
+    // declaration lists them in. A tracer the run does not carry gets -1.
+    auto comp = [&] (const char* name) {
+        return m_declaration.component_index(name, component_start);
+    };
+    Fennel::Components c;
+    c.no3 = comp("NO3");
+    c.nh4 = comp("NH4");
+    c.chlo = comp("chlorophyll");
+    c.phyt = comp("phytoplankton");
+    c.zoop = comp("zooplankton");
+    c.lden = comp("LdetritusN");
+    c.sden = comp("SdetritusN");
+    c.rden = comp("RdetritusN");
+    c.po4 = comp("PO4");
+    c.ldec = comp("LdetritusC");
+    c.sdec = comp("SdetritusC");
+    c.tic = comp("TIC");
+    c.talk = comp("alkalinity");
+    c.rdec = comp("RdetritusC");
+    c.oxyg = comp("oxygen");
+    c.odu = comp("ODU");
+    AMREX_ALWAYS_ASSERT(c.no3 >= 0 && c.nh4 >= 0 && c.chlo >= 0 && c.phyt >= 0 &&
+                        c.zoop >= 0 && c.lden >= 0 && c.sden >= 0);
+    return c;
+}
+
 }
 
 void
@@ -300,7 +351,7 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
 
     // Set biological tracer component identifiers. The biology block starts after the
     // passive scalars, so this is Tracer_comp only when the run carries no dye.
-    const auto bio_comp = REMORABiology::Fennel::components(parms, Bio_comp);
+    const auto bio_comp = components(Bio_comp);
 
     // Schmidt-number coefficients and the leading rate coefficient for the gas
     // transfer velocity. Each pair belongs to one published relation, so they
@@ -329,21 +380,17 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
     // A non-positive atmospheric pCO2 reverses the sign of the air-sea flux for the
     // whole run. Only the surface CO2 exchange reads pco2air, so a run without carbon
     // is unaffected by its value and must not be stopped on account of it.
+    // The constant value was checked in init_params; the time-dependent forms can
+    // only be checked here. The secular fit is anchored to 1951 and extrapolates to
+    // a negative partial pressure well before it, so a run whose clock sits near the
+    // origin of its calendar silently draws CO2 out of the ocean for its whole
+    // length. That is the default with remora.time_ref = 0, whose epoch is 0001-01-01.
     if (use_carbon && pco2air <= zero) {
-        if (parms.pco2air_type == REMORABiology::PCO2AirType::constant) {
-            amrex::Abort("remora.fennel.pCO2air must be a positive partial pressure; got "
-                         + std::to_string(pco2air) + " ppmv.");
-        } else {
-            // The secular fit is anchored to 1951 and extrapolates to a negative partial
-            // pressure well before it, so a run whose clock sits near the origin of its
-            // calendar silently draws CO2 out of the ocean for its whole length. That is
-            // the default with remora.time_ref = 0, whose epoch is 0001-01-01.
-            amrex::Abort("remora.fennel.pco2air_type gives a non-positive atmospheric pCO2 ("
-                         + std::to_string(pco2air) + " ppmv) at this model time. The secular"
-                         " trend is fitted around 1951, so put the run in a real year: set"
-                         " remora.time_ref to the reference date and remora.start_time to the"
-                         " offset from it.");
-        }
+        amrex::Abort("remora.fennel.pco2air_type gives a non-positive atmospheric pCO2 ("
+                     + std::to_string(pco2air) + " ppmv) at this model time. The secular"
+                     " trend is fitted around 1951, so put the run in a real year: set"
+                     " remora.time_ref to the reference date and remora.start_time to the"
+                     " offset from it.");
     }
 
 #ifdef REMORA_USE_BIOLOGY_DIAG

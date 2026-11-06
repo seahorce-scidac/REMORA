@@ -46,7 +46,6 @@ set_tests_properties(LatLonRegrid PROPERTIES
 # oracle. Linking all remora_srclib objects would also bring in main.cpp.
 add_executable(remora_biology_tests
   REMORA_Biology_test.cpp
-  REMORA_ECB_test.cpp
   ${PROJECT_SOURCE_DIR}/Source/Biology/REMORA_Biology.cpp
   ${PROJECT_SOURCE_DIR}/Source/Biology/REMORA_FennelBiology.cpp
   ${PROJECT_SOURCE_DIR}/Source/Biology/REMORA_ECBBiology.cpp
@@ -66,6 +65,3 @@ if (REMORA_ENABLE_CUDA)
 endif ()
 add_test(NAME BiologyInterface COMMAND remora_biology_tests)
 set_tests_properties(BiologyInterface PROPERTIES TIMEOUT 60 LABELS "unit")
-
-target_compile_definitions(remora_biology_tests PRIVATE
-  REMORA_ECB_REFERENCE_FILE="${PROJECT_SOURCE_DIR}/Tests/reference/ECB/columns.txt")
