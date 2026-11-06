@@ -360,7 +360,8 @@ for v in $labels; do
         || echo "   NSYS RUN FAILED: $out/log"
     [ -f "$out/profile.nsys-rep" ] || { echo "   no report written"; continue; }
     nsys stats --report cuda_gpu_kern_sum,cuda_api_sum,nvtx_sum --format csv \
-        --force-export true -o "$out/stats" "$out/profile.nsys-rep" > "$out/stats.log" 2>&1
+        --force-export true --force-overwrite true -o "$out/stats" "$out/profile.nsys-rep" \
+        > "$out/stats.log" 2>&1
     k=$(ls "$out"/stats*cuda_gpu_kern_sum*.csv 2>/dev/null | head -1)
     [ -n "$k" ] || { echo "   no kernel summary, see $out/stats.log"; continue; }
     echo "   top GPU kernels: % of GPU kernel time, calls, name"
