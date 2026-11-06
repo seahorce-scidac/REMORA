@@ -48,6 +48,7 @@ add_executable(remora_biology_tests
   REMORA_Biology_test.cpp
   ${PROJECT_SOURCE_DIR}/Source/Biology/REMORA_Biology.cpp
   ${PROJECT_SOURCE_DIR}/Source/Biology/REMORA_FennelBiology.cpp
+  ${PROJECT_SOURCE_DIR}/Source/Biology/REMORA_ECBBiology.cpp
 )
 get_target_property(remora_biology_include_dirs remora_srclib INCLUDE_DIRECTORIES)
 target_include_directories(remora_biology_tests PRIVATE ${remora_biology_include_dirs})

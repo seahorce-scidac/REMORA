@@ -2,6 +2,7 @@
 #define REMORA_BIOLOGY_H_
 
 #include <algorithm>
+#include <map>
 #include <memory>
 #include <string>
 #include <AMReX_Geometry.H>
@@ -15,6 +16,7 @@ namespace REMORABiology {
 /** \brief Initial-condition source, independent of physical IC selection. */
 enum class BiologyICType {
     follow_ic_type,
+    constant,
     analytic,
     netcdf
 };
@@ -78,6 +80,8 @@ struct BiologyAdvanceContext {
     const amrex::MultiFab* stress_v = nullptr;
     const amrex::MultiFab* wind_u = nullptr;
     const amrex::MultiFab* wind_v = nullptr;
+    const amrex::MultiFab* bottom_stress_u = nullptr;
+    const amrex::MultiFab* bottom_stress_v = nullptr;
 };
 
 /** \brief Common host-side ecosystem interface.
@@ -92,6 +96,10 @@ class Biology {
 public:
     virtual ~Biology () = default;
     virtual std::string name () const = 0;
+    // Identifies equations/options with persistent state semantics. Rate changes
+    // may be allowed at restart; changing inventory meanings requires migration.
+    virtual std::string checkpoint_identity () const { return name(); }
+    virtual bool accepts_legacy_checkpoint () const { return false; }
     virtual void configure (const std::string& remora_prefix) = 0;
     virtual const BiologyDeclaration& declaration () const noexcept = 0;
     virtual void advance (const BiologyAdvanceContext& context) const = 0;
@@ -101,6 +109,27 @@ public:
 std::unique_ptr<Biology> make_biology (const std::string& name);
 BiologyICType parse_biology_ic_type (const std::string& name);
 std::string biology_ic_type_name (BiologyICType type);
+
+/** \brief Constant initial concentration of each biology tracer, by name. */
+using BiologyConstantIC = std::map<std::string, amrex::Real>;
+
+/** \brief Read one constant initial concentration per declared tracer, by name.
+ *
+ * Each value comes from <remora_prefix>.biology_initial_<tracer name>, in the
+ * model's units, in the style of the named constant forcing values. There are
+ * no defaults: every declared tracer must be given, and the error lists any
+ * that are missing.
+ */
+BiologyConstantIC
+read_constant_biology_ic (const BiologyDeclaration& declaration,
+                          const std::string& remora_prefix);
+
+/** \brief Set each declared biology component to its constant value, found by
+ *         tracer name, ghost cells included. Every declared tracer must have a
+ *         value. Physical fields and dyes are left unchanged. */
+void initialize_constant_biology (const BiologyDeclaration& declaration,
+                                  BiologyInitContext& context,
+                                  const BiologyConstantIC& values);
 
 }
 #endif

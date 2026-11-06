@@ -127,6 +127,24 @@ REMORA::WriteCheckpointFile ()
        const int history_record = (last_plot_file_step == istep[0])
                                 ? history_count - 1 : history_count;
        HeaderFile << "history_count " << history_record << "\n";
+
+       // The cell-centered components in order. The count above cannot tell
+       // apart layouts of the same size, such as different dye counts or
+       // biology models, and the data are stored by position.
+       HeaderFile << "cons_names " << cons_names.size();
+       for (const auto& name : cons_names) {
+           HeaderFile << " " << name;
+       }
+       HeaderFile << "\n";
+
+       // Biology model identity, beyond the tracer names checked above.
+       const std::string biology_file = checkpointname + "/BiologyHeader";
+       std::ofstream biology_header(biology_file);
+       if (!biology_header.good()) amrex::FileOpenFailed(biology_file);
+       biology_header << "REMORA_BIOLOGY 2\n" << m_biology->checkpoint_identity()
+                      << "\n";
+       biology_header.close();
+       if (!biology_header.good()) amrex::Abort("Failed writing " + biology_file);
    }
 
    // write the MultiFab data to, e.g., chk00010/Level_0/
@@ -254,6 +272,30 @@ void
 REMORA::ReadCheckpointFile ()
 {
     amrex::Print() << "Restart from checkpoint " << restart_chkfile << "\n";
+
+    const std::string biology_file = restart_chkfile + "/BiologyHeader";
+    int has_biology_header = 0;
+    if (ParallelDescriptor::IOProcessor()) {
+        std::ifstream probe(biology_file);
+        has_biology_header = probe.good();
+    }
+    ParallelDescriptor::Bcast(&has_biology_header, 1, ParallelDescriptor::IOProcessorNumber());
+    if (has_biology_header) {
+        Vector<char> buffer;
+        ParallelDescriptor::ReadAndBcastFile(biology_file, buffer);
+        std::istringstream metadata(buffer.dataPtr());
+        std::string schema, identity;
+        int version = 0;
+        metadata >> schema >> version >> identity;
+        // Version 1 also listed the component names, now checked from Header.
+        if (!metadata || schema != "REMORA_BIOLOGY" ||
+            (version != 1 && version != 2) ||
+            identity != m_biology->checkpoint_identity()) {
+            amrex::Abort("Checkpoint biology identity differs from this run: " + biology_file);
+        }
+    } else if (!m_biology->accepts_legacy_checkpoint()) {
+        amrex::Abort("Selected biology requires checkpoint identity metadata: " + biology_file);
+    }
 
     // Header
     std::string File(restart_chkfile + "/Header");
@@ -396,6 +438,23 @@ REMORA::ReadCheckpointFile ()
         } else if (word == "history_count") {
             // History record for this step. Without it, history output starts over.
             lis >> history_count;
+        } else if (word == "cons_names") {
+            // Same count, checked above, is not the same layout: the data are
+            // stored by position. Older checkpoints lack this line.
+            int count = 0;
+            lis >> count;
+            Vector<std::string> chk_names;
+            std::string name;
+            while (lis >> name) { chk_names.push_back(name); }
+            if (count != static_cast<int>(chk_names.size()) || chk_names != cons_names) {
+                std::string have, want;
+                for (const auto& n : chk_names) { have += " " + n; }
+                for (const auto& n : cons_names) { want += " " + n; }
+                amrex::Abort("Checkpoint cell-centered components differ from this run."
+                             "\n  checkpoint:" + have + "\n  this run:  " + want +
+                             "\nThe layout is set by remora.nscalar and"
+                             " remora.biology_model and its options.");
+            }
         }
     }
 

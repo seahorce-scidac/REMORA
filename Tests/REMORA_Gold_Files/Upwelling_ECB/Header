@@ -1,0 +1,52 @@
+HyperCLaw-V1.1
+24
+temp
+salt
+tracer
+NO3
+NH4
+chlorophyll
+phytoplankton
+zooplankton
+LdetritusN
+SdetritusN
+DON
+PO4
+LdetritusC
+SdetritusC
+TIC
+alkalinity
+DOC
+oxygen
+Rdon
+Rdoc
+calcium
+x_velocity
+y_velocity
+z_velocity
+3
+900
+0
+0 0 -150 
+41000 80000 0 
+
+((0,0,0) (7,7,7) (0,0,0)) 
+3 
+5125 10000 18.75 
+0
+0
+0 2 900
+3
+0 41000
+0 40000
+-150 0
+0 41000
+40000 80000
+-150 0
+Level_0/Cell
+1
+3
+amrexvec_nu_x
+amrexvec_nu_y
+amrexvec_nu_z
+Level_0/Nu_nd

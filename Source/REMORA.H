@@ -2030,6 +2030,8 @@ private:
     std::unique_ptr<REMORABiology::Biology> m_biology = REMORABiology::make_biology("none");
     /** \brief Biology IC source, independent of the physical IC source. */
     REMORABiology::BiologyICType biology_ic_type = REMORABiology::BiologyICType::follow_ic_type;
+    /** \brief Per-tracer values for biology_ic_type = constant, by tracer name. */
+    REMORABiology::BiologyConstantIC biology_constant_ic;
 
     // Time step controls
     /** \brief CFL condition */

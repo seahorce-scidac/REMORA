@@ -135,9 +135,10 @@ own name rather than by the shared ``scalar`` keyword:
     remora.bc.NO3.type          =  periodic  clamped  periodic  clamped
     remora.bc.oxygen.type       =  periodic  outflow  periodic  outflow
 
-The tracer names are the same ones used for plotfile output: ``temp`` and ``salt``, then either
-the biology tracer names when :ref:`remora.biology_model<sec:Fennel>` is active
-(``NO3``, ``NH4``, ``chlorophyll``, ...) or ``tracer``, ``tracer_1``, ... otherwise.
+The tracer names are the same ones used for plotfile output: ``temp`` and ``salt``, then the
+dye tracers ``tracer``, ``tracer_1``, ... when ``remora.nscalar`` is positive, then the biology
+tracer names (``NO3``, ``NH4``, ``chlorophyll``, ...) when :ref:`remora.biology_model<sec:Biology>`
+selects a model.
 
 ``remora.bc.scalar.type`` still works and still applies to every tracer beyond salt. A per-tracer
 entry takes precedence where one is given, so the two can be mixed: set ``scalar`` for the common

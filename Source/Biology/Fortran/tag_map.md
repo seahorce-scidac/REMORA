@@ -113,7 +113,8 @@ paths, so field order stays contractual across option sets.
 
 ROMS tracer index equals REMORA component + 1 throughout
 (`itemp`=1/`Temp_comp`=0, `isalt`=2/`Salt_comp`=1, `iNO3_`=3/`Tracer_comp`=2),
-verified against `fennel_mod.h:523-561` and `REMORA_FennelBiology.H` (the `Fennel::components` mapping).
+verified against `fennel_mod.h:523-561`; the bridge lists the tracers in that order (`roms_names`
+in `REMORA_FennelBridge.cpp`) and finds each REMORA component by name.
 
 ## Debug levels
 
@@ -200,7 +201,7 @@ Recorded here so they are not rediscovered as "bugs" mid-campaign.
    the same PAR surface forcing.
 3. **`pH`** — not a divergence source. `fennel.h` fixes `DoNewton = 0`, and
    the bisection brackets are constants (`pH_hi=10`, `pH_lo=5`), matched by
-   `fennel_pco2_water` in `REMORA_FennelBiology.cpp`. `pH` is write-only output on this path, so
+   `pco2_water` in `REMORA_BiologyCarbonate.H`. `pH` is write-only output on this path, so
    the bridge passes per-call scratch rather than persistent state.
 4. **`z_r`** — a `biology_tile` dummy argument with zero uses in the routine
    body. The bridge passes a correctly shaped buffer for interface fidelity.

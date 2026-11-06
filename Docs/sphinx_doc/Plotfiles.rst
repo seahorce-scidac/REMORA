@@ -185,10 +185,9 @@ Notes
    This also holds for a NetCDF history file, whose records then need not be evenly spaced in time.
 
 -  When a biology model is enabled, ``biology`` in ``remora.plot_vars_3d``
-   expands to all of that model's active tracers, excluding passive dye. Fennel
-   also accepts ``fennel`` as an alias for the same group. Active biology tracers
-   can also be requested by name. See :ref:`sec:Fennel` for tracer names and
-   component options.
+   expands to all of that model's active tracers, excluding passive dye; the
+   model's name, ``fennel`` or ``ecb``, is an alias for the same group. Active
+   biology tracers can also be requested by name. See :ref:`sec:Biology`.
 
 -  Passive dye is opt-in: ``tracer`` is only available when ``remora.nscalar`` is at
    least 1 (see :ref:`sec:Inputs`). Naming a field the run does not carry is not fatal

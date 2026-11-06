@@ -420,6 +420,7 @@ void Problem::init_analytic_biology (
         // this override has to do so too, or that guard is dead.
         amrex::Error("remora.prob_name = " + my_prob_name + " has no analytic biology initial"
                      " condition. Add one to Source/Prob/ and a branch for it in"
-                     " Problem::init_analytic_biology, or set remora.biology_ic_type = netcdf.");
+                     " Problem::init_analytic_biology, or set remora.biology_ic_type to"
+                     " constant or netcdf.");
     }
 }

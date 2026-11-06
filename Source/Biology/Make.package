@@ -2,3 +2,7 @@ CEXE_sources += REMORA_Biology.cpp
 CEXE_headers += REMORA_Biology.H
 CEXE_sources += REMORA_FennelBiology.cpp
 CEXE_headers += REMORA_FennelBiology.H
+CEXE_sources += REMORA_ECBBiology.cpp
+CEXE_headers += REMORA_ECBBiology.H
+CEXE_headers += REMORA_BiologyCarbonate.H
+CEXE_headers += REMORA_BiologyGasExchange.H

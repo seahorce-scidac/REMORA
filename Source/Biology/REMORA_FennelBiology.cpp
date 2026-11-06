@@ -1,4 +1,6 @@
 #include <REMORA_FennelBiology.H>
+#include <REMORA_BiologyCarbonate.H>
+#include <REMORA_BiologyGasExchange.H>
 #include <REMORA_DataStruct.H>
 #include <REMORA_Constants.H>
 #include <REMORA_DateClock.H>
@@ -36,201 +38,6 @@ void remora_fennel_tag (const char* tag, int iter, int i, int j, int k,
            tag, iter, i, j, k, var, double(val));
 }
 #endif
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-Real fennel_pco2_water (Real T, Real S, Real TIC, Real TAlk) noexcept
-{
-    constexpr Real zero = Real(0.0);
-    constexpr int IbrackMax = 30;
-
-    // Determine coefficients for surface carbon chemistry.
-    const Real Tk = T + Real(273.15);
-    const Real centiTk = Real(0.01) * Tk;
-    const Real invTk = Real(1.0) / Tk;
-    const Real logTk = std::log(Tk);
-    const Real sqrtS = std::sqrt(S);
-    const Real SO4 = Real(19.924) * S / (Real(1000.0) - Real(1.005) * S);
-    const Real sqrtSO4 = std::sqrt(SO4);
-    const Real scl = S / Real(1.80655);
-
-    const Real alk = TAlk * Real(0.000001);
-    const Real dic = TIC * Real(0.000001);
-    const Real phos = zero;
-    const Real sili = zero;
-
-    // Correction term for non-ideality, ff=k0*(1-pH2O). Equation 13 with
-    // table 6 values from Weiss and Price (1980, Mar. Chem., 8, 347-359).
-    const Real ff = std::exp(-Real(162.8301) +
-                             Real(218.2968) / centiTk +
-                             std::log(centiTk) * Real(90.9241) -
-                             centiTk * centiTk * Real(1.47696) +
-                             S * (Real(0.025695) -
-                                  centiTk * (Real(0.025225) -
-                                             centiTk * Real(0.0049867))));
-
-    // Compute first (K1) and second (K2) dissociation constant of carboinic
-    // acid:
-    //          K1 = [H][HCO3]/[H2CO3]
-    //          K2 = [H][CO3]/[HCO3]
-    // From Millero (1995; page 664) using Mehrbach et al. (1973) data on
-    // seawater scale.
-    const Real K1 = std::pow(Real(10.0), Real(62.008) -
-                             invTk * Real(3670.7) -
-                             logTk * Real(9.7944) +
-                             S * (Real(0.0118) - S * Real(0.000116)));
-    const Real K2 = std::pow(Real(10.0), -Real(4.777) -
-                             invTk * Real(1394.7) +
-                             S * (Real(0.0184) - S * Real(0.000118)));
-
-    // Compute dissociation constant of boric acid, Kb=[H][BO2]/[HBO2].
-    // From Millero (1995; page 669) using data from Dickson (1990).
-    const Real Kb = std::exp(-invTk * (Real(8966.90) +
-                                       sqrtS * (Real(2890.53) +
-                                                sqrtS * (Real(77.942) -
-                                                         sqrtS * (Real(1.728) -
-                                                                  sqrtS * Real(0.0996))))) -
-                             logTk * (Real(24.4344) +
-                                      sqrtS * (Real(25.085) + sqrtS * Real(0.2474))) +
-                             Tk * (sqrtS * Real(0.053105)) +
-                             Real(148.0248) +
-                             sqrtS * (Real(137.1942) + sqrtS * Real(1.62142)));
-
-    // Compute first (K1p), second (K2p), and third (K3p) dissociation
-    // constant of phosphoric acid:
-    //          K1p = [H][H2PO4]/[H3PO4]
-    //          K2p = [H][HPO4]/[H2PO4]
-    //          K3p = [H][PO4]/[HPO4]
-    // From DOE (1994) equations 7.2.20, 7.2.23, and 7.2.26, respectively.
-    // With footnote using data from Millero (1974).
-    const Real K1p = std::exp(Real(115.525) -
-                              invTk * Real(4576.752) -
-                              logTk * Real(18.453) +
-                              sqrtS * (Real(0.69171) - invTk * Real(106.736)) -
-                              S * (Real(0.01844) + invTk * Real(0.65643)));
-    const Real K2p = std::exp(Real(172.0883) -
-                              invTk * Real(8814.715) -
-                              logTk * Real(27.927) +
-                              sqrtS * (Real(1.3566) - invTk * Real(160.340)) -
-                              S * (Real(0.05778) - invTk * Real(0.37335)));
-    const Real K3p = std::exp(-Real(18.141) -
-                              invTk * Real(3070.75) +
-                              sqrtS * (Real(2.81197) + invTk * Real(17.27039)) -
-                              S * (Real(0.09984) + invTk * Real(44.99486)));
-
-    // Compute dissociation constant of silica, Ksi=[H][SiO(OH)3]/[Si(OH)4].
-    // From Millero (1995; page 671) using data from Yao and Millero (1995).
-    const Real Ksi = std::exp(Real(117.385) -
-                              invTk * Real(8904.2) -
-                              logTk * Real(19.334) +
-                              sqrtSO4 * (Real(3.5913) - invTk * Real(458.79)) -
-                              SO4 * (Real(1.5998) - invTk * Real(188.74) -
-                                     SO4 * (Real(0.07871) - invTk * Real(12.1652))) +
-                              std::log(Real(1.0) - Real(0.001005) * S));
-
-    // Compute ion product of whater, Kw = [H][OH].
-    // From Millero (1995; page 670) using composite data.
-    const Real Kw = std::exp(Real(148.9652) -
-                             invTk * Real(13847.26) -
-                             logTk * Real(23.6521) -
-                             sqrtS * (Real(5.977) - invTk * Real(118.67) -
-                                      logTk * Real(1.0495)) -
-                             S * Real(0.01615));
-
-    // Compute salinity constant of hydrogen sulfate, Ks = [H][SO4]/[HSO4].
-    // From Dickson (1990, J. chem. Thermodynamics 22, 113).
-    const Real Ks = std::exp(Real(141.328) -
-                             invTk * Real(4276.1) -
-                             logTk * Real(23.093) +
-                             sqrtSO4 * (Real(324.57) - invTk * Real(13856.0) -
-                                        logTk * Real(47.986) - SO4 * invTk * Real(2698.0)) -
-                             SO4 * (Real(771.54) - invTk * Real(35474.0) -
-                                    logTk * Real(114.723) - SO4 * invTk * Real(1776.0)) +
-                             std::log(Real(1.0) - Real(0.001005) * S));
-
-    // Compute stability constant of hydrogen fluorid, Kf = [H][F]/[HF].
-    // From Dickson and Riley (1979) -- change pH scale to total.
-    const Real Kf = std::exp(-Real(12.641) +
-                             invTk * Real(1590.2) +
-                             sqrtSO4 * Real(1.525) +
-                             std::log(Real(1.0) - Real(0.001005) * S) +
-                             std::log(Real(1.0) + Real(0.1400) * scl / (Real(96.062) * Ks)));
-
-    // Calculate concentrations for borate (Uppstrom, 1974), sulfate (Morris
-    // and Riley, 1966), and fluoride (Riley, 1965).
-    const Real borate = Real(0.000232) * scl / Real(10.811);
-    const Real sulfate = Real(0.14) * scl / Real(96.062);
-    const Real fluoride = Real(0.000067) * scl / Real(18.9984);
-
-    // Bracket and bisection method.
-    Real X_lo = std::pow(Real(10.0), -Real(10.0));
-    Real X_hi = std::pow(Real(10.0), -Real(5.0));
-    Real X_mid = Real(0.5) * (X_lo + X_hi);
-    Real X = X_mid;
-    const Real K12 = K1 * K2;
-    const Real K12p = K1p * K2p;
-    const Real K123p = K12p * K3p;
-    const Real invKb = Real(1.0) / Kb;
-    const Real invKs = Real(1.0) / Ks;
-    const Real invKsi = Real(1.0) / Ksi;
-    Real fni1 = zero;
-    Real fni3 = zero;
-
-    for (int Ibrack = 0; Ibrack < IbrackMax; ++Ibrack) {
-        for (int Hstep = 1; Hstep <= 3; ++Hstep) {
-            if (Hstep == 1) { X = X_hi; }
-            if (Hstep == 2) { X = X_lo; }
-            if (Hstep == 3) { X = X_mid; }
-
-            // Set some common combinations of parameters used in the iterative
-            // [H+] solver.
-            const Real X2 = X * X;
-            const Real X3 = X2 * X;
-            const Real invX = Real(1.0) / X;
-            const Real A = X * (K12p + X * (K1p + X)) + K123p;
-            const Real B = X * (K1 + X) + K12;
-            const Real C = Real(1.0) / (Real(1.0) + sulfate * invKs);
-
-            // Evaluate f([H+]) for bracketing and mid-value cases.
-            const Real fni = dic * (K1 * X + Real(2.0) * K12) / B +
-                             borate / (Real(1.0) + X * invKb) +
-                             Kw * invX +
-                             phos * (K12p * X + Real(2.0) * K123p - X3) / A +
-                             sili / (Real(1.0) + X * invKsi) -
-                             X * C -
-                             sulfate / (Real(1.0) + Ks * invX * C) -
-                             fluoride / (Real(1.0) + Kf * invX) - alk;
-            if (Hstep == 1) { fni1 = fni; }
-            if (Hstep == 3) { fni3 = fni; }
-        }
-
-        // Now, bracket solution within two of three.
-        if (fni3 == zero) {
-            break;
-        }
-        const Real ftest = fni1 / fni3;
-        if (ftest > zero) {
-            X_hi = X_mid;
-        } else {
-            X_lo = X_mid;
-        }
-        X_mid = Real(0.5) * (X_lo + X_hi);
-    }
-
-    // Last iteration gives value.
-    X = X_mid;
-
-    // Determine pCO2. Total Hydrogen ion concentration, Htotal = [H+].
-    const Real Htotal = X;
-    const Real Htotal2 = Htotal * Htotal;
-
-    // Calculate [CO2*] (mole/m3) as defined in DOE Methods Handbook 1994
-    // Version 2, ORNL/CDIAC-74, Dickson and Goyet, Eds. (Chapter 2,
-    // page 10, Eq A.49).
-    const Real CO2star = dic * Htotal2 / (Htotal2 + K1 * Htotal + K1 * K2);
-
-    // Add output argument for storing pCO2surf.
-    return CO2star * Real(1000000.0) / ff;
-}
 
 /**
  * Atmospheric pCO2 (ppmv) for the surface CO2 gas exchange.
@@ -348,6 +155,21 @@ FennelParameters::init_params (const std::string& remora_prefix)
                      "alkalinity is a carbon-block tracer");
     }
 
+    // Reject values that divide by zero in the kernel, where they would
+    // otherwise surface as NaN in the tracers with no diagnostic.
+    auto require = [&] (bool ok, const char* name, const char* condition, Real value) {
+        if (!ok) {
+            amrex::Abort(remora_prefix + ".fennel." + name + " must be " + condition +
+                         "; got " + std::to_string(value));
+        }
+    };
+    // Light attenuation (AttSW + AttChl*chl) * dz may be zero, which the
+    // kernel handles, but a negative coefficient would amplify light with depth.
+    require(AttSW >= Real(0.0), "AttSW", "non-negative", AttSW);
+    require(AttChl >= Real(0.0), "AttChl", "non-negative", AttChl);
+    // Grazing divides by K_Phy + phyt^2, which is K_Phy when phyt is zero.
+    require(K_Phy > Real(0.0), "K_Phy", "positive", K_Phy);
+
     static std::string pco2air_type_string = "constant";
     pp.queryAdd("pco2air_type", pco2air_type_string);
     const std::string pco2air_type_ci = amrex::toLower(pco2air_type_string);
@@ -386,6 +208,13 @@ FennelParameters::init_params (const std::string& remora_prefix)
     } else {
         amrex::Abort("Unknown remora.fennel.oxygen_schmidt: " + o2_schmidt_string +
                      ". Expected wanninkhof1992, wanninkhof2014, or ocmip.");
+    }
+
+    // A non-positive atmospheric pCO2 reverses the sign of the air-sea flux. Only
+    // the surface CO2 exchange reads it, so a run without carbon is unaffected.
+    if (carbon && pco2air_type == PCO2AirType::constant && pCO2air <= Real(0.0)) {
+        amrex::Abort("remora.fennel.pCO2air must be a positive partial pressure; got "
+                     + std::to_string(pCO2air) + " ppmv.");
     }
 }
 
@@ -444,6 +273,36 @@ FennelBiology::configure (const std::string& remora_prefix)
     m_declaration.plot_aliases = {"fennel"};
 }
 
+REMORABiology::Fennel::Components
+REMORABiology::FennelBiology::components (int component_start) const
+{
+    // Look each tracer up by name, so nothing here depends on the order the
+    // declaration lists them in. A tracer the run does not carry gets -1.
+    auto comp = [&] (const char* name) {
+        return m_declaration.component_index(name, component_start);
+    };
+    Fennel::Components c;
+    c.no3 = comp("NO3");
+    c.nh4 = comp("NH4");
+    c.chlo = comp("chlorophyll");
+    c.phyt = comp("phytoplankton");
+    c.zoop = comp("zooplankton");
+    c.lden = comp("LdetritusN");
+    c.sden = comp("SdetritusN");
+    c.rden = comp("RdetritusN");
+    c.po4 = comp("PO4");
+    c.ldec = comp("LdetritusC");
+    c.sdec = comp("SdetritusC");
+    c.tic = comp("TIC");
+    c.talk = comp("alkalinity");
+    c.rdec = comp("RdetritusC");
+    c.oxyg = comp("oxygen");
+    c.odu = comp("ODU");
+    AMREX_ALWAYS_ASSERT(c.no3 >= 0 && c.nh4 >= 0 && c.chlo >= 0 && c.phyt >= 0 &&
+                        c.zoop >= 0 && c.lden >= 0 && c.sden >= 0);
+    return c;
+}
+
 }
 
 void
@@ -493,48 +352,24 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
 
     // Set biological tracer component identifiers. The biology block starts after the
     // passive scalars, so this is Tracer_comp only when the run carries no dye.
-    const auto bio_comp = REMORABiology::Fennel::components(parms, Bio_comp);
+    const auto bio_comp = components(Bio_comp);
 
     // Schmidt-number coefficients and the leading rate coefficient for the gas
     // transfer velocity. Each pair belongs to one published relation, so they
     // are selected together rather than independently; ROMS makes the same
     // pairings with RW14_OXYGEN_SC, OCMIP_OXYGEN_SC and RW14_CO2_SC.
-    Real A_O2 = Real(1953.4);       // Schmidt number
-    Real B_O2 = Real(128.0);        // coefficients from
-    Real C_O2 = Real(3.9918);       // Wanninkhof (1992)
-    Real D_O2 = Real(0.050091);
-    Real E_O2 = Real(0.0);
-    Real o2_rate = Real(0.31);
+    // The sets live in REMORA_BiologyGasExchange.H, shared with ECB; Keeling
+    // et al. (1998) gives a slightly smaller Sc up to about 35C, and ROMS pairs
+    // it with the 1992 rate coefficient, not the 2014 one.
+    SchmidtCoefficients o2_schmidt = GasExchange::O2Wanninkhof1992;
     if (parms.o2_schmidt == REMORABiology::O2SchmidtType::wanninkhof2014) {
-        A_O2 = Real(1920.4);
-        B_O2 = Real(135.6);
-        C_O2 = Real(5.2122);
-        D_O2 = Real(0.10939);
-        E_O2 = Real(0.00093777);
-        o2_rate = Real(0.251);
+        o2_schmidt = GasExchange::O2Wanninkhof2014;
     } else if (parms.o2_schmidt == REMORABiology::O2SchmidtType::ocmip) {
-        // Keeling et al. (1998); Sc is slightly smaller up to about 35C. ROMS
-        // pairs this set with the 1992 rate coefficient, not the 2014 one.
-        A_O2 = Real(1638.0);
-        B_O2 = Real(81.83);
-        C_O2 = Real(1.483);
-        D_O2 = Real(0.008004);
-        E_O2 = Real(0.0);
+        o2_schmidt = GasExchange::O2OCMIP;
     }
-
-    Real A_CO2 = Real(2073.1);      // Schmidt number
-    Real B_CO2 = Real(125.62);      // coefficients from
-    Real C_CO2 = Real(3.6276);      // Wanninkhof (1992)
-    Real D_CO2 = Real(0.043219);
-    Real E_CO2 = Real(0.0);
-    Real co2_rate = Real(0.31);
+    SchmidtCoefficients co2_schmidt = GasExchange::CO2Wanninkhof1992;
     if (parms.co2_schmidt == REMORABiology::CO2SchmidtType::wanninkhof2014) {
-        A_CO2 = Real(2116.8);
-        B_CO2 = Real(136.25);
-        C_CO2 = Real(4.7353);
-        D_CO2 = Real(0.092307);
-        E_CO2 = Real(0.0007555);
-        co2_rate = Real(0.251);
+        co2_schmidt = GasExchange::CO2Wanninkhof2014;
     }
 
     // Atmospheric pCO2 varies in time but not in space, so evaluate it once
@@ -546,21 +381,17 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
     // A non-positive atmospheric pCO2 reverses the sign of the air-sea flux for the
     // whole run. Only the surface CO2 exchange reads pco2air, so a run without carbon
     // is unaffected by its value and must not be stopped on account of it.
+    // The constant value was checked in init_params; the time-dependent forms can
+    // only be checked here. The secular fit is anchored to 1951 and extrapolates to
+    // a negative partial pressure well before it, so a run whose clock sits near the
+    // origin of its calendar silently draws CO2 out of the ocean for its whole
+    // length. That is the default with remora.time_ref = 0, whose epoch is 0001-01-01.
     if (use_carbon && pco2air <= zero) {
-        if (parms.pco2air_type == REMORABiology::PCO2AirType::constant) {
-            amrex::Abort("remora.fennel.pCO2air must be a positive partial pressure; got "
-                         + std::to_string(pco2air) + " ppmv.");
-        } else {
-            // The secular fit is anchored to 1951 and extrapolates to a negative partial
-            // pressure well before it, so a run whose clock sits near the origin of its
-            // calendar silently draws CO2 out of the ocean for its whole length. That is
-            // the default with remora.time_ref = 0, whose epoch is 0001-01-01.
-            amrex::Abort("remora.fennel.pco2air_type gives a non-positive atmospheric pCO2 ("
-                         + std::to_string(pco2air) + " ppmv) at this model time. The secular"
-                         " trend is fitted around 1951, so put the run in a real year: set"
-                         " remora.time_ref to the reference date and remora.start_time to the"
-                         " offset from it.");
-        }
+        amrex::Abort("remora.fennel.pco2air_type gives a non-positive atmospheric pCO2 ("
+                     + std::to_string(pco2air) + " ppmv) at this model time. The secular"
+                     " trend is fitted around 1951, so put the run in a real year: set"
+                     " remora.time_ref to the reference date and remora.start_time to the"
+                     " offset from it.");
     }
 
 #ifdef REMORA_USE_BIOLOGY_DIAG
@@ -709,29 +540,10 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
             constexpr Real minval = Real(1.0e-6);
             constexpr Real cff_weno = Real(1.0e-14);
 
-            constexpr Real OA0 = Real(2.00907);       // Oxygen
-            constexpr Real OA1 = Real(3.22014);       // saturation
-            constexpr Real OA2 = Real(4.05010);       // coefficients
-            constexpr Real OA3 = Real(4.94457);
-            constexpr Real OA4 = Real(-0.256847);
-            constexpr Real OA5 = Real(3.88767);
-            constexpr Real OB0 = Real(-0.00624523);
-            constexpr Real OB1 = Real(-0.00737614);
-            constexpr Real OB2 = Real(-0.0103410);
-            constexpr Real OB3 = Real(-0.00817083);
-            constexpr Real OC0 = Real(-0.000000488682);
             constexpr Real rOxNO3 = Real(8.625);       // 138/16
             constexpr Real rOxNH4 = Real(6.625);       // 106/16
             constexpr Real rOxNH4Denit = Real(115.0) / Real(16.0);
             constexpr Real denitrification_NH4_fraction = Real(4.0) / Real(16.0);
-            constexpr Real l2mol = Real(1000.0) / Real(22.3916); // liter to mol
-
-            constexpr Real A1 = Real(-60.2409);       // surface
-            constexpr Real A2 = Real(93.4517);        // CO2
-            constexpr Real A3 = Real(23.3585);        // solubility
-            constexpr Real B1 = Real(0.023517);       // coefficients
-            constexpr Real B2 = Real(-0.023656);
-            constexpr Real B3 = Real(0.0047036);
 
             // Compute inverse thickness to avoid repeated divisions.
             //
@@ -873,7 +685,8 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
                         const Real Att = (parms.AttSW + parms.AttChl * chlo(i,j,k)) * thickness;
                         const Real ExpAtt = std::exp(-Att);
                         const Real Itop = PAR;
-                        const Real PARavg = Itop * (one - ExpAtt) / Att;
+                        // Mean PAR over the cell; Itop when nothing attenuates.
+                        const Real PARavg = (Att > zero) ? Itop * (one - ExpAtt) / Att : Itop;
 
                         // Compute Chlorophyll-a phytoplankton ratio,
                         // [mg Chla / mg C].
@@ -1180,37 +993,17 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
                     // Surface O2 gas exchange.
                     //
                     // Compute surface O2 gas exchange.
-                    const Real cff1 = rho0 * Real(550.0);
-                    const Real cff2 = dtdays * o2_rate * Real(24.0) / Real(100.0);
+                    const Real cff2 = transfer_rate(o2_schmidt, dtdays);
                     const int k = N;
 
-                    Real u10squ;
                     // Compute O2 transfer velocity: u10squared (u10 in m/s).
-                    if (do_bulk_flux) {
-                        u10squ = uwind(i,j,0) * uwind(i,j,0) + vwind(i,j,0) * vwind(i,j,0);
-                    } else {
-                        u10squ = cff1 *
-                        std::sqrt((Real(0.5) * (sustr(i,j,0) + sustr(i+1,j,0))) *
-                                  (Real(0.5) * (sustr(i,j,0) + sustr(i+1,j,0))) +
-                                  (Real(0.5) * (svstr(i,j,0) + svstr(i,j+1,0))) *
-                                  (Real(0.5) * (svstr(i,j,0) + svstr(i,j+1,0))));
-                    }
-                    const Real SchmidtN_Ox = A_O2 - temp(i,j,k) *
-                        (B_O2 - temp(i,j,k) *
-                         (C_O2 - temp(i,j,k) *
-                          (D_O2 - temp(i,j,k) * E_O2)));
-                    const Real cff3 = cff2 * u10squ * std::sqrt(Real(660.0) / SchmidtN_Ox);
+                    const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr,
+                                                    i, j, rho0);
+                    const Real SchmidtN_Ox = schmidt_number(o2_schmidt, temp(i,j,k));
+                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN_Ox);
 
-                    // Calculate O2 saturation concentration using Garcia and
-                    // Gordon L and O (1992) formula, (EXP(AA) is in ml/l).
-                    const Real TS = std::log((Real(298.15) - temp(i,j,k)) /
-                                             (Real(273.15) + temp(i,j,k)));
-                    const Real AA = OA0 + TS * (OA1 + TS * (OA2 + TS * (OA3 + TS * (OA4 + TS * OA5)))) +
-                                    salt(i,j,k) * (OB0 + TS * (OB1 + TS * (OB2 + TS * OB3))) +
-                                    OC0 * salt(i,j,k) * salt(i,j,k);
-
-                    // Convert from ml/l to mmol/m3.
-                    const Real O2satu = l2mol * std::exp(AA);
+                    // O2 saturation concentration [mmol/m3], Garcia and Gordon (1992).
+                    const Real O2satu = o2_saturation(temp(i,j,k), salt(i,j,k));
 
                     // Add in O2 gas exchange.
                     const Real O2_Flux = cff3 * (O2satu - oxyg(i,j,k));
@@ -1258,37 +1051,20 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
                     // Compute equilibrium partial pressure inorganic carbon
                     // (ppmv) at the surface.
                     const int k = N;
-                    const Real pCO2 = fennel_pco2_water(temp(i,j,k), salt(i,j,k),
+                    const Real pCO2 = REMORABiology::pco2_water(temp(i,j,k), salt(i,j,k),
                                                         tic(i,j,k), talk(i,j,k));
 
                     // Compute surface CO2 gas exchange.
-                    const Real cff1 = rho0 * Real(550.0);
-                    const Real cff2 = dtdays * co2_rate * Real(24.0) / Real(100.0);
+                    const Real cff2 = transfer_rate(co2_schmidt, dtdays);
 
                     // Compute CO2 transfer velocity: u10squared (u10 in m/s).
-                    Real u10squ;
-                    if (do_bulk_flux) {
-                        u10squ = uwind(i,j,0) * uwind(i,j,0) + vwind(i,j,0) * vwind(i,j,0);
-                    } else {
-                        u10squ = cff1 *
-                        std::sqrt((Real(0.5) * (sustr(i,j,0) + sustr(i+1,j,0))) *
-                                  (Real(0.5) * (sustr(i,j,0) + sustr(i+1,j,0))) +
-                                  (Real(0.5) * (svstr(i,j,0) + svstr(i,j+1,0))) *
-                                  (Real(0.5) * (svstr(i,j,0) + svstr(i,j+1,0))));
-                    }
-                    const Real SchmidtN = A_CO2 - temp(i,j,k) *
-                        (B_CO2 - temp(i,j,k) *
-                         (C_CO2 - temp(i,j,k) *
-                          (D_CO2 - temp(i,j,k) * E_CO2)));
-                    const Real cff3 = cff2 * u10squ * std::sqrt(Real(660.0) / SchmidtN);
+                    const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr,
+                                                    i, j, rho0);
+                    const Real SchmidtN = schmidt_number(co2_schmidt, temp(i,j,k));
+                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN);
 
-                    // Calculate CO2 solubility [mol/(kg.atm)] using Weiss
-                    // (1974) formula.
-                    const Real TempK = Real(0.01) * (temp(i,j,k) + Real(273.15));
-                    const Real CO2_sol = std::exp(A1 +
-                                                  A2 / TempK +
-                                                  A3 * std::log(TempK) +
-                                                  salt(i,j,k) * (B1 + TempK * (B2 + B3 * TempK)));
+                    // CO2 solubility [mol/(kg.atm)], Weiss (1974).
+                    const Real CO2_sol = co2_solubility(temp(i,j,k), salt(i,j,k));
 
                     // Add in CO2 gas exchange.
                     const Real CO2_Flux = cff3 * CO2_sol * (pco2air - pCO2);
