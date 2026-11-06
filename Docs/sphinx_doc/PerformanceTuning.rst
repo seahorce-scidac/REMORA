@@ -55,7 +55,10 @@ Compilers fuse ("contract") such pairs when the target has the instruction, whic
 ``-march=native`` and the compiler wrappers of most clusters (Perlmutter's included)
 enable. REMORA builds with contraction **off** by default: ``-ffp-contract=off`` for GCC,
 Clang and the Intel LLVM compilers, ``-no-fma`` for classic Intel and ``-Mnofma`` for
-NVHPC, applied to REMORA and to the AMReX sources of the same build.
+NVHPC, applied to REMORA and to the AMReX sources of the same build (and, with GNU
+Fortran, to the Fortran sources). An AMReX built separately and linked with
+``REMORA_USE_INTERNAL_AMREX=OFF`` keeps the flags it was built with; build it with the same
+flag for the guarantee below to cover the AMReX loops too.
 
 The reason is reproducibility rather than accuracy. Which pairs a compiler fuses is a
 heuristic, and it can fuse the same expression differently in the vectorized body of a
