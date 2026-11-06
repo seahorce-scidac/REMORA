@@ -158,18 +158,13 @@ FennelParameters::init_params (const std::string& remora_prefix)
 
     // Reject values that divide by zero in the kernel, where they would
     // otherwise surface as NaN in the tracers with no diagnostic.
-    auto require = [&] (bool ok, const char* name, const char* condition, Real value) {
-        if (!ok) {
-            amrex::Abort(remora_prefix + ".fennel." + name + " must be " + condition +
-                         "; got " + std::to_string(value));
-        }
-    };
+    const std::string prefix = remora_prefix + ".fennel";
     // Light attenuation (AttSW + AttChl*chl) * dz may be zero, which the
     // kernel handles, but a negative coefficient would amplify light with depth.
-    require(AttSW >= Real(0.0), "AttSW", "non-negative", AttSW);
-    require(AttChl >= Real(0.0), "AttChl", "non-negative", AttChl);
+    require_parameter(AttSW >= Real(0.0), prefix, "AttSW", "non-negative", AttSW);
+    require_parameter(AttChl >= Real(0.0), prefix, "AttChl", "non-negative", AttChl);
     // Grazing divides by K_Phy + phyt^2, which is K_Phy when phyt is zero.
-    require(K_Phy > Real(0.0), "K_Phy", "positive", K_Phy);
+    require_parameter(K_Phy > Real(0.0), prefix, "K_Phy", "positive", K_Phy);
 
     static std::string pco2air_type_string = "constant";
     pp.queryAdd("pco2air_type", pco2air_type_string);
@@ -438,6 +433,9 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
     int nw = 0;
     const int sw_FC = nw++;
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mf_cons_new, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Box bx = mfi.tilebox();
         Box bx2d = bx;
@@ -667,6 +665,30 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
             // The iterative loop is to iterate toward a backward-Euler
             // treatment of all terms; it damps numerical oscillations but
             // does not improve formal accuracy.
+            //
+            // The surface gas-exchange factors depend only on the surface
+            // temperature, salinity and wind, which the iterations do not change.
+            Real O2_transfer = zero;
+            Real O2satu = zero;
+            Real CO2_transfer = zero;
+            Real CO2_sol = zero;
+            if (use_oxygen || use_carbon) {
+                // Transfer velocity from u10squared (u10 in m/s).
+                const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr,
+                                                i, j, rho0);
+                if (use_oxygen) {
+                    O2_transfer = transfer_velocity(transfer_rate(o2_schmidt, dtdays), u10squ,
+                                                    schmidt_number(o2_schmidt, temp(i,j,N)));
+                    // O2 saturation concentration [mmol/m3], Garcia and Gordon (1992).
+                    O2satu = o2_saturation(temp(i,j,N), salt(i,j,N));
+                }
+                if (use_carbon) {
+                    CO2_transfer = transfer_velocity(transfer_rate(co2_schmidt, dtdays), u10squ,
+                                                     schmidt_number(co2_schmidt, temp(i,j,N)));
+                    // CO2 solubility [mol/(kg.atm)], Weiss (1974).
+                    CO2_sol = co2_solubility(temp(i,j,N), salt(i,j,N));
+                }
+            }
             for (int iter = 0; iter < parms.BioIter; ++iter) {
 
                 // Light-limited computations.
@@ -991,22 +1013,8 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
 
                 if (use_oxygen) {
                     // Surface O2 gas exchange.
-                    //
-                    // Compute surface O2 gas exchange.
-                    const Real cff2 = transfer_rate(o2_schmidt, dtdays);
                     const int k = N;
-
-                    // Compute O2 transfer velocity: u10squared (u10 in m/s).
-                    const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr,
-                                                    i, j, rho0);
-                    const Real SchmidtN_Ox = schmidt_number(o2_schmidt, temp(i,j,k));
-                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN_Ox);
-
-                    // O2 saturation concentration [mmol/m3], Garcia and Gordon (1992).
-                    const Real O2satu = o2_saturation(temp(i,j,k), salt(i,j,k));
-
-                    // Add in O2 gas exchange.
-                    const Real O2_Flux = cff3 * (O2satu - oxyg(i,j,k));
+                    const Real O2_Flux = O2_transfer * (O2satu - oxyg(i,j,k));
                     oxyg(i,j,k) += O2_Flux * inv_hz(i,j,k);
 
                     tag_state("G06_O2FLX ", iter + 1);
@@ -1054,20 +1062,8 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
                     const Real pCO2 = REMORABiology::pco2_water(temp(i,j,k), salt(i,j,k),
                                                         tic(i,j,k), talk(i,j,k));
 
-                    // Compute surface CO2 gas exchange.
-                    const Real cff2 = transfer_rate(co2_schmidt, dtdays);
-
-                    // Compute CO2 transfer velocity: u10squared (u10 in m/s).
-                    const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr,
-                                                    i, j, rho0);
-                    const Real SchmidtN = schmidt_number(co2_schmidt, temp(i,j,k));
-                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN);
-
-                    // CO2 solubility [mol/(kg.atm)], Weiss (1974).
-                    const Real CO2_sol = co2_solubility(temp(i,j,k), salt(i,j,k));
-
                     // Add in CO2 gas exchange.
-                    const Real CO2_Flux = cff3 * CO2_sol * (pco2air - pCO2);
+                    const Real CO2_Flux = CO2_transfer * CO2_sol * (pco2air - pCO2);
                     tic(i,j,k) += CO2_Flux * inv_hz(i,j,k);
 
                     tag_state("G08_CO2FLX", iter + 1);

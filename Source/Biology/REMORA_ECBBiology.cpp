@@ -126,22 +126,17 @@ REMORABiology::ECBParameters::init_params (const std::string& remora_prefix)
 
     // Reject values that divide by zero in the kernel, where they would
     // otherwise surface as NaN in the tracers with no diagnostic.
-    auto require = [&] (bool ok, const char* name, const char* condition, Real value) {
-        if (!ok) {
-            amrex::Abort(remora_prefix + ".ecb." + name + " must be " + condition +
-                         "; got " + std::to_string(value));
-        }
-    };
+    const std::string prefix = remora_prefix + ".ecb";
     // Light attenuation (AttSW + AttChl*chl + DOC term) * dz may be zero, which the
     // kernel handles, but a negative coefficient would amplify light with depth.
-    require(AttSW >= Real(0.0), "AttSW", "non-negative", AttSW);
-    require(AttChl >= Real(0.0), "AttChl", "non-negative", AttChl);
+    require_parameter(AttSW >= Real(0.0), prefix, "AttSW", "non-negative", AttSW);
+    require_parameter(AttChl >= Real(0.0), prefix, "AttChl", "non-negative", AttChl);
     // Carbon excess uptake divides by slCexc.
-    require(slCexc > Real(0.0), "slCexc", "positive", slCexc);
+    require_parameter(slCexc > Real(0.0), prefix, "slCexc", "positive", slCexc);
     // Grazing divides by K_Phy + phyt^2, which is K_Phy when phyt is zero.
-    require(K_Phy > Real(0.0), "K_Phy", "positive", K_Phy);
+    require_parameter(K_Phy > Real(0.0), prefix, "K_Phy", "positive", K_Phy);
     // A non-positive atmospheric pCO2 reverses the sign of the air-sea CO2 flux.
-    require(pCO2air > Real(0.0), "pCO2air", "positive", pCO2air);
+    require_parameter(pCO2air > Real(0.0), prefix, "pCO2air", "positive", pCO2air);
 }
 
 void
@@ -251,16 +246,18 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
     int nw = 0;
     const int sw_FC = nw++;
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mf_cons_new, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Box bx = mfi.tilebox();
         Box bx2d = bx;
         bx2d.makeSlab(2, 0);
         Box wbx = surroundingNodes(bx, 2);
 
+        // Every scratch value is written before it is read, so it is not zeroed.
         FArrayBox fab_cell(bx, ncell, amrex::The_Async_Arena());
-        fab_cell.template setVal<RunOn::Device>(Real(0.0));
         FArrayBox fab_w(wbx, nw, amrex::The_Async_Arena());
-        fab_w.template setVal<RunOn::Device>(Real(0.0));
 
         auto no3 = fab_cell.array(sc_no3);
         auto nh4 = fab_cell.array(sc_nh4);
@@ -379,6 +376,16 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
             // REMORA stores srflx in W/m2, so only PARfrac applies. ROMS ecb.h
             // multiplies by rho0*Cp because its srflx is kinematic (degC m/s).
             const Real PARsur = parms.PARfrac * srflx(i,j,0);
+
+            // The surface gas-exchange factors depend only on the surface
+            // temperature, salinity and wind, which the iterations do not change.
+            const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr, i, j, rho0);
+            const Real O2_transfer = transfer_velocity(transfer_rate(o2_schmidt, dtdays), u10squ,
+                                                       schmidt_number(o2_schmidt, temp(i,j,N-1)));
+            const Real O2satu = o2_saturation(temp(i,j,N-1), salt(i,j,N-1));
+            const Real CO2_transfer = transfer_velocity(transfer_rate(co2_schmidt, dtdays), u10squ,
+                                                        schmidt_number(co2_schmidt, temp(i,j,N-1)));
+            const Real CO2_sol = co2_solubility(temp(i,j,N-1), salt(i,j,N-1));
 
             // Subcycle the complete ordered ECB reaction/column calculation.
             for (int iter = 0; iter < parms.BioIter; ++iter) {
@@ -610,14 +617,9 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
                 }
 
                 // Surface O2 gas exchange.
-                const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr, i, j, rho0);
                 {
                     const int k = N - 1;
-                    const Real cff2 = transfer_rate(o2_schmidt, dtdays);
-                    const Real SchmidtN_Ox = schmidt_number(o2_schmidt, temp(i,j,k));
-                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN_Ox);
-                    const Real O2satu = o2_saturation(temp(i,j,k), salt(i,j,k));
-                    const Real O2_Flux = cff3 * (O2satu - oxyg(i,j,k));
+                    const Real O2_Flux = O2_transfer * (O2satu - oxyg(i,j,k));
                     oxyg(i,j,k) = oxyg(i,j,k) + O2_Flux * inv_hz(i,j,k);
                 }
 
@@ -648,11 +650,7 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
                 {
                     const int k = N - 1;
                     const Real pCO2 = pco2_water(temp(i,j,k), salt(i,j,k), tic(i,j,k), talk(i,j,k));
-                    const Real cff2 = transfer_rate(co2_schmidt, dtdays);
-                    const Real SchmidtN = schmidt_number(co2_schmidt, temp(i,j,k));
-                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN);
-                    const Real CO2_sol = co2_solubility(temp(i,j,k), salt(i,j,k));
-                    const Real CO2_Flux = cff3 * CO2_sol * (parms.pCO2air - pCO2);
+                    const Real CO2_Flux = CO2_transfer * CO2_sol * (parms.pCO2air - pCO2);
                     tic(i,j,k) = tic(i,j,k) + CO2_Flux * inv_hz(i,j,k);
                 }
 
