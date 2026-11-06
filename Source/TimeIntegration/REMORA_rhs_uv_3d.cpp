@@ -214,8 +214,6 @@ REMORA::rhs_uv_3d (int lev,
         ru(i,j,k,nrhs) -= cff;
     });
 
-    Gpu::synchronize();
-
     AMREX_ASSERT(xbx.smallEnd(2) == 0 && xbx.bigEnd(2) == N);
     ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
@@ -351,16 +349,12 @@ REMORA::rhs_uv_3d (int lev,
             }
         });
     }
-    Gpu::synchronize();
-
     ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff = FC(i,j,k+1)-FC(i,j,k);
 
         rv(i,j,k,nrhs) -= cff;
     });
-
-    Gpu::synchronize();
 
     ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {

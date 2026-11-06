@@ -510,9 +510,11 @@ REMORA::FillPatchBCs (int lev, Real time, MultiFab& mf_to_fill,
         mf_to_fill.EnforcePeriodicity(geom[lev].periodicity());
     }
 
-    // Also enforce free-slip at top boundary (on xvel or yvel)
-    if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
-         (mf_box.ixType() == IndexType(IntVect(0,1,0))) )
+    // Also enforce free-slip at top boundary (on xvel or yvel). Without ghost cells in z
+    // (ubar and vbar) there is nothing above the top to set, so skip the loop and the
+    // device synchronization that comes with it.
+    if ( ((mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
+          (mf_box.ixType() == IndexType(IntVect(0,1,0)))) && mf_to_fill.nGrowVect()[2] > 0 )
     {
         int khi = geom[lev].Domain().bigEnd(2);
 #ifdef AMREX_USE_OMP
@@ -908,7 +910,7 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
     MultiFab calc_copy;
     const MultiFab* calc = &mf_calc;
     int icomp_calc_used = icomp_calc;
-    if (!mf_calc.ok()) {
+    if (!mf_calc.isDefined()) {
         bool radiation = false;
         for (int n = 0; n < ncomp; ++n) {
             const BCRec& bcr = domain_bcs_type[bccomp+n];
