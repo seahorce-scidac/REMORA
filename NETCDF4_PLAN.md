@@ -124,6 +124,48 @@ Perlmutter is still open.
    - The NetCDF ctests don't cover NCTimeSeries (forcing/clim) reads, so
      check those by hand with the IdealMiniGrid/BioToy recipe.
 
+## Phase 1b: Parallel reads (done)
+
+Phase 1 left every read on the I/O rank, followed by a broadcast of the whole
+field to every rank. Now:
+
+- `BuildLocalFABsFromNetCDFFile` (`Source/IO/REMORA_NCFile.H`) opens the file
+  on every rank. Each rank reads, in one collective `get_vara_all` per
+  variable, the hyperslab covering the region it needs, into FABs in the same
+  index space as `BuildFABsFromNetCDFFile`. So the callers' copy on
+  intersection is unchanged. One hyperslab per rank (the bounding box of its
+  FABs) avoids `varn`, which the NetCDF-4 driver lacks. A rank with no boxes
+  reads nothing but still takes part in the collective call.
+- `nc_local_region` gives that region from the MultiFabs a caller fills. It
+  keeps each FAB's index range, because some callers copy a cell-centered
+  field into a face MultiFab (the nudging coefficients).
+- Switched: `NCTimeSeries` (forcing and climatology records) and every
+  init/grid reader in `REMORA_ReadFromInitNetcdf.cpp`, including the hires
+  readers. The hires `lon_rho`/`angle` reads use `nc_all_region()`, so every
+  rank gets the whole field, because `unwrap_to_first_cell` needs it.
+- Still on one rank: boundary files (`NCTimeSeriesBoundary`, small slabs),
+  rivers, lat-lon forcing (its grid is not the model's decomposition), and
+  metadata queries.
+
+Verification: bit-identical plotfiles against the base-commit binary on CDF-5
+and compressed NetCDF-4 inputs, at 1, 2 and 4 ranks and with 9 boxes on 3 and
+4 ranks. Decks used: IdealMiniGrid `inputs`, `inputs_frc`, `inputs_clim_nudg`
+(with a perturbed climatology), `inputs_synth_hires`, and BioToy. Negative
+controls (empty or shrunken regions) fail. The `NCFormats` unit test now
+compares the two readers cell for cell on a 6-box MultiFab, for a record
+variable, a static one and a face-centered one; a one-cell shrink fails it.
+
+Not measured: speed or per-rank memory at scale. That needs a grid much larger
+than the 4-core machine allows; do it on Perlmutter.
+
+Found along the way, all present at the base commit, not fixed:
+- `inputs_clim_nudg`'s climatology equals its initial state (and is constant
+  in time for temp, u, ubar), so that deck cannot detect a wrong climatology
+  read. Make a perturbed copy to test with.
+- `amr.max_grid_size=4` (which also splits the vertical) segfaults, and
+  `inputs_clim_nudg` with 9 column boxes on 3 or 4 ranks goes NaN by step 100.
+- `inputs_synth_hires` with small boxes at the hires level segfaults.
+
 ## Phase 2: Writing (main work)
 
 1. **Add a `remora.nc_format` option** taking `cdf5` (the default) or

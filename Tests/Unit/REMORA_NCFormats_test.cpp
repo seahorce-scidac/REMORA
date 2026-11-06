@@ -51,11 +51,13 @@ void check_near (const std::string& what, double got, double expect)
     }
 }
 
+// rho points; with the ring of ghost cells ROMS files carry, a domain of (nx-2) x (ny-2) cells.
 constexpr int nt = 2;
-constexpr int ny = 3;
-constexpr int nx = 4;
+constexpr int ny = 8;
+constexpr int nx = 11;
 
 double zeta_value (int t, int j, int i) { return 0.5 * t + 0.25 * j - 0.125 * i; }
+double ubar_value (int t, int j, int i) { return 1.5 * t - 0.75 * j + 0.0625 * i; }
 float  h_value    (int j, int i)        { return 10.0f + 2.0f * j + 0.5f * i; }
 short  mask_value (int j, int i)        { return static_cast<short>((i + j) % 2); }
 
@@ -70,6 +72,8 @@ void write_file (const std::string& fname, int cmode)
     ncf.def_dim("ocean_time", NC_UNLIMITED);
     ncf.def_dim("eta_rho", ny);
     ncf.def_dim("xi_rho", nx);
+    ncf.def_dim("eta_u", ny);
+    ncf.def_dim("xi_u", nx - 1);
 
     auto time = ncf.def_var("ocean_time", NC_DOUBLE, {"ocean_time"});
     time.put_attr("units", "days since 2001-01-01 00:00:00");
@@ -79,6 +83,7 @@ void write_file (const std::string& fname, int cmode)
     auto h = ncf.def_var("h", NC_FLOAT, {"eta_rho", "xi_rho"});
     h.put_attr("long_name", "bathymetry at RHO-points");
     ncf.def_var("mask_rho", NC_SHORT, {"eta_rho", "xi_rho"});
+    auto ubar = ncf.def_var("ubar", NC_DOUBLE, {"ocean_time", "eta_u", "xi_u"});
     ncf.put_attr("title", "REMORA NetCDF format test");
     ncf.exit_def_mode();
 
@@ -92,6 +97,12 @@ void write_file (const std::string& fname, int cmode)
             for (int i = 0; i < nx; ++i) { zetas.push_back(zeta_value(t, j, i)); }
         }
     }
+    std::vector<double> ubars;
+    for (int t = 0; t < nt; ++t) {
+        for (int j = 0; j < ny; ++j) {
+            for (int i = 0; i < nx - 1; ++i) { ubars.push_back(ubar_value(t, j, i)); }
+        }
+    }
     std::vector<float> hs;
     std::vector<short> masks;
     for (int j = 0; j < ny; ++j) {
@@ -103,6 +114,7 @@ void write_file (const std::string& fname, int cmode)
 
     time.put_all(times.data(), {0}, {have * nt});
     zeta.put_all(zetas.data(), {0, 0, 0}, {have * nt, have * ny, have * nx});
+    ubar.put_all(ubars.data(), {0, 0, 0}, {have * nt, have * ny, have * (nx - 1)});
     h.put_all(hs.data(), {0, 0}, {have * ny, have * nx});
     // NCVar has no short overload; this is the only short variable REMORA writes.
     const MPI_Offset start[2] = {0, 0};
@@ -111,6 +123,65 @@ void write_file (const std::string& fname, int cmode)
                                               start, count, masks.data());
     check(fname + ": write mask_rho", ierr == NC_NOERR);
     ncf.close();
+}
+
+/**
+ * BuildLocalFABsFromNetCDFFile against BuildFABsFromNetCDFFile: copy each into a
+ * MultiFab split over several boxes and both ranks, as the model's readers do, and
+ * require the same value in every cell, ghost cells included. Covers a record
+ * variable, a variable with no time dimension, and one staggered in x.
+ */
+void check_local_reads (const std::string& fname)
+{
+    using amrex::Box;
+    using amrex::IntVect;
+    const Box domain(IntVect(0, 0, 0), IntVect(nx - 3, ny - 3, 0));
+    amrex::BoxArray ba(domain);
+    ba.maxSize(IntVect(4, 3, 1));
+    const amrex::DistributionMapping dm(ba);
+    check(fname + ": local reads split the domain", ba.size() > 2);
+
+    // What each file variable covers: the domain and one ring of ghost cells at rho points,
+    // and faces 0 to nx-2 (one row of ghosts in y) for ubar.
+    const Box rho_covered = amrex::grow(domain, IntVect(1, 1, 0));
+    const Box u_covered(IntVect(0, -1, 0), IntVect(nx - 2, ny - 2, 0), amrex::IndexType(IntVect(1, 0, 0)));
+    struct Case { const char* name; NC_Data_Dims_Type type; IntVect ixtype; bool one_time; Box covered; };
+    const Case cases[] = {
+        {"zeta", NC_Data_Dims_Type::Time_SN_WE, IntVect(0, 0, 0), true,  rho_covered},
+        {"h",    NC_Data_Dims_Type::SN_WE,      IntVect(0, 0, 0), false, rho_covered},
+        {"ubar", NC_Data_Dims_Type::Time_SN_WE, IntVect(1, 0, 0), true,  u_covered},
+    };
+    for (const auto& c : cases) {
+        const amrex::BoxArray bat = amrex::convert(ba, c.ixtype);
+        amrex::MultiFab serial(bat, dm, 1, IntVect(1, 1, 0));
+        amrex::MultiFab local(bat, dm, 1, IntVect(1, 1, 0));
+        serial.setVal(-999.0);
+        local.setVal(-999.0);
+
+        amrex::FArrayBox serial_fab, local_fab;
+        BuildFABsFromNetCDFFile<amrex::FArrayBox, amrex::Real>(
+            domain, fname, {c.name}, {c.type}, {&serial_fab}, c.one_time, 1);
+        BuildLocalFABsFromNetCDFFile<amrex::FArrayBox, amrex::Real>(
+            domain, nc_local_region(local), fname, {c.name}, {c.type}, {&local_fab}, c.one_time, 1);
+
+        int mismatch = 0, unfilled = 0;
+        for (amrex::MFIter mfi(local, false); mfi.isValid(); ++mfi) {
+            serial[mfi].template copy<amrex::RunOn::Host>(serial_fab);
+            local[mfi].template copy<amrex::RunOn::Host>(local_fab);
+            const auto s = serial.const_array(mfi);
+            const auto l = local.const_array(mfi);
+            amrex::LoopOnCpu(mfi.fabbox(), [&] (int i, int j, int k) {
+                if (s(i, j, k) != l(i, j, k)) { ++mismatch; }
+            });
+            amrex::LoopOnCpu(mfi.fabbox() & c.covered, [&] (int i, int j, int k) {
+                if (l(i, j, k) == -999.0) { ++unfilled; }
+            });
+        }
+        amrex::ParallelDescriptor::ReduceIntSum(mismatch);
+        amrex::ParallelDescriptor::ReduceIntSum(unfilled);
+        check(fname + ": local read of " + c.name + " matches the serial read", mismatch == 0);
+        check(fname + ": local read of " + c.name + " fills every cell the file covers", unfilled == 0);
+    }
 }
 
 void read_and_check (const std::string& fname, bool expect_netcdf4)
@@ -174,6 +245,8 @@ void read_and_check (const std::string& fname, bool expect_netcdf4)
     // 2001-01-01 is 366 days after a 2000-01-01 time_ref.
     check_near(fname + ": time offset",
                ReadNetCDFTimeOffsetDays(fname, "ocean_time", 20000101.0, true, false), 366.0);
+
+    check_local_reads(fname);
 }
 
 } // namespace

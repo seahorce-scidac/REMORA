@@ -83,6 +83,8 @@ Imposing Boundary and Initial Conditions from NetCDF File
 
 Grid, initial, and time-dependent boundary data can be specified using NetCDF files, as in ROMS. Every input file can be in any classic format (CDF-1, CDF-2 or CDF-5). NetCDF-4 files, including the NetCDF-4 classic model and compressed (deflated) variables, can be read too, when PnetCDF was built with NetCDF-4 support (see :ref:`NetCDF-4 input files <netcdf4>`). Otherwise REMORA exits with an error that names the file and says it is NetCDF-4.
 
+Gridded fields -- the grid, initial, high-resolution, nudging-coefficient, climatology and forcing files -- are read in parallel: each rank reads only the part of each field that its own boxes, ghost cells included, cover. Boundary files, river files, and forcing on a longitude-latitude grid are read on one rank and broadcast.
+
 A NetCDF-4 file is read through the classic data model: variables and attributes in groups other than the root group are not seen, and text attributes must be character arrays (``NC_CHAR``), not ``NC_STRING``. REMORA names the attribute and exits if it finds an ``NC_STRING`` one.
 
 Any NetCDF file can be converted to CDF-5 by running:

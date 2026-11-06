@@ -1,6 +1,8 @@
 #ifndef _REMORA_NCFILE_H_
 #define _REMORA_NCFILE_H_
 
+#include <initializer_list>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <ctime>
@@ -413,19 +415,47 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
 }
 
 /**
- * \brief The cell-centered bounding box of every FAB, ghost cells included,
- * that this rank owns in \p mf: the region BuildLocalFABsFromNetCDFFile has to
- * read for a copy into \p mf. Empty on a rank that owns none.
+ * \brief The bounding box, as cells, of the index range of every FAB, ghost
+ * cells included, that this rank owns in each of \p mfs: the region
+ * BuildLocalFABsFromNetCDFFile has to read for a copy into them. Empty on a
+ * rank that owns none.
+ *
+ * A FAB's index range is kept as it is, whatever its staggering, because a
+ * copy on intersection between FABs of different staggering intersects index
+ * ranges. A staggered FAB therefore asks for one more cell than it holds.
  */
+inline amrex::Box
+nc_local_region (std::initializer_list<const amrex::MultiFab*> mfs)
+{
+    amrex::Box region;
+    for (const amrex::MultiFab* mf : mfs) {
+        if (mf == nullptr) { continue; }
+        for (amrex::MFIter mfi(*mf, false); mfi.isValid(); ++mfi) {
+            const amrex::Box& fb = mfi.fabbox();
+            const amrex::Box b(fb.smallEnd(), fb.bigEnd());
+            region = region.ok() ? region.minBox(b) : b;
+        }
+    }
+    return region;
+}
+
+/**
+ * \brief A region holding all of any file's data, for BuildLocalFABsFromNetCDFFile
+ * callers that need the whole field on every rank, such as one that unwraps a
+ * longitude relative to the field's first cell. Every rank then reads all of it.
+ */
+inline amrex::Box
+nc_all_region ()
+{
+    const int big = std::numeric_limits<int>::max() / 4;
+    return amrex::Box(amrex::IntVect(-big), amrex::IntVect(big));
+}
+
+//! nc_local_region for one MultiFab
 inline amrex::Box
 nc_local_region (const amrex::MultiFab& mf)
 {
-    amrex::Box region;
-    for (amrex::MFIter mfi(mf, false); mfi.isValid(); ++mfi) {
-        const amrex::Box b = amrex::convert(mfi.fabbox(), amrex::IndexType::TheCellType());
-        region = region.ok() ? region.minBox(b) : b;
-    }
-    return region;
+    return nc_local_region({&mf});
 }
 
 /**
