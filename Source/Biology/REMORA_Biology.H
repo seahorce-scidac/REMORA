@@ -105,6 +105,12 @@ public:
     virtual void advance (const BiologyAdvanceContext& context) const = 0;
 };
 
+/** \brief Abort with "<prefix>.<name> must be <condition>; got <value>" unless
+ *         \p ok. Models use it in configure for values that would otherwise
+ *         surface as NaN, such as divisors in their kernels. */
+void require_parameter (bool ok, const std::string& prefix, const char* name,
+                        const char* condition, amrex::Real value);
+
 /** \brief Construct an implemented ecosystem; none/off yield a no-op object. */
 std::unique_ptr<Biology> make_biology (const std::string& name);
 BiologyICType parse_biology_ic_type (const std::string& name);

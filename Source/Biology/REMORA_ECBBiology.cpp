@@ -25,6 +25,7 @@ SOFTWARE.
 #include <REMORA_ECBBiology.H>
 #include <REMORA_BiologyCarbonate.H>
 #include <REMORA_BiologyGasExchange.H>
+#include <REMORA_BiologySinking.H>
 #include <REMORA_DataStruct.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_MFIter.H>
@@ -125,22 +126,17 @@ REMORABiology::ECBParameters::init_params (const std::string& remora_prefix)
 
     // Reject values that divide by zero in the kernel, where they would
     // otherwise surface as NaN in the tracers with no diagnostic.
-    auto require = [&] (bool ok, const char* name, const char* condition, Real value) {
-        if (!ok) {
-            amrex::Abort(remora_prefix + ".ecb." + name + " must be " + condition +
-                         "; got " + std::to_string(value));
-        }
-    };
+    const std::string prefix = remora_prefix + ".ecb";
     // Light attenuation (AttSW + AttChl*chl + DOC term) * dz may be zero, which the
     // kernel handles, but a negative coefficient would amplify light with depth.
-    require(AttSW >= Real(0.0), "AttSW", "non-negative", AttSW);
-    require(AttChl >= Real(0.0), "AttChl", "non-negative", AttChl);
+    require_parameter(AttSW >= Real(0.0), prefix, "AttSW", "non-negative", AttSW);
+    require_parameter(AttChl >= Real(0.0), prefix, "AttChl", "non-negative", AttChl);
     // Carbon excess uptake divides by slCexc.
-    require(slCexc > Real(0.0), "slCexc", "positive", slCexc);
+    require_parameter(slCexc > Real(0.0), prefix, "slCexc", "positive", slCexc);
     // Grazing divides by K_Phy + phyt^2, which is K_Phy when phyt is zero.
-    require(K_Phy > Real(0.0), "K_Phy", "positive", K_Phy);
+    require_parameter(K_Phy > Real(0.0), prefix, "K_Phy", "positive", K_Phy);
     // A non-positive atmospheric pCO2 reverses the sign of the air-sea CO2 flux.
-    require(pCO2air > Real(0.0), "pCO2air", "positive", pCO2air);
+    require_parameter(pCO2air > Real(0.0), prefix, "pCO2air", "positive", pCO2air);
 }
 
 void
@@ -250,16 +246,18 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
     int nw = 0;
     const int sw_FC = nw++;
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mf_cons_new, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Box bx = mfi.tilebox();
         Box bx2d = bx;
         bx2d.makeSlab(2, 0);
         Box wbx = surroundingNodes(bx, 2);
 
+        // Every scratch value is written before it is read, so it is not zeroed.
         FArrayBox fab_cell(bx, ncell, amrex::The_Async_Arena());
-        fab_cell.template setVal<RunOn::Device>(Real(0.0));
         FArrayBox fab_w(wbx, nw, amrex::The_Async_Arena());
-        fab_w.template setVal<RunOn::Device>(Real(0.0));
 
         auto no3 = fab_cell.array(sc_no3);
         auto nh4 = fab_cell.array(sc_nh4);
@@ -324,7 +322,6 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
             constexpr Real two = Real(2.0);
             constexpr Real eps = Real(1.0e-20);
             constexpr Real minval = Real(1.0e-6);
-            constexpr Real cff_weno = Real(1.0e-14);
 
             constexpr Real rOxNO3 = Real(8.625);       // 138/16
             constexpr Real rOxNH4 = Real(6.625);       // 106/16
@@ -379,6 +376,16 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
             // REMORA stores srflx in W/m2, so only PARfrac applies. ROMS ecb.h
             // multiplies by rho0*Cp because its srflx is kinematic (degC m/s).
             const Real PARsur = parms.PARfrac * srflx(i,j,0);
+
+            // The surface gas-exchange factors depend only on the surface
+            // temperature, salinity and wind, which the iterations do not change.
+            const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr, i, j, rho0);
+            const Real O2_transfer = transfer_velocity(transfer_rate(o2_schmidt, dtdays), u10squ,
+                                                       schmidt_number(o2_schmidt, temp(i,j,N-1)));
+            const Real O2satu = o2_saturation(temp(i,j,N-1), salt(i,j,N-1));
+            const Real CO2_transfer = transfer_velocity(transfer_rate(co2_schmidt, dtdays), u10squ,
+                                                        schmidt_number(co2_schmidt, temp(i,j,N-1)));
+            const Real CO2_sol = co2_solubility(temp(i,j,N-1), salt(i,j,N-1));
 
             // Subcycle the complete ordered ECB reaction/column calculation.
             for (int iter = 0; iter < parms.BioIter; ++iter) {
@@ -610,14 +617,9 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
                 }
 
                 // Surface O2 gas exchange.
-                const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr, i, j, rho0);
                 {
                     const int k = N - 1;
-                    const Real cff2 = transfer_rate(o2_schmidt, dtdays);
-                    const Real SchmidtN_Ox = schmidt_number(o2_schmidt, temp(i,j,k));
-                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN_Ox);
-                    const Real O2satu = o2_saturation(temp(i,j,k), salt(i,j,k));
-                    const Real O2_Flux = cff3 * (O2satu - oxyg(i,j,k));
+                    const Real O2_Flux = O2_transfer * (O2satu - oxyg(i,j,k));
                     oxyg(i,j,k) = oxyg(i,j,k) + O2_Flux * inv_hz(i,j,k);
                 }
 
@@ -648,11 +650,7 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
                 {
                     const int k = N - 1;
                     const Real pCO2 = pco2_water(temp(i,j,k), salt(i,j,k), tic(i,j,k), talk(i,j,k));
-                    const Real cff2 = transfer_rate(co2_schmidt, dtdays);
-                    const Real SchmidtN = schmidt_number(co2_schmidt, temp(i,j,k));
-                    const Real cff3 = transfer_velocity(cff2, u10squ, SchmidtN);
-                    const Real CO2_sol = co2_solubility(temp(i,j,k), salt(i,j,k));
-                    const Real CO2_Flux = cff3 * CO2_sol * (parms.pCO2air - pCO2);
+                    const Real CO2_Flux = CO2_transfer * CO2_sol * (parms.pCO2air - pCO2);
                     tic(i,j,k) = tic(i,j,k) + CO2_Flux * inv_hz(i,j,k);
                 }
 
@@ -682,111 +680,13 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
                     const bool nitrogen_sink = (isink == 0 || isink == 2 || isink == 3);
                     const bool carbon_sink = (isink == 4 || isink == 5);
 
+                    // Sink the particulate concentration, restricted to be
+                    // positive; FC(i,j,0) is then the flux reaching the bottom.
                     for (int k = 0; k < N; ++k) {
                         qc(i,j,k) = amrex::max(bio(i,j,k), zero);
                     }
-
-                    // Reconstruct vertical profile of selected biological
-                    // constituent "Bio" in terms of a set of parabolic segments
-                    // within each grid box. Then, compute semi-Lagrangian flux
-                    // due to sinking.
-                    for (int iface = N - 1; iface >= 1; --iface) {
-                        FC(i,j,iface) = (qc(i,j,iface) - qc(i,j,iface-1)) * inv_hz2(i,j,iface-1);
-                    }
-                    for (int k = 1; k < N - 1; ++k) {
-                        Real dltR = Hz(i,j,k) * FC(i,j,k+1);
-                        Real dltL = Hz(i,j,k) * FC(i,j,k);
-                        Real cff = Hz(i,j,k-1) + two * Hz(i,j,k) + Hz(i,j,k+1);
-                        const Real cffR = cff * FC(i,j,k+1);
-                        const Real cffL = cff * FC(i,j,k);
-
-                        // Apply PPM monotonicity constraint to prevent
-                        // oscillations within the grid box.
-                        if ((dltR * dltL) <= zero) {
-                            dltR = zero;
-                            dltL = zero;
-                        } else if (std::abs(dltR) > std::abs(cffL)) {
-                            dltR = cffL;
-                        } else if (std::abs(dltL) > std::abs(cffR)) {
-                            dltL = cffR;
-                        }
-
-                        // Compute right and left side values (bR,bL) of
-                        // parabolic segments within grid box Hz(k); (WR,WL) are
-                        // measures of quadratic variations.
-                        cff = (dltR - dltL) * inv_hz3(i,j,k);
-                        dltR = dltR - cff * Hz(i,j,k+1);
-                        dltL = dltL + cff * Hz(i,j,k-1);
-                        bR(i,j,k) = qc(i,j,k) + dltR;
-                        bL(i,j,k) = qc(i,j,k) - dltL;
-                        WR(i,j,k) = std::pow((two * dltR - dltL), 2);
-                        WL(i,j,k) = std::pow((dltR - two * dltL), 2);
-                    }
-                    for (int k = 1; k < N - 2; ++k) {
-                        const Real dltL = amrex::max(cff_weno, WL(i,j,k));
-                        const Real dltR = amrex::max(cff_weno, WR(i,j,k+1));
-                        bR(i,j,k) = (dltR * bR(i,j,k) + dltL * bL(i,j,k+1)) / (dltR + dltL);
-                        bL(i,j,k+1) = bR(i,j,k);
-                    }
-                    FC(i,j,N) = zero;              // no-flux boundary condition
-                    bR(i,j,N-1) = qc(i,j,N-1);     // default strictly monotonic
-                    bL(i,j,N-1) = qc(i,j,N-1);     // conditions
-                    bR(i,j,N-2) = qc(i,j,N-1);
-                    bL(i,j,1) = qc(i,j,0);         // bottom grid boxes are
-                    bR(i,j,0) = qc(i,j,0);         // re-assumed to be
-                    bL(i,j,0) = qc(i,j,0);         // piecewise constant.
-
-                    // Apply monotonicity constraint again, since the reconciled
-                    // interfacial values may cause a non-monotonic behavior of
-                    // the parabolic segments inside the grid box.
-                    for (int k = 0; k < N; ++k) {
-                        Real dltR = bR(i,j,k) - qc(i,j,k);
-                        Real dltL = qc(i,j,k) - bL(i,j,k);
-                        const Real cffR = two * dltR;
-                        const Real cffL = two * dltL;
-                        if ((dltR * dltL) < zero) {
-                            dltR = zero;
-                            dltL = zero;
-                        } else if (std::abs(dltR) > std::abs(cffL)) {
-                            dltR = cffL;
-                        } else if (std::abs(dltL) > std::abs(cffR)) {
-                            dltL = cffR;
-                        }
-                        bR(i,j,k) = qc(i,j,k) + dltR;
-                        bL(i,j,k) = qc(i,j,k) - dltL;
-                    }
-
-                    // After this moment reconstruction is considered complete.
-                    // The next stage is to compute vertical advective fluxes,
-                    // FC. It is expected that sinking may occur relatively fast,
-                    // the algorithm is designed to be free of CFL criterion,
-                    // which is achieved by allowing integration bounds for
-                    // semi-Lagrangian advective flux to use as many grid boxes
-                    // in upstream direction as necessary.
-                    const Real cff_w = dtdays * std::abs(wbio);
-                    for (int k = 0; k < N; ++k) {
-                        FC(i,j,k) = zero;
-                        WL(i,j,k) = z_w(i,j,k) + cff_w;
-                        WR(i,j,k) = Hz(i,j,k) * qc(i,j,k);
-                    }
-                    for (int k = 0; k < N; ++k) {
-                        int ksource = k;
-                        for (int ks = k; ks < N - 1; ++ks) {
-                            if (WL(i,j,k) > z_w(i,j,ks+1)) {
-                                ksource = ks + 1;
-                                FC(i,j,k) = FC(i,j,k) + WR(i,j,ks);
-                            }
-                        }
-                        const int ks = ksource;
-                        const Real cu = amrex::min(one, (WL(i,j,k) - z_w(i,j,ks)) * inv_hz(i,j,ks));
-                        FC(i,j,k) = FC(i,j,k) +
-                                    Hz(i,j,ks) * cu *
-                                    (bL(i,j,ks) + cu * (Real(0.5) * (bR(i,j,ks) - bL(i,j,ks)) -
-                                     (Real(1.5) - cu) * (bR(i,j,ks) + bL(i,j,ks) - two * qc(i,j,ks))));
-                    }
-                    for (int k = 0; k < N; ++k) {
-                        bio(i,j,k) = qc(i,j,k) + (FC(i,j,k+1) - FC(i,j,k)) * inv_hz(i,j,k);
-                    }
+                    sink_column(i, j, N, dtdays * std::abs(wbio), bio, qc, bR, bL, WR, WL, FC,
+                                Hz, z_w, inv_hz, inv_hz2, inv_hz3);
 
                     // Stress-dependent resuspension and instantaneous sediment
                     // recycling and burial of the material reaching the bottom.

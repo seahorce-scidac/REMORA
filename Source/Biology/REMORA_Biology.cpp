@@ -5,6 +5,8 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_Utility.H>
 
+#include <sstream>
+
 namespace REMORABiology {
 namespace {
 
@@ -76,6 +78,17 @@ using amrex::Abort;
 using amrex::ParmParse;
 using amrex::Real;
 using amrex::Vector;
+
+void
+require_parameter (bool ok, const std::string& prefix, const char* name,
+                   const char* condition, Real value)
+{
+    if (!ok) {
+        std::ostringstream message;
+        message << prefix << "." << name << " must be " << condition << "; got " << value;
+        Abort(message.str());
+    }
+}
 
 BiologyConstantIC
 read_constant_biology_ic (const BiologyDeclaration& declaration,
