@@ -672,12 +672,9 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
             //
             // The surface gas-exchange factors depend only on the surface
             // temperature, salinity and wind, which the iterations do not change.
-            // Salinity is carried only with oxygen or carbon, which are the
-            // only cases that read it.
             const SurfaceGasExchange gas = surface_gas_exchange(
                 use_oxygen, use_carbon, o2_schmidt, co2_schmidt, dtdays, do_bulk_flux,
-                uwind, vwind, sustr, svstr, i, j, rho0,
-                temp(i,j,N), use_salt ? salt(i,j,N) : zero);
+                uwind, vwind, sustr, svstr, i, j, rho0, temp, salt, N);
             for (int iter = 0; iter < parms.BioIter; ++iter) {
 
                 // Light-limited computations.

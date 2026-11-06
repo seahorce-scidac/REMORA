@@ -17,7 +17,6 @@ remora.prob_name = Upwelling
 
 remora.max_step = 10
 
-amrex.fpe_trap_invalid = 1
 
 # PROBLEM SIZE & GEOMETRY
 remora.prob_lo     =      0.     0.    -150.
@@ -119,3 +118,8 @@ remora.use_coriolis = true
 remora.coriolis_type = beta_plane
 remora.coriolis_f0 = -8.26e-5
 remora.coriolis_beta = 0.0
+
+# Fill new arrays with signaling NaN and trap invalid operations, so a biology
+# kernel that reads scratch it has not written fails instead of using garbage.
+amrex.init_snan = 1
+amrex.fpe_trap_invalid = 1

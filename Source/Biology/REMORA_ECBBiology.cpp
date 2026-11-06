@@ -381,7 +381,7 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
             // temperature, salinity and wind, which the iterations do not change.
             const SurfaceGasExchange gas = surface_gas_exchange(
                 true, true, o2_schmidt, co2_schmidt, dtdays, do_bulk_flux,
-                uwind, vwind, sustr, svstr, i, j, rho0, temp(i,j,N-1), salt(i,j,N-1));
+                uwind, vwind, sustr, svstr, i, j, rho0, temp, salt, N-1);
 
             // Subcycle the complete ordered ECB reaction/column calculation.
             for (int iter = 0; iter < parms.BioIter; ++iter) {
