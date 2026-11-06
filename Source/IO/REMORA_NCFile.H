@@ -8,6 +8,8 @@
 
 #include "AMReX_FArrayBox.H"
 #include "AMReX_IArrayBox.H"
+#include "AMReX_MultiFab.H"
+#include "AMReX_ParallelContext.H"
 // this includes pnetcdf.h, and mpi.h
 #include "REMORA_NCInterface.H"
 
@@ -204,58 +206,52 @@ double ReadNetCDFTimeOffsetDays (const std::string& fname,
  */
 bool QueryNetCDFHasVars (const std::string& fname,
                          const amrex::Vector<std::string>& var_names);
+
 /**
- * \brief Helper function for reading data from NetCDF file into a
- * provided FAB.
+ * \brief Where fill_fab_from_arrays puts a variable's data, before the shift by
+ * the domain's lower corner.
  *
- * @param iv Index for which variable we are going to fill
- * @param nc_arrays Arrays of data from NetCDF file
- * @param var_name Variable name
- * @param NC_dim_type Dimension type for the variable as stored in the NetCDF file
- * @param temp FAB where we store the variable data from the NetCDF Arrays
- * @param custom_ngrow Custom number of grow cells for the FAB
+ * @param[in ] var_name      variable name, which sets the staggering
+ * @param[in ] NC_dim_type   dimension type of the variable in the file
+ * @param[in ] shape         the variable's shape in the file (any time count)
+ * @param[in ] custom_ngrow  grow cells of the FAB, as in BuildFABsFromNetCDFFile
+ * @param[out] nsx, nsy, nsz extents of the file data in x, y and z
+ * @returns the FAB's box. The data fill the nsx x nsy x nsz corner of it that
+ *          starts at its lower corner.
  */
-template<class FAB,typename DType>
-void
-fill_fab_from_arrays (int iv,
-                      amrex::Vector<NDArray<amrex::Real>>& nc_arrays,
-                      const std::string& var_name,
-                      NC_Data_Dims_Type& NC_dim_type,
-                      FAB& temp, amrex::IntVect custom_ngrow)
+inline amrex::Box
+nc_fab_box (const std::string& var_name, NC_Data_Dims_Type NC_dim_type,
+            const std::vector<MPI_Offset>& shape, amrex::IntVect custom_ngrow,
+            int& nsx, int& nsy, int& nsz)
 {
-    int nsx, nsy, nsz;
     if (NC_dim_type == NC_Data_Dims_Type::SN_WE) {
         nsz = 1;
-        nsy = nc_arrays[iv].get_vshape()[0];
-        nsx = nc_arrays[iv].get_vshape()[1];
-        // amrex::Print() << "TYPE SN WE " << nsy << " " << nsx << std::endl;
+        nsy = shape[0];
+        nsx = shape[1];
     } else if (NC_dim_type == NC_Data_Dims_Type::BT_SN_WE) {
-        nsz = nc_arrays[iv].get_vshape()[0];
-        nsy = nc_arrays[iv].get_vshape()[1];
-        nsx = nc_arrays[iv].get_vshape()[2];
-        // amrex::Print() << "TYPE BT SN WE " << nz << " " << nsy << " " << nsx << std::endl;
+        nsz = shape[0];
+        nsy = shape[1];
+        nsx = shape[2];
     } else if (NC_dim_type == NC_Data_Dims_Type::Time_SN_WE) {
         nsz = 1;
-        nsy = nc_arrays[iv].get_vshape()[1];
-        nsx = nc_arrays[iv].get_vshape()[2];
-        // amrex::Print() << "TYPE TIME SN WE " << nsy << " " << nsx << std::endl;
+        nsy = shape[1];
+        nsx = shape[2];
     } else if (NC_dim_type == NC_Data_Dims_Type::Time_BT_SN_WE) {
-        nsz = nc_arrays[iv].get_vshape()[1];
-        nsy = nc_arrays[iv].get_vshape()[2];
-        nsx = nc_arrays[iv].get_vshape()[3];
-        // amrex::Print() << "TYPE TIME BT SN WE " << nsx << " " << nsy << " " << nsz << std::endl;
+        nsz = shape[1];
+        nsy = shape[2];
+        nsx = shape[3];
     } else if (NC_dim_type == NC_Data_Dims_Type::Time_BT_Riv) {
-        nsz = nc_arrays[iv].get_vshape()[1]; // number of z-coords
+        nsz = shape[1]; // number of z-coords
         nsy = 1; // dummy
-        nsx = nc_arrays[iv].get_vshape()[2]; // number of rivers
+        nsx = shape[2]; // number of rivers
     } else if (NC_dim_type == NC_Data_Dims_Type::Time_Riv) {
         nsz = 1; // number of z-coords
         nsy = 1; // dummy
-        nsx = nc_arrays[iv].get_vshape()[1]; // number of rivers
+        nsx = shape[1]; // number of rivers
     } else if (NC_dim_type == NC_Data_Dims_Type::BT_Riv) {
-        nsz = nc_arrays[iv].get_vshape()[0]; // number of z-coords
+        nsz = shape[0]; // number of z-coords
         nsy = 1; // dummy
-        nsx = nc_arrays[iv].get_vshape()[1]; // number of rivers
+        nsx = shape[1]; // number of rivers
     } else {
         amrex::Abort("Dont know this NC_Data_Dims_Type");
     }
@@ -296,8 +292,31 @@ fill_fab_from_arrays (int iv,
     }
     // Adjust box size if a non-standard number of grow cells
     my_box.grow(custom_ngrow - amrex::IntVect(1,1,0));
+    return my_box;
+}
 
-    // amrex::Print() <<" NAME and BOX for this VAR " << var_name << " " << my_box << std::endl;
+/**
+ * \brief Helper function for reading data from NetCDF file into a
+ * provided FAB.
+ *
+ * @param iv Index for which variable we are going to fill
+ * @param nc_arrays Arrays of data from NetCDF file
+ * @param var_name Variable name
+ * @param NC_dim_type Dimension type for the variable as stored in the NetCDF file
+ * @param temp FAB where we store the variable data from the NetCDF Arrays
+ * @param custom_ngrow Custom number of grow cells for the FAB
+ */
+template<class FAB,typename DType>
+void
+fill_fab_from_arrays (int iv,
+                      amrex::Vector<NDArray<amrex::Real>>& nc_arrays,
+                      const std::string& var_name,
+                      NC_Data_Dims_Type& NC_dim_type,
+                      FAB& temp, amrex::IntVect custom_ngrow)
+{
+    int nsx, nsy, nsz;
+    const amrex::Box my_box = nc_fab_box(var_name, NC_dim_type, nc_arrays[iv].get_vshape(),
+                                         custom_ngrow, nsx, nsy, nsz);
 
 #ifdef AMREX_USE_GPU
     // Make sure temp lives on CPU since nc_arrays lives on CPU only
@@ -391,6 +410,141 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
         fab_vars[iv]->copy(tmp,tmp.box(),0,fab_bx,0,1);
 #endif
     }
+}
+
+/**
+ * \brief The cell-centered bounding box of every FAB, ghost cells included,
+ * that this rank owns in \p mf: the region BuildLocalFABsFromNetCDFFile has to
+ * read for a copy into \p mf. Empty on a rank that owns none.
+ */
+inline amrex::Box
+nc_local_region (const amrex::MultiFab& mf)
+{
+    amrex::Box region;
+    for (amrex::MFIter mfi(mf, false); mfi.isValid(); ++mfi) {
+        const amrex::Box b = amrex::convert(mfi.fabbox(), amrex::IndexType::TheCellType());
+        region = region.ok() ? region.minBox(b) : b;
+    }
+    return region;
+}
+
+/**
+ * \brief Read the part of each variable that this rank needs, collectively.
+ *
+ * Fills the same FABs as BuildFABsFromNetCDFFile, in the same index space,
+ * but each rank's FABs cover only the file data inside \p region (converted to
+ * each variable's staggering), and each rank reads only that part. A copy on
+ * intersection into a MultiFab whose FABs this rank owns lie inside \p region
+ * gives the same values as from BuildFABsFromNetCDFFile; nc_local_region gives
+ * that region for one MultiFab.
+ *
+ * Collective over amrex::ParallelContext::CommunicatorSub(): every rank calls
+ * it, including ranks with an empty \p region, which read nothing. Each
+ * variable is one collective read of one hyperslab per rank, which works for
+ * every format PnetCDF opens, compressed NetCDF-4 included. River data, which
+ * is not laid out on the model grid, is not supported here.
+ *
+ * @param domain       domain whose lower corner the file data starts at
+ * @param region       cell-centered region of the domain this rank needs
+ * @param fname        file to read
+ * @param nc_var_names variables to read
+ * @param NC_dim_types dimension type of each variable in the file
+ * @param fab_vars     FABs to fill, one per variable
+ * @param one_time     whether to read a single time step
+ * @param fill_time    time index to read when \p one_time
+ * @param custom_ngrow grow cells, as in BuildFABsFromNetCDFFile
+ */
+template<class FAB,typename DType>
+void
+BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
+                              const amrex::Box& region,
+                              const std::string &fname,
+                              amrex::Vector<std::string> nc_var_names,
+                              amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types,
+                              amrex::Vector<FAB*> fab_vars,
+                              bool one_time=false, int fill_time=0,
+                              amrex::IntVect custom_ngrow=amrex::IntVect(1,1,0))
+{
+    auto ncf = ncutils::NCFile::open(fname, NC_NOWRITE, amrex::ParallelContext::CommunicatorSub());
+
+    for (int iv = 0; iv < nc_var_names.size(); iv++)
+    {
+        const NC_Data_Dims_Type dim_type = NC_dim_types[iv];
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(dim_type == NC_Data_Dims_Type::Time_BT_SN_WE ||
+                                         dim_type == NC_Data_Dims_Type::Time_SN_WE ||
+                                         dim_type == NC_Data_Dims_Type::BT_SN_WE ||
+                                         dim_type == NC_Data_Dims_Type::SN_WE,
+                                         "BuildLocalFABsFromNetCDFFile reads gridded data only");
+        const bool has_time = (dim_type == NC_Data_Dims_Type::Time_BT_SN_WE ||
+                               dim_type == NC_Data_Dims_Type::Time_SN_WE);
+        const bool has_z    = (dim_type == NC_Data_Dims_Type::Time_BT_SN_WE ||
+                               dim_type == NC_Data_Dims_Type::BT_SN_WE);
+
+        const auto var = ncf.var(nc_var_names[iv]);
+        const std::vector<MPI_Offset> shape = var.shape();
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+            static_cast<int>(shape.size()) == int(has_time) + int(has_z) + 2,
+            "NetCDF variable " + nc_var_names[iv] + " in " + fname +
+            " does not have the dimensions expected of it");
+
+        // The same layout as BuildFABsFromNetCDFFile: the file data fill the
+        // corner of the FAB box that starts at its lower corner.
+        int nsx, nsy, nsz;
+        amrex::Box fab_box = nc_fab_box(nc_var_names[iv], dim_type, shape, custom_ngrow,
+                                        nsx, nsy, nsz);
+        amrex::Box data_box(fab_box.smallEnd(),
+                            fab_box.smallEnd() + amrex::IntVect(nsx-1, nsy-1, nsz-1),
+                            fab_box.ixType());
+        AMREX_ALWAYS_ASSERT(fab_box.contains(data_box));
+        data_box.shift(domain.smallEnd());
+
+        const amrex::Box local = region.ok()
+            ? (data_box & amrex::convert(region, data_box.ixType())) : amrex::Box();
+
+        // Hyperslab of the file holding `local`; empty on a rank that needs nothing.
+        std::vector<MPI_Offset> start(shape.size(), 0), count(shape.size(), 0);
+        int d = 0;
+        if (has_time) {
+            start[d] = one_time ? fill_time : 0;
+            count[d] = local.ok() ? 1 : 0;
+            ++d;
+        }
+        if (local.ok()) {
+            if (has_z) {
+                start[d] = local.smallEnd(2) - data_box.smallEnd(2);
+                count[d] = local.length(2);
+            }
+            start[d + int(has_z)]     = local.smallEnd(1) - data_box.smallEnd(1);
+            count[d + int(has_z)]     = local.length(1);
+            start[d + int(has_z) + 1] = local.smallEnd(0) - data_box.smallEnd(0);
+            count[d + int(has_z) + 1] = local.length(0);
+        }
+
+        // The file stores x fastest, then y, then z: the FAB's own order, so
+        // the hyperslab reads straight into it. A rank with nothing to read
+        // still gets a valid one-cell FAB.
+        FAB tmp;
+        const amrex::Box tmp_box = local.ok() ? local
+                                              : amrex::Box(data_box.smallEnd(), data_box.smallEnd(),
+                                                           data_box.ixType());
+#ifdef AMREX_USE_GPU
+        tmp.resize(tmp_box, 1, amrex::The_Pinned_Arena());
+#else
+        tmp.resize(tmp_box, 1);
+#endif
+        if (!local.ok()) { tmp.template setVal<amrex::RunOn::Host>(0.0); }
+        var.get_all(tmp.dataPtr(), start, count);
+
+        fab_vars[iv]->resize(tmp_box, 1);
+#ifdef AMREX_USE_GPU
+        amrex::Gpu::copy(amrex::Gpu::hostToDevice,
+                         tmp.dataPtr(), tmp.dataPtr() + tmp.size(),
+                         fab_vars[iv]->dataPtr());
+#else
+        fab_vars[iv]->copy(tmp, tmp_box, 0, tmp_box, 0, 1);
+#endif
+    }
+    ncf.close();
 }
 
 #endif

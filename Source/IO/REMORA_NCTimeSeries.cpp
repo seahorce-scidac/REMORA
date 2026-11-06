@@ -615,8 +615,10 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
         NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
     }
 
-    BuildFABsFromNetCDFFile<amrex::FArrayBox,amrex::Real>(domain, file_name, NC_names, NC_dim_types,
-                                                          NC_fabs, true, itime_offset);
+    // Each rank reads the part of the field its own FABs of mf cover.
+    BuildLocalFABsFromNetCDFFile<amrex::FArrayBox,amrex::Real>(domain, nc_local_region(*mf), file_name,
+                                                               NC_names, NC_dim_types,
+                                                               NC_fabs, true, itime_offset);
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -628,8 +630,8 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
         amrex::FArrayBox &fab  = (*mf)[mfi];
 
         //
-        // FArrayBox to FArrayBox copy does "copy on intersection"
-        // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
+        // FArrayBox to FArrayBox copy does "copy on intersection"; NC_fab covers
+        // every FAB of mf this rank owns.
 
         fab.template copy<amrex::RunOn::Device>(NC_fab);
     } // mf
