@@ -301,7 +301,12 @@ cat > "$WORK/gpu_wrap.sh" <<'EOF'
 #!/bin/bash
 export CUDA_VISIBLE_DEVICES=$((3-SLURM_LOCALID))
 if [ -n "${NSYS_OUT:-}" ] && [ "$SLURM_PROCID" = 0 ]; then
-    exec nsys profile --trace=cuda,nvtx,mpi,osrt --mpi-impl=mpich --force-overwrite true -o "$NSYS_OUT" "$@"
+    # CUDA and NVTX only by default: MPI and OS-runtime tracing (NSYS_TRACE=cuda,nvtx,mpi,osrt)
+    # made the profiled run too slow to finish in a debug-queue job. No CPU sampling.
+    trace=${NSYS_TRACE:-cuda,nvtx}
+    mpi=""; case $trace in *mpi*) mpi="--mpi-impl=mpich";; esac
+    exec nsys profile --trace=$trace $mpi --sample=none --cpuctxsw=none \
+        --force-overwrite true -o "$NSYS_OUT" "$@"
 fi
 exec "$@"
 EOF
@@ -349,7 +354,8 @@ command -v nsys > /dev/null || { echo "nsys not found; load the cudatoolkit modu
 for v in $labels; do
     out=$W/runs/gpu_upwelling_4gpu_${v}_nsys; mkdir -p "$out"
     echo "=== nsys $v  $(date +%T)"
-    NSYS_OUT=$out/profile $SRUN "$W/bin/remora_${v}_gpu" "$inp" remora.plot_int=-1 \
+    # bounded, so one slow profile cannot use up the job: NSYS_TIMEOUT seconds per revision
+    NSYS_OUT=$out/profile timeout ${NSYS_TIMEOUT:-600} $SRUN "$W/bin/remora_${v}_gpu" "$inp" remora.plot_int=-1 \
         remora.check_int=-1 $xin amrex.use_gpu_aware_mpi=1 > "$out/log" 2>&1 \
         || echo "   NSYS RUN FAILED: $out/log"
     [ -f "$out/profile.nsys-rep" ] || { echo "   no report written"; continue; }
