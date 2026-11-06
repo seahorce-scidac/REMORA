@@ -118,9 +118,9 @@ remora.bdy_vbar_time_varname = <UNKNOWN_DEFAULT>
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_zeta_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_FennelBiology.cpp
-# type=int; method=queryAdd
-remora.biology_debug = <UNKNOWN_DEFAULT>
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=int; method=query
+remora.biology_debug = 0
 
 # source: Source/Biology/REMORA_FennelBiology.cpp
 # type=int; method=queryAdd
@@ -349,6 +349,178 @@ remora.dry_ghost_value = <UNKNOWN_DEFAULT>
 # time step ratio between a level and its parent
 # type=unknown; method=queryarr
 remora.dt_ref_ratio = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.AttChl = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.AttSW = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=int; method=queryAdd
+remora.ecb.BioIter = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.Chl2C_m = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.ChlMin = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.CoagR = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.D_p5NH4 = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.ElDON = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.EsDON = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.I_thNH4 = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.K_NH4 = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.K_NO3 = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.K_PO4 = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.K_Phy = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.LDeRRC = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.LDeRRN = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.NitriR = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.PARfrac = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.PhyCN = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.PhyIS = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.PhyMR = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.PhyMin = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.RDeRRC = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.RDeRRN = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.R_P2N = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.SDeRRC = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.SDeRRN = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.Vp0 = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.ZooAE_N = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.ZooBM = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.ZooCN = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.ZooER = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.ZooGR = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.ZooMR = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.ZooMin = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.deltC = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.deltN = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.gammaC = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.pCO2air = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.slCexc = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.wLDet = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.wPhy = <UNKNOWN_DEFAULT>
+
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=Real; method=queryAdd
+remora.ecb.wSDet = <UNKNOWN_DEFAULT>
 
 # source: Source/REMORA_DataStruct.H
 # type=bool; method=queryAdd
@@ -1110,9 +1282,9 @@ remora.tnudg = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.tracer_horizontal_advection_scheme = upstream3
 
-# source: Source/Biology/REMORA_FennelBiology.cpp
-# type=int; method=queryAdd
-remora.use_biology_cpp_answer = <UNKNOWN_DEFAULT>
+# source: Source/Biology/REMORA_ECBBiology.cpp
+# type=int; method=query
+remora.use_biology_cpp_answer = 1
 
 # Include Coriolis forcing?
 # type=bool; method=queryAdd
