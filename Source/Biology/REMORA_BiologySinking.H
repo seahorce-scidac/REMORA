@@ -2,6 +2,7 @@
 #define REMORA_BIOLOGY_SINKING_H_
 
 #include <AMReX_Array4.H>
+#include <AMReX_BLassert.H>
 #include <AMReX_Extension.H>
 #include <AMReX_GpuQualifiers.H>
 #include <AMReX_REAL.H>
@@ -43,6 +44,8 @@ void sink_column (int i, int j, int nlev, amrex::Real sink_distance,
     constexpr Real one = Real(1.0);
     constexpr Real two = Real(2.0);
     constexpr Real cff_weno = Real(1.0e-14);
+    // The boundary closures below touch layers 0, 1, N-1 and N.
+    AMREX_ASSERT(nlev >= 2);
     const int N = nlev - 1;   // top layer
 
     for (int k = 0; k <= N + 1; ++k) {

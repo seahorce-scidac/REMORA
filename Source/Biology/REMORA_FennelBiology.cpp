@@ -331,6 +331,9 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
         amrex::Abort("Fennel biology requires Hz, z_w, rmask, srflx, and, when carbon or "
                      "oxygen is active, either uwind/vwind (bulk_fluxes) or sustr/svstr");
     }
+    if (N < 1) {
+        amrex::Abort("Fennel sinking requires at least two vertical layers");
+    }
 
     // Set time-stepping according to the number of iterations.
     const Real dtdays = dt_lev / Real(86400.0) / static_cast<Real>(parms.BioIter);
@@ -433,7 +436,9 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
     int nw = 0;
     const int sw_FC = nw++;
 
-#ifdef AMREX_USE_OMP
+// The parity diagnostics are diffed line by line against the Fortran log, so
+// they need one thread to keep a fixed order.
+#if defined(AMREX_USE_OMP) && !defined(REMORA_USE_BIOLOGY_DIAG)
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     for (MFIter mfi(mf_cons_new, TilingIfNotGPU()); mfi.isValid(); ++mfi) {

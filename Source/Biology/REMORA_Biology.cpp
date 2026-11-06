@@ -5,6 +5,8 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_Utility.H>
 
+#include <sstream>
+
 namespace REMORABiology {
 namespace {
 
@@ -82,7 +84,9 @@ require_parameter (bool ok, const std::string& prefix, const char* name,
                    const char* condition, Real value)
 {
     if (!ok) {
-        Abort(prefix + "." + name + " must be " + condition + "; got " + std::to_string(value));
+        std::ostringstream message;
+        message << prefix << "." << name << " must be " << condition << "; got " << value;
+        Abort(message.str());
     }
 }
 
