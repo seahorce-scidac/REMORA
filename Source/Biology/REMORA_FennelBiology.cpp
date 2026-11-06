@@ -447,10 +447,9 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
         bx2d.makeSlab(2, 0);
         Box wbx = surroundingNodes(bx, 2);
 
+        // Every scratch value is written before it is read, so it is not zeroed.
         FArrayBox fab_cell(bx, ncell, amrex::The_Async_Arena());
-        fab_cell.template setVal<RunOn::Device>(zero);
         FArrayBox fab_w(wbx, nw, amrex::The_Async_Arena());
-        fab_w.template setVal<RunOn::Device>(zero);
 
         auto no3 = fab_cell.array(sc_no3);
         auto nh4 = fab_cell.array(sc_nh4);
