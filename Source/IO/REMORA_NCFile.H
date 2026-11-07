@@ -11,6 +11,8 @@
 #include "AMReX_IArrayBox.H"
 #include "AMReX_MultiFab.H"
 #include "AMReX_ParallelContext.H"
+#include "AMReX_ParallelReduce.H"
+#include "AMReX_ParmParse.H"
 // this includes pnetcdf.h, and mpi.h
 #include "REMORA_NCInterface.H"
 
@@ -421,18 +423,51 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
  *
  * One box per rank keeps each variable to one collective read per rank. Its
  * cost is the bounding box: a rank whose FABs lie far apart reads, and holds,
- * everything between them.
+ * everything between them. With remora.v >= 1 that cost is printed: the
+ * largest ratio over the ranks of cells in the region to cells the rank owns.
+ *
+ * Collective over amrex::ParallelContext::CommunicatorSub() when remora.v >= 1.
  */
 inline amrex::Box
 nc_local_region (const amrex::Vector<const amrex::MultiFab*>& mfs)
 {
     amrex::Box region;
+    amrex::BoxList owned_boxes;
     for (const amrex::MultiFab* mf : mfs) {
         if (mf == nullptr) { continue; }
         for (amrex::MFIter mfi(*mf, false); mfi.isValid(); ++mfi) {
             const amrex::Box b = amrex::convert(mfi.fabbox(), amrex::IndexType::TheCellType());
             region = region.ok() ? region.minBox(b) : b;
+            owned_boxes.push_back(b);
         }
+    }
+
+    int verbose = 0;
+    amrex::ParmParse("remora").query("v", verbose);
+    if (verbose >= 1) {
+        // Cells this rank's FABs cover, each counted once although several
+        // MultiFabs, or a FAB's ghost cells and its neighbor's, may overlap.
+        long long owned = 0;
+        if (!owned_boxes.isEmpty()) {
+            amrex::BoxArray ba(owned_boxes);
+            ba.removeOverlap();
+            owned = ba.numPts();
+        }
+        const long long read = region.ok() ? region.numPts() : 0;
+        struct { double ratio; int rank; } mine, worst;
+        mine.ratio = (owned > 0) ? double(read) / double(owned) : 1.0;
+        mine.rank = amrex::ParallelContext::MyProcSub();
+        MPI_Comm comm = amrex::ParallelContext::CommunicatorSub();
+        MPI_Allreduce(&mine, &worst, 1, MPI_DOUBLE_INT, MPI_MAXLOC, comm);
+        double mean = mine.ratio;
+        amrex::ParallelAllReduce::Sum(mean, comm);
+        mean /= amrex::ParallelContext::NProcsSub();
+        long long worst_cells[2] = {read, owned};
+        MPI_Bcast(worst_cells, 2, MPI_LONG_LONG, worst.rank, comm);
+        amrex::Print() << "NetCDF read region: up to " << worst.ratio
+                       << " times the cells owned, on rank " << worst.rank << " ("
+                       << worst_cells[0] << " read, " << worst_cells[1]
+                       << " owned); mean " << mean << " over ranks" << std::endl;
     }
     return region;
 }
