@@ -1713,9 +1713,10 @@ public:
     static int total_nc_plot_file_step;
 #endif
 
-private:
     void prepare_bottom_exchange (int lev, amrex::Real time, amrex::Real dt_lev);
     void check_bottom_exchange (int lev, amrex::Real dt_lev) const;
+
+private:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> m_bottom_transport;
     std::unique_ptr<amrex::MultiFab> m_bottom_raw;
     std::unique_ptr<amrex::MultiFab> m_bottom_base_transport;
