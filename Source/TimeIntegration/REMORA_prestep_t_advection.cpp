@@ -7,7 +7,7 @@ using namespace amrex;
  * @param[in   ] tbx             tile box
  * @param[in   ] gbx             grown tile box
  * @param[in   ] tempold         scalar at last time
- * @param[in   ] tempcache       cached current time step's scalar value
+ * @param[in   ] tempcache       current time step's scalar value, read on tbx only
  * @param[in   ] Hz              vertical cell height
  * @param[in   ] Huon            u-volume flux
  * @param[in   ] Hvom            v-volume flux

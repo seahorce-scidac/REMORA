@@ -58,15 +58,6 @@ REMORA::prestep (int lev,
                 int N, const Real dt_lev)
 {
     BL_PROFILE("REMORA::prestep()");
-    const BoxArray&            ba = S_old.boxArray();
-    const DistributionMapping& dm = S_old.DistributionMap();
-
-    // Maybe not the best way to do this, but need to cache salt and temp since
-    // they get rewritten by prestep_t
-
-    MultiFab mf_scalarcache(ba,dm,ncons,IntVect(NGROW,NGROW,0));
-    MultiFab::Copy(mf_scalarcache,S_new,0,0,ncons,IntVect(NGROW,NGROW,0));
-
 
 #ifdef REMORA_USE_NETCDF
     // These do MPI-collective NetCDF reads, so they must be called by every rank,
@@ -162,8 +153,11 @@ REMORA::prestep (int lev,
             const Array4<const int >& river_pos = Array4<const int>();
             const Array4<const Real>& river_source = Array4<const Real>();
 #endif
+            // prestep_t_advection reads S_new on this tile's own cells only, and the
+            // diffusion below, which overwrites S_new, writes only those cells too, after
+            // every component's advection. So it still reads the value S_new came in with.
             prestep_t_advection(lev, bx, gbx, S_old.array(mfi,i_comp),
-                                mf_scalarcache.array(mfi,i_comp), Hz, Huon, Hvom,
+                                S_new.array(mfi,i_comp), Hz, Huon, Hvom,
                                 W, DC, FC, sstore, z_w, h, pm, pn, msku, mskv, river_pos,
                                 river_source, iic, ntfirst,
                                 nrhs, N, dt_lev);
