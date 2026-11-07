@@ -139,8 +139,8 @@ REMORA::stretch_transform (int lev)
         Array4<Real> const& h  = (mf_h)->array(mfi);
         Array4<Real> const& Zt_avg1  = (mf_Zt_avg1)->array(mfi);
         // Grown only where the tile meets the box boundary, so no two tiles of one box
-        // write the same cell: z_w is first set to h and then overwritten below, and a
-        // neighbouring tile forming Hz in between would read the bathymetry.
+        // write the same cell: a neighbouring tile forming Hz could otherwise read z_w
+        // while it is being written.
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         Box gbx3 = mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0));
         Box gbx2D = gbx2;
@@ -161,14 +161,7 @@ REMORA::stretch_transform (int lev)
 
         Real ds = one / Real(N);
 
-        amrex::ParallelFor(wgbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            z_w(i,j,k) = h(i,j,0);
-        });
-
-        // ROMS Transform 2
-        Gpu::streamSynchronize();
-
+        // ROMS Transform 2. Every z_w on wgbx3 is written here, k = N included.
         amrex::ParallelFor(wgbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             if (k < N) {
