@@ -281,8 +281,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     // ************************************************************************
 
     MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
-    // compute_W fills one ghost ring less than mf_W has; keep the rest defined.
-    mf_W.setVal(zero);
+    // compute_W fills whole columns of the valid region and the first ghost ring; keep the
+    // rest of the ghost cells defined.
+    mf_W.setBndry(zero);
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
