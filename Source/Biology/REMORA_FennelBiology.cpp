@@ -447,10 +447,9 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
         bx2d.makeSlab(2, 0);
         Box wbx = surroundingNodes(bx, 2);
 
+        // Every scratch value is written before it is read, so it is not zeroed.
         FArrayBox fab_cell(bx, ncell, amrex::The_Async_Arena());
-        fab_cell.template setVal<RunOn::Device>(zero);
         FArrayBox fab_w(wbx, nw, amrex::The_Async_Arena());
-        fab_w.template setVal<RunOn::Device>(zero);
 
         auto no3 = fab_cell.array(sc_no3);
         auto nh4 = fab_cell.array(sc_nh4);
@@ -673,27 +672,9 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
             //
             // The surface gas-exchange factors depend only on the surface
             // temperature, salinity and wind, which the iterations do not change.
-            Real O2_transfer = zero;
-            Real O2satu = zero;
-            Real CO2_transfer = zero;
-            Real CO2_sol = zero;
-            if (use_oxygen || use_carbon) {
-                // Transfer velocity from u10squared (u10 in m/s).
-                const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr,
-                                                i, j, rho0);
-                if (use_oxygen) {
-                    O2_transfer = transfer_velocity(transfer_rate(o2_schmidt, dtdays), u10squ,
-                                                    schmidt_number(o2_schmidt, temp(i,j,N)));
-                    // O2 saturation concentration [mmol/m3], Garcia and Gordon (1992).
-                    O2satu = o2_saturation(temp(i,j,N), salt(i,j,N));
-                }
-                if (use_carbon) {
-                    CO2_transfer = transfer_velocity(transfer_rate(co2_schmidt, dtdays), u10squ,
-                                                     schmidt_number(co2_schmidt, temp(i,j,N)));
-                    // CO2 solubility [mol/(kg.atm)], Weiss (1974).
-                    CO2_sol = co2_solubility(temp(i,j,N), salt(i,j,N));
-                }
-            }
+            const SurfaceGasExchange gas = surface_gas_exchange(
+                use_oxygen, use_carbon, o2_schmidt, co2_schmidt, dtdays, do_bulk_flux,
+                uwind, vwind, sustr, svstr, i, j, rho0, temp, salt, N);
             for (int iter = 0; iter < parms.BioIter; ++iter) {
 
                 // Light-limited computations.
@@ -1019,7 +1000,7 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
                 if (use_oxygen) {
                     // Surface O2 gas exchange.
                     const int k = N;
-                    const Real O2_Flux = O2_transfer * (O2satu - oxyg(i,j,k));
+                    const Real O2_Flux = gas.O2_transfer * (gas.O2satu - oxyg(i,j,k));
                     oxyg(i,j,k) += O2_Flux * inv_hz(i,j,k);
 
                     tag_state("G06_O2FLX ", iter + 1);
@@ -1068,7 +1049,7 @@ REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) con
                                                         tic(i,j,k), talk(i,j,k));
 
                     // Add in CO2 gas exchange.
-                    const Real CO2_Flux = CO2_transfer * CO2_sol * (pco2air - pCO2);
+                    const Real CO2_Flux = gas.CO2_transfer * gas.CO2_sol * (pco2air - pCO2);
                     tic(i,j,k) += CO2_Flux * inv_hz(i,j,k);
 
                     tag_state("G08_CO2FLX", iter + 1);

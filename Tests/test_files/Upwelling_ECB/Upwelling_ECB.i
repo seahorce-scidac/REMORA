@@ -126,3 +126,8 @@ remora.biology_initial_oxygen        = 200.0
 remora.biology_initial_Rdon          = 1.0
 remora.biology_initial_Rdoc          = 40.0
 remora.biology_initial_calcium       = 10000.0
+
+# Fill new arrays with signaling NaN and trap invalid operations, so a biology
+# kernel that reads scratch it has not written fails instead of using garbage.
+amrex.init_snan = 1
+amrex.fpe_trap_invalid = 1

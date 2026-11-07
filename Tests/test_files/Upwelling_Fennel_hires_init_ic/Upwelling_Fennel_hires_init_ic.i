@@ -10,7 +10,6 @@ remora.prob_name = Upwelling
 
 remora.max_step = 0
 
-amrex.fpe_trap_invalid = 1
 
 # PROBLEM SIZE & GEOMETRY
 remora.prob_lo     =      0.     0.    -150.
@@ -90,3 +89,8 @@ remora.hires_grid_level           = 1
 # Initial state and biology evaluated on level 1 and averaged down. The biology constants must
 # survive exactly; a component left unfilled on level 1 would average down to 0.
 remora.hires_init_level = 1
+
+# Fill new arrays with signaling NaN and trap invalid operations, so a biology
+# kernel that reads scratch it has not written fails instead of using garbage.
+amrex.init_snan = 1
+amrex.fpe_trap_invalid = 1

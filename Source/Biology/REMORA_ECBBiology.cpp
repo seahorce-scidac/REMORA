@@ -379,13 +379,9 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
 
             // The surface gas-exchange factors depend only on the surface
             // temperature, salinity and wind, which the iterations do not change.
-            const Real u10squ = u10_squared(do_bulk_flux, uwind, vwind, sustr, svstr, i, j, rho0);
-            const Real O2_transfer = transfer_velocity(transfer_rate(o2_schmidt, dtdays), u10squ,
-                                                       schmidt_number(o2_schmidt, temp(i,j,N-1)));
-            const Real O2satu = o2_saturation(temp(i,j,N-1), salt(i,j,N-1));
-            const Real CO2_transfer = transfer_velocity(transfer_rate(co2_schmidt, dtdays), u10squ,
-                                                        schmidt_number(co2_schmidt, temp(i,j,N-1)));
-            const Real CO2_sol = co2_solubility(temp(i,j,N-1), salt(i,j,N-1));
+            const SurfaceGasExchange gas = surface_gas_exchange(
+                true, true, o2_schmidt, co2_schmidt, dtdays, do_bulk_flux,
+                uwind, vwind, sustr, svstr, i, j, rho0, temp, salt, N-1);
 
             // Subcycle the complete ordered ECB reaction/column calculation.
             for (int iter = 0; iter < parms.BioIter; ++iter) {
@@ -619,7 +615,7 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
                 // Surface O2 gas exchange.
                 {
                     const int k = N - 1;
-                    const Real O2_Flux = O2_transfer * (O2satu - oxyg(i,j,k));
+                    const Real O2_Flux = gas.O2_transfer * (gas.O2satu - oxyg(i,j,k));
                     oxyg(i,j,k) = oxyg(i,j,k) + O2_Flux * inv_hz(i,j,k);
                 }
 
@@ -650,7 +646,7 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
                 {
                     const int k = N - 1;
                     const Real pCO2 = pco2_water(temp(i,j,k), salt(i,j,k), tic(i,j,k), talk(i,j,k));
-                    const Real CO2_Flux = CO2_transfer * CO2_sol * (parms.pCO2air - pCO2);
+                    const Real CO2_Flux = gas.CO2_transfer * gas.CO2_sol * (parms.pCO2air - pCO2);
                     tic(i,j,k) = tic(i,j,k) + CO2_Flux * inv_hz(i,j,k);
                 }
 
