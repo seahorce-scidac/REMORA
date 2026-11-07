@@ -171,12 +171,6 @@ struct SolverChoice {
         // Include Coriolis forcing?
         pp.queryAdd("use_coriolis", use_coriolis);
 
-        // Include prestep / lagged predictor / corrections
-        pp.queryAdd("use_prestep", use_prestep);
-
-        //This affect forcing and some of the mixing terms for velocity
-        pp.queryAdd("use_uv3dmix", use_uv3dmix);
-
         pp.queryAdd("use_curvilinear_grid", use_curvilinear_grid);
 
         // Whether to do rivers. By default, rivers are temp and salt sources. Rivers
@@ -827,8 +821,6 @@ struct SolverChoice {
         amrex::Print() << "SOLVER CHOICE: " << std::endl;
         amrex::Print() << "use_salt              : " << use_salt     << std::endl;
         amrex::Print() << "use_coriolis          : " << use_coriolis << std::endl;
-        amrex::Print() << "use_prestep           : " << use_prestep << std::endl;
-        amrex::Print() << "use_uv3dmix           : " << use_uv3dmix << std::endl;
 
         if (ic_type == IC_Type::analytic) {
             amrex::Print() << "Using analytic initial onditions" << std::endl;
@@ -883,8 +875,6 @@ struct SolverChoice {
     bool        use_coriolis           = false;
 
     // Specify whether terms are used for debugging purposes
-    bool        use_prestep           = true;
-    bool        use_uv3dmix           = true;
     bool        use_baroclinic        = true;
 
     bool        use_curvilinear_grid  = false;

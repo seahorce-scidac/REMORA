@@ -1093,14 +1093,6 @@ List of Parameters
 |                                  |                             |                   |             |
 |                                  | for advection               |                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
-| **remora.use_prestep**           | Do prestep terms. Only for  |  true / false     | true        |
-|                                  |                             |                   |             |
-|                                  | debugging purposes.         |                   |             |
-+----------------------------------+-----------------------------+-------------------+-------------+
-| **remora.use_uv3dmix**           | Include harmonic viscosity. | true / false      | true        |
-|                                  |                             |                   |             |
-|                                  | Only for debugging purposes.|                   |             |
-+----------------------------------+-----------------------------+-------------------+-------------+
 
 Physics Parameters
 ==================
