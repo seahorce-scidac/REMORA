@@ -193,9 +193,9 @@ REMORA::stretch_transform (int lev)
 
     } // mfi
 
-    vec_z_w[lev]->FillBoundary(geom[lev].periodicity());
-    vec_z_r[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
+    // One exchange for all three, with their messages in flight together
+    amrex::FillBoundary(Vector<MultiFab*>{vec_z_w[lev].get(), vec_z_r[lev].get(),
+                                          vec_Hz[lev].get()}, geom[lev].periodicity());
 
     // Define nodal z as average of z on w-faces
 #ifdef AMREX_USE_OMP
