@@ -347,7 +347,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     mf_W.setVal(zero);
 
 
-    if (solverChoice.use_prestep) {
+    {
         const int nnew  = 0;
         prestep(lev, U_old, V_old, U_new, V_new,
                 mf_ru.get(), mf_rv.get(),
@@ -526,10 +526,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
                   vec_metric_u[lev]->const_array(mfi,MetricU::omn_u),
                   vec_metric_v[lev]->const_array(mfi,MetricV::omn_v), W, FC, nrhs, N);
 
-        if(solverChoice.use_uv3dmix) {
-            const int nnew = 0;
-            uv3dmix(xbx, ybx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, pm, pn, metr, metp, mskp, nrhs, nnew, dt_lev);
-        }
+        const int nnew = 0;
+        uv3dmix(xbx, ybx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, pm, pn, metr, metp, mskp, nrhs, nnew, dt_lev);
     } // MFIter
 
     int nnew = (iic +1)% 2;

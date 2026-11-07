@@ -303,8 +303,10 @@ secular trend depends on the calendar's leap-day branch; moving the run one
 day changes the gold file by about 3e-8 relative, well above the 1e-11
 tolerance.
 
-``Upwelling_Fennel_tiled`` reruns the case with small horizontal CPU tiles
-against the same gold file. ``Upwelling_Fennel_hires_init`` and
+``Seamount_Fennel_tiled`` runs Fennel, with the same options as
+``Upwelling_Fennel``, on Seamount, whose biology varies in both x and y, untiled
+and with small horizontal CPU tiles, and requires the two runs to agree
+bitwise. ``Upwelling_Fennel_hires_init`` and
 ``Upwelling_Fennel_hires_init_ic`` check the analytic profile and its
 average-down from a high-resolution level. ``Upwelling_Fennel_restart`` checks
 that a restart reproduces the run exactly and that restart rejects a

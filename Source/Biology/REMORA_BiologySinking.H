@@ -48,10 +48,6 @@ void sink_column (int i, int j, int nlev, amrex::Real sink_distance,
     AMREX_ASSERT(nlev >= 2);
     const int N = nlev - 1;   // top layer
 
-    for (int k = 0; k <= N + 1; ++k) {
-        FC(i,j,k) = zero;
-    }
-
     // Reconstruct vertical profiles as parabolic segments within each grid box.
     for (int iface = 1; iface <= N; ++iface) {
         FC(i,j,iface) = (qc(i,j,iface) - qc(i,j,iface-1)) * inv_hz2(i,j,iface-1);
@@ -92,7 +88,6 @@ void sink_column (int i, int j, int nlev, amrex::Real sink_distance,
         bR(i,j,k) = (dltR * bR(i,j,k) + dltL * bL(i,j,k+1)) / (dltR + dltL);
         bL(i,j,k+1) = bR(i,j,k);
     }
-    FC(i,j,N + 1) = zero;          // no-flux boundary condition
     bR(i,j,N) = qc(i,j,N);         // default strictly monotonic conditions
     bL(i,j,N) = qc(i,j,N);
     bR(i,j,N - 1) = qc(i,j,N);
@@ -124,11 +119,10 @@ void sink_column (int i, int j, int nlev, amrex::Real sink_distance,
     // upstream grid boxes as necessary. WL is the z-coordinate of the
     // departure point for grid box interface z_w; FC is the finite-volume flux.
     for (int k = 0; k <= N; ++k) {
-        FC(i,j,k) = zero;
         WL(i,j,k) = z_w(i,j,k) + sink_distance;
         WR(i,j,k) = Hz(i,j,k) * qc(i,j,k);
     }
-    FC(i,j,N + 1) = zero;
+    FC(i,j,N + 1) = zero;          // no-flux boundary condition
     for (int k = 0; k <= N; ++k) {
         int ksource = k;
         Real flux = zero;

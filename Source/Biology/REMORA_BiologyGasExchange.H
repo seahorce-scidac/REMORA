@@ -144,5 +144,57 @@ amrex::Real co2_solubility (amrex::Real T, amrex::Real S) noexcept
                     S * (B1 + TempK * (B2 + B3 * TempK)));
 }
 
+
+/** \brief The air-sea exchange factors for one surface cell. */
+struct SurfaceGasExchange {
+    amrex::Real O2_transfer = amrex::Real(0.0);   //!< O2 transfer velocity times dt
+    amrex::Real O2satu = amrex::Real(0.0);        //!< O2 saturation [mmol/m3]
+    amrex::Real CO2_transfer = amrex::Real(0.0);  //!< CO2 transfer velocity times dt
+    amrex::Real CO2_sol = amrex::Real(0.0);       //!< CO2 solubility [mol/(kg atm)]
+};
+
+/** \brief Air-sea exchange factors at rho point (i,j) from the temperature
+ *         [degC] and salinity of surface layer \p ksurf and the wind or stress.
+ *
+ * They depend only on those, so a kernel computes them once per column, not
+ * once per BioIter iteration. The O2 factors are computed only with \p oxygen
+ * and the CO2 ones only with \p carbon; the others stay zero. With neither,
+ * the salinity, wind and stress views are not read, so they may be empty.
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+SurfaceGasExchange surface_gas_exchange (bool oxygen, bool carbon,
+                                         SchmidtCoefficients const& o2_schmidt,
+                                         SchmidtCoefficients const& co2_schmidt,
+                                         amrex::Real dtdays, bool bulk_fluxes,
+                                         amrex::Array4<amrex::Real const> const& uwind,
+                                         amrex::Array4<amrex::Real const> const& vwind,
+                                         amrex::Array4<amrex::Real const> const& sustr,
+                                         amrex::Array4<amrex::Real const> const& svstr,
+                                         int i, int j, amrex::Real rho0,
+                                         amrex::Array4<amrex::Real> const& temp,
+                                         amrex::Array4<amrex::Real> const& salt,
+                                         int ksurf) noexcept
+{
+    SurfaceGasExchange gas;
+    if (!oxygen && !carbon) {
+        return gas;
+    }
+    const amrex::Real T = temp(i,j,ksurf);
+    const amrex::Real S = salt(i,j,ksurf);
+    // Transfer velocity from u10squared (u10 in m/s).
+    const amrex::Real u10squ = u10_squared(bulk_fluxes, uwind, vwind, sustr, svstr, i, j, rho0);
+    if (oxygen) {
+        gas.O2_transfer = transfer_velocity(transfer_rate(o2_schmidt, dtdays), u10squ,
+                                            schmidt_number(o2_schmidt, T));
+        gas.O2satu = o2_saturation(T, S);
+    }
+    if (carbon) {
+        gas.CO2_transfer = transfer_velocity(transfer_rate(co2_schmidt, dtdays), u10squ,
+                                             schmidt_number(co2_schmidt, T));
+        gas.CO2_sol = co2_solubility(T, S);
+    }
+    return gas;
+}
+
 }
 #endif

@@ -346,10 +346,26 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     // FineAdd accumulates a tile's fluxes into the coarse cells under it with atomic adds,
     // and a tile edge that is not a multiple of the refinement ratio shares a coarse cell
     // with the neighbouring tile, so with several threads the order of the adds, and the
-    // rounding, would follow thread timing. With more than one thread the fluxes are kept
-    // on this level's faces and added after the loop, tile by tile in the fixed order a
-    // single thread uses.
-    const bool defer_fine_add = refluxing && lev > 0 && OpenMP::get_max_threads() > 1;
+    // rounding, would follow thread timing. In that case the fluxes are kept on this
+    // level's faces and added after the loop, tile by tile in the fixed order a single
+    // thread uses. Tiles whose edges all fall on coarse cell edges share no coarse cell,
+    // and add directly.
+    bool defer_fine_add = refluxing && lev > 0 && OpenMP::get_max_threads() > 1;
+    if (defer_fine_add) {
+        const IntVect rr = ref_ratio[lev-1];
+        bool aligned = true;
+        for (MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid() && aligned; ++mfi) {
+            const Box& tbx = mfi.tilebox();
+            for (int d = 0; d < 2; ++d) {
+                if (tbx.smallEnd(d) % rr[d] != 0 || (tbx.bigEnd(d) + 1) % rr[d] != 0) {
+                    aligned = false;
+                }
+            }
+        }
+        // Every rank takes the same path: the deferred one has collective calls.
+        ParallelDescriptor::ReduceBoolAnd(aligned);
+        defer_fine_add = !aligned;
+    }
     if (defer_fine_add) {
         if (int(vec_reflux_flux.size()) <= lev) { vec_reflux_flux.resize(lev+1); }
         for (int d = 0; d < AMREX_SPACEDIM; ++d) {

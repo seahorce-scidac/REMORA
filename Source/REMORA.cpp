@@ -2744,6 +2744,17 @@ REMORA::ReadParameters ()
                      "always active; please delete this line from your inputs file");
     }
 
+    // remora.use_prestep and remora.use_uv3dmix have been removed: the prestep and the
+    // harmonic viscosity are always applied. Rejected on presence for the same reason as
+    // use_barotropic above.
+    for (const char* removed : {"use_prestep", "use_uv3dmix"}) {
+        if (pp.contains(removed)) {
+            amrex::Abort(std::string("remora.") + removed + " has been removed. The prestep "
+                         "and harmonic viscosity are always applied; please delete this line "
+                         "from your inputs file");
+        }
+    }
+
     AMREX_ASSERT(cfl > zero || fixed_dt > zero);
 
     num_files_at_level.resize(max_level + 1, 0);

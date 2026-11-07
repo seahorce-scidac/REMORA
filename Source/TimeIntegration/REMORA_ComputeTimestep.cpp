@@ -122,6 +122,11 @@ REMORA::estTimeStep(int level) const
 {
     BL_PROFILE("REMORA::estTimeStep()");
 
+    // A fixed dt needs no estimate; it is computed only to be reported alongside it.
+    if (fixed_dt > zero && !verbose) {
+        return fixed_dt;
+    }
+
     // The barotropic mode is substepped ndtfast times per baroclinic step
     // (REMORA_Advance.cpp), so the slow step only has to resolve the external gravity
     // wave to within that ratio. ReadParameters guarantees ndtfast is positive.

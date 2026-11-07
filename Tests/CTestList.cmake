@@ -26,8 +26,15 @@ function(resolve_test_exe TEST_DIR TEST_EXE OUT_VAR)
     endif()
 endfunction()
 
+# Copies the test's inputs into its run directory and sets the MPI launch and default run-time
+# options. The inputs come from test_files/<TEST_NAME>, or from test_files/<INPUT_NAME> when
+# that is given, so several tests can share one case.
 macro(setup_test)
-    set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${TEST_NAME})
+    if(${ARGC} GREATER 0)
+        set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${ARGV0})
+    else()
+        set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${TEST_NAME})
+    endif()
     set(CURRENT_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
     set(PLOT_GOLD ${FCOMPARE_GOLD_FILES_DIRECTORY}/${TEST_NAME})
 
@@ -278,22 +285,24 @@ endfunction(add_test_restart_exact)
 # the BoxArrays differ. PLTFILE is compared, and CHKFILE too (every MultiFab in it) unless it
 # is "none". INPUT_NAME picks the input file, so several tests can share one case. An extra
 # argument is plain text the second run's output must contain, to show the options took effect.
+# Write test_files/<TEST_NAME>/<TEST_NAME>.i in the build tree as BASE_NAME's input
+# followed by test_files/<TEST_NAME>/<TEST_NAME>_additions.i, so a variant of a case does
+# not copy the case itself. ParmParse reads the last occurrence of a setting, so the
+# additions override the base. Call it before the add_test_* function that runs the test.
+function(compose_test_input TEST_NAME BASE_NAME)
+    set(base_file ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${BASE_NAME}/${BASE_NAME}.i)
+    set(add_file ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${TEST_NAME}/${TEST_NAME}_additions.i)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${base_file} ${add_file})
+    file(READ ${base_file} base_text)
+    file(READ ${add_file} add_text)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME}/${TEST_NAME}.i
+         "${base_text}\n${add_text}")
+endfunction(compose_test_input)
+
 function(add_test_layout TEST_NAME INPUT_NAME TEST_EXE PLTFILE CHKFILE OPTIONS_A OPTIONS_B)
 
-    set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${INPUT_NAME})
-    set(CURRENT_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
-    file(MAKE_DIRECTORY ${CURRENT_TEST_BINARY_DIR})
-    file(GLOB TEST_FILES "${CURRENT_TEST_SOURCE_DIR}/*")
-    file(COPY ${TEST_FILES} DESTINATION "${CURRENT_TEST_BINARY_DIR}/")
-
-    if(REMORA_ENABLE_MPI)
-        set(NP 2)
-        set(MPI_COMMANDS "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${NP} ${MPIEXEC_PREFLAGS}")
-    else()
-        set(NP 1)
-        unset(MPI_COMMANDS)
-    endif()
-    set(RUNTIME_OPTIONS "remora.check_mask_consistency=true")
+    setup_test(${INPUT_NAME})
 
     resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
 
@@ -323,19 +332,7 @@ endfunction(add_test_layout)
 # <column> <bound> <below|above> triples handed to check_conservation.sh.
 function(add_test_conservation TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
 
-    set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${INPUT_NAME})
-    set(CURRENT_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
-    file(MAKE_DIRECTORY ${CURRENT_TEST_BINARY_DIR})
-    file(GLOB TEST_FILES "${CURRENT_TEST_SOURCE_DIR}/*")
-    file(COPY ${TEST_FILES} DESTINATION "${CURRENT_TEST_BINARY_DIR}/")
-
-    if(REMORA_ENABLE_MPI)
-        set(NP 2)
-        set(MPI_COMMANDS "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${NP} ${MPIEXEC_PREFLAGS}")
-    else()
-        set(NP 1)
-        unset(MPI_COMMANDS)
-    endif()
+    setup_test(${INPUT_NAME})
 
     resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
 
@@ -362,19 +359,7 @@ endfunction(add_test_conservation)
 # self-checking modes that abort on an inconsistency, so no gold file is needed.
 function(add_test_run TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
 
-    set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${INPUT_NAME})
-    set(CURRENT_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
-    file(MAKE_DIRECTORY ${CURRENT_TEST_BINARY_DIR})
-    file(GLOB TEST_FILES "${CURRENT_TEST_SOURCE_DIR}/*")
-    file(COPY ${TEST_FILES} DESTINATION "${CURRENT_TEST_BINARY_DIR}/")
-
-    if(REMORA_ENABLE_MPI)
-        set(NP 2)
-        set(MPI_COMMANDS "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${NP} ${MPIEXEC_PREFLAGS}")
-    else()
-        set(NP 1)
-        unset(MPI_COMMANDS)
-    endif()
+    setup_test(${INPUT_NAME})
 
     resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
 
@@ -571,10 +556,16 @@ add_test_r(Upwelling_qdrag              "remora_exec" "plt00010")
 add_test_r(Upwelling_logdrag            "remora_exec" "plt00010")
 add_test_r(Upwelling_Fennel             "remora_exec" "plt00010")
 add_test_r(Upwelling_ECB                "remora_exec" "plt00003")
-# The biology kernels must not depend on how CPU tiles split a box: rerun each
-# biology case with small horizontal tiles against its untiled gold file.
-add_test_r_gold(Upwelling_Fennel_tiled  "remora_exec" "plt00010" Upwelling_Fennel)
-add_test_r_gold(Upwelling_ECB_tiled     "remora_exec" "plt00003" Upwelling_ECB)
+# The biology kernels must not depend on how CPU tiles split a box: run each model on
+# Seamount, whose biology varies in both x and y, untiled and with small horizontal
+# tiles, and require the two runs to agree bitwise. (Upwelling is uniform in x, so it
+# cannot show a kernel that mixes up columns across x tile edges.)
+compose_test_input(Seamount_Fennel_tiled Seamount)
+add_test_layout(Seamount_Fennel_tiled Seamount_Fennel_tiled "remora_exec" "plt00003" "none"
+    "remora.omp_tile_size=1024000 1024000 1024000" "remora.omp_tile_size=2 3 1024000")
+compose_test_input(Seamount_ECB_tiled Seamount)
+add_test_layout(Seamount_ECB_tiled Seamount_ECB_tiled "remora_exec" "plt00003" "none"
+    "remora.omp_tile_size=1024000 1024000 1024000" "remora.omp_tile_size=2 3 1024000")
 add_test_r(Channel_Test                 "remora_exec" "plt00010")
 add_test_r(DoubleGyre                   "remora_exec" "plt00010")
 add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
