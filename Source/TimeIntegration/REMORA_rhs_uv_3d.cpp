@@ -207,6 +207,11 @@ REMORA::rhs_uv_3d (int lev,
         });
     }
 
+    if (GetBottomExchangeTransport(lev)) {
+        ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i,int j,int) {
+            FC(i,j,0) = (Real(0.5)*(amrex::min(W(i,j,0),Real(0))+amrex::min(W(i-1,j,0),Real(0))))*uold(i,j,0,nrhs);
+        });
+    }
     ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff = FC(i,j,k+1)-FC(i,j,k);
@@ -347,6 +352,11 @@ REMORA::rhs_uv_3d (int lev,
                 FC(i,j,N+1)=zero;
                 FC(i,j,0)=zero;
             }
+        });
+    }
+    if (GetBottomExchangeTransport(lev)) {
+        ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i,int j,int) {
+            FC(i,j,0) = (Real(0.5)*(amrex::min(W(i,j,0),Real(0))+amrex::min(W(i,j-1,0),Real(0))))*vold(i,j,0,nrhs);
         });
     }
     ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)

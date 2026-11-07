@@ -548,6 +548,12 @@ REMORA::InitData ()
     const std::string& pv3d = "plot_vars_3d"; append3DPlotVariables(pv3d);
     const std::string& pv2d = "plot_vars_2d"; append2DPlotVariables(pv2d);
 
+    // Make the prescribed bed transport available to initial/restart diagnostics.
+    // A coupled driver supplies its first snapshot after InitData returns.
+    if (solverChoice.bottom_exchange_type != BottomExchangeType::coupler) {
+        for (int lev=0; lev<=finest_level; ++lev) { prepare_bottom_exchange(lev, t_new[lev], Real(0)); }
+    }
+
     if (restart_chkfile == "" && (check_int > 0 || check_int_time > zero))
     {
         WriteCheckpointFile();

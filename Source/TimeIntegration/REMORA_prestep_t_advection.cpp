@@ -1,3 +1,4 @@
+#include <REMORA_BottomExchange.H>
 #include <REMORA.H>
 
 using namespace amrex;
@@ -50,6 +51,8 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
                             const Array4<Real const>& mskv,
                             const Array4<int  const>& river_pos,
                             const Array4<Real const>& river_source,
+                            const Array4<Real const>& bottom_incoming,
+                            const Array4<Real const>& bottom_volume,
                             int iic, int ntfirst, int nrhs, int N,
                             Real dt_lev)
 {
@@ -117,7 +120,7 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
     Box gbx1D = gbx1;
     gbx1D.makeSlab(2,0);
 
-    compute_W(gbx1D, W, Huon, Hvom, z_w, h, N);
+    compute_W(gbx1D, W, Huon, Hvom, z_w, h, N, bottom_volume);
 
     //Use FC and DC as intermediate arrays for FX and FE
     //First pass do centered 2d terms
@@ -300,7 +303,8 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
                   * W(i,j,N);
         FC(i,j,  1) = ( c2*tempold(i,j,  1,nrhs)+ c1*tempold(i,j,0,nrhs)-c3*tempold(i,j,2,nrhs) )
                     * W(i,j,1);
-        FC(i,j,  0) = Real(0.0);
+        FC(i,j,0) = bottom_incoming ? BottomExchange::tracer_flux(
+            W(i,j,0), bottom_incoming(i,j,0), tempold(i,j,0,nrhs)) : Real(0);
     });
 
     // DC is shared between the tiles of a box and only read on tbx below, so it is not

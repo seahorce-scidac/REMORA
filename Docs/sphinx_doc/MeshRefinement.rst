@@ -323,6 +323,12 @@ conservation with one-way coupling. Two-way coupling ensures conservation of the
 advective contribution to all scalar updates but does not account for loss of
 conservation due to diffusive or source terms.
 
+For :ref:`water and tracer exchange through the bottom <sec:bottom-exchange>`,
+REMORA splits the prescribed water and incoming tracer transports conservatively
+among refined cells. Each level evaluates the forcing at its own slow-step time.
+This preserves the prescribed exchange across refinement; the existing options
+for coarse-fine fluid dynamics and conservation still apply.
+
 Coarse-Fine Operators for the Barotropic Mode
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

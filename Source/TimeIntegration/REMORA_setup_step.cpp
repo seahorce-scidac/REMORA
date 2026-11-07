@@ -25,6 +25,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     [[maybe_unused]] int nvars = S_old.nComp();
 
+    prepare_bottom_exchange(lev, time, dt_lev);
+
     // Fill ghost cells/faces at old time
     FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t,0,true,true, cons_old, cons_new);
     FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u,0,true,true, xvel_old, xvel_new);
@@ -337,6 +339,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         set_analytic_vmix(lev);
     }
 
+    check_bottom_exchange(lev, dt_lev);
+
     set_zeta_to_Ztavg(lev);
 
     MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
@@ -352,6 +356,15 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
                 mf_sustr.get(), mf_svstr.get(), mf_bustr.get(), mf_bvstr.get(),
                 mf_msku.get(), mf_mskv.get(),
                 iic, ntfirst, nnew, nstp, nrhs, N, dt_lev);
+    }
+
+    if (!solverChoice.use_prestep && GetBottomExchangeTransport(lev)) {
+        for (MFIter mfi(mf_W); mfi.isValid(); ++mfi) {
+            compute_W(makeSlab(mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0)),2,0),
+                mf_W.array(mfi), vec_Huon[lev]->const_array(mfi), vec_Hvom[lev]->const_array(mfi),
+                vec_z_w[lev]->const_array(mfi), vec_h[lev]->const_array(mfi), N,
+                GetBottomExchangeTransport(lev)->const_array(mfi));
+        }
     }
 
     // We use FillBoundary not FillPatch here since mf_W is single-level scratch space

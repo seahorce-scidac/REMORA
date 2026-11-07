@@ -16,3 +16,5 @@ CEXE_headers += REMORA_ErrorTag.H
 ifeq ($(USE_MOAB), TRUE)
   CEXE_sources += REMORA_MOAB.cpp
 endif
+
+CEXE_sources += REMORA_BottomExchange.cpp

@@ -124,6 +124,20 @@ public:
     /** \brief Set remora.start_time. Call before InitData, which starts the clock from it. */
     void SetStartTime (double time) noexcept { start_time = time; }
 
+    /** Bottom data use rho horizontal locations, no vertical dimension. q is m/s,
+     * positive into the ocean per horizontal area; concentrations follow cons_names.
+     * The coupler owns remapping; REMORA copies all data and fills its own halos.
+     * Times are elapsed model seconds, and a snapshot is held over [begin,end]. */
+    void GetBottomExchangeLayout (amrex::BoxArray& ba, amrex::DistributionMapping& dm) const;
+    const amrex::Vector<std::string>& GetTracerNames () const noexcept { return cons_names; }
+    void SetBottomExchangeData (const amrex::MultiFab& q,
+                                const amrex::MultiFab& concentrations,
+                                amrex::Real begin, amrex::Real end);
+    void PackBottomState (int lev, amrex::MultiFab& concentrations) const;
+    /** Read-only integrated transports: component 0 water, then incoming tracers.
+     * nullptr for the default impermeable boundary. Valid until the next step/regrid. */
+    const amrex::MultiFab* GetBottomExchangeTransport (int lev) const;
+
     void ConfigureDriverAtmosToOceanCoupling (bool use_coupling_driver,
                                               bool use_two_way_coupling,
                                               DriverAtmosForcingMode active_mode);
@@ -968,6 +982,8 @@ public:
                         const amrex::Array4<amrex::Real const>& mskv,
                         const amrex::Array4<int         const>& river_pos,
                         const amrex::Array4<amrex::Real const>& river_source,
+                        const amrex::Array4<amrex::Real const>& bottom_incoming,
+                        const amrex::Array4<amrex::Real const>& bottom_volume,
                         int iic, int ntfirst, int nrhs, int N,
                         const amrex::Real dt_lev);
 
@@ -988,6 +1004,7 @@ public:
                    const amrex::Array4<amrex::Real const>& mskv,
                    const amrex::Array4<int         const>& river_pos,
                    const amrex::Array4<amrex::Real const>& river_source,
+                   const amrex::Array4<amrex::Real const>& bottom_incoming,
                    int nrhs, int nnew, int N, const amrex::Real dt_lev,
                    const amrex::Array4<amrex::Real>& fx_reg = amrex::Array4<amrex::Real>(),
                    const amrex::Array4<amrex::Real>& fy_reg = amrex::Array4<amrex::Real>());
@@ -1119,7 +1136,8 @@ public:
                            const amrex::Array4<amrex::Real const>& Hvom,
                            const amrex::Array4<amrex::Real const>& z_w,
                            const amrex::Array4<amrex::Real const>& h,
-                           const int N);
+                           const int N,
+                           const amrex::Array4<amrex::Real const>& bottom = {});
 
     /** \brief Velocity across the w-levels (omega, m/s) from the given mass fluxes */
     void compute_omega (int lev, amrex::MultiFab& mf_omega,
@@ -1695,7 +1713,20 @@ public:
     static int total_nc_plot_file_step;
 #endif
 
+    void prepare_bottom_exchange (int lev, amrex::Real time, amrex::Real dt_lev);
+    void check_bottom_exchange (int lev, amrex::Real dt_lev) const;
+
 private:
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> m_bottom_transport;
+    std::unique_ptr<amrex::MultiFab> m_bottom_raw;
+    std::unique_ptr<amrex::MultiFab> m_bottom_base_transport;
+    std::unique_ptr<amrex::MultiFab> m_bottom_coupled;
+    amrex::Real m_bottom_begin = 0, m_bottom_end = -1;
+#ifdef REMORA_USE_NETCDF
+    amrex::Vector<std::unique_ptr<NCTimeSeries>> m_bottom_series;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> m_bottom_file_fields;
+    amrex::Vector<int> m_bottom_file_kind;
+#endif
 
     ///////////////////////////
     // private member functions
@@ -2426,6 +2457,7 @@ public:
 
     /** \brief Accessor method for t_old to expose to outside classes */
     amrex::Real get_t_old(int lev) const;
+    amrex::Real get_t_new (int lev) const noexcept { return t_new[lev]; }
 
     /** \brief Time on the model clock, in seconds, of an elapsed time such as t_new */
     double model_time (amrex::Real elapsed) const noexcept

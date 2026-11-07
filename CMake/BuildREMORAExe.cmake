@@ -127,6 +127,7 @@ function(build_remora_lib remora_lib_name)
      PRIVATE
        ${SRC_DIR}/REMORA_Derive.cpp
        ${SRC_DIR}/REMORA.cpp
+       ${SRC_DIR}/REMORA_BottomExchange.cpp
        ${SRC_DIR}/REMORA_SumIQ.cpp
        ${SRC_DIR}/REMORA_Tagging.cpp
        ${SRC_DIR}/Biology/REMORA_Biology.cpp
