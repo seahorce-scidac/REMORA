@@ -1,8 +1,7 @@
 # Repository Guidelines
 
 REMORA is an AMReX-based ocean model (C++20 in CMake builds) that ports ROMS. Read the code
-around a change and match it. The rules below record what agents have most often had to be
-corrected on.
+around a change and match it. The rules below are conventions that are easy to miss.
 
 ## Project Structure
 
@@ -86,8 +85,8 @@ GPU and build-configuration traps that CPU builds miss:
   ERF for AMR and subcycling. When porting, copy the reference faithfully, including its
   branching structure and quirks; fix only real bugs such as race conditions, and list
   suspected bugs apart from intentional differences.
-- Prefer the simpler design. Ask before making a design decision; otherwise go as far as you
-  can without intervention.
+- Prefer the simpler design. Ask the user before making a design decision; otherwise go as
+  far as you can without intervention.
 - Stay on the task. Don't chase edge cases or side issues; note them and open issues instead.
 - Size performance work for real user problems, which are much larger and longer than the
   regression tests.
@@ -137,24 +136,18 @@ GPU and build-configuration traps that CPU builds miss:
 - Branch from and target `development`. One topic per PR; put unrelated fixes in their own
   PRs. Use one commit per logical change, so each justification is easy to follow.
 - Check GitHub before starting: the work may already be merged, open, or covered by an issue.
-- Don't push, comment on GitHub, or open a PR without approval. Force-push only after tests
-  pass. On someone else's PR, keep their edits and leave a summary comment for them.
+- Don't push, comment on GitHub, or open a PR without the user's approval. Force-push only
+  after tests pass.
 - Never commit `Exec/Generic/inputs_generic` on a feature branch; a bot regenerates it after
   each merge. Preview a branch's effect with
-  `.github/workflows/style/check_generic_inputs.sh --preview upstream/development`.
-- Write draft PR descriptions and scratch reports as Markdown at the worktree root, and don't
-  commit them.
+  `.github/workflows/style/check_generic_inputs.sh --preview <remote>/development`.
 - Commit subjects and PR titles are short and imperative ("Read only each rank's part of a
   lat-lon forcing record"); PRs are squash-merged, so the title becomes the commit summary.
 - PR body: `## Summary` (the problem, then what the PR changes, as bullets) and `## Testing`
   (build configuration, cases, results with numbers, gold-file changes, and what was not run).
   Close the issues the PR resolves, and open one issue per deferred finding.
 
-## Working With the Maintainer
+## Reporting
 
-- Say which worktree and branch you are working in.
 - Cite file and line for claims about the code, and give sources for names and formulas.
-- Explain any shorthand in replies; give lists meant for reuse in copyable form.
-- When asked to re-review, review independently of the earlier review.
-- Limit builds and tests to 4 cores in total (`-j 4` builds, `ctest -j 2`), and don't run a
-  build and a test suite at once or launch work in parallel during timing studies.
+- Explain any shorthand in replies.
