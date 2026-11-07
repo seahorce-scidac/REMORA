@@ -339,8 +339,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     set_zeta_to_Ztavg(lev);
 
-    // prestep_t_advection computes W over whole columns of every valid cell and the first
-    // ghost ring, so only the ghost cells need a value here
+    // prestep computes W over whole columns of every valid cell and the first ghost ring,
+    // so only the ghost cells need a value here
     MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
     mf_W.setBndry(zero);
 

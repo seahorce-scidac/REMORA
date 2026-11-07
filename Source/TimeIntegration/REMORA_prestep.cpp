@@ -140,6 +140,11 @@ REMORA::prestep (int lev,
         auto FC=fab_FC.array();
 
 
+        // W depends on the mass fluxes only, so it is formed once for every tracer. Each
+        // tile forms its own columns and, at the edge of its box, the first ghost ring, so
+        // no column is written by two tiles; the advection reads W on the tile's own cells.
+        compute_W(gbx1D, W, Huon, Hvom, z_w, h, N);
+
         for (int i_comp=0; i_comp < ncons; i_comp++) {
             Array4<Real> const& sstore = (vec_sstore[lev])->array(mfi,i_comp);
 #ifdef REMORA_USE_NETCDF
@@ -156,9 +161,9 @@ REMORA::prestep (int lev,
             // prestep_t_advection reads S_new on this tile's own cells only, and the
             // diffusion below, which overwrites S_new, writes only those cells too, after
             // every component's advection. So it still reads the value S_new came in with.
-            prestep_t_advection(lev, bx, gbx, S_old.array(mfi,i_comp),
+            prestep_t_advection(lev, bx, S_old.array(mfi,i_comp),
                                 S_new.array(mfi,i_comp), Hz, Huon, Hvom,
-                                W, DC, FC, sstore, z_w, h, pm, pn, msku, mskv, river_pos,
+                                W, DC, FC, sstore, pm, pn, msku, mskv, river_pos,
                                 river_source, iic, ntfirst,
                                 nrhs, N, dt_lev);
         }
