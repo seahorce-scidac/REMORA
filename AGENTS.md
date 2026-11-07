@@ -34,9 +34,9 @@ corrected on.
 
 ## Coding Style
 
-The repository `.clang-format` does not match the code (it says 2-space indent) and CI does
-not run it. Don't reformat existing code. CI checks only tabs, trailing whitespace and
-codespell. Write new code like its neighbours:
+CI does not run the repository `.clang-format`, and much of the code predates it, so don't
+reformat existing code. CI checks only tabs, trailing whitespace and codespell. Write new code
+like its neighbours:
 
 - Four-space indentation, no tabs. Lines run to about 100 columns.
 - AMReX spacing: a space before the parameter list in declarations and definitions
