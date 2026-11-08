@@ -110,7 +110,6 @@ REMORA::prestep (int lev,
 
         //copy the tilebox
         Box tbxp1 = bx;
-        Box tbxp11 = bx;
         Box tbxp2 = bx;
 
         //TODO: adjust for tiling
@@ -121,19 +120,10 @@ REMORA::prestep (int lev,
         //make only gbx be grown to match multifabs
         tbxp2.grow(IntVect(NGROW,NGROW,0));
         tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
-        tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
-        Box bxD = bx;
-        bxD.makeSlab(2,0);
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
-        Box gbx2D = gbx2;
-        gbx2D.makeSlab(2,0);
 
-        Box tbxp1D = tbxp1;
-        tbxp1D.makeSlab(2,0);
-        Box tbxp2D = tbxp2;
-        tbxp2D.makeSlab(2,0);
 
         FArrayBox fab_FC(convert(tbxp2,IntVect(0,0,1)),1,amrex::The_Async_Arena()); //3D
 

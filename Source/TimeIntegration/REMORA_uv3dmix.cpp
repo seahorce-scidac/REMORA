@@ -54,7 +54,7 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
     int VFx_comp = ncomp++;
 
     Box bx = enclosedCells(xbx);
-    // Not zeroed: each flux is read only on the box its kernel below writes
+    // Each flux is read only on the box its kernel below writes
     FArrayBox fab(grow(bx,IntVect(2,2,0)),ncomp,amrex::The_Async_Arena());
 
     auto UFx=fab.array(UFx_comp);

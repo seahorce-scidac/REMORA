@@ -10,7 +10,6 @@ using namespace amrex;
  * @param[in   ] Hz              vertical cell height
  * @param[in   ] Huon            u-volume flux
  * @param[in   ] Hvom            v-volume flux
- * @param[in   ] Akv             vertical viscosity coefficient
  * @param[in   ] W               vertical velocity, on the columns of tbx
  * @param        DC              temporary
  * @param        FC              temporary

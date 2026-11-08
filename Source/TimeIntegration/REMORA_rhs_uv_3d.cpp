@@ -69,6 +69,9 @@ REMORA::rhs_uv_3d (int lev,
     auto VFe=fab_VFe.array();
 
     auto uv_hadv_scheme = solverChoice.uv_Hadv_scheme;
+    // The flux scratch is not zeroed: each scheme below writes every flux it reads
+    AMREX_ALWAYS_ASSERT(uv_hadv_scheme == AdvectionScheme::upstream3 ||
+                        uv_hadv_scheme == AdvectionScheme::centered2);
 
     //check this////////////
     const Real Gadv = Real(-0.25);
