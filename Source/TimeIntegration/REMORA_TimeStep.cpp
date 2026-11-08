@@ -59,8 +59,6 @@ REMORA::timeStep (int lev, Real time, int iteration)
         }
     }
 
-    scale_rhs_vars(lev);
-
     // Update what we call "old" and "new" time
     t_old[lev] = t_new[lev];
     // A child's last substep lands exactly on its parent's new time. Summing dt[lev] would
@@ -99,8 +97,6 @@ REMORA::timeStep (int lev, Real time, int iteration)
     Advance(lev, time, dt[lev], iteration, nsubsteps[lev]);
 
     ++istep[lev];
-
-    scale_rhs_vars_inv(lev);
 
     if (Verbose())
     {

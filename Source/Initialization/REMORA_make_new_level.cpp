@@ -190,15 +190,31 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
         FillCoarsePatch(lev, time, vec_vbar[lev].get(), vec_vbar[lev-1].get(), vbar_bc(),
                 bdy_vbar(),icomp,false);
     }
-    for (int icomp=0; icomp<2; icomp++) {
-        FillCoarsePatch(lev, time, vec_ru[lev].get(), vec_ru[lev-1].get(), xvel_bc(),
-                BdyVars::null,icomp,false);
-        FillCoarsePatch(lev, time, vec_rv[lev].get(), vec_rv[lev-1].get(), yvel_bc(),
-                BdyVars::null,icomp,false);
-        FillCoarsePatch(lev, time, vec_ru2d[lev].get(), vec_ru2d[lev-1].get(), xvel_bc(),
-                BdyVars::null,icomp,false);
-        FillCoarsePatch(lev, time, vec_rv2d[lev].get(), vec_rv2d[lev-1].get(), yvel_bc(),
-                BdyVars::null,icomp,false);
+    {
+        // The kernels keep ru, rv, ru2d and rv2d scaled by face area, which differs between
+        // the levels, so interpolate the per-area form and convert back on this level. The
+        // coarse arrays are exchanged in place, as the fill would exchange them.
+        amrex::FillBoundary(Vector<MultiFab*>{vec_ru[lev-1].get(), vec_rv[lev-1].get(),
+                                              vec_ru2d[lev-1].get(), vec_rv2d[lev-1].get()},
+                            geom[lev-1].periodicity());
+        MultiFab crse_ru   = rhs_per_area_copy(lev-1, *vec_ru[lev-1],   0);
+        MultiFab crse_rv   = rhs_per_area_copy(lev-1, *vec_rv[lev-1],   1);
+        MultiFab crse_ru2d = rhs_per_area_copy(lev-1, *vec_ru2d[lev-1], 0);
+        MultiFab crse_rv2d = rhs_per_area_copy(lev-1, *vec_rv2d[lev-1], 1);
+        for (int icomp=0; icomp<2; icomp++) {
+            FillCoarsePatch(lev, time, vec_ru[lev].get(), &crse_ru, xvel_bc(),
+                    BdyVars::null,icomp,false);
+            FillCoarsePatch(lev, time, vec_rv[lev].get(), &crse_rv, yvel_bc(),
+                    BdyVars::null,icomp,false);
+            FillCoarsePatch(lev, time, vec_ru2d[lev].get(), &crse_ru2d, xvel_bc(),
+                    BdyVars::null,icomp,false);
+            FillCoarsePatch(lev, time, vec_rv2d[lev].get(), &crse_rv2d, yvel_bc(),
+                    BdyVars::null,icomp,false);
+        }
+        scale_rhs_by_area(lev, *vec_ru[lev],   0, false);
+        scale_rhs_by_area(lev, *vec_rv[lev],   1, false);
+        scale_rhs_by_area(lev, *vec_ru2d[lev], 0, false);
+        scale_rhs_by_area(lev, *vec_rv2d[lev], 1, false);
     }
 
     stretch_transform(lev);
@@ -304,6 +320,26 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     tmp_vbar_new.setVal(zero);
 
 
+    // ru, rv, ru2d and rv2d are interpolated in the per-area form, as in
+    // MakeNewLevelFromCoarse. The old fine copies need the old metrics, which init_stuff
+    // replaces. The coarse arrays are exchanged in place, as the fill would exchange them.
+    amrex::FillBoundary(Vector<MultiFab*>{vec_ru[lev-1].get(), vec_rv[lev-1].get(),
+                                          vec_ru2d[lev-1].get(), vec_rv2d[lev-1].get()},
+                        geom[lev-1].periodicity());
+    MultiFab crse_ru   = rhs_per_area_copy(lev-1, *vec_ru[lev-1],   0);
+    MultiFab crse_rv   = rhs_per_area_copy(lev-1, *vec_rv[lev-1],   1);
+    MultiFab crse_ru2d = rhs_per_area_copy(lev-1, *vec_ru2d[lev-1], 0);
+    MultiFab crse_rv2d = rhs_per_area_copy(lev-1, *vec_rv2d[lev-1], 1);
+    MultiFab fine_ru   = rhs_per_area_copy(lev,   *vec_ru[lev],     0);
+    MultiFab fine_rv   = rhs_per_area_copy(lev,   *vec_rv[lev],     1);
+    MultiFab fine_ru2d = rhs_per_area_copy(lev,   *vec_ru2d[lev],   0);
+    MultiFab fine_rv2d = rhs_per_area_copy(lev,   *vec_rv2d[lev],   1);
+    Vector<MultiFab*> pa_ru(lev+1), pa_rv(lev+1), pa_ru2d(lev+1), pa_rv2d(lev+1);
+    pa_ru[lev-1]   = &crse_ru;   pa_ru[lev]   = &fine_ru;
+    pa_rv[lev-1]   = &crse_rv;   pa_rv[lev]   = &fine_rv;
+    pa_ru2d[lev-1] = &crse_ru2d; pa_ru2d[lev] = &fine_ru2d;
+    pa_rv2d[lev-1] = &crse_rv2d; pa_rv2d[lev] = &fine_rv2d;
+
     // As in MakeNewLevelFromCoarse. init_stuff comes along because set_grid_scale follows it.
     init_stuff(lev, ba, dm);
     set_grid_scale(lev);
@@ -323,12 +359,17 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
         FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(), icomp,false,false);
     }
     for (int icomp=0; icomp<2; icomp++) {
-        FillPatch(lev, time, tmp_ru_new, GetVecOfPtrs(vec_ru), xvel_bc(), BdyVars::null, icomp,false,false);
-        FillPatch(lev, time, tmp_rv_new, GetVecOfPtrs(vec_rv), yvel_bc(), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_ru_new, pa_ru, xvel_bc(), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_rv_new, pa_rv, yvel_bc(), BdyVars::null, icomp,false,false);
         // These might want to have BCVars::ubar_bc and vbar_bc
-        FillPatch(lev, time, tmp_ru2d_new, GetVecOfPtrs(vec_ru2d), xvel_bc(), BdyVars::null, icomp,false,false);
-        FillPatch(lev, time, tmp_rv2d_new, GetVecOfPtrs(vec_rv2d), yvel_bc(), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_ru2d_new, pa_ru2d, xvel_bc(), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_rv2d_new, pa_rv2d, yvel_bc(), BdyVars::null, icomp,false,false);
     }
+    // Back to the kernels' form, with the new grids' metrics
+    scale_rhs_by_area(lev, tmp_ru_new,   0, false);
+    scale_rhs_by_area(lev, tmp_rv_new,   1, false);
+    scale_rhs_by_area(lev, tmp_ru2d_new, 0, false);
+    scale_rhs_by_area(lev, tmp_rv2d_new, 1, false);
 
     MultiFab::Copy(tmp_cons_old,tmp_cons_new,0,0,ncons,tmp_cons_new.nGrowVect());
     MultiFab::Copy(tmp_xvel_old,tmp_xvel_new,0,0,    1,tmp_xvel_new.nGrowVect());

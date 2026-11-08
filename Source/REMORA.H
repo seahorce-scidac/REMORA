@@ -1404,10 +1404,10 @@ public:
                         const int nstp, const int nnew,
                         const int N, const amrex::Real dt_lev);
 
-    /** \brief Scale RHS momentum variables by 1/cell area, needed before FillPatch to different levels*/
-    void scale_rhs_vars (int lev);
-    /** \brief Scale RHS momentum variables by cell area, needed after FillPatch to different levels*/
-    void scale_rhs_vars_inv (int lev);
+    /** \brief Convert ru, rv, ru2d or rv2d between the kernels' form and the per-area form */
+    void scale_rhs_by_area (int lev, amrex::MultiFab& mf, int dir, bool to_per_area);
+    /** \brief A per-area copy of ru, rv, ru2d or rv2d, for a fill of another level */
+    amrex::MultiFab rhs_per_area_copy (int lev, const amrex::MultiFab& src, int dir);
 
     /** \brief Initialize or calculate surface momentum flux from file or analytic */
     void set_smflux (int lev);

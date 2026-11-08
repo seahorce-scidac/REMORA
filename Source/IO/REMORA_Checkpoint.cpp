@@ -138,6 +138,11 @@ REMORA::WriteCheckpointFile ()
        }
        HeaderFile << "\n";
 
+       // XRHS, YRHS, XRHS2d and YRHS2d hold ru, rv, ru2d and rv2d as the kernels keep
+       // them. Checkpoints without this line hold them per unit area (see
+       // scale_rhs_by_area).
+       HeaderFile << "rhs_form kernel\n";
+
        // Biology model identity, beyond the tracer names checked above.
        const std::string biology_file = checkpointname + "/BiologyHeader";
        std::ofstream biology_header(biology_file);
@@ -421,6 +426,7 @@ REMORA::ReadCheckpointFile ()
     //   neither: the time line is on the model clock.
     bool have_time_origin = false;
     bool have_start_time = false;
+    bool rhs_per_area = true;
     double chk_time_origin = 0.0;
     double chk_start_time = 0.0;
     Vector<double> chk_elapsed;
@@ -436,6 +442,15 @@ REMORA::ReadCheckpointFile ()
         } else if (word == "start_time") {
             lis >> chk_start_time;
             have_start_time = true;
+        } else if (word == "rhs_form") {
+            // How ru, rv, ru2d and rv2d are stored. Older checkpoints lack this line and
+            // hold them per unit area.
+            std::string form;
+            lis >> form;
+            if (form != "kernel") {
+                amrex::Abort("Checkpoint rhs_form " + form + " is not known");
+            }
+            rhs_per_area = false;
         } else if (word == "history_count") {
             // History record for this step. Without it, history output starts over.
             lis >> history_count;
@@ -566,6 +581,13 @@ REMORA::ReadCheckpointFile ()
        MultiFab mf_rv2d(convert(ba2d,IntVect(0,1,0)),dmap[lev],2,(vec_rv2d[lev])->nGrowVect());
        VisMF::Read(mf_rv2d, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YRHS2d"));
        MultiFab::Copy(*(vec_rv2d[lev]),mf_rv2d,0,0,2,(vec_rv2d[lev])->nGrowVect());
+
+       if (rhs_per_area) {
+           scale_rhs_by_area(lev, *vec_ru[lev],   0, false);
+           scale_rhs_by_area(lev, *vec_rv[lev],   1, false);
+           scale_rhs_by_area(lev, *vec_ru2d[lev], 0, false);
+           scale_rhs_by_area(lev, *vec_rv2d[lev], 1, false);
+       }
 
        MultiFab mf_mskr(ba2d,dmap[lev],1,(vec_mskr[lev])->nGrowVect());
        VisMF::Read(mf_mskr, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Mskr"));

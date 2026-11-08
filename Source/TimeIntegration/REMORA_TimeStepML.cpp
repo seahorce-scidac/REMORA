@@ -55,10 +55,6 @@ REMORA::timeStepML (Real time, int /*iteration*/)
         }
     }
 
-    for (int lev=0; lev <= finest_level; lev++) {
-        scale_rhs_vars(lev);
-    }
-
     for (int lev=0; lev <= finest_level;lev++)
     {
         // Update what we call "old" and "new" time
@@ -178,10 +174,6 @@ REMORA::timeStepML (Real time, int /*iteration*/)
             FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u,0,true,true);
             FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v,0,true,true);
         }
-    }
-
-    for (int lev=0; lev <= finest_level; lev++) {
-        scale_rhs_vars_inv(lev);
     }
 
     if (solverChoice.coupling_type == CouplingType::two_way) {
