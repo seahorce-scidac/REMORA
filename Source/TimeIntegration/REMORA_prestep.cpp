@@ -105,7 +105,6 @@ REMORA::prestep (int lev,
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
-        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         //Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
         //copy the tilebox
