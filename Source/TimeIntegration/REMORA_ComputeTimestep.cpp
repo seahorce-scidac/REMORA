@@ -58,6 +58,11 @@ REMORA::ComputeDt ()
 {
     Vector<Real> dt_tmp(finest_level+1);
 
+    // estTimeStep reads w unless it returns the fixed dt straight away
+    if (fixed_dt <= zero || verbose) {
+        update_wvel();
+    }
+
     for (int lev = 0; lev <= finest_level; ++lev)
     {
         dt_tmp[lev] = estTimeStep(lev);

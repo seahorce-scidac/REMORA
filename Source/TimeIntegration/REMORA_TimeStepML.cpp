@@ -34,6 +34,8 @@ REMORA::timeStepML (Real time, int /*iteration*/)
                     // regrid could add newly refine levels (if finest_level < max_level)
                     // so we save the previous finest level index
                     int old_finest = finest_level;
+                    // Tagging and the new levels read w
+                    update_wvel();
                     regrid(lev, time);
 
                     // The refined footprint moved, so the level pairs are new
@@ -74,6 +76,7 @@ REMORA::timeStepML (Real time, int /*iteration*/)
         std::swap(xvel_old[lev], xvel_new[lev]);
         std::swap(yvel_old[lev], yvel_new[lev]);
         std::swap(zvel_old[lev], zvel_new[lev]);
+        wvel_old_current[lev] = wvel_current[lev];
 
         setup_step(lev, time, dt[lev]);
 

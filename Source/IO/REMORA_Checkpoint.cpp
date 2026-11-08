@@ -14,6 +14,7 @@ REMORA::GotoNextLine (std::istream& is)
 void
 REMORA::WriteCheckpointFile ()
 {
+    update_wvel();
 
     // chk00010            write a checkpoint file with this root directory
     // chk00010/Header     this contains information you need to save (e.g., finest_level, t_new, etc.) and also

@@ -49,11 +49,15 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     //                     3) fine-fine fill of ghost cells with FillBoundary call
     // Note that we need the fine-fine and physical bc's in order to correctly move the particles
     amrex::FillBoundary(Vector<MultiFab*>{xvel_new[lev], yvel_new[lev]}, geom[lev].periodicity());
-    // Diagnose the true vertical velocity from the updated state; nothing in the
-    // dynamics reads it
-    compute_wvel(lev, *zvel_new[lev]);
-    FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null,0,true,true,0,0,zero,
-              amrex::MultiFab(), zvel_old, zvel_new);
+    // The true vertical velocity is a diagnostic: nothing in the dynamics reads it. A single
+    // level leaves it for update_wvel to compute when a reader asks. Above level 0 the
+    // coarse level's w is averaged down from this one and the fine ghost cells are
+    // interpolated from the parent's w at both ends of its step, so w is formed every step.
+    if (wvel_is_lazy()) {
+        wvel_current[lev] = 0;
+    } else {
+        compute_and_fill_wvel(lev);
+    }
 
     // Apply land/sea mask to tracers
 #ifdef _OPENMP

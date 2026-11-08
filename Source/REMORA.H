@@ -115,6 +115,9 @@ public:
     /** \brief Write checkpoint and plotfiles at intermediate point of simulation, if needed */
     void WriteAtIntermediateTime (int step, amrex::Real cur_time);
 
+    /** \brief Whether WriteAtIntermediateTime writes a checkpoint after coarse step step */
+    [[nodiscard]] bool checkpoint_due (int step, amrex::Real cur_time) const;
+
     /** \brief Tag cells for refinement */
     virtual void ErrorEst (int lev, amrex::TagBoxArray& tags, amrex::Real time, int ngrow) override;
 
@@ -1136,6 +1139,21 @@ public:
 
     /** \brief As compute_wvel, from an omega already computed by compute_diagnostic_omega */
     void compute_wvel (int lev, amrex::MultiFab& mf_w, const amrex::MultiFab& mf_omega);
+
+    /** \brief Diagnose w into zvel_new on one level and fill its ghost cells */
+    void compute_and_fill_wvel (int lev);
+
+    /** \brief Bring zvel_new up to date on every level whose w the last step left stale */
+    void update_wvel ();
+
+    /** \brief Whether the step leaves w stale until a reader asks for it (single level only) */
+    [[nodiscard]] bool wvel_is_lazy () const { return max_level == 0; }
+
+    /** \brief Per level: zvel_new holds the w of the current state, ghost cells filled */
+    amrex::Vector<int> wvel_current;
+
+    /** \brief Per level: zvel_old holds the w of the previous step's state */
+    amrex::Vector<int> wvel_old_current;
 
     /** \brief Region of a level that its NetCDF output covers */
     amrex::Box netcdf_subdomain (int lev) const;

@@ -235,6 +235,43 @@ REMORA::compute_wvel (int lev, MultiFab& mf_w, const MultiFab& mf_omega)
 }
 
 /**
+ * w of the current state into zvel_new, ghost cells filled as at the end of the step: at
+ * t_old, the start of the step that produced the state, interpolating from the parent's w
+ * at both ends of its step above level 0.
+ *
+ * @param[in ] lev     level
+ */
+void
+REMORA::compute_and_fill_wvel (int lev)
+{
+    BL_PROFILE("REMORA::compute_and_fill_wvel()");
+    compute_wvel(lev, *zvel_new[lev]);
+    FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null,0,true,true,0,0,zero,
+              amrex::MultiFab(), zvel_old, zvel_new);
+    wvel_current[lev] = 1;
+}
+
+/**
+ * Make zvel_new hold the w of the current state on every level, as the step would have
+ * left it had it formed w itself. Call before anything reads zvel_new.
+ *
+ * Only a single-level step leaves w stale (wvel_is_lazy). Nothing between the end of its
+ * step and the next one changes what compute_wvel reads, and level 0's ghost fill depends
+ * only on its valid cells, so w formed here is bitwise the w the step would have formed.
+ * The checkpoint also writes zvel_old, the previous step's w, so Evolve calls this before a
+ * step that ends with a checkpoint.
+ */
+void
+REMORA::update_wvel ()
+{
+    for (int lev = 0; lev <= finest_level; ++lev) {
+        if (!wvel_current[lev]) {
+            compute_and_fill_wvel(lev);
+        }
+    }
+}
+
+/**
  * Horizontal mass fluxes Hz*u/n and Hz*v/m of the current velocities on the valid faces,
  * as ROMS set_massflux.
  *
