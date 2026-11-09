@@ -86,7 +86,8 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
                            amrex::min(mf_Huon.nGrowVect()[d], mf_Hvom.nGrowVect()[d]));
     }
 
-    mf_omega.setVal(zero);
+    // compute_W below fills whole columns of every valid cell
+    mf_omega.setBndry(zero);
 
     // Not tiled: compute_W integrates whole columns
 #ifdef _OPENMP

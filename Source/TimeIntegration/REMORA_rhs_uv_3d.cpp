@@ -56,12 +56,12 @@ REMORA::rhs_uv_3d (int lev,
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
     //
-    // Scratch space
+    // Scratch space, each defined on exactly the box the flux kernels below write
     //
-    FArrayBox fab_UFx(growLo(xbx,0,1),1,amrex::The_Async_Arena()); fab_UFx.template setVal<RunOn::Device>(zero);
-    FArrayBox fab_UFe(growHi(xbx,1,1),1,amrex::The_Async_Arena()); fab_UFe.template setVal<RunOn::Device>(zero);
-    FArrayBox fab_VFe(growLo(ybx,1,1),1,amrex::The_Async_Arena()); fab_VFe.template setVal<RunOn::Device>(zero);
-    FArrayBox fab_VFx(growHi(ybx,0,1),1,amrex::The_Async_Arena()); fab_VFx.template setVal<RunOn::Device>(zero);
+    FArrayBox fab_UFx(growLo(xbx,0,1),1,amrex::The_Async_Arena());
+    FArrayBox fab_UFe(growHi(xbx,1,1),1,amrex::The_Async_Arena());
+    FArrayBox fab_VFe(growLo(ybx,1,1),1,amrex::The_Async_Arena());
+    FArrayBox fab_VFx(growHi(ybx,0,1),1,amrex::The_Async_Arena());
 
     auto UFx=fab_UFx.array();
     auto UFe=fab_UFe.array();
@@ -69,6 +69,9 @@ REMORA::rhs_uv_3d (int lev,
     auto VFe=fab_VFe.array();
 
     auto uv_hadv_scheme = solverChoice.uv_Hadv_scheme;
+    // The flux scratch is not zeroed: each scheme below writes every flux it reads
+    AMREX_ALWAYS_ASSERT(uv_hadv_scheme == AdvectionScheme::upstream3 ||
+                        uv_hadv_scheme == AdvectionScheme::centered2);
 
     //check this////////////
     const Real Gadv = Real(-0.25);

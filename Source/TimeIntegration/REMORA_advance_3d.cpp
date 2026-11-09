@@ -158,30 +158,14 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             v(i,j,k) *= two / (Hz(i,j-1,k) + Hz(i,j,k));
         });
 
-        // NOTE: DC is only used as scratch in vert_visc_3d -- no need to pass or return a value
-        // NOTE: may not actually need to set these to zero
-
-        // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(zero,xbx);
-        fab_CF.template     setVal<RunOn::Device>(zero,xbx);
-
+        // DC and CF are scratch here. vert_visc_3d writes them at every level of its box
+        // before reading them, and vert_mean_3d writes the k = -1 level it reads, so
+        // neither needs clearing first.
         vert_visc_3d(xbx,1,0,u,Hz,Hzk,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
-
-        // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(zero,ybx);
-        fab_CF.template     setVal<RunOn::Device>(zero,ybx);
 
         vert_visc_3d(ybx,0,1,v,Hz,Hzk,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
-        // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(zero,xbx);
-        fab_CF.template     setVal<RunOn::Device>(zero,xbx);
-
         vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,on_u,msku,nnew,N);
-
-        // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(zero,ybx);
-        fab_CF.template     setVal<RunOn::Device>(zero,ybx);
 
         vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,om_v,mskv,nnew,N);
     }
@@ -281,8 +265,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     // ************************************************************************
 
     MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
-    // compute_W fills one ghost ring less than mf_W has; keep the rest defined.
-    mf_W.setVal(zero);
+    // compute_W fills whole columns of the valid region and the first ghost ring; keep the
+    // rest of the ghost cells defined.
+    mf_W.setBndry(zero);
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
