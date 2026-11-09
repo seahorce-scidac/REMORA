@@ -4,6 +4,7 @@
 #include <AMReX_FillPatchUtil.H>
 #include <AMReX_Interpolater.H>
 #include <AMReX_Reduce.H>
+#include <AMReX_BCUtil.H>
 #ifdef REMORA_USE_NETCDF
 #include <REMORA_NCFile.H>
 #endif
@@ -11,28 +12,6 @@
 #include <limits>
 
 using namespace amrex;
-
-namespace {
-// Fill owned halos, including corners, without imposing a tracer BC on the data.
-// A slab has no vertical ghosts; physical horizontal edges use constant extension.
-void fill_bottom_halos (MultiFab& mf, const Geometry& geom)
-{
-    mf.FillBoundary(geom.periodicity());
-    const auto lo = lbound(geom.Domain());
-    const auto hi = ubound(geom.Domain());
-    const bool px = geom.isPeriodic(0), py = geom.isPeriodic(1);
-    const int nc = mf.nComp();
-    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
-        const auto a = mf.array(mfi);
-        ParallelFor(mfi.fabbox(), nc, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
-            const int ii = px ? i : amrex::max(lo.x, amrex::min(hi.x, i));
-            const int jj = py ? j : amrex::max(lo.y, amrex::min(hi.y, j));
-            if (ii != i || jj != j) { a(i,j,k,n) = a(ii,jj,k,n); }
-        });
-    }
-    mf.FillBoundary(geom.periodicity());
-}
-}
 
 void REMORA::GetBottomExchangeLayout (BoxArray& ba, DistributionMapping& dm) const
 {
@@ -88,7 +67,8 @@ void REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
 {
     if (solverChoice.bottom_exchange_type == BottomExchangeType::none) { return; }
     const int nc = ncons+1;
-    const IntVect ng(NGROW+1, NGROW+1, 0);
+    // compute_W and the free-surface update read the first horizontal ghost ring.
+    const IntVect ng(1, 1, 0);
     const auto& ba = vec_mskr[0]->boxArray();
     const auto& dm = vec_mskr[0]->DistributionMap();
     if (!m_bottom_raw || m_bottom_raw->boxArray() != ba || m_bottom_raw->DistributionMap() != dm) {
@@ -130,7 +110,8 @@ void REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
                     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(shape[shape.size()-2] == geom[0].Domain().length(1)+2 &&
                         shape.back() == geom[0].Domain().length(0)+2,
                         "Bottom forcing must use model rho dimensions including the ROMS boundary ring");
-                    kind = shape.size() == 2 ? 1 : (shape[0] == 1 ? 2 : 3);
+                    kind = shape.size() == 2 ? 1 :
+                        (shape[0] == 1 && solverChoice.bottom_exchange_files.size() == 1 ? 2 : 3);
                 }
                 file.close();
                 AMREX_ALWAYS_ASSERT_WITH_MESSAGE(n != 0 || kind != 0, "Bottom file is missing bottom_q");
@@ -163,10 +144,24 @@ void REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
                 m_bottom_series[n]->update_interpolated_to_time(model_time(sample_time), 0,
                     m_bottom_file_fields[n].get(), geom, ref_ratio);
             }
-            MultiFab::Copy(raw, *m_bottom_file_fields[n], 0, n, 1, 0);
+            MultiFab::Copy(raw, *m_bottom_file_fields[n], 0, n, 1, ng);
         }
     }
 #endif
+    Vector<BCRec> bcs(nc);
+    for (auto& bc : bcs) {
+        for (int d=0; d<AMREX_SPACEDIM; ++d) {
+            bc.setLo(d, geom[0].isPeriodic(d) ? BCType::int_dir : BCType::foextrap);
+            bc.setHi(d, geom[0].isPeriodic(d) ? BCType::int_dir : BCType::foextrap);
+        }
+    }
+    if (solverChoice.bottom_exchange_type == BottomExchangeType::netcdf) {
+        // The reader supplies the physical rho ring; periodic images use ocean data.
+        raw.EnforcePeriodicity(geom[0].periodicity());
+    } else {
+        raw.FillBoundary(geom[0].periodicity());
+        FillDomainBoundary(raw, geom[0], bcs);
+    }
     // Validate only wet cells and incoming concentrations actually used. Never multiply
     // missing concentrations by zero: an outflow-only file needs no tracer variables.
     ReduceOps<ReduceOpMax> op;
@@ -197,13 +192,12 @@ void REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
         const auto out = base.array(mfi);
         const auto mask = vec_mskr[0]->const_array(mfi);
         const auto pm = vec_pm[0]->const_array(mfi), pn = vec_pn[0]->const_array(mfi);
-        ParallelFor(mfi.validbox(), [=] AMREX_GPU_DEVICE (int i, int j, int) {
+        ParallelFor(mfi.fabbox(), [=] AMREX_GPU_DEVICE (int i, int j, int) {
             const Real q = mask(i,j,0) > 0 ? a(i,j,0,0)/(pm(i,j,0)*pn(i,j,0)) : Real(0);
             out(i,j,0,0) = q;
             for (int n=1; n<nc; ++n) { out(i,j,0,n) = q > 0 ? q*a(i,j,0,n) : Real(0); }
         });
     }
-    fill_bottom_halos(base, geom[0]);
     m_bottom_transport.resize(finest_level+1);
     auto& target = m_bottom_transport[lev];
     if (!target || target->boxArray() != vec_mskr[lev]->boxArray() || target->DistributionMap() != dmap[lev]) {
@@ -216,11 +210,11 @@ void REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
         // preserves both Q and Q*C even with curvilinear metrics and variable C.
         IntVect ratio(1);
         for (int l=0; l<lev; ++l) { ratio *= ref_ratio[l]; }
-        Vector<BCRec> bcs(nc);
-        PhysBCFunctNoOp no_bc;
-        target->setVal(0);
-        InterpFromCoarseLevel(*target, sample_time, base, 0, 0, nc, geom[0], geom[lev],
-            no_bc, 0, no_bc, 0, ratio, &pc_interp, bcs, 0);
+        // All coarse halos are initialized, including the supplied physical rho ring.
+        const Geometry coarse_geom(geom[0].Domain(), geom[0].ProbDomain(), geom[0].Coord(),
+                                   Array<int,AMREX_SPACEDIM>{0,0,0});
+        InterpFromCoarseLevel(*target, ng, ng, base, 0, 0, nc, coarse_geom, geom[lev],
+                             ratio, &pc_interp, bcs, 0);
         const Real fraction = Real(1)/Real(ratio[0]*ratio[1]);
         for (MFIter mfi(*target); mfi.isValid(); ++mfi) {
             const auto a = target->array(mfi);
@@ -242,7 +236,6 @@ void REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
         ParallelDescriptor::ReduceIntMax(inconsistent);
         AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!inconsistent,
             "Bottom exchange requires consistent coarse/fine wet masks over source cells");
-        fill_bottom_halos(*target, geom[lev]);
     }
 }
 

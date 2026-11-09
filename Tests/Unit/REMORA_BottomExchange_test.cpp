@@ -5,8 +5,10 @@
 #include <REMORA_prob_common.H>
 #include <REMORA_BottomExchange.H>
 #include <AMReX.H>
+#include <AMReX_Reduce.H>
 #include <cmath>
 #include <string>
+#include <limits>
 
 using namespace amrex;
 std::string inputs_name;
@@ -55,11 +57,13 @@ public:
     }
 };
 
-void require_close (const std::string& name, Real actual, Real expected, Real tolerance=Real(2.e-10))
+void require_close (const std::string& name, Real actual, Real expected, Real tolerance=Real(2.e-10), Real scale=Real(1))
 {
+    // Budget sums accumulate Real state; keep the roundoff allowance below the transfer.
+    tolerance = amrex::max(tolerance, Real(16)*std::numeric_limits<Real>::epsilon());
     Print() << name << ": actual=" << actual << " expected=" << expected << '\n';
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(actual) &&
-        std::abs(actual-expected) <= tolerance*amrex::max(Real(1),std::abs(expected)), name);
+        std::abs(actual-expected) <= tolerance*amrex::max(scale,std::abs(expected)), name);
 }
 
 Vector<Real> budget (REMORA& ocean)
@@ -82,11 +86,11 @@ Vector<Real> budget (REMORA& ocean)
 }
 
 #ifdef REMORA_USE_NETCDF
-void make_file (int kind, Real q, Real salt)
+void make_file (int kind, Real q, Real salt, const std::string& path="bottom.nc", int record=0)
 {
-    int nc, eta, xi, tim, vars[4];
+    int nc, eta, xi, tim=-1, vars[4];
     auto check=[] (int status) { AMREX_ALWAYS_ASSERT_WITH_MESSAGE(status==NC_NOERR,ncmpi_strerror(status)); };
-    check(ncmpi_create(ParallelDescriptor::Communicator(), "bottom.nc", NC_CLOBBER, MPI_INFO_NULL, &nc));
+    check(ncmpi_create(ParallelDescriptor::Communicator(), path.c_str(), NC_CLOBBER, MPI_INFO_NULL, &nc));
     check(ncmpi_def_dim(nc,"eta_rho",10,&eta)); check(ncmpi_def_dim(nc,"xi_rho",10,&xi));
     const bool timed=kind!=1;
     if (timed) { check(ncmpi_def_dim(nc,"bottom_time",kind==2 ? 1 : 2,&tim)); }
@@ -101,12 +105,16 @@ void make_file (int kind, Real q, Real salt)
     for (int n=0;n<4;++n) { check(ncmpi_def_var(nc,names[n],NC_DOUBLE,timed?3:2,timed?dims:dims+1,&vars[n])); }
     check(ncmpi_enddef(nc)); check(ncmpi_begin_indep_data(nc));
     if (ParallelDescriptor::IOProcessor()) {
-        const double times[2]={0,16.0/86400.0};
+        const double times[2]={record*16.0/86400.0,16.0/86400.0};
         if (timed) { check(ncmpi_put_var_double(nc,td,times)); }
         const int records=kind==3 ? 2 : 1;
         const double vals[4]={double(q),10,double(salt),7};
         for (int n=0;n<4;++n) {
             Vector<double> values(100*records,vals[n]);
+            bool ring=false; ParmParse("test").query("ring",ring);
+            if (ring && n==0) {
+                for (int i=0;i<10;++i) { values[i]=2*vals[n]; values[90+i]=2*vals[n]; }
+            }
             if (kind==3 && n==0) { for (int i=100;i<200;++i) { values[i]=3*vals[n]; } }
             check(ncmpi_put_var_double(nc,vars[n],values.data()));
         }
@@ -143,9 +151,20 @@ int main (int argc, char** argv)
         std::string type; pp.get("bottom_exchange_type",type);
         int file_kind=0; test.query("file_kind",file_kind);
 #ifdef REMORA_USE_NETCDF
-        if (file_kind) { make_file(file_kind,q,incoming_salt); }
+        if (file_kind==4) {
+            make_file(2,q,incoming_salt,"bottom0.nc",0);
+            make_file(2,3*q,incoming_salt,"bottom1.nc",1);
+        } else if (file_kind) { make_file(file_kind,q,incoming_salt); }
 #endif
         REMORA ocean; ocean.InitData();
+        if (type=="constant" || type=="analytic" || type=="netcdf") {
+            for (int lev=0; lev<=ocean.finestLevel(); ++lev) {
+                if (!spatial) {
+                    require_close("initial vertical velocity", ocean.zvel_new[lev]->min(0), q,Real(2.e-10),Real(0.001));
+                    require_close("initial old vertical velocity", ocean.zvel_old[lev]->min(0), q,Real(2.e-10),Real(0.001));
+                }
+            }
+        }
         if (type=="coupler") {
             BoxArray ba; DistributionMapping dm; ocean.GetBottomExchangeLayout(ba,dm);
             MultiFab water(ba,dm,1,0), c(ba,dm,3,0);
@@ -154,6 +173,36 @@ int main (int argc, char** argv)
             ocean.SetBottomExchangeData(water,c,0,valid_end);
             // Mutating the producer's buffers must not mutate REMORA's owned snapshot.
             water.setVal(123); c.setVal(123);
+        }
+        bool ghosts=false; test.query("ghosts",ghosts);
+        if (ghosts) {
+            for (int lev=0; lev<=ocean.finestLevel(); ++lev) {
+                const auto* transport=ocean.GetBottomExchangeTransport(lev);
+                ReduceOps<ReduceOpMax> op;
+                ReduceData<int> data(op);
+                for (MFIter mfi(*transport); mfi.isValid(); ++mfi) {
+                    const auto a=transport->const_array(mfi);
+                    op.eval(mfi.fabbox(),data,[=] AMREX_GPU_DEVICE (int i,int j,int k) -> GpuTuple<int> {
+                        return {std::isfinite(a(i,j,k)) ? 0 : 1};
+                    });
+                }
+                int bad=get<0>(data.value(op));
+                ParallelDescriptor::ReduceIntMax(bad);
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!bad,"bottom transport ghosts must be finite");
+            }
+        }
+        bool ring=false; test.query("ring",ring);
+        if (ring) {
+            const auto* transport=ocean.GetBottomExchangeTransport(0);
+            for (MFIter mfi(*transport); mfi.isValid(); ++mfi) {
+                const Box edge=makeSlab(mfi.fabbox(),1,-1) & mfi.fabbox();
+                if (edge.ok()) {
+                    const Real value=(*transport)[mfi].min<RunOn::Device>(edge,0);
+                    require_close("NetCDF physical rho ring min",value,2*q*Real(100*100));
+                    require_close("NetCDF physical rho ring max",
+                        (*transport)[mfi].max<RunOn::Device>(edge,0),2*q*Real(100*100));
+                }
+            }
         }
         const auto initial=budget(ocean);
         const Real start_time = ocean.get_t_new(0);
@@ -169,7 +218,7 @@ int main (int argc, char** argv)
 
         }
         const auto final=budget(ocean);
-        const Real duration = file_kind==3 ? time-start_time+(time*time-start_time*start_time)/Real(16) : time-start_time;
+        const Real duration = file_kind>=3 ? time-start_time+(time*time-start_time*start_time)/Real(16) : time-start_time;
         const Real added=(type=="none" || reverse ? Real(0):q)*Real(800*800)*duration;
         require_close("volume",final[0],initial[0]+added);
         require_close("temperature",final[1],Real(10)*final[0]);
@@ -182,9 +231,9 @@ int main (int argc, char** argv)
             require_close("bottom temperature",bottom.min(0),10);
             if (!spatial) {
                 const Real imposed=type=="none" ? Real(0) : reverse ? -q :
-                    file_kind==3 ? q*(1+(time-1)/Real(8)) : q;
-                require_close("vertical velocity min",ocean.zvel_new[lev]->min(0),imposed,Real(1.e-9));
-                require_close("vertical velocity max",ocean.zvel_new[lev]->max(0),imposed,Real(1.e-9));
+                    file_kind>=3 ? q*(1+(time-1)/Real(8)) : q;
+                require_close("vertical velocity min",ocean.zvel_new[lev]->min(0),imposed,Real(1.e-9),Real(0.001));
+                require_close("vertical velocity max",ocean.zvel_new[lev]->max(0),imposed,Real(1.e-9),Real(0.001));
             }
             AMREX_ALWAYS_ASSERT(bottom.min(1)>=0);
             if (incoming_salt==35 || q<0 || type=="none") {
@@ -202,8 +251,8 @@ int main (int argc, char** argv)
         const Real diss=friction*friction*friction/(Real(0.4)*d);
         const auto ratios=BottomExchange::scales(speed,d,km,km,km/Real(1.3),k,diss,
             friction*friction,Real(0.1));
-        require_close("GLS transport scaling",ratios.transport,Real(0.00325));
-        require_close("GLS adjustment scaling",ratios.adjustment,Real(1)/Real(750));
+        require_close("GLS transport scaling",ratios.transport,Real(0.00325),Real(2.e-10),Real(0));
+        require_close("GLS adjustment scaling",ratios.adjustment,Real(1)/Real(750),Real(2.e-10),Real(0));
         Print() << "Bottom exchange column passed\n";
     }
     amrex::Finalize();

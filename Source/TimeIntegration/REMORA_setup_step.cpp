@@ -360,15 +360,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
                 iic, ntfirst, nnew, nstp, nrhs, N, dt_lev);
     }
 
-    if (!solverChoice.use_prestep && GetBottomExchangeTransport(lev)) {
-        for (MFIter mfi(mf_W); mfi.isValid(); ++mfi) {
-            compute_W(makeSlab(mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0)),2,0),
-                mf_W.array(mfi), vec_Huon[lev]->const_array(mfi), vec_Hvom[lev]->const_array(mfi),
-                vec_z_w[lev]->const_array(mfi), vec_h[lev]->const_array(mfi), N,
-                GetBottomExchangeTransport(lev)->const_array(mfi));
-        }
-    }
-
     // We use FillBoundary not FillPatch here since mf_W is single-level scratch space
     mf_W.FillBoundary(geom[lev].periodicity());
     (*physbcs[lev])(mf_W,*mf_mskr.get(),0,1,mf_W.nGrowVect(),t_new[lev],zvel_bc());

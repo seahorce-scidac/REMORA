@@ -105,6 +105,11 @@ if(REMORA_BUILD_EXECUTABLES)
     remora.bottom_salt=35 amr.max_level=1 "amr.ref_ratio_vect=2 2 1"
     remora.refinement_indicators=patch "remora.patch.in_box_lo=0 0"
     "remora.patch.in_box_hi=800 800" remora.patch.max_level=1 remora.prob.u_0=0)
+  bottom_exchange_test(BottomAMRWall amr.max_level=1 "amr.ref_ratio_vect=2 2 1"
+    "remora.is_periodic=1 0 0" remora.bc.ylo.type=slipwall remora.bc.yhi.type=slipwall
+    remora.refinement_indicators=patch "remora.patch.in_box_lo=0 0"
+    "remora.patch.in_box_hi=400 400" remora.patch.max_level=1 remora.prob.u_0=0
+    amr.max_grid_size=4 amrex.init_snan=1 test.ghosts=true)
   bottom_exchange_test(BottomRestartWrite remora.check_int=2)
   bottom_exchange_test(BottomRestart test.resume=true
     remora.restart=${CMAKE_CURRENT_BINARY_DIR}/BottomRestartWrite/chk00002)
@@ -128,6 +133,12 @@ if(REMORA_BUILD_EXECUTABLES)
       bottom_exchange_test(BottomNetCDF${kind} remora.bottom_exchange_type=netcdf
         remora.bottom_exchange_file=bottom.nc test.file_kind=${kind})
     endforeach()
+    bottom_exchange_test(BottomNetCDFMulti remora.bottom_exchange_type=netcdf
+      "remora.bottom_exchange_file=bottom0.nc bottom1.nc" test.file_kind=4)
+    bottom_exchange_test(BottomNetCDFRing remora.bottom_exchange_type=netcdf
+      remora.bottom_exchange_file=bottom.nc test.file_kind=1 test.ring=true
+      "remora.is_periodic=1 0 0" remora.bc.ylo.type=slipwall remora.bc.yhi.type=slipwall
+      remora.prob.u_0=0 amr.max_grid_size=4)
     foreach(mode coupler netcdf)
       set(name BottomMPI_${mode})
       file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${name})

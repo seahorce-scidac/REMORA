@@ -205,3 +205,11 @@ A gold file is only meaningful if what produced it is known, so when regeneratin
    baseline is only valid if the run is rank-invariant to the accepted tolerance.
 #. Treat a change to any input datum as invalidating the baseline: the same commit should update the data,
    the gold file, and the recorded checksums together.
+
+The ``bottom_exchange`` CTest label selects the column-budget integration tests.
+They check water, temperature, salt, passive tracer and horizontal momentum
+balances against prescribed transfers, plus initial vertical velocity and GLS
+scaling. ``BottomAMRWall`` checks the complete one-cell horizontal transport
+halo on a mixed periodic/wall domain, with signaling-NaN initialization.
+PNetCDF builds also test static, single-record, multi-record and multi-file
+forcing, including a physical rho ring that differs from the interior.
