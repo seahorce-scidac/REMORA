@@ -1,7 +1,7 @@
 .. _sec:bottom-exchange:
 
 Water and Tracer Exchange Through the Bottom
-===========================================
+============================================
 
 The default bottom is impermeable. No additional input or exchange arrays are
 needed for this case. ``remora.bottom_exchange_type`` selects ``none`` (default),
@@ -84,7 +84,9 @@ The model rho dimensions include the ROMS boundary ring, so they are
 A single time record is treated as constant. Time series use the existing
 ``NCTimeSeries`` calendar, reference-date, cyclic-time, and interpolation rules;
 time units are days, with a reference date consistent with ``remora.time_ref``.
-Multiple files can form a time series. A missing tracer variable may instead be
+Multiple files can form a time series, including single-record files. Keep the
+variables and their dimensions consistent across the file set. A tracer absent
+from the files may instead be
 supplied explicitly as ``remora.bottom_<name>``. ``bottom_q`` must be in the file.
 
 Each level samples the interpolated fields at its slow-step midpoint and holds

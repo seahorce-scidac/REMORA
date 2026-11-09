@@ -2,7 +2,6 @@
  .. _RegressionTests:
 
 Regression Tests
-================
 
 There are currently 70 regression tests which are run as part of every PR on a range of architectures:
 
@@ -686,6 +685,20 @@ misleading values are rejected or reported.
 |                                 |          |                                                         |
 |                                 |          | 4000 m) runs and is reported                            |
 +---------------------------------+----------+---------------------------------------------------------+
+
+Bottom exchange tests
+---------------------
+
+The ``bottom_exchange`` column tests use an 8 x 8 x 8 domain and analytic
+budget assertions. They cover inflow, extraction, matching concentrations,
+the impermeable default, analytic and copied coupler data, reversal, GLS
+instability, subcycled and lockstep refinement, regridding, and restart.
+The wall case uses multiple boxes and a refined patch touching a physical
+boundary. The NetCDF cases require PNetCDF; the multi-file case interpolates
+between two single-record files. Two-rank tests exercise distributed coupler
+and NetCDF data. Rejection tests require the intended error message for
+missing incoming tracers, expired snapshots and excessive source Courant.
+
 
 Nightly Regression Tests on CPU
 -------------------------------

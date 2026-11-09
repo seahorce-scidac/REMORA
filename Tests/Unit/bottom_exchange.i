@@ -13,7 +13,6 @@ remora.v = 0
 remora.plot_int = -1
 remora.check_int = -1
 remora.use_coriolis = false
-remora.use_uv3dmix = false
 remora.use_t3dmix = false
 remora.rdrag = 0
 remora.bottom_stress_type = linear
