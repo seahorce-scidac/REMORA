@@ -81,6 +81,8 @@ void
 REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
                                const DistributionMapping& dm)
 {
+    invalidate_bottom_exchange(lev);
+
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
         b.setRange(2,0);
@@ -239,6 +241,8 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 void
 REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMapping& dm)
 {
+    invalidate_bottom_exchange(lev);
+
 
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
@@ -414,6 +418,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba_in,
                                      const DistributionMapping& dm_in)
 {
+    invalidate_bottom_exchange(lev);
+
     BoxArray ba = ba_in;
     DistributionMapping dm = dm_in;
     // Decided once, when the run starts: a restart keeps the checkpoint's BoxArray, which
@@ -936,6 +942,8 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
 void
 REMORA::ClearLevel (int lev)
 {
+    invalidate_bottom_exchange(lev);
+
     delete cons_new[lev]; delete xvel_new[lev];  delete yvel_new[lev];  delete zvel_new[lev];
     delete cons_old[lev]; delete xvel_old[lev];  delete yvel_old[lev];  delete zvel_old[lev];
 #ifdef REMORA_USE_PARTICLES

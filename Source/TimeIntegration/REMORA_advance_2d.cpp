@@ -131,6 +131,7 @@ REMORA::advance_2d (int lev,
                    int & next_indx1)
 {
     BL_PROFILE("REMORA::advance2d()");
+    const MultiFab* bottom_transport = GetBottomExchangeTransport(lev);
     int iic = istep[lev];
     const int nstp  = 0;
     int ntfirst = 0;
@@ -369,7 +370,7 @@ REMORA::advance_2d (int lev,
         Array4<Real const> const& DUon = mf_DUon.const_array(mfi);
         Array4<Real const> const& DVom = mf_DVom.const_array(mfi);
 
-        const auto bottom = GetBottomExchangeTransport(lev) ? GetBottomExchangeTransport(lev)->const_array(mfi)
+        const auto bottom = bottom_transport ? bottom_transport->const_array(mfi)
                                                             : Array4<Real const>();
         auto Dnew     = mf.array(mfi,Dnew_comp);
         auto zwrk     = mf.array(mfi,zwrk_comp);

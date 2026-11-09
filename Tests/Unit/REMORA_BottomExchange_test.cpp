@@ -6,6 +6,7 @@
 #include <REMORA_BottomExchange.H>
 #include <AMReX.H>
 #include <AMReX_Reduce.H>
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <limits>
@@ -40,9 +41,11 @@ public:
         Real u0=Real(0.05); ParmParse("remora.prob").query("u_0",u0);
         u.setVal(u0); v.setVal(0);
     }
-    void bottom_exchange (int, Real, const Geometry&, const REMORA&, MultiFab& raw) override {
+    void bottom_exchange (int, Real time, const Geometry&, const REMORA&, MultiFab& raw) override {
         ParmParse pp("remora"); Real q=0, salt=0, dye=7;
         pp.get("bottom_q",q); pp.query("bottom_salt",salt); pp.query("bottom_tracer",dye);
+        bool ramp=false; ParmParse("test").query("ramp",ramp);
+        if (ramp) { q *= Real(1)+time/Real(8); }
         raw.setVal(q,0,1); raw.setVal(10,1,1); raw.setVal(salt,2,1); raw.setVal(dye,3,1);
         bool spatial=false; ParmParse("test").query("spatial",spatial);
         if (spatial) {
@@ -57,9 +60,10 @@ public:
     }
 };
 
-void require_close (const std::string& name, double actual, double expected, double tolerance=2.e-10, double scale=1)
+void require_close (const std::string& name, double actual, double expected,
+                    double tolerance=2.e-10, double scale=1)
 {
-    // Budget sums accumulate Real state; keep the roundoff allowance below the transfer.
+    // Allow for rounding in Real state while keeping sensitivity to the transfer.
     tolerance = std::max(tolerance, 16.0*std::numeric_limits<Real>::epsilon());
     Print() << name << ": actual=" << actual << " expected=" << expected << '\n';
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(actual) &&
@@ -218,7 +222,8 @@ int main (int argc, char** argv)
         }
         const auto initial=budget(ocean);
         const Real start_time = ocean.get_t_new(0);
-        Real time=start_time;
+        Real time=start_time, last_sample=start_time;
+        bool ramp=false; test.query("ramp",ramp);
         for (int step=0;step<(resume ? 2 : 4);++step) {
             if (reverse && step==2) {
                 BoxArray ba; DistributionMapping dm; ocean.GetBottomExchangeLayout(ba,dm);
@@ -226,11 +231,13 @@ int main (int argc, char** argv)
                 water.setVal(-q); c.setVal(10,0,1); c.setVal(35,1,1); c.setVal(2,2,1);
                 ocean.SetBottomExchangeData(water,c,time,100);
             }
-            time += ocean.EvolveOneStep(time,Real(2));
+            const Real advanced=ocean.EvolveOneStep(time,Real(2));
+            if (advanced > 0) { last_sample=time+Real(0.5)*advanced; }
+            time += advanced;
 
         }
         const auto final=budget(ocean);
-        const Real duration = file_kind>=3 ? time-start_time+(time*time-start_time*start_time)/Real(16) : time-start_time;
+        const Real duration = (file_kind>=3 || ramp) ? time-start_time+(time*time-start_time*start_time)/Real(16) : time-start_time;
         const Real added=(type=="none" || reverse ? Real(0):q)*Real(800*800)*duration;
         require_close("volume",final[0],initial[0]+added);
         require_close("temperature",final[1],Real(10)*final[0]);
@@ -243,7 +250,7 @@ int main (int argc, char** argv)
             require_close("bottom temperature",bottom.min(0),10);
             if (!spatial) {
                 const Real imposed=type=="none" ? Real(0) : reverse ? -q :
-                    file_kind>=3 ? q*(1+(time-1)/Real(8)) : q;
+                    (file_kind>=3 || ramp) ? q*(1+last_sample/Real(8)) : q;
                 require_close("vertical velocity min",ocean.zvel_new[lev]->min(0),imposed,Real(1.e-9),Real(0.001));
                 require_close("vertical velocity max",ocean.zvel_new[lev]->max(0),imposed,Real(1.e-9),Real(0.001));
             }

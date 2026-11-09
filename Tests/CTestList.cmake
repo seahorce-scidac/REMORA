@@ -9,6 +9,10 @@ set(FCOMPARE_GOLD_FILES_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/REMORA_Gold_Files)
 # Functions for adding tests / Categories of tests
 #=============================================================================
 function(resolve_test_exe TEST_DIR TEST_EXE OUT_VAR)
+    if(TARGET "${TEST_EXE}")
+        set(${OUT_VAR} "$<TARGET_FILE:${TEST_EXE}>" PARENT_SCOPE)
+        return()
+    endif()
     if(WIN32)
         # Multi-config generators place binaries in a config subdir.
         set(${OUT_VAR} "${CMAKE_BINARY_DIR}/Exec/${TEST_DIR}/*/${TEST_EXE}.exe" PARENT_SCOPE)
@@ -67,7 +71,7 @@ function(add_test_r TEST_NAME TEST_EXE PLTFILE)
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${PLOT_GOLD} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -87,7 +91,7 @@ function(add_test_r_hitol TEST_NAME TEST_EXE PLTFILE)
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${PLOT_GOLD} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -112,7 +116,7 @@ function(add_test_r_gold TEST_NAME TEST_EXE PLTFILE GOLD_NAME)
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${FCOMPARE_GOLD_FILES_DIRECTORY}/${GOLD_NAME} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -138,7 +142,7 @@ function(add_test_r_differ TEST_NAME TEST_EXE PLTFILE OTHER_GOLD)
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${PLOT_GOLD} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE} && ! ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${FCOMPARE_GOLD_FILES_DIRECTORY}/${OTHER_GOLD} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -174,7 +178,7 @@ function(add_test_equiv TEST_NAME OTHER_INPUT TEST_EXE PLTFILE OTHER_PLTFILE)
     endif()
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log 2>&1 && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${OTHER_INPUT}.i ${RUNTIME_OPTIONS} > ${OTHER_INPUT}.log 2>&1 && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${CURRENT_TEST_BINARY_DIR}/${OTHER_PLTFILE} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}${EXTREMA_CLAUSE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -193,13 +197,20 @@ endfunction(add_test_equiv)
 # as a list separator and hand sh -c two arguments, silently dropping everything after it.
 function(add_test_abort TEST_NAME TEST_EXE ABORT_SUBSTRING)
 
-    setup_test()
+    cmake_parse_arguments(ABORT "" "INPUT_NAME" "OPTIONS" ${ARGN})
+    setup_test(${ABORT_INPUT_NAME})
+    if(ABORT_INPUT_NAME)
+        set(TEST_INPUT ${ABORT_INPUT_NAME})
+    else()
+        set(TEST_INPUT ${TEST_NAME})
+    endif()
+    string(JOIN " " EXTRA_OPTIONS ${ABORT_OPTIONS})
 
     resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
 
-    set(test_command sh -c "! ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log 2>&1 && grep -q -- \"${ABORT_SUBSTRING}\" ${TEST_NAME}.log")
+    set(test_command sh -c "! ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_INPUT}.i ${RUNTIME_OPTIONS} ${EXTRA_OPTIONS} > ${TEST_NAME}.log 2>&1 && grep -q -- \"${ABORT_SUBSTRING}\" ${TEST_NAME}.log")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 600
@@ -223,7 +234,7 @@ function(add_test_r_selfcompare TEST_NAME TEST_EXE PLTFILE OPTIONS_A OPTIONS_B)
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${OPTIONS_A} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${OPTIONS_B} >> ../${TEST_NAME}.log 2>&1 && cd .. && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} runA/${PLTFILE} runB/${PLTFILE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -247,7 +258,7 @@ function(add_test_restart TEST_NAME TEST_EXE PLTFILE CHKFILE)
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} remora.restart=../runA/${CHKFILE} remora.check_int=-1 >> ../${TEST_NAME}.log 2>&1 && cd .. && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} runA/${PLTFILE} runB/${PLTFILE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -268,7 +279,7 @@ function(add_test_restart_exact TEST_NAME TEST_EXE PLTFILE CHKFILE)
 
     set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} remora.restart=../runA/${CHKFILE} remora.check_int=-1 >> ../${TEST_NAME}.log 2>&1 && cd .. && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -316,7 +327,7 @@ function(add_test_layout TEST_NAME INPUT_NAME TEST_EXE PLTFILE CHKFILE OPTIONS_A
     endif()
     set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_A} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_B} > ../${TEST_NAME}.runB.log 2>&1 && cd .. && cat ${TEST_NAME}.runB.log >> ${TEST_NAME}.log && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}${CHK_CLAUSE}${LOG_CLAUSE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -344,7 +355,7 @@ function(add_test_conservation TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
 
     set(test_command sh -c "rm -f cons.log && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${SUM_OPTS} ${OPTIONS} > ${TEST_NAME}.log 2>&1 && ${CMAKE_CURRENT_SOURCE_DIR}/check_conservation.sh cons.log ${CHECKS}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -363,9 +374,15 @@ function(add_test_run TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
 
     resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
 
-    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${OPTIONS} > ${TEST_NAME}.log 2>&1")
+    set(run_command "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${OPTIONS}")
+    set(test_command_body "${run_command}")
+    # Optional variants run as separate processes, each with the shared options.
+    foreach(VARIANT IN LISTS ARGN)
+        string(APPEND test_command_body " && ${run_command} ${VARIANT}")
+    endforeach()
+    set(test_command sh -c "(${test_command_body}) > ${TEST_NAME}.log 2>&1")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -386,7 +403,7 @@ function(add_test_log TEST_NAME TEST_EXE LOG_SUBSTRING)
 
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i > ${TEST_NAME}.log 2>&1 && grep -q -- \"${LOG_SUBSTRING}\" ${TEST_NAME}.log")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 600
@@ -411,7 +428,7 @@ function(add_test_extrema TEST_NAME TEST_EXE PLTFILE TOL)
     string(REPLACE ";" " " EXTREMA_ARGS "${ARGN}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${CMAKE_CURRENT_SOURCE_DIR}/check_extrema.sh ${FEXTREMA_EXE} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE} ${TOL} ${EXTREMA_ARGS}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -437,7 +454,7 @@ function(add_test_nlevels TEST_NAME TEST_EXE PLTFILE MAX_LEVEL)
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${CMAKE_CURRENT_SOURCE_DIR}/check_max_level.sh ${TEST_NAME}.log ${MAX_LEVEL} && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${CURRENT_TEST_BINARY_DIR}/plt00000 ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -463,7 +480,7 @@ function(add_test_extent TEST_NAME TEST_EXE PLTFILE LEVEL DIM LO HI)
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${CMAKE_CURRENT_SOURCE_DIR}/check_level_extent.sh ${CURRENT_TEST_BINARY_DIR}/${PLTFILE} ${LEVEL} ${DIM} ${LO} ${HI} && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${CURRENT_TEST_BINARY_DIR}/plt00000 ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -487,7 +504,7 @@ function(add_test_cells TEST_NAME TEST_EXE PLTFILE LEVEL NCELLS)
 
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${CMAKE_CURRENT_SOURCE_DIR}/check_level_cells.sh ${CURRENT_TEST_BINARY_DIR}/${PLTFILE} ${LEVEL} ${NCELLS}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -508,7 +525,7 @@ function(add_test_0 TEST_NAME TEST_EXE PLTFILE)
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${CURRENT_TEST_BINARY_DIR}/plt00000 ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
 
-    add_test(${TEST_NAME} ${test_command})
+    add_test(NAME ${TEST_NAME} COMMAND ${test_command})
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 5400
@@ -974,3 +991,70 @@ endfunction()
 add_test_checkpoint_restart(Upwelling_Fennel_restart "chk00005" "plt00010" accept)
 # ECB takes no checkpoint without BiologyHeader.
 add_test_checkpoint_restart(Upwelling_ECB_restart    "chk00002" "plt00003" reject)
+
+if(REMORA_BUILD_EXECUTABLES)
+    function(add_test_bottom_exchange name)
+      set(options "")
+      foreach(option IN LISTS ARGN)
+        string(APPEND options " \"${option}\"")
+      endforeach()
+      add_test_run(${name} BottomExchange remora_bottom_exchange_tests "${options}")
+      set_tests_properties(${name} PROPERTIES TIMEOUT 120 LABELS "regression;bottom_exchange")
+    endfunction()
+    add_test_run(BottomBudgets BottomExchange remora_bottom_exchange_tests ""
+      "remora.bottom_salt=35" "remora.bottom_q=-0.0001" "remora.bottom_exchange_type=none")
+    set_tests_properties(BottomBudgets PROPERTIES TIMEOUT 120 LABELS "regression;bottom_exchange")
+    add_test_bottom_exchange(BottomAnalytic remora.bottom_exchange_type=analytic)
+    add_test_bottom_exchange(BottomCoupler remora.bottom_exchange_type=coupler amr.max_grid_size=4)
+    add_test_bottom_exchange(BottomAdaptive remora.bottom_exchange_type=analytic test.ramp=true
+      remora.fixed_dt=-1 remora.stop_time=8 remora.prob.u_0=0)
+    add_test_bottom_exchange(BottomGLS remora.vertical_mixing_type=GLS remora.prob.u_0=0
+      remora.bottom_exchange_diagnostics=true remora.Scoef=0.00076 test.unstable=true)
+    string(CONCAT bottom_amr_options
+      "amr.max_level=1 'amr.ref_ratio_vect=2 2 1' remora.refinement_indicators=patch "
+      "'remora.patch.in_box_lo=200 200' 'remora.patch.in_box_hi=600 600' "
+      "remora.patch.max_level=1 remora.do_substep=true remora.cf_fill_all_kcomp=0 "
+      "remora.cf_time_interp_zeta=0 remora.prob.u_0=0")
+    add_test_run(BottomAMR BottomExchange remora_bottom_exchange_tests
+      "${bottom_amr_options}" "remora.do_substep=false")
+    set_tests_properties(BottomAMR PROPERTIES TIMEOUT 120 LABELS "regression;bottom_exchange")
+    add_test_bottom_exchange(BottomRegrid amr.max_level=1 "amr.ref_ratio_vect=2 2 1" amr.regrid_int=1
+      remora.refinement_indicators=patch "remora.patch.in_box_lo=200 200"
+      "remora.patch.in_box_hi=600 600" remora.patch.max_level=1 remora.patch.start_time=2
+      remora.cf_fill_all_kcomp=0 remora.cf_time_interp_zeta=0 remora.prob.u_0=0)
+    add_test_bottom_exchange(BottomSpatialAMR remora.bottom_exchange_type=analytic test.spatial=true
+      remora.bottom_salt=35 amr.max_level=1 "amr.ref_ratio_vect=2 2 1"
+      remora.refinement_indicators=patch "remora.patch.in_box_lo=0 0"
+      "remora.patch.in_box_hi=800 800" remora.patch.max_level=1 remora.prob.u_0=0)
+    add_test_bottom_exchange(BottomAMRWall amr.max_level=1 "amr.ref_ratio_vect=2 2 1"
+      "remora.is_periodic=1 0 0" remora.bc.ylo.type=slipwall remora.bc.yhi.type=slipwall
+      remora.refinement_indicators=patch "remora.patch.in_box_lo=0 0"
+      "remora.patch.in_box_hi=400 400" remora.patch.max_level=1 remora.prob.u_0=0
+      amr.max_grid_size=4 amrex.init_snan=1 test.ghosts=true)
+    add_test_bottom_exchange(BottomRestartWrite remora.check_int=2)
+    add_test_bottom_exchange(BottomRestart test.resume=true
+      remora.restart=${CMAKE_CURRENT_BINARY_DIR}/test_files/BottomRestartWrite/chk00002)
+    set_tests_properties(BottomRestart PROPERTIES DEPENDS BottomRestartWrite)
+    add_test_bottom_exchange(BottomReverse remora.bottom_exchange_type=coupler test.reverse=true
+      remora.bottom_salt=35 remora.bottom_tracer=2 remora.prob.u_0=0)
+    add_test_abort(BottomMissingTracer remora_bottom_exchange_tests "explicit finite concentrations"
+      INPUT_NAME BottomExchange OPTIONS test.omit_salt=true)
+    add_test_abort(BottomExpired remora_bottom_exchange_tests "forcing is missing or expired"
+      INPUT_NAME BottomExchange OPTIONS remora.bottom_exchange_type=coupler test.valid_end=3)
+    add_test_abort(BottomCourant remora_bottom_exchange_tests "exceeds bottom_exchange_max_courant"
+      INPUT_NAME BottomExchange OPTIONS remora.bottom_q=1)
+    set_tests_properties(BottomMissingTracer BottomExpired BottomCourant PROPERTIES
+      TIMEOUT 120 LABELS "regression;bottom_exchange")
+    if(REMORA_ENABLE_PNETCDF)
+      foreach(kind 1 2 3)
+        add_test_bottom_exchange(BottomNetCDF${kind} remora.bottom_exchange_type=netcdf
+          remora.bottom_exchange_file=bottom.nc test.file_kind=${kind})
+      endforeach()
+      add_test_bottom_exchange(BottomNetCDFMulti remora.bottom_exchange_type=netcdf
+        "remora.bottom_exchange_file=bottom0.nc bottom1.nc" test.file_kind=4 amr.max_grid_size=4)
+      add_test_bottom_exchange(BottomNetCDFRing remora.bottom_exchange_type=netcdf
+        remora.bottom_exchange_file=bottom.nc test.file_kind=1 test.ring=true
+        "remora.is_periodic=1 0 0" remora.bc.ylo.type=slipwall remora.bc.yhi.type=slipwall
+        remora.prob.u_0=0 amr.max_grid_size=4)
+    endif()
+endif()

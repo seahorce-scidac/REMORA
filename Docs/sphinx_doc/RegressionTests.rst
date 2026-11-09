@@ -4,7 +4,7 @@
 Regression Tests
 ================
 
-There are currently 63 regression tests which are run as part of every PR on a range of architectures:
+The regression suite runs as part of every PR on a range of architectures. It includes:
 
 * 22 that compare a plotfile against a stored reference;
 * 6 that compare two runs of the model against each other, or a run against its own initial state, and
@@ -15,7 +15,9 @@ There are currently 63 regression tests which are run as part of every PR on a r
 * 8 that assert a run reaches a behavior it reports in its log;
 * 9 that assert a misconfigured input fails for the stated reason.
 
-There is also one unit test, ``DateClock``. The CI tests use cmake and are based on the version
+The unit tests are ``DateClock``, ``LatLonRegrid`` and ``BiologyInterface``. The bottom
+exchange column tests add self-checking water, tracer and momentum budgets.
+The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
 instructions in :ref:`Testing<Testing>`, which also describes the different kinds of assertion and what
 each is for. All of them run under MPI on two ranks, and are checked to be rank-invariant.
@@ -581,8 +583,9 @@ the impermeable default, analytic and copied coupler data, reversal, GLS
 instability, subcycled and lockstep refinement, regridding, and restart.
 The wall case uses multiple boxes and a refined patch touching a physical
 boundary. The NetCDF cases require PNetCDF; the multi-file case interpolates
-between two single-record files. Two-rank tests exercise distributed coupler
-and NetCDF data. Rejection tests require the intended error message for
+between two single-record files. MPI builds run the cases on two ranks, with multiple boxes for the coupler
+and multi-file NetCDF cases. The adaptive case exercises time-varying forcing
+with a variable timestep. Rejection tests require the intended error message for
 missing incoming tracers, expired snapshots and excessive source Courant.
 
 

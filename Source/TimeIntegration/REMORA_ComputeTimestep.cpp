@@ -60,7 +60,8 @@ REMORA::ComputeDt ()
 
     for (int lev = 0; lev <= finest_level; ++lev)
     {
-        if (solverChoice.bottom_exchange_type != BottomExchangeType::coupler || m_bottom_coupled) {
+        if ((fixed_dt <= zero || verbose) &&
+            (solverChoice.bottom_exchange_type != BottomExchangeType::coupler || m_bottom_coupled)) {
             prepare_bottom_exchange(lev, t_new[lev], Real(0));
         }
         dt_tmp[lev] = estTimeStep(lev);
@@ -127,6 +128,8 @@ REMORA::estTimeStep(int level) const
         return fixed_dt;
     }
 
+    const MultiFab* bottom_transport = GetBottomExchangeTransport(level);
+
     // The barotropic mode is substepped ndtfast times per baroclinic step
     // (REMORA_Advance.cpp), so the slow step only has to resolve the external gravity
     // wave to within that ratio. ReadParameters guarantees ndtfast is positive.
@@ -169,7 +172,7 @@ REMORA::estTimeStep(int level) const
         Array4<Real const> const& pn   = vec_pn[level]->const_array(mfi);
         Array4<Real const> const& mskr = vec_mskr[level]->const_array(mfi);
 
-        const auto bottom = GetBottomExchangeTransport(level) ? GetBottomExchangeTransport(level)->const_array(mfi)
+        const auto bottom = bottom_transport ? bottom_transport->const_array(mfi)
                                                                : Array4<Real const>();
         reduce_op.eval(bx, reduce_data,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple

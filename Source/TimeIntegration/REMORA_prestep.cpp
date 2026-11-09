@@ -58,6 +58,7 @@ REMORA::prestep (int lev,
                 int N, const Real dt_lev)
 {
     BL_PROFILE("REMORA::prestep()");
+    const MultiFab* bottom_transport = GetBottomExchangeTransport(lev);
 
 #ifdef REMORA_USE_NETCDF
     // These do MPI-collective NetCDF reads, so they must be called by every rank,
@@ -133,7 +134,7 @@ REMORA::prestep (int lev,
         // tile forms its own columns and, at the edge of its box, the first ghost ring, so
         // no column is written by two tiles; the advection reads W on the tile's own cells.
         compute_W(gbx1D, W, Huon, Hvom, z_w, h, N,
-                  GetBottomExchangeTransport(lev) ? GetBottomExchangeTransport(lev)->const_array(mfi) : Array4<Real const>());
+                  bottom_transport ? bottom_transport->const_array(mfi) : Array4<Real const>());
 
         for (int i_comp=0; i_comp < ncons; i_comp++) {
             Array4<Real> const& sstore = (vec_sstore[lev])->array(mfi,i_comp);
@@ -155,7 +156,7 @@ REMORA::prestep (int lev,
                                 S_new.array(mfi,i_comp), Hz, Huon, Hvom,
                                 W, DC, FC, sstore, pm, pn, msku, mskv, river_pos,
                                 river_source,
-                                GetBottomExchangeTransport(lev) ? GetBottomExchangeTransport(lev)->const_array(mfi,i_comp+1) : Array4<Real const>(),
+                                bottom_transport ? bottom_transport->const_array(mfi,i_comp+1) : Array4<Real const>(),
                                 iic, ntfirst,
                                 nrhs, N, dt_lev);
         }

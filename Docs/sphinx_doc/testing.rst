@@ -211,5 +211,9 @@ They check water, temperature, salt, passive tracer and horizontal momentum
 balances against prescribed transfers, plus initial vertical velocity and GLS
 scaling. ``BottomAMRWall`` checks the complete one-cell horizontal transport
 halo on a mixed periodic/wall domain, with signaling-NaN initialization.
+The adaptive case checks time-varying analytic forcing sampled at the actual
+slow-step midpoint. Budget variants and the two AMR timing modes run in separate
+processes within shared CTest entries. In MPI builds these tests run on two
+ranks through the standard test helpers.
 PNetCDF builds also test static, single-record, multi-record and multi-file
 forcing, including a physical rho ring that differs from the interior.

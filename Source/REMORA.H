@@ -1713,7 +1713,11 @@ public:
     void check_bottom_exchange (int lev, amrex::Real dt_lev) const;
 
 private:
+    void invalidate_bottom_exchange (int lev);
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> m_bottom_transport;
+    amrex::Vector<amrex::Real> m_bottom_level_times;
+    bool m_bottom_base_ready = false;
+    amrex::Real m_bottom_base_time = 0;
     std::unique_ptr<amrex::MultiFab> m_bottom_raw;
     std::unique_ptr<amrex::MultiFab> m_bottom_base_transport;
     std::unique_ptr<amrex::MultiFab> m_bottom_coupled;
