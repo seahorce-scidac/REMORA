@@ -50,8 +50,8 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     // Note that we need the fine-fine and physical bc's in order to correctly move the particles
     amrex::FillBoundary(Vector<MultiFab*>{xvel_new[lev], yvel_new[lev]}, geom[lev].periodicity());
     // The true vertical velocity is a diagnostic: nothing in the dynamics reads it. A single
-    // level leaves it for update_wvel to compute when a reader asks. Above level 0 the
-    // coarse level's w is averaged down from this one and the fine ghost cells are
+    // level leaves it for update_wvel to compute when a reader asks. With refinement, coarse w
+    // is averaged down from the fine level and the fine ghost cells are
     // interpolated from the parent's w at both ends of its step, so w is formed every step.
     if (wvel_is_lazy()) {
         wvel_current[lev] = 0;

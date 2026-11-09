@@ -73,6 +73,7 @@ REMORA::timeStepML (Real time, int /*iteration*/)
         std::swap(yvel_old[lev], yvel_new[lev]);
         std::swap(zvel_old[lev], zvel_new[lev]);
         wvel_old_current[lev] = wvel_current[lev];
+        wvel_current[lev] = 0;
 
         setup_step(lev, time, dt[lev]);
 

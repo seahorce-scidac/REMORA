@@ -297,17 +297,7 @@ REMORA::Evolve ()
             reported_finest = finest_level;
         }
 
-        // A checkpoint written after this step also writes zvel_old, the w of the state the
-        // step starts from, which a single-level step does not form
-        {
-            const Real time_after = cur_time + dt[0];
-            const bool last_step = step+1 >= max_step
-                                   || time_after >= stop_elapsed - 1.e-6*dt[0];
-            if (checkpoint_due(step, time_after) ||
-                (last_step && (check_int > 0 || check_int_time > zero))) {
-                update_wvel();
-            }
-        }
+        update_wvel_before_checkpoint_step(step, cur_time, stop_elapsed);
 
         int lev = 0;
         int iteration = 1;
@@ -399,6 +389,27 @@ REMORA::checkpoint_due (int step, Real cur_time) const
 {
     return (check_int > 0 && (step+1 - last_check_file_step) == check_int)
         || (check_int_time > 0 && cur_time >= (last_check_file_time + check_int_time));
+}
+
+/**
+ * A checkpoint written after a coarse step also writes zvel_old, the w of the state the step
+ * starts from, which a single-level step does not form. Called after ComputeDt by every
+ * driver of the coarse steps.
+ *
+ * @param[in] step          coarse step about to be taken, counting from 0
+ * @param[in] cur_time      time at the start of that step
+ * @param[in] stop_elapsed  time at which the run stops
+ */
+void
+REMORA::update_wvel_before_checkpoint_step (int step, Real cur_time, Real stop_elapsed)
+{
+    const Real time_after = cur_time + dt[0];
+    const bool last_step = step+1 >= max_step
+                           || time_after >= stop_elapsed - Real(1.e-6)*dt[0];
+    if (checkpoint_due(step, time_after) ||
+        (last_step && (check_int > 0 || check_int_time > zero))) {
+        update_wvel();
+    }
 }
 
 /**

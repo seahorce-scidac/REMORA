@@ -29,7 +29,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t,0,true,true, cons_old, cons_new);
     FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u,0,true,true, xvel_old, xvel_new);
     FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v,0,true,true, yvel_old, yvel_new);
-    // Only the checkpoint reads zvel_old; a stale one is left alone
+    // zvel_old is read by the checkpoint and, with refinement, by the coarse-fine fills of
+    // w; a stale one (single level, w not formed) is left alone
     if (wvel_old_current[lev]) {
         FillPatch(lev, time, *zvel_old[lev], zvel_old, zvel_bc(), BdyVars::null,0,true,true,0,0,zero,
                   amrex::MultiFab(), zvel_old, zvel_new);

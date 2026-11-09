@@ -118,6 +118,11 @@ public:
     /** \brief Whether WriteAtIntermediateTime writes a checkpoint after coarse step step */
     [[nodiscard]] bool checkpoint_due (int step, amrex::Real cur_time) const;
 
+    /** \brief Form w before a coarse step that ends in a checkpoint, which also writes the
+     *         w of the state the step starts from */
+    void update_wvel_before_checkpoint_step (int step, amrex::Real cur_time,
+                                             amrex::Real stop_elapsed);
+
     /** \brief Tag cells for refinement */
     virtual void ErrorEst (int lev, amrex::TagBoxArray& tags, amrex::Real time, int ngrow) override;
 
