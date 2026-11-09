@@ -692,7 +692,7 @@ REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
                         const Real ustarb = std::sqrt(std::sqrt(
                             std::pow((Real(0.5) * (bustr(i,j,0) + bustr(i+1,j,0))), 2) +
                             std::pow((Real(0.5) * (bvstr(i,j,0) + bvstr(i,j+1,0))), 2)));
-                        const Real resuspr = amrex::min(std::pow(ustarb, 2) / Real(9.61e-6), one);
+                        const Real resuspr = amrex::min(ustarb * ustarb / Real(9.61e-6), Real(1.0));
                         cff1 = FC(i,j,0) * inv_hz(i,j,0) * (one - resuspr);
                         const Real cff5 = FC(i,j,0) * inv_hz(i,j,0) * resuspr;
                         if (nitrogen_sink) {
