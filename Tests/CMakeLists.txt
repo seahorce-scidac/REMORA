@@ -20,6 +20,6 @@ else()
     set(SUBSET_COMPARE_EXE ${CMAKE_CURRENT_BINARY_DIR}/remora_subset_compare${CMAKE_EXECUTABLE_SUFFIX})
 endif()
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/CTestList.cmake)
-
 add_subdirectory(Unit)
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/CTestList.cmake)

@@ -111,7 +111,7 @@ Set ``remora.bottom_exchange_type = coupler``. After ``InitData``:
    // Fill q [m/s] and c [ocean concentration units].
    ocean.SetBottomExchangeData(q, c, begin_time, end_time);
 
-REMORA copies the valid data and owns its halos. The producer may reuse its
+REMORA copies the valid data and owns its one-cell horizontal halos. The producer may reuse its
 buffers immediately. A snapshot is held over the stated interval in elapsed
 model seconds; it must cover every slow step using it. Missing or expired data
 cause an error. Supply a new snapshot after restarting a coupled model.
@@ -141,7 +141,9 @@ or a future remapping adapter.
 
 Wet masks must be consistent across refinement wherever exchange is nonzero;
 REMORA rejects a refined land cell that would discard part of a source. Regridding
-rebuilds the exchange slabs, and each substep evaluates its own forcing time.
+invalidates the affected exchange slabs, and each substep samples its own forcing
+time. Constant and static-file transports are reused until the layout changes;
+coupled transports are reused until the snapshot or layout changes.
 Existing coarse/fine dynamics and conservation options still apply; see
 :ref:`Mesh Refinement <MeshRefinement>`.
 

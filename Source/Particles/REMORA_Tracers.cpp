@@ -104,6 +104,7 @@ static bool advecting_species (const Vector<REMORAPC*>& a_species, int a_lev,
  */
 void REMORA::store_particle_omega (int lev, const MultiFab& mf_W)
 {
+    const MultiFab* bottom_transport = GetBottomExchangeTransport(lev);
     if (!m_use_tracer_particles && !m_use_hydro_particles) { return; }
 
     if (int(particle_omega_stored.size()) <= lev) {
@@ -139,7 +140,7 @@ void REMORA::store_particle_omega (int lev, const MultiFab& mf_W)
 
         // The tile, with the first ghost column where it touches the edge of the grid
         const Box bx2d = makeSlab(mfi.growntilebox(IntVect(1,1,0)), 2, 0);
-        if (GetBottomExchangeTransport(lev)) {
+        if (bottom_transport) {
             ParallelFor(bx2d, [=] AMREX_GPU_DEVICE (int i,int j,int) {
                 omega(i,j,0) = W(i,j,0)*pm(i,j,0)*pn(i,j,0);
             });

@@ -45,6 +45,7 @@ REMORA::rhs_uv_3d (int lev,
                   int nrhs, int N)
 {
     BL_PROFILE("REMORA::rhs_uv_3d()");
+    const MultiFab* bottom_transport = GetBottomExchangeTransport(lev);
     const Box& domain = geom[lev].Domain();
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
@@ -248,7 +249,7 @@ REMORA::rhs_uv_3d (int lev,
     auto FCu = fab_FCu.array();
     auto FCv = fab_FCv.array();
 
-    const bool bottom_exchange = GetBottomExchangeTransport(lev) != nullptr;
+    const bool bottom_exchange = bottom_transport != nullptr;
     const int upstream3 = (uv_hadv_scheme == AdvectionScheme::upstream3) ? 1 : 0;
     AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
     [&] (auto const& fu, auto const& fv) {

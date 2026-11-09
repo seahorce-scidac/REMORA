@@ -8,6 +8,7 @@
 #ifdef REMORA_USE_NETCDF
 #include <REMORA_NCFile.H>
 #endif
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -36,6 +37,7 @@ void REMORA::SetBottomExchangeData (const MultiFab& q, const MultiFab& concentra
     m_bottom_coupled->ParallelCopy(q, 0, 0, 1);
     m_bottom_coupled->ParallelCopy(concentrations, 0, 1, ncons);
     m_bottom_begin = begin; m_bottom_end = end;
+    invalidate_bottom_exchange(0);
 }
 
 void REMORA::PackBottomState (int lev, MultiFab& concentrations) const
@@ -63,91 +65,55 @@ const MultiFab* REMORA::GetBottomExchangeTransport (int lev) const
     return m_bottom_transport[lev].get();
 }
 
+/** Invalidate derived transports after new coupled data or a level-layout change.
+ * @param[in] lev changed level; level 0 also invalidates the shared forcing surface
+ */
+void
+REMORA::invalidate_bottom_exchange (int lev)
+{
+    if (lev == 0) {
+        m_bottom_base_ready = false;
+        m_bottom_transport.clear();
+        m_bottom_level_times.clear();
+    } else if (lev < int(m_bottom_transport.size())) {
+        m_bottom_transport[lev].reset();
+    }
+}
+
 void REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
 {
     if (solverChoice.bottom_exchange_type == BottomExchangeType::none) { return; }
+    BL_PROFILE("REMORA::prepare_bottom_exchange()");
+    if (solverChoice.bottom_exchange_type == BottomExchangeType::coupler) {
+        const Real tol = Real(32)*std::numeric_limits<Real>::epsilon()*
+                         amrex::max(Real(1), amrex::Math::abs(time+dt_lev));
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(m_bottom_coupled && time >= m_bottom_begin-tol &&
+            time+dt_lev <= m_bottom_end+tol,
+            "Coupled bottom forcing is missing or expired; submit data covering the whole slow step (also after restart)");
+    }
     const int nc = ncons+1;
     // compute_W and the free-surface update read the first horizontal ghost ring.
     const IntVect ng(1, 1, 0);
     const auto& ba = vec_mskr[0]->boxArray();
     const auto& dm = vec_mskr[0]->DistributionMap();
     if (!m_bottom_raw || m_bottom_raw->boxArray() != ba || m_bottom_raw->DistributionMap() != dm) {
+        invalidate_bottom_exchange(0);
         m_bottom_raw = std::make_unique<MultiFab>(ba, dm, nc, ng);
         m_bottom_base_transport = std::make_unique<MultiFab>(ba, dm, nc, ng);
 #ifdef REMORA_USE_NETCDF
         m_bottom_series.clear(); m_bottom_file_fields.clear(); m_bottom_file_kind.clear();
 #endif
     }
-    auto& raw = *m_bottom_raw;
-    raw.setVal(solverChoice.bottom_q, 0, 1);
-    for (int n=0; n<ncons; ++n) { raw.setVal(solverChoice.bottom_cons[n], n+1, 1); }
     const Real sample_time = time + Real(0.5)*dt_lev;
-    if (solverChoice.bottom_exchange_type == BottomExchangeType::analytic) {
-        // One physical forcing surface, evaluated at each level's own slow-step time.
-        prob->bottom_exchange(0, sample_time, geom[0], *this, raw);
-    } else if (solverChoice.bottom_exchange_type == BottomExchangeType::coupler) {
-        const Real tol = Real(32)*std::numeric_limits<Real>::epsilon()*
-                         amrex::max(Real(1), amrex::Math::abs(time+dt_lev));
-        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(m_bottom_coupled && time >= m_bottom_begin-tol &&
-            time+dt_lev <= m_bottom_end+tol,
-            "Coupled bottom forcing is missing or expired; submit data covering the whole slow step (also after restart)");
-        raw.ParallelCopy(*m_bottom_coupled, 0, 0, nc);
-    }
+    bool changing = solverChoice.bottom_exchange_type == BottomExchangeType::analytic;
 #ifdef REMORA_USE_NETCDF
-    else if (solverChoice.bottom_exchange_type == BottomExchangeType::netcdf) {
-        if (m_bottom_file_kind.empty()) {
-            m_bottom_file_kind.resize(nc, 0);
-            m_bottom_series.resize(nc);
-            m_bottom_file_fields.resize(nc);
-            for (int n=0; n<nc; ++n) {
-                const std::string name = n == 0 ? "bottom_q" : "bottom_" + cons_names[n-1];
-                int kind = 0;
-                auto file = ncutils::NCFile::open(solverChoice.bottom_exchange_files[0], NC_NOCLOBBER);
-                if (file.has_var(name)) {
-                    const auto shape = file.var(name).shape();
-                    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(shape.size() == 2 || shape.size() == 3,
-                        "Bottom variable " + name + " must have shape ([time,] eta_rho, xi_rho)");
-                    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(shape[shape.size()-2] == geom[0].Domain().length(1)+2 &&
-                        shape.back() == geom[0].Domain().length(0)+2,
-                        "Bottom forcing must use model rho dimensions including the ROMS boundary ring");
-                    kind = shape.size() == 2 ? 1 :
-                        (shape[0] == 1 && solverChoice.bottom_exchange_files.size() == 1 ? 2 : 3);
-                }
-                file.close();
-                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(n != 0 || kind != 0, "Bottom file is missing bottom_q");
-                m_bottom_file_kind[n] = kind;
-                if (kind == 0) { continue; } // Explicit deck constant, validated on inflow below.
-                m_bottom_file_fields[n] = std::make_unique<MultiFab>(ba, dm, 1, ng);
-                if (kind == 3) {
-                    m_bottom_series[n] = std::make_unique<NCTimeSeries>(solverChoice.bottom_exchange_files,
-                        name, solverChoice.bottom_time_name, geom[0].Domain(),
-                        m_bottom_file_fields[n].get(), true, false, solverChoice.time_ref);
-                    m_bottom_series[n]->Initialize();
-                } else {
-                    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(solverChoice.bottom_exchange_files.size() == 1,
-                        "Static bottom forcing uses one file");
-                    FArrayBox fab;
-                    Vector<FArrayBox*> fabs{&fab};
-                    Vector<std::string> names{name};
-                    Vector<NC_Data_Dims_Type> dims{kind == 1 ? NC_Data_Dims_Type::SN_WE : NC_Data_Dims_Type::Time_SN_WE};
-                    BuildFABsFromNetCDFFile<FArrayBox,Real>(geom[0].Domain(),
-                        solverChoice.bottom_exchange_files[0], names, dims, fabs, kind == 2, 0);
-                    for (MFIter mfi(*m_bottom_file_fields[n]); mfi.isValid(); ++mfi) {
-                        (*m_bottom_file_fields[n])[mfi].template copy<RunOn::Device>(fab);
-                    }
-                }
-            }
-        }
-        for (int n=0; n<nc; ++n) {
-            if (m_bottom_file_kind[n] == 0) { continue; }
-            if (m_bottom_series[n]) {
-                m_bottom_series[n]->update_interpolated_to_time(model_time(sample_time), 0,
-                    m_bottom_file_fields[n].get(), geom, ref_ratio);
-            }
-            MultiFab::Copy(raw, *m_bottom_file_fields[n], 0, n, 1, ng);
-        }
+    if (solverChoice.bottom_exchange_type == BottomExchangeType::netcdf) {
+        changing = m_bottom_file_kind.empty() || std::any_of(m_bottom_series.begin(),
+            m_bottom_series.end(), [] (const auto& series) { return bool(series); });
     }
 #endif
+    if (GetBottomExchangeTransport(lev) &&
+        (!changing || m_bottom_level_times[lev] == sample_time)) { return; }
     Vector<BCRec> bcs(nc);
     for (auto& bc : bcs) {
         for (int d=0; d<AMREX_SPACEDIM; ++d) {
@@ -155,50 +121,119 @@ void REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
             bc.setHi(d, geom[0].isPeriodic(d) ? BCType::int_dir : BCType::foextrap);
         }
     }
-    if (solverChoice.bottom_exchange_type == BottomExchangeType::netcdf) {
-        // The reader supplies the physical rho ring; periodic images use ocean data.
-        raw.EnforcePeriodicity(geom[0].periodicity());
-    } else {
-        raw.FillBoundary(geom[0].periodicity());
-        FillDomainBoundary(raw, geom[0], bcs);
-    }
-    // Validate only wet cells and incoming concentrations actually used. Never multiply
-    // missing concentrations by zero: an outflow-only file needs no tracer variables.
-    ReduceOps<ReduceOpMax> op;
-    ReduceData<int> data(op);
-    for (MFIter mfi(raw); mfi.isValid(); ++mfi) {
-        const auto a = raw.const_array(mfi);
-        const auto mask = vec_mskr[0]->const_array(mfi);
-        op.eval(mfi.validbox(), data, [=] AMREX_GPU_DEVICE (int i, int j, int) -> GpuTuple<int> {
-            if (mask(i,j,0) <= 0) { return {0}; }
-            if (!std::isfinite(a(i,j,0,0))) { return {1}; }
-            if (a(i,j,0,0) > 0) {
-                for (int n=1; n<nc; ++n) {
-                    if (!std::isfinite(a(i,j,0,n))) { return {1}; }
+    if (!m_bottom_base_ready || (changing && m_bottom_base_time != sample_time)) {
+        auto& raw = *m_bottom_raw;
+        raw.setVal(solverChoice.bottom_q, 0, 1);
+        for (int n=0; n<ncons; ++n) { raw.setVal(solverChoice.bottom_cons[n], n+1, 1); }
+        if (solverChoice.bottom_exchange_type == BottomExchangeType::analytic) {
+            // One physical forcing surface, evaluated at each level's own slow-step time.
+            prob->bottom_exchange(0, sample_time, geom[0], *this, raw);
+        } else if (solverChoice.bottom_exchange_type == BottomExchangeType::coupler) {
+            raw.ParallelCopy(*m_bottom_coupled, 0, 0, nc);
+        }
+#ifdef REMORA_USE_NETCDF
+        else if (solverChoice.bottom_exchange_type == BottomExchangeType::netcdf) {
+            if (m_bottom_file_kind.empty()) {
+                m_bottom_file_kind.resize(nc, 0);
+                m_bottom_series.resize(nc);
+                m_bottom_file_fields.resize(nc);
+                for (int n=0; n<nc; ++n) {
+                    const std::string name = n == 0 ? "bottom_q" : "bottom_" + cons_names[n-1];
+                    int kind = 0;
+                    auto file = ncutils::NCFile::open(solverChoice.bottom_exchange_files[0], NC_NOCLOBBER);
+                    if (file.has_var(name)) {
+                        const auto shape = file.var(name).shape();
+                        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(shape.size() == 2 || shape.size() == 3,
+                            "Bottom variable " + name + " must have shape ([time,] eta_rho, xi_rho)");
+                        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(shape[shape.size()-2] == geom[0].Domain().length(1)+2 &&
+                            shape.back() == geom[0].Domain().length(0)+2,
+                            "Bottom forcing must use model rho dimensions including the ROMS boundary ring");
+                        kind = shape.size() == 2 ? 1 :
+                            (shape[0] == 1 && solverChoice.bottom_exchange_files.size() == 1 ? 2 : 3);
+                    }
+                    file.close();
+                    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(n != 0 || kind != 0, "Bottom file is missing bottom_q");
+                    m_bottom_file_kind[n] = kind;
+                    if (kind == 0) { continue; } // Explicit deck constant, validated on inflow below.
+                    m_bottom_file_fields[n] = std::make_unique<MultiFab>(ba, dm, 1, ng);
+                    if (kind == 3) {
+                        m_bottom_series[n] = std::make_unique<NCTimeSeries>(solverChoice.bottom_exchange_files,
+                            name, solverChoice.bottom_time_name, geom[0].Domain(),
+                            m_bottom_file_fields[n].get(), true, false, solverChoice.time_ref);
+                        m_bottom_series[n]->Initialize();
+                    } else {
+                        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(solverChoice.bottom_exchange_files.size() == 1,
+                            "Static bottom forcing uses one file");
+                        FArrayBox fab;
+                        Vector<FArrayBox*> fabs{&fab};
+                        Vector<std::string> names{name};
+                        Vector<NC_Data_Dims_Type> dims{kind == 1 ? NC_Data_Dims_Type::SN_WE : NC_Data_Dims_Type::Time_SN_WE};
+                        BuildFABsFromNetCDFFile<FArrayBox,Real>(geom[0].Domain(),
+                            solverChoice.bottom_exchange_files[0], names, dims, fabs, kind == 2, 0);
+                        for (MFIter mfi(*m_bottom_file_fields[n]); mfi.isValid(); ++mfi) {
+                            (*m_bottom_file_fields[n])[mfi].template copy<RunOn::Device>(fab);
+                        }
+                    }
                 }
-                if (a(i,j,0,1+Salt_comp) < 0) { return {1}; }
             }
-            return {0};
-        });
+            for (int n=0; n<nc; ++n) {
+                if (m_bottom_file_kind[n] == 0) { continue; }
+                if (m_bottom_series[n]) {
+                    m_bottom_series[n]->update_interpolated_to_time(model_time(sample_time), 0,
+                        m_bottom_file_fields[n].get(), geom, ref_ratio);
+                }
+                MultiFab::Copy(raw, *m_bottom_file_fields[n], 0, n, 1, ng);
+            }
+        }
+#endif
+        if (solverChoice.bottom_exchange_type == BottomExchangeType::netcdf) {
+            // The reader supplies the physical rho ring; periodic images use ocean data.
+            raw.EnforcePeriodicity(geom[0].periodicity());
+        } else {
+            raw.FillBoundary(geom[0].periodicity());
+            FillDomainBoundary(raw, geom[0], bcs);
+        }
+        // Validate only wet cells and incoming concentrations actually used. Never multiply
+        // missing concentrations by zero: an outflow-only file needs no tracer variables.
+        ReduceOps<ReduceOpMax> op;
+        ReduceData<int> data(op);
+        for (MFIter mfi(raw); mfi.isValid(); ++mfi) {
+            const auto a = raw.const_array(mfi);
+            const auto mask = vec_mskr[0]->const_array(mfi);
+            op.eval(mfi.validbox(), data, [=] AMREX_GPU_DEVICE (int i, int j, int) -> GpuTuple<int> {
+                if (mask(i,j,0) <= 0) { return {0}; }
+                if (!std::isfinite(a(i,j,0,0))) { return {1}; }
+                if (a(i,j,0,0) > 0) {
+                    for (int n=1; n<nc; ++n) {
+                        if (!std::isfinite(a(i,j,0,n))) { return {1}; }
+                    }
+                    if (a(i,j,0,1+Salt_comp) < 0) { return {1}; }
+                }
+                return {0};
+            });
+        }
+        int bad = amrex::get<0>(data.value(op));
+        ParallelDescriptor::ReduceIntMax(bad);
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!bad,
+            "Bottom exchange needs finite q and explicit finite concentrations for every tracer on inflow; salinity must be nonnegative");
+        auto& base = *m_bottom_base_transport;
+        for (MFIter mfi(base); mfi.isValid(); ++mfi) {
+            const auto a = raw.const_array(mfi);
+            const auto out = base.array(mfi);
+            const auto mask = vec_mskr[0]->const_array(mfi);
+            const auto pm = vec_pm[0]->const_array(mfi), pn = vec_pn[0]->const_array(mfi);
+            ParallelFor(mfi.fabbox(), [=] AMREX_GPU_DEVICE (int i, int j, int) {
+                const Real q = mask(i,j,0) > 0 ? a(i,j,0,0)/(pm(i,j,0)*pn(i,j,0)) : Real(0);
+                out(i,j,0,0) = q;
+                for (int n=1; n<nc; ++n) { out(i,j,0,n) = q > 0 ? q*a(i,j,0,n) : Real(0); }
+            });
+        }
+        m_bottom_base_ready = true;
+        m_bottom_base_time = sample_time;
     }
-    int bad = amrex::get<0>(data.value(op));
-    ParallelDescriptor::ReduceIntMax(bad);
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!bad,
-        "Bottom exchange needs finite q and explicit finite concentrations for every tracer on inflow; salinity must be nonnegative");
-    auto& base = *m_bottom_base_transport;
-    base.setVal(0);
-    for (MFIter mfi(base); mfi.isValid(); ++mfi) {
-        const auto a = raw.const_array(mfi);
-        const auto out = base.array(mfi);
-        const auto mask = vec_mskr[0]->const_array(mfi);
-        const auto pm = vec_pm[0]->const_array(mfi), pn = vec_pn[0]->const_array(mfi);
-        ParallelFor(mfi.fabbox(), [=] AMREX_GPU_DEVICE (int i, int j, int) {
-            const Real q = mask(i,j,0) > 0 ? a(i,j,0,0)/(pm(i,j,0)*pn(i,j,0)) : Real(0);
-            out(i,j,0,0) = q;
-            for (int n=1; n<nc; ++n) { out(i,j,0,n) = q > 0 ? q*a(i,j,0,n) : Real(0); }
-        });
-    }
+    const auto& base = *m_bottom_base_transport;
     m_bottom_transport.resize(finest_level+1);
+    m_bottom_level_times.resize(finest_level+1);
     auto& target = m_bottom_transport[lev];
     if (!target || target->boxArray() != vec_mskr[lev]->boxArray() || target->DistributionMap() != dmap[lev]) {
         target = std::make_unique<MultiFab>(vec_mskr[lev]->boxArray(), dmap[lev], nc, ng);
@@ -237,6 +272,7 @@ void REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
         AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!inconsistent,
             "Bottom exchange requires consistent coarse/fine wet masks over source cells");
     }
+    m_bottom_level_times[lev] = sample_time;
 }
 
 void REMORA::check_bottom_exchange (int lev, Real dt_lev) const
