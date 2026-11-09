@@ -34,9 +34,14 @@ void check_full_columns (int lev, const BoxArray& ba, const Geometry& geom)
  * CPU builds tile in 16x16 columns by default (main.cpp), and the threads of a rank share
  * the tiles of its boxes. When tiling is turned off (remora.omp_tile_size at least the box
  * size), the threads share whole boxes instead, so a rank with fewer boxes than threads
- * leaves threads idle. Say so, naming the knobs that fix it.
+ * leaves threads idle. Say so, naming the knobs that fix it, whenever a level's grids
+ * start leaving threads idle on some rank; grids that keep doing so are not reported again.
+ *
+ * @param[inout] warned  whether the level's previous grids left threads idle; reset when
+ *                       the level is removed
  */
-void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm)
+void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm,
+                                       int& warned)
 {
 #ifdef AMREX_USE_OMP
     // Tiling is on when a tile is smaller than some box in x or y; inputs often write
@@ -50,18 +55,21 @@ void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const Distri
         if (dm[i] == myproc) { ++nlocal; }
         tiled = tiled || ba[i].length(0) > tile_size[0] || ba[i].length(1) > tile_size[1];
     }
-    // Collective: every rank reaches it, whatever its thread count
-    ParallelDescriptor::ReduceIntMin(nlocal);
-    if (nthreads > 1 && !tiled && nlocal < nthreads) {
-        amrex::Print() << "WARNING: level " << lev << " has only " << nlocal
-                       << " boxes on some rank for " << nthreads << " OpenMP threads;"
-                       << " threads beyond the box count idle. Lower amr.max_grid_size"
-                       << " (or amr.max_grid_size_x/y) to give every rank at least "
-                       << nthreads << " boxes, or set remora.omp_tile_size so the"
-                       << " threads share the tiles of a box.\n";
+    // Each rank judges its own boxes against its own threads. Collective: every rank
+    // reaches it, whatever its thread count, so the result is the same on all of them.
+    int idle = (nthreads > 1 && !tiled && nlocal < nthreads) ? 1 : 0;
+    ParallelDescriptor::ReduceIntMax(idle);
+    if (idle && !warned) {
+        amrex::Print() << "WARNING: level " << lev << " leaves OpenMP threads idle: some rank"
+                       << " has fewer boxes than threads, and without tiling the threads"
+                       << " share whole boxes. Lower amr.max_grid_size (or"
+                       << " amr.max_grid_size_x/y) to give every rank at least as many"
+                       << " boxes as threads, or set remora.omp_tile_size so the threads"
+                       << " share the tiles of a box.\n";
     }
+    warned = idle;
 #else
-    amrex::ignore_unused(lev, ba, dm);
+    amrex::ignore_unused(lev, ba, dm, warned);
 #endif
 }
 }
@@ -90,7 +98,8 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     amrex::Print() << "Making level " << lev << " from coarse" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
     check_full_columns(lev, ba, geom[lev]);
-    warn_if_fewer_boxes_than_threads(lev, ba, dm);
+    if (lev >= idle_threads_warned.size()) { idle_threads_warned.resize(lev+1, 0); }
+    warn_if_fewer_boxes_than_threads(lev, ba, dm, idle_threads_warned[lev]);
 
     cons_new[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
     cons_old[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
@@ -249,7 +258,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     amrex::Print() << "Remaking level " << lev << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
     check_full_columns(lev, ba, geom[lev]);
-    warn_if_fewer_boxes_than_threads(lev, ba, dm);
+    if (lev >= idle_threads_warned.size()) { idle_threads_warned.resize(lev+1, 0); }
+    warn_if_fewer_boxes_than_threads(lev, ba, dm, idle_threads_warned[lev]);
 
     int ngrow_state   = 3;
     int ngrow_vels    = 3;
@@ -447,7 +457,8 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba_in,
     amrex::Print() << "Making level " << lev << " from scratch" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
     check_full_columns(lev, ba, geom[lev]);
-    warn_if_fewer_boxes_than_threads(lev, ba, dm);
+    if (lev >= idle_threads_warned.size()) { idle_threads_warned.resize(lev+1, 0); }
+    warn_if_fewer_boxes_than_threads(lev, ba, dm, idle_threads_warned[lev]);
 
     int ngrow_state = 3;
     int ngrow_vels  = 3;
@@ -936,6 +947,7 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
 void
 REMORA::ClearLevel (int lev)
 {
+    if (lev < idle_threads_warned.size()) { idle_threads_warned[lev] = 0; }
     delete cons_new[lev]; delete xvel_new[lev];  delete yvel_new[lev];  delete zvel_new[lev];
     delete cons_old[lev]; delete xvel_old[lev];  delete yvel_old[lev];  delete zvel_old[lev];
 #ifdef REMORA_USE_PARTICLES
