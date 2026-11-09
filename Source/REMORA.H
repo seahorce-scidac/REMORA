@@ -1913,6 +1913,9 @@ private:
 
     /** \brief how many boxes specified at each level by tagging criteria */
     amrex::Vector<int> num_boxes_at_level;
+
+    //! Per level, whether its grids left OpenMP threads idle when last made
+    amrex::Vector<int> idle_threads_warned;
     /** \brief how many netcdf input files specified at each level */
     amrex::Vector<int> num_files_at_level;
     /** \brief the boxes specified at each level by tagging criteria */

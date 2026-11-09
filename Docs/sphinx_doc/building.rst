@@ -146,7 +146,8 @@ or if using tcsh,
       correction is accumulated in a fixed order, so the answers do not depend on the
       tiling or the thread count. If tiling is turned off, the threads share
       a rank's boxes instead, and a rank with fewer boxes on a level than threads leaves
-      threads idle (REMORA warns at startup); choose ``amr.max_grid_size`` accordingly.
+      threads idle (REMORA warns when a level's grids do so); choose ``amr.max_grid_size``
+      accordingly.
 
    Information on using other compilers can be found in the AMReX documentation at
    https://amrex-codes.github.io/amrex/docs_html/BuildingAMReX.html .
