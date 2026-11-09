@@ -344,7 +344,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
     // FineAdd adds a tile's boundary fluxes, with atomic adds, into the coarse cells next
     // to its box. Two tiles of a box whose common edge is not a multiple of the refinement
-    // ratio add into the same coarse cell, so with several threads the order of those adds,
+    // ratio can add into the same coarse cell, so with several threads the order of those adds,
     // and the rounding, would follow thread timing. In that case the fluxes are kept on
     // this level's faces and added after the loop, tile by tile in the fixed order a single
     // thread uses. Tiles whose edges all fall on coarse cell edges share no coarse cell,
