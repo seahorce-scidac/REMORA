@@ -315,6 +315,7 @@ REMORA::EvolveOneStep (amrex::Real /*time*/, amrex::Real /*dt_request*/)
     }
 
     ComputeDt();
+    update_wvel_before_checkpoint_step(step, cur_time, elapsed_time(stop_time));
 
     int lev = 0;
     int iteration = 1;

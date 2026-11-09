@@ -115,6 +115,14 @@ public:
     /** \brief Write checkpoint and plotfiles at intermediate point of simulation, if needed */
     void WriteAtIntermediateTime (int step, amrex::Real cur_time);
 
+    /** \brief Whether WriteAtIntermediateTime writes a checkpoint after coarse step step */
+    [[nodiscard]] bool checkpoint_due (int step, amrex::Real cur_time) const;
+
+    /** \brief Form w before a coarse step that ends in a checkpoint, which also writes the
+     *         w of the state the step starts from */
+    void update_wvel_before_checkpoint_step (int step, amrex::Real cur_time,
+                                             amrex::Real stop_elapsed);
+
     /** \brief Tag cells for refinement */
     virtual void ErrorEst (int lev, amrex::TagBoxArray& tags, amrex::Real time, int ngrow) override;
 
@@ -1137,6 +1145,21 @@ public:
     /** \brief As compute_wvel, from an omega already computed by compute_diagnostic_omega */
     void compute_wvel (int lev, amrex::MultiFab& mf_w, const amrex::MultiFab& mf_omega);
 
+    /** \brief Diagnose w into zvel_new on one level and fill its ghost cells */
+    void compute_and_fill_wvel (int lev);
+
+    /** \brief Bring zvel_new up to date on every level whose w the last step left stale */
+    void update_wvel ();
+
+    /** \brief Whether the step leaves w stale until a reader asks for it (single level only) */
+    [[nodiscard]] bool wvel_is_lazy () const { return max_level == 0; }
+
+    /** \brief Per level: zvel_new holds the w of the current state, ghost cells filled */
+    amrex::Vector<int> wvel_current;
+
+    /** \brief Per level: zvel_old holds the w of the previous step's state */
+    amrex::Vector<int> wvel_old_current;
+
     /** \brief Region of a level that its NetCDF output covers */
     amrex::Box netcdf_subdomain (int lev) const;
 
@@ -1386,10 +1409,10 @@ public:
                         const int nstp, const int nnew,
                         const int N, const amrex::Real dt_lev);
 
-    /** \brief Scale RHS momentum variables by 1/cell area, needed before FillPatch to different levels*/
-    void scale_rhs_vars (int lev);
-    /** \brief Scale RHS momentum variables by cell area, needed after FillPatch to different levels*/
-    void scale_rhs_vars_inv (int lev);
+    /** \brief Convert ru, rv, ru2d or rv2d between the kernels' form and the per-area form */
+    void scale_rhs_by_area (int lev, amrex::MultiFab& mf, int dir, bool to_per_area);
+    /** \brief A per-area copy of ru, rv, ru2d or rv2d, for a fill of another level */
+    amrex::MultiFab rhs_per_area_copy (int lev, const amrex::MultiFab& src, int dir);
 
     /** \brief Initialize or calculate surface momentum flux from file or analytic */
     void set_smflux (int lev);

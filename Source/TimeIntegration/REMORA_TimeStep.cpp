@@ -25,6 +25,7 @@ REMORA::timeStep (int lev, Real time, int iteration)
             {
                 // regrid interpolates this level's data to build lev+1, so its ghost cells
                 // must be current. The swap has not happened, so "new" is what regrid reads.
+                update_wvel();
                 FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t,0,true,true);
                 FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u,0,true,true);
                 FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v,0,true,true);
@@ -58,8 +59,6 @@ REMORA::timeStep (int lev, Real time, int iteration)
         }
     }
 
-    scale_rhs_vars(lev);
-
     // Update what we call "old" and "new" time
     t_old[lev] = t_new[lev];
     // A child's last substep lands exactly on its parent's new time. Summing dt[lev] would
@@ -92,13 +91,13 @@ REMORA::timeStep (int lev, Real time, int iteration)
     std::swap(xvel_old[lev], xvel_new[lev]);
     std::swap(yvel_old[lev], yvel_new[lev]);
     std::swap(zvel_old[lev], zvel_new[lev]);
+    wvel_old_current[lev] = wvel_current[lev];
+    wvel_current[lev] = 0;
 
     // Advance a single level for a single time step
     Advance(lev, time, dt[lev], iteration, nsubsteps[lev]);
 
     ++istep[lev];
-
-    scale_rhs_vars_inv(lev);
 
     if (Verbose())
     {
