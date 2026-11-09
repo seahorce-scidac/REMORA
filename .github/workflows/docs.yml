@@ -13,6 +13,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Sphinx 5 imports imghdr, which Python 3.13 removed
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
       - name: Dependencies
         run: |
           .github/workflows/dependencies/documentation.sh
