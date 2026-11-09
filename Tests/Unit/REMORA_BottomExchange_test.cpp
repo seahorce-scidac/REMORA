@@ -57,29 +57,41 @@ public:
     }
 };
 
-void require_close (const std::string& name, Real actual, Real expected, Real tolerance=Real(2.e-10), Real scale=Real(1))
+void require_close (const std::string& name, double actual, double expected, double tolerance=2.e-10, double scale=1)
 {
     // Budget sums accumulate Real state; keep the roundoff allowance below the transfer.
-    tolerance = amrex::max(tolerance, Real(16)*std::numeric_limits<Real>::epsilon());
+    tolerance = std::max(tolerance, 16.0*std::numeric_limits<Real>::epsilon());
     Print() << name << ": actual=" << actual << " expected=" << expected << '\n';
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(std::isfinite(actual) &&
-        std::abs(actual-expected) <= tolerance*amrex::max(scale,std::abs(expected)), name);
+        std::abs(actual-expected) <= tolerance*std::max(scale,std::abs(expected)), name);
 }
 
-Vector<Real> budget (REMORA& ocean)
+Vector<double> budget (REMORA& ocean)
 {
-    Vector<Real> total(5,0); // volume, temperature, salt, dye, u momentum
+    Vector<double> total(5,0); // volume, temperature, salt, dye, u momentum
     for (int lev=0; lev<=ocean.finestLevel(); ++lev) {
-        MultiFab fields(ocean.cons_new[lev]->boxArray(), ocean.cons_new[lev]->DistributionMap(), 5, 0);
-        fields.setVal(1,0,1);
-        MultiFab::Copy(fields,*ocean.cons_new[lev],0,1,3,0);
-        for (MFIter mfi(fields); mfi.isValid(); ++mfi) {
-            const auto a=fields.array(mfi), u=ocean.xvel_new[lev]->array(mfi);
-            ParallelFor(mfi.validbox(), [=] AMREX_GPU_DEVICE (int i,int j,int k) {
-                a(i,j,k,4)=Real(0.5)*(u(i,j,k)+u(i+1,j,k));
+        const MultiFab* fine = lev<ocean.finestLevel() ? &ocean.build_fine_mask(lev+1) : nullptr;
+        ReduceOps<ReduceOpSum,ReduceOpSum,ReduceOpSum,ReduceOpSum,ReduceOpSum> op;
+        ReduceData<double,double,double,double,double> data(op);
+        for (MFIter mfi(*ocean.cons_new[lev]); mfi.isValid(); ++mfi) {
+            const auto c=ocean.cons_new[lev]->const_array(mfi);
+            const auto u=ocean.xvel_new[lev]->const_array(mfi);
+            const auto hz=ocean.vec_Hz[lev]->const_array(mfi);
+            const auto pm=ocean.vec_pm[lev]->const_array(mfi), pn=ocean.vec_pn[lev]->const_array(mfi);
+            const auto mask=fine ? fine->const_array(mfi) : Array4<Real const>();
+            // Accumulate the oracle in double even when the evolved state is float.
+            op.eval(mfi.validbox(),data,[=] AMREX_GPU_DEVICE (int i,int j,int k)
+                -> GpuTuple<double,double,double,double,double> {
+                const double volume=double(hz(i,j,k))/(double(pm(i,j,0))*double(pn(i,j,0))) *
+                                    (mask ? double(mask(i,j,k)) : 1.0);
+                return {volume,volume*double(c(i,j,k,0)),volume*double(c(i,j,k,1)),
+                        volume*double(c(i,j,k,2)),
+                        volume*0.5*(double(u(i,j,k))+double(u(i+1,j,k)))};
             });
         }
-        for (int n=0; n<5; ++n) { total[n] += ocean.volWgtSumMF(lev,fields,n,true,true); }
+        const auto result=data.value(op);
+        total[0]+=get<0>(result); total[1]+=get<1>(result); total[2]+=get<2>(result);
+        total[3]+=get<3>(result); total[4]+=get<4>(result);
     }
     ParallelDescriptor::ReduceRealSum(total.data(),total.size());
     return total;
