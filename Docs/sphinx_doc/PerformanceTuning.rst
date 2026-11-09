@@ -55,7 +55,10 @@ Compilers fuse ("contract") such pairs when the target has the instruction, whic
 ``-march=native`` and the compiler wrappers of most clusters (Perlmutter's included)
 enable. REMORA builds with contraction **off** by default: ``-ffp-contract=off`` for GCC,
 Clang and the Intel LLVM compilers, ``-no-fma`` for classic Intel and ``-Mnofma`` for
-NVHPC, applied to REMORA and to the AMReX sources of the same build.
+NVHPC, applied to REMORA and to the AMReX sources of the same build (and, with GNU
+Fortran, to the Fortran sources). An AMReX built separately and linked with
+``REMORA_USE_INTERNAL_AMREX=OFF`` keeps the flags it was built with; build it with the same
+flag for the guarantee below to cover the AMReX loops too.
 
 The reason is reproducibility rather than accuracy. Which pairs a compiler fuses is a
 heuristic, and it can fuse the same expression differently in the vectorized body of a
@@ -90,8 +93,8 @@ REMORA decomposes each level into boxes of at most ``amr.max_grid_size`` cells o
 over the MPI ranks. Every rank should own at least one box; a rank with none idles. With
 OpenMP, every ``MFIter`` loop of the time step is threaded over tiles (see `Tiling`_), so
 the threads of a rank share its boxes. A rank whose box count times tile count is below
-its thread count leaves threads idle; REMORA prints a warning at startup when a rank has
-fewer boxes than threads and tiling is off.
+its thread count leaves threads idle; with tiling off, REMORA prints a warning when a
+level's grids, at startup or after a regrid, leave some rank with fewer boxes than threads.
 
 On one Perlmutter CPU node with the 84-million-cell problem, the time per step at full
 occupancy was within a few percent for 128 ranks x 1 thread, 64 x 2, 32 x 4 and 16 x 8

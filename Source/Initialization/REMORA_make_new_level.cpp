@@ -34,9 +34,14 @@ void check_full_columns (int lev, const BoxArray& ba, const Geometry& geom)
  * CPU builds tile in 16x16 columns by default (main.cpp), and the threads of a rank share
  * the tiles of its boxes. When tiling is turned off (remora.omp_tile_size at least the box
  * size), the threads share whole boxes instead, so a rank with fewer boxes than threads
- * leaves threads idle. Say so, naming the knobs that fix it.
+ * leaves threads idle. Say so, naming the knobs that fix it, whenever a level's grids
+ * start leaving threads idle on some rank; grids that keep doing so are not reported again.
+ *
+ * @param[inout] warned  whether the level's previous grids left threads idle; reset when
+ *                       the level is removed
  */
-void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm)
+void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm,
+                                       int& warned)
 {
 #ifdef AMREX_USE_OMP
     // Tiling is on when a tile is smaller than some box in x or y; inputs often write
@@ -50,18 +55,21 @@ void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const Distri
         if (dm[i] == myproc) { ++nlocal; }
         tiled = tiled || ba[i].length(0) > tile_size[0] || ba[i].length(1) > tile_size[1];
     }
-    // Collective: every rank reaches it, whatever its thread count
-    ParallelDescriptor::ReduceIntMin(nlocal);
-    if (nthreads > 1 && !tiled && nlocal < nthreads) {
-        amrex::Print() << "WARNING: level " << lev << " has only " << nlocal
-                       << " boxes on some rank for " << nthreads << " OpenMP threads;"
-                       << " threads beyond the box count idle. Lower amr.max_grid_size"
-                       << " (or amr.max_grid_size_x/y) to give every rank at least "
-                       << nthreads << " boxes, or set remora.omp_tile_size so the"
-                       << " threads share the tiles of a box.\n";
+    // Each rank judges its own boxes against its own threads. Collective: every rank
+    // reaches it, whatever its thread count, so the result is the same on all of them.
+    int idle = (nthreads > 1 && !tiled && nlocal < nthreads) ? 1 : 0;
+    ParallelDescriptor::ReduceIntMax(idle);
+    if (idle && !warned) {
+        amrex::Print() << "WARNING: level " << lev << " leaves OpenMP threads idle: some rank"
+                       << " has fewer boxes than threads, and without tiling the threads"
+                       << " share whole boxes. Lower amr.max_grid_size (or"
+                       << " amr.max_grid_size_x/y) to give every rank at least as many"
+                       << " boxes as threads, or set remora.omp_tile_size so the threads"
+                       << " share the tiles of a box.\n";
     }
+    warned = idle;
 #else
-    amrex::ignore_unused(lev, ba, dm);
+    amrex::ignore_unused(lev, ba, dm, warned);
 #endif
 }
 }
@@ -92,7 +100,8 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     amrex::Print() << "Making level " << lev << " from coarse" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
     check_full_columns(lev, ba, geom[lev]);
-    warn_if_fewer_boxes_than_threads(lev, ba, dm);
+    if (lev >= idle_threads_warned.size()) { idle_threads_warned.resize(lev+1, 0); }
+    warn_if_fewer_boxes_than_threads(lev, ba, dm, idle_threads_warned[lev]);
 
     cons_new[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
     cons_old[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
@@ -192,15 +201,31 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
         FillCoarsePatch(lev, time, vec_vbar[lev].get(), vec_vbar[lev-1].get(), vbar_bc(),
                 bdy_vbar(),icomp,false);
     }
-    for (int icomp=0; icomp<2; icomp++) {
-        FillCoarsePatch(lev, time, vec_ru[lev].get(), vec_ru[lev-1].get(), xvel_bc(),
-                BdyVars::null,icomp,false);
-        FillCoarsePatch(lev, time, vec_rv[lev].get(), vec_rv[lev-1].get(), yvel_bc(),
-                BdyVars::null,icomp,false);
-        FillCoarsePatch(lev, time, vec_ru2d[lev].get(), vec_ru2d[lev-1].get(), xvel_bc(),
-                BdyVars::null,icomp,false);
-        FillCoarsePatch(lev, time, vec_rv2d[lev].get(), vec_rv2d[lev-1].get(), yvel_bc(),
-                BdyVars::null,icomp,false);
+    {
+        // The kernels keep ru, rv, ru2d and rv2d scaled by face area, which differs between
+        // the levels, so interpolate the per-area form and convert back on this level. The
+        // coarse arrays are exchanged in place, as the fill would exchange them.
+        amrex::FillBoundary(Vector<MultiFab*>{vec_ru[lev-1].get(), vec_rv[lev-1].get(),
+                                              vec_ru2d[lev-1].get(), vec_rv2d[lev-1].get()},
+                            geom[lev-1].periodicity());
+        MultiFab crse_ru   = rhs_per_area_copy(lev-1, *vec_ru[lev-1],   0);
+        MultiFab crse_rv   = rhs_per_area_copy(lev-1, *vec_rv[lev-1],   1);
+        MultiFab crse_ru2d = rhs_per_area_copy(lev-1, *vec_ru2d[lev-1], 0);
+        MultiFab crse_rv2d = rhs_per_area_copy(lev-1, *vec_rv2d[lev-1], 1);
+        for (int icomp=0; icomp<2; icomp++) {
+            FillCoarsePatch(lev, time, vec_ru[lev].get(), &crse_ru, xvel_bc(),
+                    BdyVars::null,icomp,false);
+            FillCoarsePatch(lev, time, vec_rv[lev].get(), &crse_rv, yvel_bc(),
+                    BdyVars::null,icomp,false);
+            FillCoarsePatch(lev, time, vec_ru2d[lev].get(), &crse_ru2d, xvel_bc(),
+                    BdyVars::null,icomp,false);
+            FillCoarsePatch(lev, time, vec_rv2d[lev].get(), &crse_rv2d, yvel_bc(),
+                    BdyVars::null,icomp,false);
+        }
+        scale_rhs_by_area(lev, *vec_ru[lev],   0, false);
+        scale_rhs_by_area(lev, *vec_rv[lev],   1, false);
+        scale_rhs_by_area(lev, *vec_ru2d[lev], 0, false);
+        scale_rhs_by_area(lev, *vec_rv2d[lev], 1, false);
     }
 
     stretch_transform(lev);
@@ -253,7 +278,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     amrex::Print() << "Remaking level " << lev << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
     check_full_columns(lev, ba, geom[lev]);
-    warn_if_fewer_boxes_than_threads(lev, ba, dm);
+    if (lev >= idle_threads_warned.size()) { idle_threads_warned.resize(lev+1, 0); }
+    warn_if_fewer_boxes_than_threads(lev, ba, dm, idle_threads_warned[lev]);
 
     int ngrow_state   = 3;
     int ngrow_vels    = 3;
@@ -308,6 +334,26 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     tmp_vbar_new.setVal(zero);
 
 
+    // ru, rv, ru2d and rv2d are interpolated in the per-area form, as in
+    // MakeNewLevelFromCoarse. The old fine copies need the old metrics, which init_stuff
+    // replaces. The coarse arrays are exchanged in place, as the fill would exchange them.
+    amrex::FillBoundary(Vector<MultiFab*>{vec_ru[lev-1].get(), vec_rv[lev-1].get(),
+                                          vec_ru2d[lev-1].get(), vec_rv2d[lev-1].get()},
+                        geom[lev-1].periodicity());
+    MultiFab crse_ru   = rhs_per_area_copy(lev-1, *vec_ru[lev-1],   0);
+    MultiFab crse_rv   = rhs_per_area_copy(lev-1, *vec_rv[lev-1],   1);
+    MultiFab crse_ru2d = rhs_per_area_copy(lev-1, *vec_ru2d[lev-1], 0);
+    MultiFab crse_rv2d = rhs_per_area_copy(lev-1, *vec_rv2d[lev-1], 1);
+    MultiFab fine_ru   = rhs_per_area_copy(lev,   *vec_ru[lev],     0);
+    MultiFab fine_rv   = rhs_per_area_copy(lev,   *vec_rv[lev],     1);
+    MultiFab fine_ru2d = rhs_per_area_copy(lev,   *vec_ru2d[lev],   0);
+    MultiFab fine_rv2d = rhs_per_area_copy(lev,   *vec_rv2d[lev],   1);
+    Vector<MultiFab*> pa_ru(lev+1), pa_rv(lev+1), pa_ru2d(lev+1), pa_rv2d(lev+1);
+    pa_ru[lev-1]   = &crse_ru;   pa_ru[lev]   = &fine_ru;
+    pa_rv[lev-1]   = &crse_rv;   pa_rv[lev]   = &fine_rv;
+    pa_ru2d[lev-1] = &crse_ru2d; pa_ru2d[lev] = &fine_ru2d;
+    pa_rv2d[lev-1] = &crse_rv2d; pa_rv2d[lev] = &fine_rv2d;
+
     // As in MakeNewLevelFromCoarse. init_stuff comes along because set_grid_scale follows it.
     init_stuff(lev, ba, dm);
     set_grid_scale(lev);
@@ -327,12 +373,17 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
         FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(), icomp,false,false);
     }
     for (int icomp=0; icomp<2; icomp++) {
-        FillPatch(lev, time, tmp_ru_new, GetVecOfPtrs(vec_ru), xvel_bc(), BdyVars::null, icomp,false,false);
-        FillPatch(lev, time, tmp_rv_new, GetVecOfPtrs(vec_rv), yvel_bc(), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_ru_new, pa_ru, xvel_bc(), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_rv_new, pa_rv, yvel_bc(), BdyVars::null, icomp,false,false);
         // These might want to have BCVars::ubar_bc and vbar_bc
-        FillPatch(lev, time, tmp_ru2d_new, GetVecOfPtrs(vec_ru2d), xvel_bc(), BdyVars::null, icomp,false,false);
-        FillPatch(lev, time, tmp_rv2d_new, GetVecOfPtrs(vec_rv2d), yvel_bc(), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_ru2d_new, pa_ru2d, xvel_bc(), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_rv2d_new, pa_rv2d, yvel_bc(), BdyVars::null, icomp,false,false);
     }
+    // Back to the kernels' form, with the new grids' metrics
+    scale_rhs_by_area(lev, tmp_ru_new,   0, false);
+    scale_rhs_by_area(lev, tmp_rv_new,   1, false);
+    scale_rhs_by_area(lev, tmp_ru2d_new, 0, false);
+    scale_rhs_by_area(lev, tmp_rv2d_new, 1, false);
 
     MultiFab::Copy(tmp_cons_old,tmp_cons_new,0,0,ncons,tmp_cons_new.nGrowVect());
     MultiFab::Copy(tmp_xvel_old,tmp_xvel_new,0,0,    1,tmp_xvel_new.nGrowVect());
@@ -453,7 +504,8 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba_in,
     amrex::Print() << "Making level " << lev << " from scratch" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
     check_full_columns(lev, ba, geom[lev]);
-    warn_if_fewer_boxes_than_threads(lev, ba, dm);
+    if (lev >= idle_threads_warned.size()) { idle_threads_warned.resize(lev+1, 0); }
+    warn_if_fewer_boxes_than_threads(lev, ba, dm, idle_threads_warned[lev]);
 
     int ngrow_state = 3;
     int ngrow_vels  = 3;
@@ -943,7 +995,7 @@ void
 REMORA::ClearLevel (int lev)
 {
     invalidate_bottom_exchange(lev);
-
+    if (lev < idle_threads_warned.size()) { idle_threads_warned[lev] = 0; }
     delete cons_new[lev]; delete xvel_new[lev];  delete yvel_new[lev];  delete zvel_new[lev];
     delete cons_old[lev]; delete xvel_old[lev];  delete yvel_old[lev];  delete zvel_old[lev];
 #ifdef REMORA_USE_PARTICLES

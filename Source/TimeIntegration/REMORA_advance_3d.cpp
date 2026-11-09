@@ -329,13 +329,14 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     advance_biology(lev, *cons_old[lev], mf_cons, N, dt_lev);
     nnew = 0;
 
-    // FineAdd accumulates a tile's fluxes into the coarse cells under it with atomic adds,
-    // and a tile edge that is not a multiple of the refinement ratio shares a coarse cell
-    // with the neighbouring tile, so with several threads the order of the adds, and the
-    // rounding, would follow thread timing. In that case the fluxes are kept on this
-    // level's faces and added after the loop, tile by tile in the fixed order a single
+    // FineAdd adds a tile's boundary fluxes, with atomic adds, into the coarse cells next
+    // to its box. Two tiles of a box whose common edge is not a multiple of the
+    // refinement ratio can add into the same coarse cell, so with several threads the
+    // order of those adds, and the rounding, would follow thread timing. In that case the fluxes are kept on
+    // this level's faces and added after the loop, tile by tile in the fixed order a single
     // thread uses. Tiles whose edges all fall on coarse cell edges share no coarse cell,
-    // and add directly.
+    // and add directly. Each rank decides for itself: either path writes only the rank's
+    // own register patches and makes no MPI calls.
     bool defer_fine_add = refluxing && lev > 0 && OpenMP::get_max_threads() > 1;
     if (defer_fine_add) {
         const IntVect rr = ref_ratio[lev-1];
@@ -348,8 +349,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                 }
             }
         }
-        // Every rank takes the same path: the deferred one has collective calls.
-        ParallelDescriptor::ReduceBoolAnd(aligned);
         defer_fine_add = !aligned;
     }
     if (defer_fine_add) {
@@ -357,7 +356,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         for (int d = 0; d < AMREX_SPACEDIM; ++d) {
             MultiFab& f = vec_reflux_flux[lev][d];
             const BoxArray fba = convert(mf_cons.boxArray(), IntVect::TheDimensionVector(d));
-            if (!f.ok() || f.boxArray() != fba || f.DistributionMap() != mf_cons.DistributionMap()
+            if (!f.isDefined() || f.boxArray() != fba || f.DistributionMap() != mf_cons.DistributionMap()
                 || f.nComp() != ncons) {
                 f.define(fba, mf_cons.DistributionMap(), ncons, 0);
             }

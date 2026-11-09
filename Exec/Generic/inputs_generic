@@ -1294,17 +1294,9 @@ remora.use_coriolis = true
 # type=bool; method=queryAdd
 remora.use_curvilinear_grid = <UNKNOWN_DEFAULT>
 
-# Include prestep / lagged predictor / corrections
-# type=bool; method=queryAdd
-remora.use_prestep = <UNKNOWN_DEFAULT>
-
 # Include salinity?
 # type=bool; method=queryAdd
 remora.use_salt = <UNKNOWN_DEFAULT>
-
-# This affect forcing and some of the mixing terms for velocity
-# type=bool; method=queryAdd
-remora.use_uv3dmix = true
 
 # Which horizontal advection scheme
 # type=string; method=queryAdd
