@@ -964,18 +964,15 @@ public:
 
     /** \brief Prestep advection calculations for the tracers */
     void prestep_t_advection (int lev, const amrex::Box& tbx,
-                        const amrex::Box& gbx,
                         const amrex::Array4<amrex::Real      >& tempold,
                         const amrex::Array4<amrex::Real      >& tempcache,
                         const amrex::Array4<amrex::Real      >& Hz,
                         const amrex::Array4<amrex::Real      >& Huon,
                         const amrex::Array4<amrex::Real      >& Hvom,
-                        const amrex::Array4<amrex::Real      >& W,
+                        const amrex::Array4<amrex::Real const>& W,
                         const amrex::Array4<amrex::Real      >& DC,
                         const amrex::Array4<amrex::Real      >& FC,
                         const amrex::Array4<amrex::Real      >& sstore,
-                        const amrex::Array4<amrex::Real const>& z_w,
-                        const amrex::Array4<amrex::Real const>& h,
                         const amrex::Array4<amrex::Real const>& pm,
                         const amrex::Array4<amrex::Real const>& pn,
                         const amrex::Array4<amrex::Real const>& msku,
@@ -983,7 +980,6 @@ public:
                         const amrex::Array4<int         const>& river_pos,
                         const amrex::Array4<amrex::Real const>& river_source,
                         const amrex::Array4<amrex::Real const>& bottom_incoming,
-                        const amrex::Array4<amrex::Real const>& bottom_volume,
                         int iic, int ntfirst, int nrhs, int N,
                         const amrex::Real dt_lev);
 

@@ -74,7 +74,8 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
 
 
     //
-    // Scratch space
+    // Scratch space. Every cell of it that is read is written first: FX and curv (or
+    // grad) on utbxp1 and tbxp1x, then FX on ubx, and likewise FE in y.
     //
     FArrayBox fab_grad(tbxp2,1,amrex::The_Async_Arena());
     FArrayBox fab_curv(tbxp2,1,amrex::The_Async_Arena());
@@ -87,12 +88,6 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
 
     auto FX=fab_FX.array();
     auto FE=fab_FE.array();
-
-    fab_grad.template setVal<RunOn::Device>(zero);
-    fab_curv.template setVal<RunOn::Device>(zero);
-
-    fab_FX.template setVal<RunOn::Device>(zero);
-    fab_FE.template setVal<RunOn::Device>(zero);
 
     BL_PROFILE_VAR("REMORA::rhs_t_3d()::hadv",phadv);
     ParallelFor(utbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)

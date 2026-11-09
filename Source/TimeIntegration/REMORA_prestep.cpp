@@ -58,15 +58,6 @@ REMORA::prestep (int lev,
                 int N, const Real dt_lev)
 {
     BL_PROFILE("REMORA::prestep()");
-    const BoxArray&            ba = S_old.boxArray();
-    const DistributionMapping& dm = S_old.DistributionMap();
-
-    // Maybe not the best way to do this, but need to cache salt and temp since
-    // they get rewritten by prestep_t
-
-    MultiFab mf_scalarcache(ba,dm,ncons,IntVect(NGROW,NGROW,0));
-    MultiFab::Copy(mf_scalarcache,S_new,0,0,ncons,IntVect(NGROW,NGROW,0));
-
 
 #ifdef REMORA_USE_NETCDF
     // These do MPI-collective NetCDF reads, so they must be called by every rank,
@@ -114,12 +105,10 @@ REMORA::prestep (int lev,
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
-        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         //Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
         //copy the tilebox
         Box tbxp1 = bx;
-        Box tbxp11 = bx;
         Box tbxp2 = bx;
 
         //TODO: adjust for tiling
@@ -130,24 +119,21 @@ REMORA::prestep (int lev,
         //make only gbx be grown to match multifabs
         tbxp2.grow(IntVect(NGROW,NGROW,0));
         tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
-        tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
-        Box bxD = bx;
-        bxD.makeSlab(2,0);
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
-        Box gbx2D = gbx2;
-        gbx2D.makeSlab(2,0);
 
-        Box tbxp1D = tbxp1;
-        tbxp1D.makeSlab(2,0);
-        Box tbxp2D = tbxp2;
-        tbxp2D.makeSlab(2,0);
 
         FArrayBox fab_FC(convert(tbxp2,IntVect(0,0,1)),1,amrex::The_Async_Arena()); //3D
 
         auto FC=fab_FC.array();
 
+
+        // W depends on the mass fluxes only, so it is formed once for every tracer. Each
+        // tile forms its own columns and, at the edge of its box, the first ghost ring, so
+        // no column is written by two tiles; the advection reads W on the tile's own cells.
+        compute_W(gbx1D, W, Huon, Hvom, z_w, h, N,
+                  GetBottomExchangeTransport(lev) ? GetBottomExchangeTransport(lev)->const_array(mfi) : Array4<Real const>());
 
         for (int i_comp=0; i_comp < ncons; i_comp++) {
             Array4<Real> const& sstore = (vec_sstore[lev])->array(mfi,i_comp);
@@ -162,12 +148,14 @@ REMORA::prestep (int lev,
             const Array4<const int >& river_pos = Array4<const int>();
             const Array4<const Real>& river_source = Array4<const Real>();
 #endif
-            prestep_t_advection(lev, bx, gbx, S_old.array(mfi,i_comp),
-                                mf_scalarcache.array(mfi,i_comp), Hz, Huon, Hvom,
-                                W, DC, FC, sstore, z_w, h, pm, pn, msku, mskv, river_pos,
+            // prestep_t_advection reads S_new on this tile's own cells only, and the
+            // diffusion below, which overwrites S_new, writes only those cells too, after
+            // every component's advection. So it still reads the value S_new came in with.
+            prestep_t_advection(lev, bx, S_old.array(mfi,i_comp),
+                                S_new.array(mfi,i_comp), Hz, Huon, Hvom,
+                                W, DC, FC, sstore, pm, pn, msku, mskv, river_pos,
                                 river_source,
                                 GetBottomExchangeTransport(lev) ? GetBottomExchangeTransport(lev)->const_array(mfi,i_comp+1) : Array4<Real const>(),
-                                GetBottomExchangeTransport(lev) ? GetBottomExchangeTransport(lev)->const_array(mfi) : Array4<Real const>(),
                                 iic, ntfirst,
                                 nrhs, N, dt_lev);
         }

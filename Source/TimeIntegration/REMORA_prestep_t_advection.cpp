@@ -6,19 +6,15 @@ using namespace amrex;
 /**
  * @param[in   ] lev             level to operate on
  * @param[in   ] tbx             tile box
- * @param[in   ] gbx             grown tile box
  * @param[in   ] tempold         scalar at last time
- * @param[in   ] tempcache       cached current time step's scalar value
+ * @param[in   ] tempcache       current time step's scalar value, read on tbx only
  * @param[in   ] Hz              vertical cell height
  * @param[in   ] Huon            u-volume flux
  * @param[in   ] Hvom            v-volume flux
- * @param[in   ] Akv             vertical viscosity coefficient
- * @param[inout] W               vertical velocity
+ * @param[in   ] W               vertical velocity, on the columns of tbx
  * @param        DC              temporary
  * @param        FC              temporary
  * @param[  out] tempstore       scratch space for calculations on scalars
- * @param[in   ] z_w             z coordinates at w points
- * @param[in   ] h               bathymetry
  * @param[in   ] pm              1/dx
  * @param[in   ] pn              1/dy
  * @param[in   ] msku            land-sea mask on u-points
@@ -33,18 +29,16 @@ using namespace amrex;
  */
 
 void
-REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
+REMORA::prestep_t_advection (int lev, const Box& tbx,
                             const Array4<Real      >& tempold,
                             const Array4<Real      >& tempcache,
                             const Array4<Real      >& Hz,
                             const Array4<Real      >& Huon,
                             const Array4<Real      >& Hvom,
-                            const Array4<Real      >& W  ,
+                            const Array4<Real const>& W  ,
                             const Array4<Real      >& DC,
                             const Array4<Real      >& FC ,
                             const Array4<Real      >& tempstore,
-                            const Array4<Real const>& z_w,
-                            const Array4<Real const>& h,
                             const Array4<Real const>& pm,
                             const Array4<Real const>& pn,
                             const Array4<Real const>& msku,
@@ -52,7 +46,6 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
                             const Array4<int  const>& river_pos,
                             const Array4<Real const>& river_source,
                             const Array4<Real const>& bottom_incoming,
-                            const Array4<Real const>& bottom_volume,
                             int iic, int ntfirst, int nrhs, int N,
                             Real dt_lev)
 {
@@ -66,8 +59,6 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
     //copy the tilebox
-    Box gbx1 = tbx;
-    Box gbx2 = tbx;
     Box tbxp1 = tbx;
     Box tbxp2 = tbx;
 
@@ -94,33 +85,6 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
     Box utbxp1 = surroundingNodes(tbxp1,0);
     Box vtbxp1 = surroundingNodes(tbxp1,1);
 
-    Box gbx3uneven_init(IntVect(AMREX_D_DECL(tbx.smallEnd(0)-3,tbx.smallEnd(1)-3,tbx.smallEnd(2))),
-                   IntVect(AMREX_D_DECL(tbx.bigEnd(0)+2,tbx.bigEnd(1)+2,tbx.bigEnd(2))));
-    BoxArray ba_gbx3uneven = intersect(BoxArray(gbx3uneven_init), gbx);
-    AMREX_ASSERT((ba_gbx3uneven.size() == 1));
-    Box gbx3uneven = ba_gbx3uneven[0];
-
-    gbx2.grow(IntVect(NGROW,NGROW,0));
-    BoxArray ba_gbx2 = intersect(BoxArray(gbx2), gbx);
-    AMREX_ASSERT((ba_gbx2.size() == 1));
-    gbx2 = ba_gbx2[0];
-
-    gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-    BoxArray ba_gbx1 = intersect(BoxArray(gbx1), gbx);
-    AMREX_ASSERT((ba_gbx1.size() == 1));
-    gbx1 = ba_gbx1[0];
-
-    //------------------------------------------------------------------------
-    //  Vertically integrate horizontal mass flux divergence.
-    //------------------------------------------------------------------------
-    //
-    //Should really use gbx3uneven
-    Box gbx3unevenD = gbx3uneven;
-    gbx3unevenD.makeSlab(2,0);
-    Box gbx1D = gbx1;
-    gbx1D.makeSlab(2,0);
-
-    compute_W(gbx1D, W, Huon, Hvom, z_w, h, N, bottom_volume);
 
     //Use FC and DC as intermediate arrays for FX and FE
     //First pass do centered 2d terms
