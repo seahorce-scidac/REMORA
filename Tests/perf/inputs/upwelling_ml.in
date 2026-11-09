@@ -1,0 +1,12 @@
+# Refined-level block appended to the Upwelling timing case by perlmutter_phase1.sh -m:
+# a static level 1 at ratio 3 over the middle half of the domain in x and y (a quarter of
+# its area), two-way coupled and substepped, as in the Gulf Stream nest, but with boxes of
+# the same size as the single-level case.
+amr.max_level      = 1
+amr.ref_ratio_vect = 3 3 1
+amr.regrid_int     = -1
+remora.coupling_type = "TwoWay"
+remora.refinement_indicators = nest
+remora.nest.max_level = 1
+remora.nest.in_box_lo = 10250. 20000.
+remora.nest.in_box_hi = 30750. 60000.
