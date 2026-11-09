@@ -186,6 +186,11 @@ rather than assumed.
   bracketing, longitude wrapping and unwrapping, global grids, bilinear weights (a partition of unity
   that reproduces bilinear fields exactly), decreasing axes, and the rotation. It needs no NetCDF, so it
   runs in every build.
+- ``REMORA_Biology_test.cpp`` (ctest ``BiologyInterface``) tests the biology interface in
+  ``Source/Biology`` without running the model: the tracers Fennel and ECB declare and their order,
+  finding a tracer's state component by name, configuring each model from its ROMS defaults, constant and
+  analytic initial values written only to the biology tracers, and an advance that does nothing when no
+  model is set or ``BioIter`` is 0.
 
 The forcing interpolation as a whole needs PnetCDF and data files, so it is not in ctest; the developer
 lane ``Exec/IdealMiniGrid/inputs_frc_latlon`` and ``Tests/tools/make_latlon_forcing_test_data.py``

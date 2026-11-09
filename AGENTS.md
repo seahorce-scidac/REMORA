@@ -110,6 +110,30 @@ GPU and build-configuration traps that CPU builds miss:
 
 ## Testing and Verification
 
+- REMORA is tested mainly by running the model. A test is a small input deck in
+  `Tests/test_files/<Name>/` (a few steps on a small grid, seconds on 2 MPI ranks) plus an
+  assertion from `Tests/CTestList.cmake`. Most model code works on `MultiFab`s owned by a
+  `REMORA` object built from an inputs file, so a short run tests it where it is used, at
+  little cost. `testing.rst` describes each assertion.
+- Choose the assertion that says what must be true, not just that nothing changed. A gold
+  file (`add_test_r`) shows only that a run still matches the output its gold was made from:
+  it cannot show that output was right, or that a feature still takes effect. Where they fit,
+  prefer `add_test_extrema` against a value known from outside REMORA, `add_test_equiv` or
+  `add_test_r_selfcompare` for two routes that must agree, `add_test_r_differ` for a feature
+  meant to change the answer, `add_test_conservation` with an `above` control, and
+  `add_test_abort` for inputs that must be rejected. Add a new gold file only when none of
+  these fits.
+- Write a unit test (`Tests/Unit`) only for a self-contained function that can be called
+  without a `REMORA` object or a run, such as header-only arithmetic, calendar or
+  interpolation code. Take the expected values from outside the implementation (ROMS, a
+  closed form, an identity). A unit test is a plain `main()` that returns nonzero on failure,
+  with no framework. Don't restructure model code just to make it unit-testable.
+- Make variants of an existing case instead of copying it: use `compose_test_input`, the
+  `INPUT_NAME` argument, or command-line options. `remora.max_step = 0` with
+  `remora.plot_int = 1` sets up the run and writes a plotfile in about a second, which is
+  enough to check an initial condition.
+- Check that a new test fails when the feature breaks: break the change, rebuild, and confirm
+  the test fails.
 - Register tests in `Tests/CTestList.cmake` with the existing helpers (`add_test_r`,
   `add_test_equiv`, `add_test_abort`, ...). Run `ctest -R <Name>` first, then the full suite.
 - Before pushing or opening a PR, a local Release or test build and ctest is enough; don't
@@ -120,8 +144,8 @@ GPU and build-configuration traps that CPU builds miss:
   NetCDF. Also build the no-PnetCDF configuration when the work was done in a PnetCDF build.
 - Before reporting a failure or bug, reproduce it on unchanged `development`. CI passes there.
 - For a refactor, show the output is unchanged: build a reference binary from the base commit
-  and compare plotfiles with `fcompare` (success prints `PLOTFILE AGREE`). Add a unit test if
-  none covers the code.
+  and compare plotfiles with `fcompare` (success prints `PLOTFILE AGREE`). If no test covers the
+  code, add a regression test, or a unit test if the code is self-contained.
 - Watch for degenerate checks. Passive tracers are identically zero in several cases, open
   boundary conditions can overwrite edge faces, and some paths have no test at all: the CFL
   timestep (every input sets `fixed_dt`), NetCDF history output, NetCDF forcing and
