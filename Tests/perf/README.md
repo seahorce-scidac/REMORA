@@ -21,7 +21,8 @@ Cases:
   node by default (`-c "128x1 64x2 32x4 16x8"` to change it); the GPU job uses four GPUs.
 - `upwnest` (with `-m "NX NY NZ"`): the Upwelling case on that coarse grid with a static
   level 1 at ratio 3 over the middle half in x and y (`inputs/upwelling_ml.in`), two-way
-  coupled and substepped, with the same box sizes and rank configurations as `upwelling`.
+  coupled and substepped, with the same rank configurations as `upwelling` and 64x64 boxes
+  on CPU (256x256 on GPU), so that every rank owns boxes on both levels.
   Level 1 has 2.25 times the coarse cells and takes three substeps, so `-m "512 1024 40"`
   costs about as much per step as the default `-s "1024 2048 40"` single-level run. With
   `-N` it is also profiled (`runs/gpu_upwnest_4gpu_<label>_nsys`).
