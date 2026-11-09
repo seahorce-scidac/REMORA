@@ -19,11 +19,17 @@ Cases:
   (default 512 x 1024 x 40, 21 M cells, 10 steps) with 128x128 boxes on CPU and 256x256 on GPU and a
   time step that keeps the barotropic Courant number near 0.5. CPU jobs sweep 128x1, 64x2 and 32x4 ranks x threads on one
   node by default (`-c "128x1 64x2 32x4 16x8"` to change it); the GPU job uses four GPUs.
+- `upwnest` (with `-m "NX NY NZ"`): the Upwelling case on that coarse grid with a static
+  level 1 at ratio 3 over the middle half in x and y (`inputs/upwelling_ml.in`), two-way
+  coupled and substepped, with the same box sizes and rank configurations as `upwelling`.
+  Level 1 has 2.25 times the coarse cells and takes three substeps, so `-m "512 1024 40"`
+  costs about as much per step as the default `-s "1024 2048 40"` single-level run. With
+  `-N` it is also profiled (`runs/gpu_upwnest_4gpu_<label>_nsys`).
 - `gulf` (with `-g`): `inputs/gulf_perf.in`, the nested Gulf Stream toy case of
   `Exec/GulfRefinementTest` with level 1 active, two-way coupling and NetCDF grid and
   initial data; it needs the `GS_toy*.nc` files from the REMORA-data repository.
 
-Neither case has land. For the land-layout options (`remora.drop_dry_boxes`,
+None of the cases has land. For the land-layout options (`remora.drop_dry_boxes`,
 `remora.load_balance`), `make_masked_grid.py <REMORA-data>/IdealMiniGrid <dir> <factor>`
 writes a staircase-coastline grid and initial file (36 % land, reaching the domain edges)
 that `inputs/masked_grid_perf.in` runs from `<dir>`; it is not yet wired into the script.
