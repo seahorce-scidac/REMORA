@@ -4,7 +4,7 @@
 Regression Tests
 ================
 
-There are currently 67 regression tests which are run as part of every PR on a range of architectures:
+There are currently 68 regression tests which are run as part of every PR on a range of architectures:
 
 * 22 that compare a plotfile against a stored reference;
 * 6 that compare two runs of the model against each other, or a run against its own initial state, and
@@ -13,7 +13,7 @@ There are currently 67 regression tests which are run as part of every PR on a r
 * 8 that assert the structure of the refined grid;
 * 8 that assert how far an integrated quantity drifts over a run;
 * 8 that assert a run reaches a behavior it reports in its log;
-* 10 that assert a misconfigured input fails for the stated reason.
+* 11 that assert a misconfigured input fails for the stated reason.
 
 There are also three unit tests, ``DateClock``, ``LatLonRegrid`` and ``BiologyInterface``. The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the

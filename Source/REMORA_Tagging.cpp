@@ -746,7 +746,9 @@ REMORA::refinement_criteria_setup ()
                 info.SetMaxLevel(ref_max_level);
             }
 
-            if (ppr.contains("tag_land") &&
+            bool tag_land = false;
+            ppr.query("tag_land", tag_land);
+            if (tag_land &&
                 (ppr.countval("value_greater") || ppr.countval("value_less") ||
                  ppr.countval("adjacent_difference_greater"))) {
                 Abort(ref_prefix + ".tag_land applies only to a box region; a field criterion"
@@ -776,11 +778,10 @@ REMORA::refinement_criteria_setup ()
             else if (realbox.ok())
             {
                 ref_tags.push_back(REMORAErrorTag(info));
-                // For a direct comparison with a ROMS nest, which refines its whole rectangle
-                bool tag_land = false;
-                ppr.query("tag_land", tag_land);
-                if (tag_land) {
-                    ref_tags.back().SetTagLand(true);
+                // For a direct comparison with a ROMS nest, which refines its whole rectangle.
+                // Without a mask every cell is water, so there is nothing to say.
+                ref_tags.back().SetTagLand(tag_land);
+                if (tag_land && solverChoice.mask_type != MaskType::none) {
                     Print() << "NOTE: " << ref_prefix << ".tag_land refines the box's land as"
                             << " well as its water. Use it only to compare directly with a"
                             << " ROMS nest.\n";
