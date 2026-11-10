@@ -707,6 +707,27 @@ void REMORA::init_bcs ()
                 }
             }
         }
+
+        // Flather relaxes the normal velocity toward the file's elevation on that side, so
+        // zeta must read the boundary file there. Otherwise the zeta boundary values are
+        // never filled. ROMS reads the elevation whenever ubar or vbar reads the file.
+        for (OrientationIter oit; oit; ++oit) {
+            Orientation ori = oit();
+            int dir = ori.coordDir();
+            if (dir == 2) { continue; }
+            const auto& normal_bc = domain_bcs_type[ubar_bc_idx+dir];
+            const auto normal_type = (ori.faceDir() == Orientation::low) ? normal_bc.lo(dir)
+                                                                         : normal_bc.hi(dir);
+            if (normal_type == REMORABCType::flather &&
+                !phys_bc_need_data[bdy_index[zeta_bc_idx]][ori]) {
+                const std::array<std::string, 6> side_names = {"West", "South", "", "East",
+                                                               "North", ""};
+                amrex::Abort("The " + side_names[ori] + " boundary uses Flather for the normal "
+                             "barotropic velocity, which needs the boundary file's elevation "
+                             "there. Set zeta on that side to a condition that reads the "
+                             "boundary file: clamped, chapman, or orlanski_rad_nudg.");
+            }
+        }
     }
 
     // *****************************************************************************

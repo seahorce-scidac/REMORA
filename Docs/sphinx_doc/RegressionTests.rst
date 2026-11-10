@@ -554,6 +554,10 @@ assertion is that they agree and neither needs a stored reference.
 |                                 |          |                                                         |
 |                                 |          | since both give the tangential component ``foextrap``   |
 +---------------------------------+----------+---------------------------------------------------------+
+| BC_flather_no_zeta_data         | 54 108 4 | a Flather side whose ``zeta`` condition reads no        |
+|                                 |          |                                                         |
+|                                 |          | boundary file data is rejected, naming the side         |
++---------------------------------+----------+---------------------------------------------------------+
 
 ``BC_per_variable`` runs both inputs in its test directory and compares the two plotfiles. All four sides
 carry a different condition -- inflow, noslipwall, outflow, slipwall going West, South, East, North -- so
