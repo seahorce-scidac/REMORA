@@ -1508,6 +1508,10 @@ public:
                              const amrex::MultiFab& ubar_know, const amrex::MultiFab& vbar_know,
                              const amrex::MultiFab& zeta_know);
 
+    /** \brief Whether advance_2d fills a fine level's zeta from the parent's end-of-step
+     *  snapshot pair (interpolated in time) rather than from the parent's zeta */
+    bool zeta_fill_from_snapshots (int lev) const;
+
     /** \brief The coarse-fine ghost band of a fine level's ubar (slot 0), vbar (1) or zeta (2),
      *  where fill_ghost_kcomps writes; built once per layout */
     const amrex::iMultiFab& cf_ghost_band (int lev, int slot, const amrex::MultiFab& mf);
@@ -2178,6 +2182,9 @@ private:
         std::unique_ptr<amrex::iMultiFab> mask;
         amrex::Vector<amrex::Real> time;
         amrex::Vector<long> gen;
+        /** \brief the coarse data each component was interpolated from: the old snapshot of
+         *         an interpolated pair, or the parent's own field */
+        amrex::Vector<const amrex::MultiFab*> src;
     };
     /** \brief per level: the caches for ubar, vbar and zeta (slots 0, 1, 2) */
     amrex::Vector<amrex::Array<CF2DCache,3>> cf_2d_cache;

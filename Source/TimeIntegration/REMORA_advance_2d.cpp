@@ -930,8 +930,7 @@ REMORA::advance_2d (int lev,
             // With the snapshot pair the coarse contribution is interpolated onto t_old[lev],
             // which timeStep guarantees lies inside the parent's step; without it FillPatch
             // falls back to the parent frozen at the end of that step. See roll_2d_snapshot.
-            if (cf_time_interp_zeta && int(vec_zeta_crse_old.size()) >= lev
-                && vec_zeta_crse_old[lev-1] && vec_zeta_crse_new[lev-1]) {
+            if (zeta_fill_from_snapshots(lev)) {
                 FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
                           knew, false,false, 0,know, dt2d, zeta_know,
                           GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new), 2);
@@ -1081,4 +1080,15 @@ REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
         });
     }
     return *band;
+}
+
+/**
+ * @param[in] lev  fine level
+ * @return true once the parent has stored the snapshot pair and remora.cf_time_interp_zeta is on
+ */
+bool
+REMORA::zeta_fill_from_snapshots (int lev) const
+{
+    return cf_time_interp_zeta && int(vec_zeta_crse_old.size()) >= lev
+        && vec_zeta_crse_old[lev-1] && vec_zeta_crse_new[lev-1];
 }

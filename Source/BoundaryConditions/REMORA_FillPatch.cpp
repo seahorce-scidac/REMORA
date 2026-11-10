@@ -389,6 +389,10 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         // result per pair and replay it with the fine-fine exchange that ends the fill,
         // instead of exchanging and interpolating the parent again on every fast step.
         const bool cacheable = cf_2d_cacheable(lev, cf_cache_slot, mf_to_fill, ncomp, fill_set);
+        // What the fill interpolates from, which the cached values must have come from too
+        const bool crse_pair = do_substep && int(mfs_crse_old.size()) >= lev
+                               && int(mfs_crse_new.size()) >= lev;
+        const MultiFab* crse_src = crse_pair ? mfs_crse_old[lev-1] : mfs[lev-1];
         CF2DCache* cache = nullptr;
         long gen = 0;
         bool hit = false;
@@ -396,7 +400,8 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
             cf_2d_cache_entry(lev, cf_cache_slot, mf_to_fill, *mfs[lev-1], time, mapper, bccomp);
             cache = &cf_2d_cache[lev][cf_cache_slot];
             gen = cf_crse_gen[lev-1];
-            hit = (cache->gen[icomp] == gen) && (cache->time[icomp] == time);
+            hit = (cache->gen[icomp] == gen) && (cache->time[icomp] == time)
+                  && (cache->src[icomp] == crse_src);
         }
 
         if (hit && cf_2d_fill_cache == 1) {
@@ -412,7 +417,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
             MultiFab crse_scratch, crse_old_scratch, crse_new_scratch;
             Vector<MultiFab*> cmf;
             Vector<Real> ctime;
-            if (do_substep && int(mfs_crse_old.size()) >= lev && int(mfs_crse_new.size()) >= lev) {
+            if (crse_pair) {
                 cmf   = {&coarse_for_interp(lev-1, *mfs_crse_old[lev-1], crse_old_scratch, true),
                          &coarse_for_interp(lev-1, *mfs_crse_new[lev-1], crse_new_scratch, true)};
                 ctime = {t_old[lev-1], t_new[lev-1]};
@@ -442,6 +447,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                 copy_on_mask(*cache->vals, mf_to_fill, *cache->mask, icomp);
                 cache->gen[icomp]  = gen;
                 cache->time[icomp] = time;
+                cache->src[icomp]  = crse_src;
             }
         }
     } // lev > 0
@@ -503,6 +509,11 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
     const bool fset[3]   = {true, true, false};
     const MultiFab* mf_calc[3] = {&ubar_know, &vbar_know, &zeta_know};
 
+    // The coarse data each fill would interpolate from (see FillPatch)
+    const MultiFab* src[3] = {crse[0], crse[1],
+                              zeta_fill_from_snapshots(lev) ? vec_zeta_crse_old[lev-1].get()
+                                                            : crse[2]};
+
     CF2DCache* cache[3];
     for (int n = 0; n < 3; ++n) {
         if (!cf_2d_cacheable(lev, n, *mfs[n], 1, fset[n])) { return false; }
@@ -511,7 +522,8 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
                              : static_cast<Interpolater*>(&face_cons_linear_interp);
         cf_2d_cache_entry(lev, n, *mfs[n], *crse[n], time, mapper, bccomp[n]);
         cache[n] = &cf_2d_cache[lev][n];
-        if (cache[n]->gen[knew] != cf_crse_gen[lev-1] || cache[n]->time[knew] != time) {
+        if (cache[n]->gen[knew] != cf_crse_gen[lev-1] || cache[n]->time[knew] != time
+            || cache[n]->src[knew] != src[n]) {
             return false;
         }
     }
@@ -569,6 +581,7 @@ REMORA::cf_2d_cache_entry (int lev, int slot, const MultiFab& mf, const MultiFab
                                          mf.nGrowVect());
     c.time.assign(mf.nComp(), zero);
     c.gen.assign(mf.nComp(), -1);
+    c.src.assign(mf.nComp(), nullptr);
 
     constexpr Real sentinel = Real(-1.0e30);
     MultiFab probe(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());

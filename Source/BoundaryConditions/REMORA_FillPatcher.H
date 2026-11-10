@@ -63,6 +63,9 @@ public:
      *  Public because it launches a kernel, which nvcc does not allow in a private member. */
     bool SetValuesFromCoarseOnly ();
 
+    /** \brief Drop what FillSetKept keeps */
+    void ClearKept () { m_kept.reset(); m_kept_reg = -1; }
+
     /** \brief Fill fine data in the relax region */
     template <typename BC>
     void FillRelax (amrex::MultiFab& mf, amrex::Real time,
