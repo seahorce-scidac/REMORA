@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <REMORA.H>
 #include <REMORA_PhysBCFunct.H>
+#include <REMORA_BitwiseDiff.H>
 
 using namespace amrex;
 
@@ -135,7 +136,8 @@ REMORA::store_2d_flux (int lev)
  * It depends only on the data the parent registered, which register_coarse_data replaces
  * (bumping cf_crse_gen), the time and the layout. The fast steps of one fine step all ask
  * for it at that step's t_old, so the result is kept per level and made again only when the
- * generation, the time or the layout changes.
+ * generation, the time or the layout changes. remora.cf_2d_fill_cache = 0 makes it on every
+ * call, and 2 makes it afresh on every reuse as well and aborts if it differs.
  *
  * @param[in] lev   level of refinement
  * @param[in] time  simulation time to interpolate the parent's flux to
@@ -156,8 +158,38 @@ REMORA::cf_interface_flux (int lev, Real time)
                           && c.v->DistributionMap() == dv.DistributionMap();
     const long reg_u = FPr_Dubar[lev-1].RegCount();
     const long reg_v = FPr_Dvbar[lev-1].RegCount();
-    if (same_layout && gen >= 0 && c.gen == gen && c.time == time
+
+    auto form = [&] (MultiFab& Dubar_cf, MultiFab& Dvbar_cf)
+    {
+        Dubar_cf.setVal(zero);
+        Dvbar_cf.setVal(zero);
+
+        FPr_Dubar[lev-1].FillSet(Dubar_cf, time, no_bc, domain_bcs_type);
+        FPr_Dvbar[lev-1].FillSet(Dvbar_cf, time, no_bc, domain_bcs_type);
+
+        // an x-face varies along y across the interface, and a y-face along x
+        if (cf_flux_pc) {
+            const int set_mask = FPr_Dubar[lev-1].GetSetMaskVal();
+            const IntVect rr = refRatio(lev-1);
+            group_average_faces(Dubar_cf, *FPr_Dubar[lev-1].GetMask(), set_mask, 1, rr[1]);
+            group_average_faces(Dvbar_cf, *FPr_Dvbar[lev-1].GetMask(), set_mask, 0, rr[0]);
+        }
+    };
+
+    if (cf_2d_fill_cache > 0 && same_layout && gen >= 0 && c.gen == gen && c.time == time
         && c.reg_u == reg_u && c.reg_v == reg_v) {
+        if (cf_2d_fill_cache == 2) {
+            MultiFab fu(du.boxArray(), du.DistributionMap(), 1, du.nGrowVect());
+            MultiFab fv(dv.boxArray(), dv.DistributionMap(), 1, dv.nGrowVect());
+            form(fu, fv);
+            const Long ndiff = count_bitwise_diff(fu, *c.u, 1, fu.nGrowVect())
+                             + count_bitwise_diff(fv, *c.v, 1, fv.nGrowVect());
+            if (ndiff > 0) {
+                amrex::Abort("remora.cf_2d_fill_cache = 2: the kept interface flux of level "
+                             + std::to_string(lev) + " differs from a fresh one in "
+                             + std::to_string(ndiff) + " points");
+            }
+        }
         return {c.u.get(), c.v.get()};
     }
 
@@ -165,21 +197,7 @@ REMORA::cf_interface_flux (int lev, Real time)
         c.u = std::make_unique<MultiFab>(du.boxArray(), du.DistributionMap(), 1, du.nGrowVect());
         c.v = std::make_unique<MultiFab>(dv.boxArray(), dv.DistributionMap(), 1, dv.nGrowVect());
     }
-    MultiFab& Dubar_cf = *c.u;
-    MultiFab& Dvbar_cf = *c.v;
-    Dubar_cf.setVal(zero);
-    Dvbar_cf.setVal(zero);
-
-    FPr_Dubar[lev-1].FillSet(Dubar_cf, time, no_bc, domain_bcs_type);
-    FPr_Dvbar[lev-1].FillSet(Dvbar_cf, time, no_bc, domain_bcs_type);
-
-    // an x-face varies along y across the interface, and a y-face along x
-    if (cf_flux_pc) {
-        const int set_mask = FPr_Dubar[lev-1].GetSetMaskVal();
-        const IntVect rr = refRatio(lev-1);
-        group_average_faces(Dubar_cf, *FPr_Dubar[lev-1].GetMask(), set_mask, 1, rr[1]);
-        group_average_faces(Dvbar_cf, *FPr_Dvbar[lev-1].GetMask(), set_mask, 0, rr[0]);
-    }
+    form(*c.u, *c.v);
 
     c.gen  = gen;
     c.reg_u = reg_u;

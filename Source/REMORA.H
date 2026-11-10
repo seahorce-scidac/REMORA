@@ -2196,7 +2196,8 @@ private:
      *         parent data coarse_for_interp prepares while the parent is frozen, for every
      *         coarse-fine fill. 2: as 1, but also recompute and abort on any difference in
      *         the replayed values, the batched replay of the three fills (replay_cf_2d_fills)
-     *         included. Subcycled driver only. */
+     *         included. The parent's interface flux (cf_interface_flux) follows the same
+     *         setting. Subcycled driver only. */
     int cf_2d_fill_cache = 1;
     /** \brief one cached two-level fill: the values it leaves in the ghost cells it writes
      *         (mask), per component, with the fill time and coarse generation of each */
