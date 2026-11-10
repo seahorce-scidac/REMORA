@@ -58,9 +58,10 @@ public:
                   BC& cbc, amrex::Vector<amrex::BCRec> const& bcs);
 
     /** \brief FillSet without a coarse boundary condition, keeping the values it writes so
-     *  that the next call for the same time and registered data replays them */
+     *  that the next call for the same time and registered data replays them; with check,
+     *  a replay also interpolates and aborts if the two differ */
     void FillSetKept (amrex::MultiFab& mf, amrex::Real time,
-                      amrex::Vector<amrex::BCRec> const& bcs);
+                      amrex::Vector<amrex::BCRec> const& bcs, bool check);
 
     /** \brief Whether the set region's values depend on the registered coarse data alone.
      *  Public because it launches a kernel, which nvcc does not allow in a private member. */

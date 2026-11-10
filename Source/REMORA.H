@@ -2186,9 +2186,10 @@ private:
      *         1 (default): compute once per (component, fill time) within a parent step and
      *         replay the result; bitwise identical, since the fill reads only the registered
      *         coarse data and, for faces, the interface faces FillSet rewrites before every
-     *         fill, none of which changes inside the parent step. 2: as 1, but also
-     *         recompute and abort on any difference in the replayed cells. Subcycled driver
-     *         only. */
+     *         fill, none of which changes inside the parent step. The interface values
+     *         FillSet writes for ubar and vbar are kept and replayed likewise. 2: as 1, but
+     *         also recompute and abort on any difference in the replayed values. Subcycled
+     *         driver only. */
     int cf_2d_fill_cache = 1;
     /** \brief one cached two-level fill: the values it leaves in the ghost cells it writes
      *         (mask), per component, with the fill time and coarse generation of each */

@@ -1,6 +1,7 @@
 #include <REMORA_FillPatcher.H>
 #include <AMReX_Arena.H>
 #include <AMReX_InterpFaceReg_3D_C.H>
+#include <REMORA_BitwiseDiff.H>
 
 using namespace amrex;
 
@@ -295,13 +296,16 @@ bool REMORAFillPatcher::SetValuesFromCoarseOnly ()
  * fine step. The values written into the set region are kept, and a later call with the same
  * registered data, time and layout writes them again instead of interpolating. That gives the
  * same values only when they depend on the coarse data alone (SetValuesFromCoarseOnly);
- * otherwise every call interpolates.
+ * otherwise every call interpolates. With check, a replay also interpolates into a copy of mf
+ * and aborts if any set value differs in bit pattern from the kept one.
  *
- * @param[inout] mf    fine data
- * @param[in]    time  time to fill at
- * @param[in]    bcs   boundary condition types, for the cell interpolater
+ * @param[inout] mf     fine data
+ * @param[in]    time   time to fill at
+ * @param[in]    bcs    boundary condition types, for the cell interpolater
+ * @param[in]    check  whether a replay is checked against a fresh interpolation
  */
-void REMORAFillPatcher::FillSetKept (MultiFab& mf, Real time, Vector<BCRec> const& bcs)
+void REMORAFillPatcher::FillSetKept (MultiFab& mf, Real time, Vector<BCRec> const& bcs,
+                                     bool check)
 {
     if (m_set_pure < 0) { m_set_pure = SetValuesFromCoarseOnly() ? 1 : 0; }
 
@@ -313,7 +317,19 @@ void REMORAFillPatcher::FillSetKept (MultiFab& mf, Real time, Vector<BCRec> cons
                              && m_kept->DistributionMap() == mf.DistributionMap();
     const int set_mask = m_set_mask;
 
+    PhysBCFunctNoOp no_bc;
     if (m_set_pure && same_layout && m_kept_reg == m_reg_count && m_kept_time == time) {
+        if (check) {
+            MultiFab fresh(mf.boxArray(), mf.DistributionMap(), mf.nComp(), mf.nGrowVect());
+            MultiFab::Copy(fresh, mf, 0, 0, mf.nComp(), mf.nGrowVect());
+            Fill(fresh, time, no_bc, bcs, m_set_mask);
+            const Long ndiff = count_bitwise_diff(fresh, *m_kept, nwrite, IntVect(0),
+                                                  m_cf_mask.get(), set_mask);
+            if (ndiff > 0) {
+                Abort("remora.cf_2d_fill_cache = 2: the kept FillSet values differ from a fresh "
+                      "FillSet in " + std::to_string(ndiff) + " points");
+            }
+        }
         for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
             auto const& f = mf.array(mfi);
             auto const& kept = m_kept->const_array(mfi);
@@ -326,7 +342,6 @@ void REMORAFillPatcher::FillSetKept (MultiFab& mf, Real time, Vector<BCRec> cons
         return;
     }
 
-    PhysBCFunctNoOp no_bc;
     Fill(mf, time, no_bc, bcs, m_set_mask);
     if (!m_set_pure) { return; }
 
