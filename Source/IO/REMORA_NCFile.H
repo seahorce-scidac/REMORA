@@ -415,30 +415,63 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
     }
 }
 
+//! The boxes of the domain, cell-centered, that a rank needs read: see nc_local_region.
+using NCRegion = amrex::Vector<amrex::Box>;
+
 /**
- * \brief The cell-centered bounding box of every FAB, ghost cells included,
- * that this rank owns in each of \p mfs: the region BuildLocalFABsFromNetCDFFile
- * has to read for a copy into them. Empty on a rank that owns none. Null
- * entries are skipped.
+ * \brief What BuildLocalFABsFromNetCDFFile reads for one variable on one rank: one
+ * FAB per box of the rank's NCRegion that the file covers, possibly none.
+ */
+struct NCLocalFab
+{
+    amrex::Vector<amrex::FArrayBox> pieces;
+
+    //! Copy on intersection from every piece into \p dst, which may be on the device
+    void copy_to (amrex::FArrayBox& dst, int scomp = 0, int dcomp = 0, int ncomp = 1) const
+    {
+        for (const auto& p : pieces) {
+            dst.template copy<amrex::RunOn::Device>(p, scomp, dcomp, ncomp);
+        }
+    }
+};
+
+/**
+ * \brief The boxes, cell-centered and with ghost cells, of every FAB this rank owns
+ * in each of \p mfs: the region BuildLocalFABsFromNetCDFFile has to read for a copy
+ * into them. Empty on a rank that owns none. Null entries are skipped.
  *
- * One box per rank keeps each variable to one collective read per rank. Its
- * cost is the bounding box: a rank whose FABs lie far apart reads, and holds,
- * everything between them. With remora.v >= 1 that cost is printed: the
- * largest ratio over the ranks of cells in the region to cells the rank owns.
+ * Boxes are merged while their bounding box holds no more cells than the two do
+ * together, so the same box in several MultiFabs, or a FAB and the neighbor whose
+ * ghost cells it overlaps, become one read; FABs far apart stay separate reads, so
+ * a rank never reads the space between them. With remora.v >= 1 the result is
+ * printed: the largest ratio over the ranks of cells to be read to cells owned.
  *
  * Collective over amrex::ParallelContext::CommunicatorSub() when remora.v >= 1.
  */
-inline amrex::Box
+inline NCRegion
 nc_local_region (const amrex::Vector<const amrex::MultiFab*>& mfs)
 {
-    amrex::Box region;
+    NCRegion boxes;
     amrex::BoxList owned_boxes;
     for (const amrex::MultiFab* mf : mfs) {
         if (mf == nullptr) { continue; }
         for (amrex::MFIter mfi(*mf, false); mfi.isValid(); ++mfi) {
             const amrex::Box b = amrex::convert(mfi.fabbox(), amrex::IndexType::TheCellType());
-            region = region.ok() ? region.minBox(b) : b;
+            boxes.push_back(b);
             owned_boxes.push_back(b);
+        }
+    }
+    for (bool merged = true; merged; ) {
+        merged = false;
+        for (int i = 0; i < static_cast<int>(boxes.size()) && !merged; ++i) {
+            for (int j = i + 1; j < static_cast<int>(boxes.size()) && !merged; ++j) {
+                const amrex::Box bb = amrex::Box(boxes[i]).minBox(boxes[j]);
+                if (bb.numPts() <= boxes[i].numPts() + boxes[j].numPts()) {
+                    boxes[i] = bb;
+                    boxes.erase(boxes.begin() + j);
+                    merged = true;
+                }
+            }
         }
     }
 
@@ -453,7 +486,8 @@ nc_local_region (const amrex::Vector<const amrex::MultiFab*>& mfs)
             ba.removeOverlap();
             owned = ba.numPts();
         }
-        const long long read = region.ok() ? region.numPts() : 0;
+        long long read = 0;
+        for (const auto& b : boxes) { read += b.numPts(); }
         struct { double ratio; int rank; } mine, worst;
         mine.ratio = (owned > 0) ? double(read) / double(owned) : 1.0;
         mine.rank = amrex::ParallelContext::MyProcSub();
@@ -462,25 +496,26 @@ nc_local_region (const amrex::Vector<const amrex::MultiFab*>& mfs)
         double mean = mine.ratio;
         amrex::ParallelAllReduce::Sum(mean, comm);
         mean /= amrex::ParallelContext::NProcsSub();
-        long long worst_cells[2] = {read, owned};
-        MPI_Bcast(worst_cells, 2, MPI_LONG_LONG, worst.rank, comm);
+        long long worst_cells[3] = {read, owned, static_cast<long long>(boxes.size())};
+        MPI_Bcast(worst_cells, 3, MPI_LONG_LONG, worst.rank, comm);
         amrex::Print() << "NetCDF read region: up to " << worst.ratio
                        << " times the cells owned, on rank " << worst.rank << " ("
-                       << worst_cells[0] << " read, " << worst_cells[1]
-                       << " owned); mean " << mean << " over ranks" << std::endl;
+                       << worst_cells[0] << " read in " << worst_cells[2] << " boxes, "
+                       << worst_cells[1] << " owned); mean " << mean << " over ranks"
+                       << std::endl;
     }
-    return region;
+    return boxes;
 }
 
 //! nc_local_region for a fixed list of MultiFabs
-inline amrex::Box
+inline NCRegion
 nc_local_region (std::initializer_list<const amrex::MultiFab*> mfs)
 {
     return nc_local_region(amrex::Vector<const amrex::MultiFab*>(mfs));
 }
 
 //! nc_local_region for one MultiFab
-inline amrex::Box
+inline NCRegion
 nc_local_region (const amrex::MultiFab& mf)
 {
     return nc_local_region({&mf});
@@ -489,25 +524,26 @@ nc_local_region (const amrex::MultiFab& mf)
 /**
  * \brief Read the part of each variable that this rank needs, collectively.
  *
- * Fills the same FABs as BuildFABsFromNetCDFFile, in the same index space,
- * but each rank's FABs cover only the file data inside \p region (converted to
- * each variable's staggering), and each rank reads only that part. A copy on
- * intersection into a MultiFab whose FABs this rank owns lie inside \p region
- * gives the same values as from BuildFABsFromNetCDFFile; nc_local_region gives
- * that region for one MultiFab.
+ * Reads the same data as BuildFABsFromNetCDFFile, in the same index space, but
+ * each rank reads, and holds, only the file data inside the boxes of \p region
+ * (converted to each variable's staggering): one FAB per box, in an NCLocalFab.
+ * NCLocalFab::copy_to into a MultiFab FAB this rank owns gives the same values as
+ * a copy from BuildFABsFromNetCDFFile's FAB, when \p region came from
+ * nc_local_region for that MultiFab.
  *
- * Collective over amrex::ParallelContext::CommunicatorSub(): every rank calls
- * it, including ranks with an empty \p region, which read nothing. Each
- * variable is one collective read of one hyperslab per rank, which works for
- * every format PnetCDF opens, compressed NetCDF-4 included. River data, which
- * is not laid out on the model grid, is not supported here.
+ * Collective over amrex::ParallelContext::CommunicatorSub(): every rank calls it,
+ * including ranks with an empty \p region. Each variable is one collective read per
+ * box; ranks with fewer boxes than the most any rank has make empty reads to match,
+ * as a collective read needs. That works for every format PnetCDF opens, compressed
+ * NetCDF-4 included. River data, which is not laid out on the model grid, is not
+ * supported here.
  *
  * @param domain       domain whose lower corner the file data starts at
- * @param region       cell-centered region of the domain this rank needs
+ * @param region       cell-centered boxes of the domain this rank needs
  * @param fname        file to read
  * @param nc_var_names variables to read
  * @param NC_dim_types dimension type of each variable in the file
- * @param fab_vars     FABs to fill, one per variable
+ * @param fab_vars     where to put each variable
  * @param one_time     whether to read a single time step
  * @param fill_time    time index to read when \p one_time
  * @param custom_ngrow grow cells, as in BuildFABsFromNetCDFFile
@@ -515,15 +551,19 @@ nc_local_region (const amrex::MultiFab& mf)
 template<class FAB,typename DType>
 void
 BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
-                              const amrex::Box& region,
+                              const NCRegion& region,
                               const std::string &fname,
                               amrex::Vector<std::string> nc_var_names,
                               amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types,
-                              amrex::Vector<FAB*> fab_vars,
+                              amrex::Vector<NCLocalFab*> fab_vars,
                               bool one_time=false, int fill_time=0,
                               amrex::IntVect custom_ngrow=amrex::IntVect(1,1,0))
 {
-    auto ncf = ncutils::NCFile::open(fname, NC_NOWRITE, amrex::ParallelContext::CommunicatorSub());
+    MPI_Comm comm = amrex::ParallelContext::CommunicatorSub();
+    int nreads = static_cast<int>(region.size());
+    amrex::ParallelAllReduce::Max(nreads, comm);
+
+    auto ncf = ncutils::NCFile::open(fname, NC_NOWRITE, comm);
 
     for (int iv = 0; iv < nc_var_names.size(); iv++)
     {
@@ -556,47 +596,50 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
         AMREX_ALWAYS_ASSERT(fab_box.contains(data_box));
         data_box.shift(domain.smallEnd());
 
-        const amrex::Box local = region.ok()
-            ? (data_box & amrex::convert(region, data_box.ixType())) : amrex::Box();
+        NCLocalFab& out = *fab_vars[iv];
+        out.pieces.clear();
+        for (int ir = 0; ir < nreads; ++ir) {
+            const amrex::Box local = (ir < static_cast<int>(region.size()))
+                ? (data_box & amrex::convert(region[ir], data_box.ixType())) : amrex::Box();
 
-        // Hyperslab of the file holding `local`; empty on a rank that needs nothing.
-        std::vector<MPI_Offset> start(shape.size(), 0), count(shape.size(), 0);
-        int d = 0;
-        if (has_time) {
-            start[d] = one_time ? fill_time : 0;
-            count[d] = local.ok() ? 1 : 0;
-            ++d;
-        }
-        if (local.ok()) {
-            if (has_z) {
-                start[d] = local.smallEnd(2) - data_box.smallEnd(2);
-                count[d] = local.length(2);
+            // Hyperslab of the file holding `local`; empty when there is none.
+            std::vector<MPI_Offset> start(shape.size(), 0), count(shape.size(), 0);
+            int d = 0;
+            if (has_time) {
+                start[d] = one_time ? fill_time : 0;
+                count[d] = local.ok() ? 1 : 0;
+                ++d;
             }
-            start[d + int(has_z)]     = local.smallEnd(1) - data_box.smallEnd(1);
-            count[d + int(has_z)]     = local.length(1);
-            start[d + int(has_z) + 1] = local.smallEnd(0) - data_box.smallEnd(0);
-            count[d + int(has_z) + 1] = local.length(0);
-        }
+            if (local.ok()) {
+                if (has_z) {
+                    start[d] = local.smallEnd(2) - data_box.smallEnd(2);
+                    count[d] = local.length(2);
+                }
+                start[d + int(has_z)]     = local.smallEnd(1) - data_box.smallEnd(1);
+                count[d + int(has_z)]     = local.length(1);
+                start[d + int(has_z) + 1] = local.smallEnd(0) - data_box.smallEnd(0);
+                count[d + int(has_z) + 1] = local.length(0);
+            }
 
-        // The file stores x fastest, then y, then z: the FAB's own order, so
-        // the hyperslab reads straight into it. A rank with nothing to read
-        // still gets a valid one-cell FAB.
-        const amrex::Box fab_bx = local.ok() ? local
-                                             : amrex::Box(data_box.smallEnd(), data_box.smallEnd(),
-                                                          data_box.ixType());
-        fab_vars[iv]->resize(fab_bx, 1);
+            // The file stores x fastest, then y, then z: the FAB's own order, so
+            // the hyperslab reads straight into it.
+            if (!local.ok()) {
+                amrex::Real dummy = 0;
+                var.get_all(&dummy, start, count);
+                continue;
+            }
+            out.pieces.emplace_back(local, 1);
 #ifdef AMREX_USE_GPU
-        // fab_vars live on the device; read on the host and copy over.
-        FAB tmp(fab_bx, 1, amrex::The_Pinned_Arena());
-        if (!local.ok()) { tmp.template setVal<amrex::RunOn::Host>(0.0); }
-        var.get_all(tmp.dataPtr(), start, count);
-        amrex::Gpu::copy(amrex::Gpu::hostToDevice,
-                         tmp.dataPtr(), tmp.dataPtr() + tmp.size(),
-                         fab_vars[iv]->dataPtr());
+            // The pieces live on the device; read on the host and copy over.
+            FAB tmp(local, 1, amrex::The_Pinned_Arena());
+            var.get_all(tmp.dataPtr(), start, count);
+            amrex::Gpu::copy(amrex::Gpu::hostToDevice,
+                             tmp.dataPtr(), tmp.dataPtr() + tmp.size(),
+                             out.pieces.back().dataPtr());
 #else
-        if (!local.ok()) { fab_vars[iv]->template setVal<amrex::RunOn::Host>(0.0); }
-        var.get_all(fab_vars[iv]->dataPtr(), start, count);
+            var.get_all(out.pieces.back().dataPtr(), start, count);
 #endif
+        }
     }
     ncf.close();
 }

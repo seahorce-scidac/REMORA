@@ -15,41 +15,41 @@ using namespace amrex;
 
 /** \brief helper function for reading in initial state data from netcdf */
 void
-read_data_from_netcdf (int /*lev*/, const Box& domain, const Box& region, const std::string& fname,
-                       FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
-                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab);
+read_data_from_netcdf (int /*lev*/, const Box& domain, const NCRegion& region, const std::string& fname,
+                       NCLocalFab& NC_temp_fab, NCLocalFab& NC_salt_fab,
+                       NCLocalFab& NC_xvel_fab, NCLocalFab& NC_yvel_fab);
 
 /** \brief helper function for reading in full domain high-resolution initial state data from netcdf */
 void
-read_data_full_domain_from_netcdf (int /*lev*/, const Box& domain, const Box& region, const std::string& fname,
-                       FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
-                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
+read_data_full_domain_from_netcdf (int /*lev*/, const Box& domain, const NCRegion& region, const std::string& fname,
+                       NCLocalFab& NC_temp_fab, NCLocalFab& NC_salt_fab,
+                       NCLocalFab& NC_xvel_fab, NCLocalFab& NC_yvel_fab,
                        IntVect ngrow);
 
 /** \brief helper function for reading in initial biology data from netcdf */
 void
-read_biology_from_netcdf (int /*lev*/, const Box& domain, const Box& region, const std::string& fname,
+read_biology_from_netcdf (int /*lev*/, const Box& domain, const NCRegion& region, const std::string& fname,
                           const Vector<std::string>& biology_names,
-                          Vector<FArrayBox>& NC_biology_fab);
+                          Vector<NCLocalFab>& NC_biology_fab);
 
 /** \brief helper function for reading in full domain high-resolution initial biology data from netcdf */
 void
-read_biology_full_domain_from_netcdf (int /*lev*/, const Box& domain, const Box& region, const std::string& fname,
+read_biology_full_domain_from_netcdf (int /*lev*/, const Box& domain, const NCRegion& region, const std::string& fname,
                                       const Vector<std::string>& biology_names,
-                                      Vector<FArrayBox>& NC_biology_fab, IntVect ngrow);
+                                      Vector<NCLocalFab>& NC_biology_fab, IntVect ngrow);
 
 /** \brief helper function for reading in initial passive (dye) scalar data from netcdf */
 void
-read_scalars_from_netcdf (int /*lev*/, const Box& domain, const Box& region, const std::string& fname,
+read_scalars_from_netcdf (int /*lev*/, const Box& domain, const NCRegion& region, const std::string& fname,
                           const Vector<std::string>& scalar_names,
-                          Vector<FArrayBox>& NC_scalar_fab,
+                          Vector<NCLocalFab>& NC_scalar_fab,
                           Vector<int>& scalar_in_file);
 
 /** \brief helper function for reading in full domain high-resolution initial passive (dye) scalar data from netcdf */
 void
-read_scalars_full_domain_from_netcdf (int /*lev*/, const Box& domain, const Box& region, const std::string& fname,
+read_scalars_full_domain_from_netcdf (int /*lev*/, const Box& domain, const NCRegion& region, const std::string& fname,
                                       const Vector<std::string>& scalar_names,
-                                      Vector<FArrayBox>& NC_scalar_fab,
+                                      Vector<NCLocalFab>& NC_scalar_fab,
                                       Vector<int>& scalar_in_file, IntVect ngrow);
 
 /** \brief helper function checking that a high-resolution file covers the refined domain plus grow cells */
@@ -59,50 +59,50 @@ check_hires_dims_from_netcdf (const std::string& fname, const std::string& var_n
 
 /** \brief helper function for reading in the rho-point land-sea mask from netcdf */
 void
-read_masks_from_netcdf (int /*lev*/, const Box& domain, const Box& region, const std::string& fname,
-                       FArrayBox& NC_mskr_fab);
+read_masks_from_netcdf (int /*lev*/, const Box& domain, const NCRegion& region, const std::string& fname,
+                       NCLocalFab& NC_mskr_fab);
 
 /** \brief helper function to initialize state from netcdf */
 void
 init_state_from_netcdf (int lev,
                         FArrayBox&  temp_fab, FArrayBox&  salt_fab,
                         FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
-                        const Vector<FArrayBox>& NC_temp_fab,
-                        const Vector<FArrayBox>& NC_salt_fab,
-                        const Vector<FArrayBox>& NC_xvel_fab,
-                        const Vector<FArrayBox>& NC_yvel_fab);
+                        const Vector<NCLocalFab>& NC_temp_fab,
+                        const Vector<NCLocalFab>& NC_salt_fab,
+                        const Vector<NCLocalFab>& NC_xvel_fab,
+                        const Vector<NCLocalFab>& NC_yvel_fab);
 
 /** \brief helper function to initialize biology tracer state from netcdf */
 void
 init_biology_state_from_netcdf (int lev, FArrayBox& biology_fab,
-                                const Vector<Vector<FArrayBox>>& NC_biology_fab);
+                                const Vector<Vector<NCLocalFab>>& NC_biology_fab);
 
 /** \brief helper function to initialize passive (dye) scalar state from netcdf */
 void
 init_scalar_state_from_netcdf (int lev, FArrayBox& scalar_fab,
-                               const Vector<Vector<FArrayBox>>& NC_scalar_fab,
+                               const Vector<Vector<NCLocalFab>>& NC_scalar_fab,
                                const Vector<Vector<int>>& scalar_in_file);
 
 /** \brief helper function to read bathymetry from netcdf */
 void
-read_bathymetry_from_netcdf (int lev, const Box& domain, const Box& region, const std::string& fname,
-                             FArrayBox& NC_h_fab);
+read_bathymetry_from_netcdf (int lev, const Box& domain, const NCRegion& region, const std::string& fname,
+                             NCLocalFab& NC_h_fab);
 
 /** \brief helper function to read grid variables from netcdf */
 void
-read_grid_vars_from_netcdf  (int lev, const Box& domain, const Box& region, const std::string& fname,
-                             FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab,
-                             FArrayBox& NC_xr_fab, FArrayBox& NC_yr_fab,
-                             FArrayBox& NC_xu_fab, FArrayBox& NC_yu_fab,
-                             FArrayBox& NC_xv_fab, FArrayBox& NC_yv_fab,
-                             FArrayBox& NC_xp_fab, FArrayBox& NC_yp_fab);
+read_grid_vars_from_netcdf  (int lev, const Box& domain, const NCRegion& region, const std::string& fname,
+                             NCLocalFab& NC_pm_fab, NCLocalFab& NC_pn_fab,
+                             NCLocalFab& NC_xr_fab, NCLocalFab& NC_yr_fab,
+                             NCLocalFab& NC_xu_fab, NCLocalFab& NC_yu_fab,
+                             NCLocalFab& NC_xv_fab, NCLocalFab& NC_yv_fab,
+                             NCLocalFab& NC_xp_fab, NCLocalFab& NC_yp_fab);
 
 /** \brief helper function to read grid variables a file may or may not carry (spherical
  *         coordinates, rotation angle) from netcdf; returns whether it did */
 bool
-read_optional_grid_vars_from_netcdf (const Box& domain, const Box& region, const std::string& fname,
+read_optional_grid_vars_from_netcdf (const Box& domain, const NCRegion& region, const std::string& fname,
                                      const Vector<std::string>& names,
-                                     const Vector<FArrayBox*>& fabs,
+                                     const Vector<NCLocalFab*>& fabs,
                                      const std::string& what,
                                      IntVect ngrow = IntVect(1,1,0));
 
@@ -115,12 +115,16 @@ namespace {
  * averages across it correctly: 179.5 and -179.5 average to 180, not to 0. The result may
  * lie outside [-180, 180); that is the same longitude, and users of it normalize.
  *
- * @param[inout] fab     the field, on the whole domain
+ * @param[inout] local   the field as read on this rank: the whole domain in one piece,
+ *                       or nothing
  * @param[in   ] period  the period
  */
 void
-unwrap_to_first_cell (FArrayBox& fab, Real period)
+unwrap_to_first_cell (NCLocalFab& local, Real period)
 {
+    AMREX_ALWAYS_ASSERT(local.pieces.size() <= 1);
+    if (local.pieces.empty()) { return; }
+    FArrayBox& fab = local.pieces[0];
     Real ref = Real(0.0);
     Gpu::copy(Gpu::deviceToHost, fab.dataPtr(), fab.dataPtr() + 1, &ref);
     auto arr = fab.array();
@@ -135,44 +139,44 @@ unwrap_to_first_cell (FArrayBox& fab, Real period)
 
 /** \brief helper function to read full-domain high resolution bathymetry from netcdf */
 void
-read_bathymetry_full_domain_from_netcdf (const Box& domain, const Box& region, const std::string& fname,
-                                         FArrayBox& NC_h_fab, IntVect ngrow);
+read_bathymetry_full_domain_from_netcdf (const Box& domain, const NCRegion& region, const std::string& fname,
+                                         NCLocalFab& NC_h_fab, IntVect ngrow);
 
 /** \brief helper function to read full-domain high resolution grid variables from netcdf */
 void
-read_grid_vars_full_domain_from_netcdf (const Box& domain, const Box& region, const std::string& fname,
-                                         FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab,
+read_grid_vars_full_domain_from_netcdf (const Box& domain, const NCRegion& region, const std::string& fname,
+                                         NCLocalFab& NC_pm_fab, NCLocalFab& NC_pn_fab,
                                          IntVect ngrow);
 
 /** \brief helper function to read full-domain high resolution land/sea mask from netcdf */
 void
-read_masks_full_domain_from_netcdf (const Box& domain, const Box& region, const std::string& fname,
-                                    FArrayBox& NC_mskr_fab, IntVect ngrow);
+read_masks_full_domain_from_netcdf (const Box& domain, const NCRegion& region, const std::string& fname,
+                                    NCLocalFab& NC_mskr_fab, IntVect ngrow);
 
 /** \brief helper function to read coriolis factor from netcdf */
 void
-read_coriolis_from_netcdf (int lev, const Box& domain, const Box& region, const std::string& fname, FArrayBox& NC_fcor_fab);
+read_coriolis_from_netcdf (int lev, const Box& domain, const NCRegion& region, const std::string& fname, NCLocalFab& NC_fcor_fab);
 
 /** \brief helper function to read sea surface height from netcdf */
 void
-read_zeta_from_netcdf (int lev, const Box& domain, const Box& region, const std::string& fname,
-                             FArrayBox& NC_zeta_fab);
+read_zeta_from_netcdf (int lev, const Box& domain, const NCRegion& region, const std::string& fname,
+                             NCLocalFab& NC_zeta_fab);
 
 /** \brief helper function to read high-resolution full-domain sea surface height from netcdf */
 void
-read_zeta_full_domain_from_netcdf (int lev, const Box& domain, const Box& region, const std::string& fname,
-                                   FArrayBox& NC_zeta_fab, IntVect ngrow);
+read_zeta_full_domain_from_netcdf (int lev, const Box& domain, const NCRegion& region, const std::string& fname,
+                                   NCLocalFab& NC_zeta_fab, IntVect ngrow);
 
 /** \brief helper function to read climatology nudging from netcdf */
 void
-read_clim_nudg_coeff_from_netcdf (int lev, const Box& domain, const Box& region, const std::string& fname,
+read_clim_nudg_coeff_from_netcdf (int lev, const Box& domain, const NCRegion& region, const std::string& fname,
                                   bool do_m2_clim_nudg,
                                   bool do_m3_clim_nudg,
                                   const amrex::Vector<int>& do_cons_clim_nudg,
                                   const amrex::Vector<std::string>& cons_names,
-                                  FArrayBox& NC_M2NC_fab,
-                                  FArrayBox& NC_M3NC_fab,
-                                  amrex::Vector<FArrayBox>& NC_ConsNC_fab,
+                                  NCLocalFab& NC_M2NC_fab,
+                                  NCLocalFab& NC_M3NC_fab,
+                                  amrex::Vector<NCLocalFab>& NC_ConsNC_fab,
                                   amrex::Vector<int>& cons_coeff_in_file);
 
 /** \brief helper function to read in vector of data from netcdf */
@@ -185,13 +189,13 @@ void
 REMORA::init_data_from_netcdf (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
-    Vector<FArrayBox> NC_temp_fab ; NC_temp_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_salt_fab ; NC_salt_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_xvel_fab ; NC_xvel_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_yvel_fab ; NC_yvel_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_temp_fab ; NC_temp_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_salt_fab ; NC_salt_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_xvel_fab ; NC_xvel_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_yvel_fab ; NC_yvel_fab.resize(num_boxes_at_level[lev]);
 
     // Each rank reads the part of the file its own FABs cover.
-    const Box region = nc_local_region({cons_new[lev], xvel_new[lev], yvel_new[lev]});
+    const NCRegion region = nc_local_region({cons_new[lev], xvel_new[lev], yvel_new[lev]});
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -261,9 +265,9 @@ REMORA::init_scalars_from_netcdf (int lev)
     }
 
     // One FAB and one presence flag per dye per box
-    Vector<Vector<FArrayBox>> NC_scalar_fab(num_boxes_at_level[lev]);
+    Vector<Vector<NCLocalFab>> NC_scalar_fab(num_boxes_at_level[lev]);
     Vector<Vector<int>>       scalar_in_file(num_boxes_at_level[lev]);
-    const Box region = nc_local_region(*cons_new[lev]);
+    const NCRegion region = nc_local_region(*cons_new[lev]);
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
         NC_scalar_fab[idx].resize(scalar_names.size());
@@ -307,9 +311,9 @@ REMORA::init_biology_from_netcdf (int lev)
         biology_names.push_back(cons_names[icomp]);
     }
 
-    Vector<Vector<FArrayBox>> NC_biology_fab;
+    Vector<Vector<NCLocalFab>> NC_biology_fab;
     NC_biology_fab.resize(num_boxes_at_level[lev]);
-    const Box region = nc_local_region(*cons_new[lev]);
+    const NCRegion region = nc_local_region(*cons_new[lev]);
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
         NC_biology_fab[idx].resize(biology_names.size());
@@ -342,12 +346,12 @@ REMORA::init_data_full_domain_from_netcdf ()
                                  cum_ref_ratios[hires_init_level]);
 
     // *** FArrayBox's at this level for holding the INITIAL data
-    Vector<FArrayBox> NC_temp_fab ; NC_temp_fab.resize(1);
-    Vector<FArrayBox> NC_salt_fab ; NC_salt_fab.resize(1);
-    Vector<FArrayBox> NC_xvel_fab ; NC_xvel_fab.resize(1);
-    Vector<FArrayBox> NC_yvel_fab ; NC_yvel_fab.resize(1);
+    Vector<NCLocalFab> NC_temp_fab ; NC_temp_fab.resize(1);
+    Vector<NCLocalFab> NC_salt_fab ; NC_salt_fab.resize(1);
+    Vector<NCLocalFab> NC_xvel_fab ; NC_xvel_fab.resize(1);
+    Vector<NCLocalFab> NC_yvel_fab ; NC_yvel_fab.resize(1);
 
-    const Box region = nc_local_region({vec_cons_full_domain[hires_init_level].get(),
+    const NCRegion region = nc_local_region({vec_cons_full_domain[hires_init_level].get(),
                                         vec_xvel_full_domain[hires_init_level].get(),
                                         vec_yvel_full_domain[hires_init_level].get()});
     read_data_full_domain_from_netcdf(hires_init_level, nc_hires_init_box, region, nc_init_file_hires,
@@ -412,11 +416,11 @@ REMORA::init_scalars_full_domain_from_netcdf ()
         scalar_names.push_back(cons_names[icomp]);
     }
 
-    Vector<Vector<FArrayBox>> NC_scalar_fab(1);
+    Vector<Vector<NCLocalFab>> NC_scalar_fab(1);
     Vector<Vector<int>>       scalar_in_file(1);
     NC_scalar_fab[0].resize(scalar_names.size());
 
-    const Box region = nc_local_region(*vec_cons_full_domain[hires_init_level]);
+    const NCRegion region = nc_local_region(*vec_cons_full_domain[hires_init_level]);
     read_scalars_full_domain_from_netcdf(hires_init_level, nc_hires_init_box, region, nc_init_file_hires,
                                          scalar_names, NC_scalar_fab[0], scalar_in_file[0],
                                          cum_ref_ratios[hires_init_level]);
@@ -450,11 +454,11 @@ REMORA::init_biology_full_domain_from_netcdf ()
         biology_names.push_back(cons_names[icomp]);
     }
 
-    Vector<Vector<FArrayBox>> NC_biology_fab;
+    Vector<Vector<NCLocalFab>> NC_biology_fab;
     NC_biology_fab.resize(1);
     NC_biology_fab[0].resize(biology_names.size());
 
-    const Box region = nc_local_region(*vec_cons_full_domain[hires_init_level]);
+    const NCRegion region = nc_local_region(*vec_cons_full_domain[hires_init_level]);
     read_biology_full_domain_from_netcdf(hires_init_level, nc_hires_init_box, region, nc_init_file_hires,
                                          biology_names, NC_biology_fab[0],
                                          cum_ref_ratios[hires_init_level]);
@@ -483,8 +487,8 @@ void
 REMORA::init_zeta_from_netcdf (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
-    Vector<FArrayBox> NC_zeta_fab     ; NC_zeta_fab.resize(num_boxes_at_level[lev]);
-    const Box region = nc_local_region(*vec_zeta[lev]);
+    Vector<NCLocalFab> NC_zeta_fab     ; NC_zeta_fab.resize(num_boxes_at_level[lev]);
+    const NCRegion region = nc_local_region(*vec_zeta[lev]);
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -501,11 +505,10 @@ REMORA::init_zeta_from_netcdf (int lev)
             FArrayBox &zeta_fab  = (*vec_zeta[lev])[mfi];
 
             //
-            // FArrayBox to FArrayBox copy does "copy on intersection"
-            // The FArrayBox read from the netcdf file covers every FAB this rank owns
+            // copy_to copies on intersection from the pieces read for this rank, which cover its FABs
             //
 
-            zeta_fab.template    copy<RunOn::Device>(NC_zeta_fab[idx],0,0,1);
+            NC_zeta_fab[idx].copy_to(zeta_fab, 0,0,1);
         } // mf
         } // omp
     } // idx
@@ -536,9 +539,9 @@ REMORA::init_zeta_full_domain_from_netcdf ()
                                  cum_ref_ratios[hires_init_level]);
 
     // *** FArrayBox's at this level for holding the INITIAL data
-    Vector<FArrayBox> NC_zeta_fab     ; NC_zeta_fab.resize(1);
+    Vector<NCLocalFab> NC_zeta_fab     ; NC_zeta_fab.resize(1);
 
-    const Box region = nc_local_region(*vec_zeta_full_domain[hires_init_level]);
+    const NCRegion region = nc_local_region(*vec_zeta_full_domain[hires_init_level]);
     read_zeta_full_domain_from_netcdf(hires_init_level, nc_hires_init_box, region, nc_init_file_hires,
                           NC_zeta_fab[0], cum_ref_ratios[hires_init_level]);
 
@@ -552,11 +555,10 @@ REMORA::init_zeta_full_domain_from_netcdf ()
             FArrayBox &zeta_fab  = (*vec_zeta_full_domain[hires_init_level])[mfi];
 
             //
-            // FArrayBox to FArrayBox copy does "copy on intersection"
-            // The FArrayBox read from the netcdf file covers every FAB this rank owns
+            // copy_to copies on intersection from the pieces read for this rank, which cover its FABs
             //
 
-            zeta_fab.template    copy<RunOn::Device>(NC_zeta_fab[0],0,0,1);
+            NC_zeta_fab[0].copy_to(zeta_fab, 0,0,1);
         } // mf
         } // omp
 
@@ -575,32 +577,32 @@ void
 REMORA::init_grid_vars_from_netcdf (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
-    Vector<FArrayBox> NC_pm_fab    ; NC_pm_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_pn_fab    ; NC_pn_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_pm_fab    ; NC_pm_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_pn_fab    ; NC_pn_fab.resize(num_boxes_at_level[lev]);
 
-    Vector<FArrayBox> NC_xr_fab    ; NC_xr_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_yr_fab    ; NC_yr_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_xu_fab    ; NC_xu_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_yu_fab    ; NC_yu_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_xv_fab    ; NC_xv_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_yv_fab    ; NC_yv_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_xp_fab    ; NC_xp_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_yp_fab    ; NC_yp_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_xr_fab    ; NC_xr_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_yr_fab    ; NC_yr_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_xu_fab    ; NC_xu_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_yu_fab    ; NC_yu_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_xv_fab    ; NC_xv_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_yv_fab    ; NC_yv_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_xp_fab    ; NC_xp_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_yp_fab    ; NC_yp_fab.resize(num_boxes_at_level[lev]);
 
     // Optional spherical psi coordinates (see read_spherical_grid_vars_from_netcdf)
-    Vector<FArrayBox> NC_lonp_fab  ; NC_lonp_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_latp_fab  ; NC_latp_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_lonp_fab  ; NC_lonp_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_latp_fab  ; NC_latp_fab.resize(num_boxes_at_level[lev]);
     bool have_spherical_psi = true;
 
     // Optional spherical rho coordinates and grid angle (see read_optional_grid_vars_from_netcdf)
-    Vector<FArrayBox> NC_lonr_fab  ; NC_lonr_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_latr_fab  ; NC_latr_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_angler_fab; NC_angler_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_lonr_fab  ; NC_lonr_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_latr_fab  ; NC_latr_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_angler_fab; NC_angler_fab.resize(num_boxes_at_level[lev]);
     bool have_spherical_rho = true;
     bool have_angle = true;
 
     // lon/lat and angle are laid out like x_rho and x_psi, so these cover them too.
-    const Box region = nc_local_region({vec_pm[lev].get(), vec_xr[lev].get(), vec_xu[lev].get(),
+    const NCRegion region = nc_local_region({vec_pm[lev].get(), vec_xr[lev].get(), vec_xu[lev].get(),
                                         vec_xv[lev].get(), vec_xp[lev].get()});
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
@@ -667,32 +669,31 @@ REMORA::init_grid_vars_from_netcdf (int lev)
             FArrayBox &yp_fab    = (*vec_yp[lev])[mfi];
 
             //
-            // FArrayBox to FArrayBox copy does "copy on intersection"
-            // The FArrayBox read from the netcdf file covers every FAB this rank owns
+            // copy_to copies on intersection from the pieces read for this rank, which cover its FABs
             //
 
-            pm_fab.template    copy<RunOn::Device>(NC_pm_fab[idx]);
-            pn_fab.template    copy<RunOn::Device>(NC_pn_fab[idx]);
+            NC_pm_fab[idx].copy_to(pm_fab);
+            NC_pn_fab[idx].copy_to(pn_fab);
 
-            xr_fab.template    copy<RunOn::Device>(NC_xr_fab[idx]);
-            yr_fab.template    copy<RunOn::Device>(NC_yr_fab[idx]);
-            xu_fab.template    copy<RunOn::Device>(NC_xu_fab[idx]);
-            yu_fab.template    copy<RunOn::Device>(NC_yu_fab[idx]);
-            xv_fab.template    copy<RunOn::Device>(NC_xv_fab[idx]);
-            yv_fab.template    copy<RunOn::Device>(NC_yv_fab[idx]);
-            xp_fab.template    copy<RunOn::Device>(NC_xp_fab[idx]);
-            yp_fab.template    copy<RunOn::Device>(NC_yp_fab[idx]);
+            NC_xr_fab[idx].copy_to(xr_fab);
+            NC_yr_fab[idx].copy_to(yr_fab);
+            NC_xu_fab[idx].copy_to(xu_fab);
+            NC_yu_fab[idx].copy_to(yu_fab);
+            NC_xv_fab[idx].copy_to(xv_fab);
+            NC_yv_fab[idx].copy_to(yv_fab);
+            NC_xp_fab[idx].copy_to(xp_fab);
+            NC_yp_fab[idx].copy_to(yp_fab);
 
             if (have_spherical_psi) {
-                (*vec_lonp[lev])[mfi].template copy<RunOn::Device>(NC_lonp_fab[idx]);
-                (*vec_latp[lev])[mfi].template copy<RunOn::Device>(NC_latp_fab[idx]);
+                NC_lonp_fab[idx].copy_to((*vec_lonp[lev])[mfi]);
+                NC_latp_fab[idx].copy_to((*vec_latp[lev])[mfi]);
             }
             if (have_spherical_rho) {
-                (*vec_lonr[lev])[mfi].template copy<RunOn::Device>(NC_lonr_fab[idx]);
-                (*vec_latr[lev])[mfi].template copy<RunOn::Device>(NC_latr_fab[idx]);
+                NC_lonr_fab[idx].copy_to((*vec_lonr[lev])[mfi]);
+                NC_latr_fab[idx].copy_to((*vec_latr[lev])[mfi]);
             }
             if (have_angle) {
-                (*vec_angler[lev])[mfi].template copy<RunOn::Device>(NC_angler_fab[idx]);
+                NC_angler_fab[idx].copy_to((*vec_angler[lev])[mfi]);
             }
         } // mf
         } // omp
@@ -777,8 +778,8 @@ void
 REMORA::init_bathymetry_from_netcdf (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
-    Vector<FArrayBox> NC_h_fab     ; NC_h_fab.resize(num_boxes_at_level[lev]);
-    const Box region = nc_local_region(*vec_h[lev]);
+    Vector<NCLocalFab> NC_h_fab     ; NC_h_fab.resize(num_boxes_at_level[lev]);
+    const NCRegion region = nc_local_region(*vec_h[lev]);
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
         read_bathymetry_from_netcdf(lev, boxes_at_level[lev][idx], region, nc_grid_file[lev][idx],
@@ -794,13 +795,12 @@ REMORA::init_bathymetry_from_netcdf (int lev)
             FArrayBox &h_fab     = (*vec_h[lev])[mfi];
 
             //
-            // FArrayBox to FArrayBox copy does "copy on intersection"
-            // The FArrayBox read from the netcdf file covers every FAB this rank owns
+            // copy_to copies on intersection from the pieces read for this rank, which cover its FABs
             //
 
             // Copy into both components of h
-            h_fab.template     copy<RunOn::Device>(NC_h_fab[idx],0,0,1);
-            h_fab.template     copy<RunOn::Device>(NC_h_fab[idx],0,1,1);
+            NC_h_fab[idx].copy_to(h_fab, 0,0,1);
+            NC_h_fab[idx].copy_to(h_fab, 0,1,1);
         } // mf
         } // omp
     } // idx
@@ -825,8 +825,8 @@ void
 REMORA::init_coriolis_from_netcdf (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
-    Vector<FArrayBox> NC_fcor_fab     ; NC_fcor_fab.resize(num_boxes_at_level[lev]);
-    const Box region = nc_local_region(*vec_fcor[lev]);
+    Vector<NCLocalFab> NC_fcor_fab     ; NC_fcor_fab.resize(num_boxes_at_level[lev]);
+    const NCRegion region = nc_local_region(*vec_fcor[lev]);
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -843,11 +843,10 @@ REMORA::init_coriolis_from_netcdf (int lev)
             FArrayBox &fcor_fab  = (*vec_fcor[lev])[mfi];
 
             //
-            // FArrayBox to FArrayBox copy does "copy on intersection"
-            // The FArrayBox read from the netcdf file covers every FAB this rank owns
+            // copy_to copies on intersection from the pieces read for this rank, which cover its FABs
             //
 
-            fcor_fab.template    copy<RunOn::Device>(NC_fcor_fab[idx]);
+            NC_fcor_fab[idx].copy_to(fcor_fab);
         } // mf
         } // omp
     } // idx
@@ -861,8 +860,8 @@ void
 REMORA::init_masks_from_netcdf (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
-    Vector<FArrayBox> NC_mskr_fab     ; NC_mskr_fab.resize(num_boxes_at_level[lev]);
-    const Box region = nc_local_region(*vec_mskr[lev]);
+    Vector<NCLocalFab> NC_mskr_fab     ; NC_mskr_fab.resize(num_boxes_at_level[lev]);
+    const NCRegion region = nc_local_region(*vec_mskr[lev]);
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -879,11 +878,10 @@ REMORA::init_masks_from_netcdf (int lev)
             FArrayBox &mskr_fab  = (*vec_mskr[lev])[mfi];
 
             //
-            // FArrayBox to FArrayBox copy does "copy on intersection"
-            // The FArrayBox read from the netcdf file covers every FAB this rank owns
+            // copy_to copies on intersection from the pieces read for this rank, which cover its FABs
             //
 
-            mskr_fab.template    copy<RunOn::Device>(NC_mskr_fab[idx]);
+            NC_mskr_fab[idx].copy_to(mskr_fab);
         } // mf
         } // omp
     } // idx
@@ -964,22 +962,21 @@ void
 init_state_from_netcdf (int /*lev*/,
                         FArrayBox&  temp_fab, FArrayBox&  salt_fab,
                         FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
-                        const Vector<FArrayBox>& NC_temp_fab,
-                        const Vector<FArrayBox>& NC_salt_fab,
-                        const Vector<FArrayBox>& NC_xvel_fab,
-                        const Vector<FArrayBox>& NC_yvel_fab)
+                        const Vector<NCLocalFab>& NC_temp_fab,
+                        const Vector<NCLocalFab>& NC_salt_fab,
+                        const Vector<NCLocalFab>& NC_xvel_fab,
+                        const Vector<NCLocalFab>& NC_yvel_fab)
 {
     int nboxes = NC_xvel_fab.size();
     for (int idx = 0; idx < nboxes; idx++)
     {
         //
-        // FArrayBox to FArrayBox copy does "copy on intersection"
-        // The FArrayBox read from the netcdf file covers every FAB this rank owns
+        // copy_to copies on intersection from the pieces read for this rank, which cover its FABs
         //
-        temp_fab.template copy<RunOn::Device>(NC_temp_fab[idx]);
-        salt_fab.template copy<RunOn::Device>(NC_salt_fab[idx]);
-        x_vel_fab.template copy<RunOn::Device>(NC_xvel_fab[idx]);
-        y_vel_fab.template copy<RunOn::Device>(NC_yvel_fab[idx]);
+        NC_temp_fab[idx].copy_to(temp_fab);
+        NC_salt_fab[idx].copy_to(salt_fab);
+        NC_xvel_fab[idx].copy_to(x_vel_fab);
+        NC_yvel_fab[idx].copy_to(y_vel_fab);
     } // idx
 }
 
@@ -991,14 +988,14 @@ init_state_from_netcdf (int /*lev*/,
  */
 void
 init_biology_state_from_netcdf (int /*lev*/, FArrayBox& biology_fab,
-                                const Vector<Vector<FArrayBox>>& NC_biology_fab)
+                                const Vector<Vector<NCLocalFab>>& NC_biology_fab)
 {
     int nboxes = NC_biology_fab.size();
     for (int idx = 0; idx < nboxes; idx++)
     {
         AMREX_ALWAYS_ASSERT(static_cast<int>(NC_biology_fab[idx].size()) == biology_fab.nComp());
         for (int ibio = 0; ibio < biology_fab.nComp(); ++ibio) {
-            biology_fab.template copy<RunOn::Device>(NC_biology_fab[idx][ibio], 0, ibio, 1);
+            NC_biology_fab[idx][ibio].copy_to(biology_fab, 0, ibio, 1);
         }
     }
 }
@@ -1013,7 +1010,7 @@ init_biology_state_from_netcdf (int /*lev*/, FArrayBox& biology_fab,
  */
 void
 init_scalar_state_from_netcdf (int /*lev*/, FArrayBox& scalar_fab,
-                               const Vector<Vector<FArrayBox>>& NC_scalar_fab,
+                               const Vector<Vector<NCLocalFab>>& NC_scalar_fab,
                                const Vector<Vector<int>>& scalar_in_file)
 {
     int nboxes = NC_scalar_fab.size();
@@ -1025,7 +1022,7 @@ init_scalar_state_from_netcdf (int /*lev*/, FArrayBox& scalar_fab,
             // A dye the file does not carry has no FAB built for it, so leave the zero
             // that was written before the read.
             if (!scalar_in_file[idx][iscal]) { continue; }
-            scalar_fab.template copy<RunOn::Device>(NC_scalar_fab[idx][iscal], 0, iscal, 1);
+            NC_scalar_fab[idx][iscal].copy_to(scalar_fab, 0, iscal, 1);
         }
     }
 }
@@ -1037,10 +1034,10 @@ void
 REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
-    Vector<FArrayBox> NC_M2NC_fab     ; NC_M2NC_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_M3NC_fab     ; NC_M3NC_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_M2NC_fab     ; NC_M2NC_fab.resize(num_boxes_at_level[lev]);
+    Vector<NCLocalFab> NC_M3NC_fab     ; NC_M3NC_fab.resize(num_boxes_at_level[lev]);
     // One coefficient FAB per cons component per box
-    Vector<Vector<FArrayBox>> NC_ConsNC_fab(num_boxes_at_level[lev]);
+    Vector<Vector<NCLocalFab>> NC_ConsNC_fab(num_boxes_at_level[lev]);
     // Per box, whether each tracer's coefficient was actually present in the file
     Vector<Vector<int>> cons_coeff_in_file(num_boxes_at_level[lev]);
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++) {
@@ -1054,7 +1051,7 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
     for (const auto& coeff : vec_nudg_coeff) {
         if (lev < static_cast<int>(coeff.size())) { coeff_mfs.push_back(coeff[lev].get()); }
     }
-    const Box region = nc_local_region(coeff_mfs);
+    const NCRegion region = nc_local_region(coeff_mfs);
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -1075,20 +1072,20 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
         {
             if (solverChoice.do_m2_clim_nudg) {
                 FArrayBox &ubarNC_fab  = (*vec_nudg_coeff[bdy_ubar()][lev])[mfi];
-                ubarNC_fab.template    copy<RunOn::Device>(NC_M2NC_fab[idx]);
+                NC_M2NC_fab[idx].copy_to(ubarNC_fab);
                 FArrayBox &vbarNC_fab  = (*vec_nudg_coeff[bdy_vbar()][lev])[mfi];
-                vbarNC_fab.template    copy<RunOn::Device>(NC_M2NC_fab[idx]);
+                NC_M2NC_fab[idx].copy_to(vbarNC_fab);
             }
             if (solverChoice.do_m3_clim_nudg) {
                 FArrayBox &uNC_fab  = (*vec_nudg_coeff[BdyVars::u][lev])[mfi];
-                uNC_fab.template    copy<RunOn::Device>(NC_M3NC_fab[idx]);
+                NC_M3NC_fab[idx].copy_to(uNC_fab);
                 FArrayBox &vNC_fab  = (*vec_nudg_coeff[BdyVars::v][lev])[mfi];
-                vNC_fab.template    copy<RunOn::Device>(NC_M3NC_fab[idx]);
+                NC_M3NC_fab[idx].copy_to(vNC_fab);
             }
             for (int icomp = 0; icomp < ncons; ++icomp) {
                 if (!cons_coeff_in_file[idx][icomp]) { continue; }
                 FArrayBox &ConsNC_fab  = (*vec_nudg_coeff[BdyVars::cons(icomp)][lev])[mfi];
-                ConsNC_fab.template    copy<RunOn::Device>(NC_ConsNC_fab[idx][icomp]);
+                NC_ConsNC_fab[idx][icomp].copy_to(ConsNC_fab);
             }
 
         } // mf
@@ -1241,15 +1238,15 @@ REMORA::init_bathymetry_full_domain_from_netcdf ()
     check_hires_dims_from_netcdf(nc_grid_file_hires, "h", nc_hires_grid_box,
                                  cum_ref_ratios[hires_grid_level]);
 
-    Vector<FArrayBox> NC_h_fab     ; NC_h_fab.resize(1);
-    const Box region = nc_local_region(*vec_h_full_domain[hires_grid_level]);
+    Vector<NCLocalFab> NC_h_fab     ; NC_h_fab.resize(1);
+    const NCRegion region = nc_local_region(*vec_h_full_domain[hires_grid_level]);
     read_bathymetry_full_domain_from_netcdf(nc_hires_grid_box, region, nc_grid_file_hires, NC_h_fab[0],cum_ref_ratios[hires_grid_level]);
 
     // Don't tile this since we are operating on full FABs in this routine
     for ( MFIter mfi(*vec_h_full_domain[hires_grid_level], false); mfi.isValid(); ++mfi )
     {
         FArrayBox &h_fab     = (*vec_h_full_domain[hires_grid_level])[mfi];
-        h_fab.template    copy<RunOn::Device>(NC_h_fab[0]);
+        NC_h_fab[0].copy_to(h_fab);
     }
 
     // Coarsen to fill levels below hires_grid_level, grow cells included. Mask-weighted, so a
@@ -1268,8 +1265,8 @@ REMORA::init_masks_full_domain_from_netcdf ()
     check_hires_dims_from_netcdf(nc_grid_file_hires, "mask_rho", nc_hires_grid_box,
                                  cum_ref_ratios[hires_grid_level]);
 
-    Vector<FArrayBox> NC_mskr_fab   ; NC_mskr_fab.resize(1);
-    const Box region = nc_local_region(*vec_mskr_full_domain[hires_grid_level]);
+    Vector<NCLocalFab> NC_mskr_fab   ; NC_mskr_fab.resize(1);
+    const NCRegion region = nc_local_region(*vec_mskr_full_domain[hires_grid_level]);
     read_masks_full_domain_from_netcdf(nc_hires_grid_box, region, nc_grid_file_hires, NC_mskr_fab[0],
                                        cum_ref_ratios[hires_grid_level]);
 
@@ -1277,7 +1274,7 @@ REMORA::init_masks_full_domain_from_netcdf ()
     for ( MFIter mfi(*vec_mskr_full_domain[hires_grid_level], false); mfi.isValid(); ++mfi )
     {
         FArrayBox &mskr_fab  = (*vec_mskr_full_domain[hires_grid_level])[mfi];
-        mskr_fab.template    copy<RunOn::Device>(NC_mskr_fab[0]);
+        NC_mskr_fab[0].copy_to(mskr_fab);
     }
 
     // Coarsen to fill the levels below hires_grid_level. Not average_down_with_grow_cells:
@@ -1296,10 +1293,10 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
     check_hires_dims_from_netcdf(nc_grid_file_hires, "pm", nc_hires_grid_box,
                                  cum_ref_ratios[hires_grid_level]);
 
-    Vector<FArrayBox> NC_pm_fab    ; NC_pm_fab.resize(1);
-    Vector<FArrayBox> NC_pn_fab    ; NC_pn_fab.resize(1);
+    Vector<NCLocalFab> NC_pm_fab    ; NC_pm_fab.resize(1);
+    Vector<NCLocalFab> NC_pn_fab    ; NC_pn_fab.resize(1);
 
-    const Box region = nc_local_region({vec_h_full_domain[hires_grid_level].get(),
+    const NCRegion region = nc_local_region({vec_h_full_domain[hires_grid_level].get(),
                                         vec_pm_full_domain[hires_grid_level].get(),
                                         vec_pn_full_domain[hires_grid_level].get()});
     read_grid_vars_full_domain_from_netcdf(nc_hires_grid_box, region, nc_grid_file_hires,
@@ -1311,8 +1308,8 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
     {
         FArrayBox &pm_fab    = (*vec_pm_full_domain[hires_grid_level])[mfi];
         FArrayBox &pn_fab    = (*vec_pn_full_domain[hires_grid_level])[mfi];
-        pm_fab.template    copy<RunOn::Device>(NC_pm_fab[0]);
-        pn_fab.template    copy<RunOn::Device>(NC_pn_fab[0]);
+        NC_pm_fab[0].copy_to(pm_fab);
+        NC_pn_fab[0].copy_to(pn_fab);
     }
 
     // Average down to fill levels below hires_grid_level. Use a special average_down so
@@ -1352,8 +1349,8 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
     // unwrap_to_first_cell needs the whole field in one FAB. The full-domain MultiFabs are
     // one box per level, so the rank that owns it reads the whole field and the rest nothing.
     AMREX_ALWAYS_ASSERT(vec_pm_full_domain[hires_grid_level]->boxArray().size() == 1);
-    const Box sph_region = nc_local_region(*vec_pm_full_domain[hires_grid_level]);
-    Vector<FArrayBox> NC_lonr_fab(1), NC_latr_fab(1), NC_angler_fab(1);
+    const NCRegion sph_region = nc_local_region(*vec_pm_full_domain[hires_grid_level]);
+    Vector<NCLocalFab> NC_lonr_fab(1), NC_latr_fab(1), NC_angler_fab(1);
     const bool have_rho = read_optional_grid_vars_from_netcdf(
         nc_hires_grid_box, sph_region, nc_grid_file_hires, {"lon_rho", "lat_rho"},
         {&NC_lonr_fab[0], &NC_latr_fab[0]}, "high-resolution spherical rho coordinates",
@@ -1383,7 +1380,7 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
         if (!have) { continue; }
 
         for (MFIter mfi(*(*vec)[hires_grid_level], false); mfi.isValid(); ++mfi) {
-            (*(*vec)[hires_grid_level])[mfi].template copy<RunOn::Device>(*fab);
+            fab->copy_to((*(*vec)[hires_grid_level])[mfi]);
         }
         for (int lev = hires_grid_level-1; lev >= 0; lev--) {
             average_down_with_grow_cells(lev, *vec);

@@ -131,11 +131,13 @@ void write_file (const std::string& fname, int cmode)
  * BuildLocalFABsFromNetCDFFile against BuildFABsFromNetCDFFile: copy each into a
  * MultiFab, as the model's readers do, and require the same value in every cell, ghost
  * cells included. Covers a record variable, a variable with no time dimension, and one
- * staggered in x, on two layouts: several boxes over every rank, and a single box, which
- * leaves every rank but one with nothing to read.
+ * staggered in x, on three layouts: several boxes distributed as the model distributes
+ * them; the same boxes with two at opposite corners on one rank, read as separate pieces;
+ * and a single box, which leaves every rank but one with nothing to read.
  */
 void check_local_reads_on (const std::string& fname, const amrex::Box& domain,
-                           const amrex::BoxArray& ba);
+                           const amrex::BoxArray& ba, const amrex::DistributionMapping& dm,
+                           const std::string& layout);
 
 void check_local_reads (const std::string& fname)
 {
@@ -143,20 +145,36 @@ void check_local_reads (const std::string& fname)
     using amrex::IntVect;
     const Box domain(IntVect(0, 0, 0), IntVect(nx - 3, ny - 3, 0));
     amrex::BoxArray split(domain);
-    split.maxSize(IntVect(4, 3, 1));
-    check(fname + ": local reads split the domain", split.size() > 2);
-    for (const amrex::BoxArray& ba : {split, amrex::BoxArray(domain)}) {
-        check_local_reads_on(fname, domain, ba);
+    split.maxSize(IntVect(3, 2, 1));
+    check(fname + ": local reads split the domain", split.size() > 4);
+    check_local_reads_on(fname, domain, split, amrex::DistributionMapping(split), " (split)");
+
+    // Rank 0 gets the first and last boxes, at opposite corners of the domain, so its
+    // boxes are read as separate pieces; the other ranks are dealt the rest in turn.
+    const int nprocs = amrex::ParallelDescriptor::NProcs();
+    amrex::Vector<int> pmap(split.size());
+    for (int i = 0; i < split.size(); ++i) { pmap[i] = (nprocs > 1) ? 1 + i % (nprocs - 1) : 0; }
+    pmap[0] = 0;
+    pmap[split.size() - 1] = 0;
+    const amrex::DistributionMapping dealt(pmap);
+    if (nprocs > 1) {
+        amrex::MultiFab mf(split, dealt, 1, IntVect(1, 1, 0));
+        int pieces = static_cast<int>(nc_local_region(mf).size());
+        amrex::ParallelDescriptor::ReduceIntMax(pieces);
+        check(fname + ": boxes far apart are read as separate pieces", pieces > 1);
     }
+    check_local_reads_on(fname, domain, split, dealt, " (boxes far apart)");
+
+    const amrex::BoxArray one(domain);
+    check_local_reads_on(fname, domain, one, amrex::DistributionMapping(one), " (one box)");
 }
 
 void check_local_reads_on (const std::string& fname, const amrex::Box& domain,
-                           const amrex::BoxArray& ba)
+                           const amrex::BoxArray& ba, const amrex::DistributionMapping& dm,
+                           const std::string& layout)
 {
     using amrex::Box;
     using amrex::IntVect;
-    const amrex::DistributionMapping dm(ba);
-    const std::string layout = " (" + std::to_string(ba.size()) + " boxes)";
 
     // What each file variable covers: the domain and one ring of ghost cells at rho points,
     // and faces 0 to nx-2 (one row of ghosts in y) for ubar.
@@ -176,14 +194,15 @@ void check_local_reads_on (const std::string& fname, const amrex::Box& domain,
         local.setVal(-999.0);
 
         // Filled and copied the way the model does it, on the device in a GPU build.
-        amrex::FArrayBox serial_fab, local_fab;
+        amrex::FArrayBox serial_fab;
+        NCLocalFab local_fab;
         BuildFABsFromNetCDFFile<amrex::FArrayBox, amrex::Real>(
             domain, fname, {c.name}, {c.type}, {&serial_fab}, c.one_time, 1);
         BuildLocalFABsFromNetCDFFile<amrex::FArrayBox, amrex::Real>(
             domain, nc_local_region(local), fname, {c.name}, {c.type}, {&local_fab}, c.one_time, 1);
         for (amrex::MFIter mfi(local, false); mfi.isValid(); ++mfi) {
             serial[mfi].template copy<amrex::RunOn::Device>(serial_fab);
-            local[mfi].template copy<amrex::RunOn::Device>(local_fab);
+            local_fab.copy_to(local[mfi]);
         }
 
         // Checked on the host, from copies in host-accessible memory.

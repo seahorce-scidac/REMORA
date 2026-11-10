@@ -601,8 +601,8 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
     }
 
     // This all assumes that we're on level 0 with only one boxes_at_level
-    amrex::FArrayBox NC_fab;
-    amrex::Vector<amrex::FArrayBox*> NC_fabs;
+    NCLocalFab NC_fab;
+    amrex::Vector<NCLocalFab*> NC_fabs;
     amrex::Vector<std::string> NC_names;
     amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
@@ -627,13 +627,9 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
     // Don't tile this since we are operating on full FABs in this routine
     for ( amrex::MFIter mfi(*mf, false); mfi.isValid(); ++mfi )
     {
-        amrex::FArrayBox &fab  = (*mf)[mfi];
-
-        //
-        // FArrayBox to FArrayBox copy does "copy on intersection"; NC_fab covers
-        // every FAB of mf this rank owns.
-
-        fab.template copy<amrex::RunOn::Device>(NC_fab);
+        // Copy on intersection from the pieces read for this rank, which cover
+        // every FAB of mf it owns.
+        NC_fab.copy_to((*mf)[mfi]);
     } // mf
     } // omp
 }

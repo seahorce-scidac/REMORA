@@ -137,10 +137,12 @@ field to every rank. Now:
   FABs) avoids `varn`, which the NetCDF-4 driver lacks. A rank with no boxes
   reads nothing but still takes part in the collective call.
 - `nc_local_region` gives that region from the MultiFabs a caller fills: the
-  cell-centered bounding box of the FABs the rank owns. A rank whose FABs lie
-  far apart reads everything between them. AMReX's default space-filling-curve
-  distribution keeps a rank's boxes together. If measurements show otherwise,
-  the fix is one read per FAB, with every rank making the same number of calls.
+  boxes of the FABs the rank owns, merged where their bounding box adds no
+  cells. Each box is one collective read, and ranks with fewer boxes make empty
+  reads to match. The result is an `NCLocalFab`, one FAB per box, and callers
+  copy from it with `copy_to`. One bounding box per rank, the first version,
+  made rank 56 on Perlmutter (8 nodes, 1536 x 1536 x 32) read 25 times the
+  cells it owned. `remora.v=1` prints the largest such ratio.
 - Switched: `NCTimeSeries` (forcing and climatology records) and every
   init/grid reader in `REMORA_ReadFromInitNetcdf.cpp`, including the hires
   readers. The hires full-domain MultiFabs are one box per level, so on that
