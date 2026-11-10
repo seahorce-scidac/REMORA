@@ -266,15 +266,21 @@ REMORA::CrseInterpEntry*
 REMORA::crse_interp_entry (int crse_lev, const MultiFab& crse)
 {
     if (crse_lev >= int(crse_frozen.size()) || !crse_frozen[crse_lev]) { return nullptr; }
+    // The first local FAB's storage tells a MultiFab freed and another made at the same
+    // address apart; only level data that lives through the freeze may pass reuse.
+    const void* data = (crse.local_size() > 0) ? crse.atLocalIdx(0).dataPtr() : nullptr;
     auto& entries = crse_interp_entries[crse_lev];
     for (auto& e : entries) {
         if (e.src == &crse && e.ba == crse.boxArray() && e.dm == crse.DistributionMap()) {
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(e.data == data,
+                "coarse_for_interp: a MultiFab passed with reuse did not live through the freeze");
             return &e;
         }
     }
     entries.emplace_back();
     CrseInterpEntry& e = entries.back();
     e.src = &crse;
+    e.data = data;
     e.ba  = crse.boxArray();
     e.dm  = crse.DistributionMap();
     return &e;

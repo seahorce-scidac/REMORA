@@ -45,6 +45,9 @@ public:
 
     int GetSetMaskVal () { return m_set_mask; }
 
+    /** \brief how many times coarse data has been registered or the patcher defined */
+    [[nodiscard]] long RegCount () const { return m_reg_count; }
+
     int GetRelaxMaskVal () { return m_relax_mask; }
 
     amrex::iMultiFab* GetMask () { return m_cf_mask.get(); }

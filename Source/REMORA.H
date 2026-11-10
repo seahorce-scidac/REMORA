@@ -840,6 +840,7 @@ public:
     struct CFInterfaceFlux {
         std::unique_ptr<amrex::MultiFab> u, v;
         long gen = -1;
+        long reg_u = -1, reg_v = -1;
         amrex::Real time = amrex::Real(0.0);
     };
     amrex::Vector<CFInterfaceFlux> cf_iface_flux;
@@ -2212,6 +2213,7 @@ private:
      *         interpolation-ready data is known -- src itself, or copy when one was needed */
     struct CrseInterpEntry {
         const amrex::MultiFab* src = nullptr;
+        const void* data = nullptr;
         amrex::BoxArray ba;
         amrex::DistributionMapping dm;
         bool exchanged = false;

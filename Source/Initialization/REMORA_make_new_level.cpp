@@ -1002,6 +1002,7 @@ REMORA::ClearLevel (int lev)
     }
     if (lev < int(cf_iface_flux.size())) { cf_iface_flux[lev] = CFInterfaceFlux{}; }
     if (lev < int(crse_interp_entries.size())) { crse_interp_entries[lev].clear(); }
+    if (lev < int(crse_frozen.size())) { crse_frozen[lev] = 0; }
     if (lev > 0 && lev-1 < int(FPr_ubar.size())) { FPr_ubar[lev-1].ClearKept(); }
     if (lev > 0 && lev-1 < int(FPr_vbar.size())) { FPr_vbar[lev-1].ClearKept(); }
 #ifdef REMORA_USE_PARTICLES

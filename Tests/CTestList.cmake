@@ -627,6 +627,10 @@ add_test_run(Advection_3L_cf_fill_cache_check Advection_3L_conservation "remora_
              "remora.max_step=20 remora.cf_2d_fill_cache=2")
 add_test_run(DogboneAnalytic_MLvel_cf_fill_cache_check DogboneAnalytic_MLvel "remora_exec"
              "remora.cf_2d_fill_cache=2")
+# Output must not change a three-level run under the lockstep driver, which averages down
+# coarse pair first and relies on the average-down after the step
+add_test_r_selfcompare(Advection_3L_lockstep_plotint "remora_exec" "plt00007"
+                       "remora.plot_int=1" "remora.plot_int=7")
 
 # The floor. Both totals are exact on one level, so the AMR bounds are measured against
 # roundoff rather than against an unknown scheme error.

@@ -182,5 +182,4 @@ REMORA::timeStepML (Real time, int /*iteration*/)
             AverageDownTo(lev); // average lev+1 down to lev
         }
     }
-    levels_averaged_down = true;
 }

@@ -154,7 +154,10 @@ REMORA::cf_interface_flux (int lev, Real time)
                           && c.u->DistributionMap() == du.DistributionMap()
                           && c.v->boxArray() == dv.boxArray()
                           && c.v->DistributionMap() == dv.DistributionMap();
-    if (same_layout && gen >= 0 && c.gen == gen && c.time == time) {
+    const long reg_u = FPr_Dubar[lev-1].RegCount();
+    const long reg_v = FPr_Dvbar[lev-1].RegCount();
+    if (same_layout && gen >= 0 && c.gen == gen && c.time == time
+        && c.reg_u == reg_u && c.reg_v == reg_v) {
         return {c.u.get(), c.v.get()};
     }
 
@@ -179,6 +182,8 @@ REMORA::cf_interface_flux (int lev, Real time)
     }
 
     c.gen  = gen;
+    c.reg_u = reg_u;
+    c.reg_v = reg_v;
     c.time = time;
     return {c.u.get(), c.v.get()};
 }

@@ -484,10 +484,13 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
     particleData.Redistribute();
 #endif
 
-    // Both step drivers end by averaging every level down, finest pair first, as this loop
-    // does. With nothing in between, the fine data and the coarse values the average writes
-    // are what the driver left, so doing it again changes nothing. An output in between can
-    // change both (it refills ghost cells and rewrites masked cells), so then it runs.
+    // timeStep ends by averaging every level down, finest pair first, as this loop does, and
+    // says so through levels_averaged_down. With nothing in between, the fine data and the
+    // coarse values the average writes are what it left, so doing it again changes nothing.
+    // An output in between can change both (it refills ghost cells and rewrites masked
+    // cells), so then it runs. timeStepML averages coarse pair first, which with three or
+    // more levels leaves a coarse level averaged from a stale middle one, so after it this
+    // always runs.
     if (solverChoice.coupling_type == CouplingType::two_way && !levels_averaged_down)
     {
         for (int lev = finest_level-1; lev >= 0; lev--)
