@@ -542,7 +542,10 @@ REMORA::advance_2d (int lev,
             }
         });
 
-        ParallelFor(growLo(xbxD,0,1), growLo(ybxD,1,1),
+        // The two viscous fluxes at a rho point share the strain term cff, so one pass over
+        // the tile grown by one computes it once for both (the x-flux is read on
+        // [lo-1:hi+1] x [lo:hi], the y-flux on [lo:hi] x [lo-1:hi+1]; the corners are unused).
+        ParallelFor(grow(bxD,IntVect(1,1,0)),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             const Real cff = Real(0.5)*(zeta(i,j,0,krhs)+h(i,j,0)) * ( metr(i,j,0,MetricR::pmon_r) *
@@ -551,19 +554,9 @@ REMORA::advance_2d (int lev,
                                                     metr(i,j,0,MetricR::pnom_r) *
                                         ( (pm(i,j  ,0) + pm(i,j+1,0)) * vbar(i,j+1,0,krhs)-
                                           (pm(i,j-1,0) + pm(i,j  ,0)) * vbar(i,j  ,0,krhs) ) );
-            Real on_r = metr(i,j,0,MetricR::on_r);
+            const Real on_r = metr(i,j,0,MetricR::on_r);
+            const Real om_r = metr(i,j,0,MetricR::om_r);
             flx(i,j,0,hUFx) = on_r * on_r * visc2_r(i,j,0) * cff;
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-
-            const Real cff = Real(0.5)*(zeta(i,j,0,krhs)+h(i,j,0)) * ( metr(i,j,0,MetricR::pmon_r) *
-                                        ( (pn(i  ,j,0) + pn(i+1,j,0)) * ubar(i+1,j,0,krhs)-
-                                          (pn(i-1,j,0) + pn(i  ,j,0)) * ubar(i  ,j,0,krhs) )-
-                                                    metr(i,j,0,MetricR::pnom_r) *
-                                        ( (pm(i,j  ,0) + pm(i,j+1,0)) * vbar(i,j+1,0,krhs)-
-                                          (pm(i,j-1,0) + pm(i,j  ,0)) * vbar(i,j  ,0,krhs) ) );
-            Real om_r = metr(i,j,0,MetricR::om_r);
             flx(i,j,0,hVFe) = om_r * om_r * visc2_r(i,j,0) * cff;
         });
 
@@ -620,7 +613,10 @@ REMORA::advance_2d (int lev,
             }
         });
 
-        ParallelFor(growHi(xbxD,1,1), growHi(ybxD,0,1),
+        // Both viscous fluxes at a psi point, on [lo:hi+1]^2, from one shared strain term.
+        // The nodal tile boxes leave out the high face of a tile that does not end its box,
+        // so the box is built from the cell tile box.
+        ParallelFor(growHi(growHi(bxD,0,1),1,1),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             const Real cff = mskp(i,j,0) * Real(0.125) *
@@ -633,21 +629,8 @@ REMORA::advance_2d (int lev,
                          ((pm(i-1,j  ,0)+pm(i,j  ,0))*ubar(i,j  ,0,krhs)-
                           (pm(i-1,j-1,0)+pm(i,j-1,0))*ubar(i,j-1,0,krhs)));
             const Real om_p = metp(i,j,0,MetricP::om_p);
-            flx(i,j,0,hUFe) = om_p*om_p*visc2_p(i,j,0)*cff;
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-
-            const Real cff = mskp(i,j,0) * Real(0.125) *
-                        ((zeta(i-1,j  ,0,krhs)+h(i-1,j  ,0)) + (zeta(i,j  ,0,krhs)+h(i,j  ,0))+
-                         (zeta(i-1,j-1,0,krhs)+h(i-1,j-1,0)) + (zeta(i,j-1,0,krhs)+h(i,j-1,0)))*
-                        (metp(i,j,0,MetricP::pmon_p)*
-                         ((pn(i  ,j-1,0)+pn(i  ,j,0))*vbar(i  ,j,0,krhs)-
-                          (pn(i-1,j-1,0)+pn(i-1,j,0))*vbar(i-1,j,0,krhs))+
-                         metp(i,j,0,MetricP::pnom_p)*
-                         ((pm(i-1,j  ,0)+pm(i,j  ,0))*ubar(i,j  ,0,krhs)-
-                          (pm(i-1,j-1,0)+pm(i,j-1,0))*ubar(i,j-1,0,krhs)));
             const Real on_p = metp(i,j,0,MetricP::on_p);
+            flx(i,j,0,hUFe) = om_p*om_p*visc2_p(i,j,0)*cff;
             flx(i,j,0,hVFx) = on_p*on_p*visc2_p(i,j,0)*cff;
         });
 
