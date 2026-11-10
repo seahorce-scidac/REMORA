@@ -374,6 +374,49 @@ In the ``FillPatch`` operation, ``FillBoundary`` always overrides any
 interpolated values, i.e. if there is fine data available (except at coarse-fine
 boundary) we always use it.
 
+.. _sec:cf2dcache:
+
+Reusing coarse-fine ghost values in the barotropic step
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On a refined level, the barotropic step (``advance_2d``) refills the ghost cells of
+``ubar``, ``vbar`` and ``zeta`` after every fast step. Within one substep of the fine level
+those fills are all made at the same time, the start of the fine 3D step, and the parent
+level does not change while its child substeps; it changes only when
+``register_coarse_data`` hands the child the parent's new state. The values interpolated
+into the coarse-fine ghost cells therefore come out the same on every fast step of the
+substep. For the face fields ``ubar`` and ``vbar`` they also depend on the interface faces
+that the coarse-fine fill patcher sets first (``FillSet``), which come from the same parent
+data at the same time.
+
+REMORA therefore computes them once and replays them:
+
+- The first fill of a (time level, time) pair does the full two-level fill: it exchanges
+  the parent's ghost cells, interpolates the parent onto the fine level and copies fine
+  data where there is any. The values that land in the coarse-fine ghost cells are saved,
+  with a mask of which cells those are. The entry is keyed on the parent's generation (a
+  counter bumped each time the parent registers new data for its child), the fill time and
+  the coarse data the values were interpolated from.
+- Later fills with a matching key skip the parent exchange and the interpolation. A masked
+  copy puts the saved values back into the coarse-fine ghost cells, the fine-fine exchange
+  still runs (ghost cells shared with neighbouring fine boxes hold fine data, which changes
+  every fast step), and the physical boundary conditions are applied as before. When all
+  three fields hit, their fine-fine exchanges are posted together and the boundary
+  conditions then run in the original order. The interface values ``FillSet`` writes are
+  kept and replayed the same way, when they depend on the coarse data alone (checked once
+  per grid layout; true at the default ``remora.cf_set_width = 0``).
+- A miss (new parent data, a new substep time, or a regrid that changed the layout) does
+  the full fill and refreshes the entry. Removing a level frees its entries.
+
+The replay is used with the subcycled driver only (``remora.do_substep = 1``), one
+component at a time, and for ``ubar`` and ``vbar`` only when the coarse-fine fill patchers
+set the interface faces first (``remora.cf_width`` and ``remora.cf_set_width`` at least 0).
+It saves the parent exchange and interpolation on all but the first fast step of each
+substep; the results are bitwise identical to recomputing every time.
+``remora.cf_2d_fill_cache`` selects the behaviour: 0 always recomputes, 1 (the default)
+replays, and 2 replays and also does the full fill, aborting if any replayed cell differs
+from the fresh one. The ``*_cf_fill_cache_check`` regression tests run with 2.
+
 Example
 -------
 
