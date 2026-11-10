@@ -942,7 +942,8 @@ REMORA::advance_2d (int lev,
                          knew, 1, 0, know, dt2d, vbar_know);
             FillPatchBCs(lev, t_old[lev], *vec_zeta[lev], zeta_bc(), bdy_zeta(),
                          knew, 1, 0, know, dt2d, zeta_know);
-        } else {
+        } else if (!replay_cf_2d_fills(lev, t_old[lev], knew, know, dt2d,
+                                       ubar_know, vbar_know, zeta_know)) {
             // The last argument names the cf_2d_cache slot: within a parent step these fills
             // repeat for the same few (component, time) pairs
             FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),

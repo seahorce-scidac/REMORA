@@ -1480,6 +1480,16 @@ public:
                             const amrex::MultiFab& crse, amrex::Real time,
                             amrex::Interpolater* mapper, int bccomp);
 
+    /** \brief Whether FillPatch may keep and replay mf's coarse-fine fill in cf_2d_cache */
+    bool cf_2d_cacheable (int lev, int slot, const amrex::MultiFab& mf, int ncomp,
+                          bool fill_set) const;
+
+    /** \brief advance_2d's three fine-level barotropic fills with one exchange, when all
+     *  three are cache hits; returns false, having changed nothing, otherwise */
+    bool replay_cf_2d_fills (int lev, amrex::Real time, int knew, int know, amrex::Real dt2d,
+                             const amrex::MultiFab& ubar_know, const amrex::MultiFab& vbar_know,
+                             const amrex::MultiFab& zeta_know);
+
     /** \brief Coarse data ready for a coarse-to-fine interpolation: ghost cells exchanged,
      *         and those beyond a wall made to agree with their periodic images */
     amrex::MultiFab& coarse_for_interp (int crse_lev, amrex::MultiFab& crse,

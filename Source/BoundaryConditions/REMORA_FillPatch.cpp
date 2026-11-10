@@ -381,10 +381,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         // faces, which FillSet has just set from the same parent data and time. So keep the
         // result per pair and replay it with the fine-fine exchange that ends the fill,
         // instead of exchanging and interpolating the parent again on every fast step.
-        const bool is_face = mf_box.ixType() != IndexType(IntVect(0,0,0));
-        const bool cacheable = cf_cache_slot >= 0 && cf_2d_fill_cache > 0 && do_substep
-                               && ncomp == 1 && int(cf_crse_gen.size()) >= lev
-                               && (!is_face || (fill_set && cf_width >= 0 && cf_set_width >= 0));
+        const bool cacheable = cf_2d_cacheable(lev, cf_cache_slot, mf_to_fill, ncomp, fill_set);
         CF2DCache* cache = nullptr;
         long gen = 0;
         bool hit = false;
@@ -444,6 +441,92 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
 
     FillPatchBCs(lev, time, mf_to_fill, bccomp, bdy_var_type, icomp, ncomp, n_not_fill,
                  icomp_calc, dt_lev, mf_calc);
+}
+
+/**
+ * Whether FillPatch may keep and replay the coarse-fine fill of mf in cf_2d_cache. Faces
+ * qualify only when FillSet has rewritten the interface faces the fill reads first.
+ *
+ * @param[in] lev       fine level
+ * @param[in] slot      cache slot, or -1 for none
+ * @param[in] mf        the MultiFab filled
+ * @param[in] ncomp     number of components filled
+ * @param[in] fill_set  whether the fill starts with FillSet
+ */
+bool
+REMORA::cf_2d_cacheable (int lev, int slot, const MultiFab& mf, int ncomp, bool fill_set) const
+{
+    const bool is_face = mf.ixType() != IndexType(IntVect(0,0,0));
+    return slot >= 0 && cf_2d_fill_cache > 0 && do_substep
+        && ncomp == 1 && int(cf_crse_gen.size()) >= lev
+        && (!is_face || (fill_set && cf_width >= 0 && cf_set_width >= 0));
+}
+
+/**
+ * The barotropic fills of a fine level in advance_2d -- ubar and vbar with FillSet, zeta
+ * without, component knew at time -- done together when all three are cache hits. That is
+ * what FillPatch does for each in turn, with the three fine-fine exchanges posted together
+ * in one FillBoundary, as at level 0. The reordering changes no value: FillSet writes only
+ * its own field (the interface faces, in every component), the replay only its field's knew
+ * ghost cells, and an exchange only its own field; the boundary conditions of each field read
+ * only that field, zeta's know component (Flather and Chapman), h and the masks, and still
+ * run in the same order, each after its own field's FillSet, replay and exchange.
+ *
+ * @param[in] lev        fine level
+ * @param[in] time       fill time
+ * @param[in] knew       component to fill
+ * @param[in] know       component the boundary conditions read
+ * @param[in] dt2d       barotropic step the boundary conditions use
+ * @param[in] ubar_know  component know of ubar, for the boundary conditions
+ * @param[in] vbar_know  component know of vbar
+ * @param[in] zeta_know  component know of zeta
+ * @return whether the fills were done; if false nothing was changed
+ */
+bool
+REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
+                            const MultiFab& ubar_know, const MultiFab& vbar_know,
+                            const MultiFab& zeta_know)
+{
+    if (cf_2d_fill_cache != 1) { return false; }
+
+    MultiFab* mfs[3]     = {vec_ubar[lev].get(), vec_vbar[lev].get(), vec_zeta[lev].get()};
+    MultiFab* crse[3]    = {vec_ubar[lev-1].get(), vec_vbar[lev-1].get(), vec_zeta[lev-1].get()};
+    const int bccomp[3]  = {ubar_bc(), vbar_bc(), zeta_bc()};
+    const int bdy[3]     = {bdy_ubar(), bdy_vbar(), bdy_zeta()};
+    const bool fset[3]   = {true, true, false};
+    const MultiFab* mf_calc[3] = {&ubar_know, &vbar_know, &zeta_know};
+
+    CF2DCache* cache[3];
+    for (int n = 0; n < 3; ++n) {
+        if (!cf_2d_cacheable(lev, n, *mfs[n], 1, fset[n])) { return false; }
+        Interpolater* mapper = (mfs[n]->ixType() == IndexType(IntVect(0,0,0)))
+                             ? static_cast<Interpolater*>(&cell_cons_interp)
+                             : static_cast<Interpolater*>(&face_cons_linear_interp);
+        cf_2d_cache_entry(lev, n, *mfs[n], *crse[n], time, mapper, bccomp[n]);
+        cache[n] = &cf_2d_cache[lev][n];
+        if (cache[n]->gen[knew] != cf_crse_gen[lev-1] || cache[n]->time[knew] != time) {
+            return false;
+        }
+    }
+
+    BL_PROFILE("REMORA::replay_cf_2d_fills()");
+    if (cf_set_width >= 0) {
+        FPr_ubar[lev-1].FillSet(*mfs[0], time, null_bc, domain_bcs_type);
+        FPr_vbar[lev-1].FillSet(*mfs[1], time, null_bc, domain_bcs_type);
+    }
+    for (int n = 0; n < 3; ++n) {
+        copy_on_mask(*mfs[n], *cache[n]->vals, *cache[n]->mask, knew);
+    }
+    const Periodicity& per = geom[lev].periodicity();
+    amrex::FillBoundary(Vector<MultiFab*>{mfs[0], mfs[1], mfs[2]},
+                        Vector<int>{knew, knew, knew}, Vector<int>{1, 1, 1},
+                        Vector<IntVect>{mfs[0]->nGrowVect(), mfs[1]->nGrowVect(),
+                                        mfs[2]->nGrowVect()},
+                        Vector<Periodicity>{per, per, per});
+    for (int n = 0; n < 3; ++n) {
+        FillPatchBCs(lev, time, *mfs[n], bccomp[n], bdy[n], knew, 1, 0, know, dt2d, *mf_calc[n]);
+    }
+    return true;
 }
 
 /**
