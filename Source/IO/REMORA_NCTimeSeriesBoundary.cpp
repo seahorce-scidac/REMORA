@@ -1,8 +1,10 @@
 #include "REMORA_NCTimeSeriesBoundary.H"
 #include "REMORA_NCFile.H"
+#include "REMORA_TideMath.H"
 
 #include "AMReX_ParallelDescriptor.H"
 
+#include <algorithm>
 #include <string>
 
 #ifdef REMORA_USE_NETCDF
@@ -184,6 +186,198 @@ void NCTimeSeriesBoundary::Initialize()
                    " a boundary condition that needs no file data, such as outflow.";
             amrex::Abort(msg);
         }
+    }
+}
+
+/**
+ * \brief Load boundary harmonics for the sum in ROMS Nonlinear/set_tides.F.
+ *
+ * @param[in   ] file_name  CDF-2 file containing fixed amplitude/phase pairs
+ * @param[in   ] sides      sides on which this field supplies tidal forcing
+ * @param[in   ] verbose    whether to report the forcing being initialized
+ */
+void
+NCTimeSeriesBoundary::InitializeTides (
+    const std::string& file_name,
+    const amrex::GpuArray<bool, AMREX_SPACEDIM*2>& sides, bool verbose)
+{
+    using namespace amrex;
+    const Array<const char*, 6> side_names = {"west", "south", "", "east", "north", ""};
+    Array<FArrayBox*, 6> destinations = {&xlo_dat_interp, &ylo_dat_interp, nullptr,
+                                       &xhi_dat_interp, &yhi_dat_interp, nullptr};
+    Vector<std::string> names = {"tide_period", "tide_epoch"};
+    Vector<int> orientations;
+    for (int ori = 0; ori < AMREX_SPACEDIM*2; ++ori) {
+        if (sides[ori] && destinations[ori] != nullptr) {
+            orientations.push_back(ori);
+            names.push_back("tide_" + field_name + "_amp_" + side_names[ori]);
+            names.push_back("tide_" + field_name + "_phase_" + side_names[ori]);
+        }
+    }
+    if (orientations.empty()) { return; }
+
+    Vector<std::string> required = names;
+    required.push_back("tide_name");
+    if (!QueryNetCDFHasVars(file_name, required)) {
+        std::string message = "Tidal file " + file_name + " must contain:";
+        for (const auto& name : required) { message += " " + name; }
+        Abort(message);
+    }
+    Vector<NDArray<double>> data(names.size());
+    ReadNetCDFFile(file_name, names, data);
+    Vector<NDArray<char>> labels(1);
+    ReadNetCDFFile(file_name, {"tide_name"}, labels);
+
+    int nconstituents = 0;
+    auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
+    ncmpi_begin_indep_data(ncf.ncid);
+    if (ParallelDescriptor::IOProcessor()) {
+        auto fail = [&] (const std::string& name, const std::string& reason) {
+            Abort("Tidal variable '" + name + "' in " + file_name + ": " + reason);
+        };
+        auto check_units = [&] (const std::string& name, const std::string& units) {
+            auto var = ncf.var(name);
+            if (!var.has_attr("units") || var.get_attr("units") != units) {
+                fail(name, "units must be '" + units + "'");
+            }
+        };
+        const auto shape = data[0].get_vshape();
+        if (shape.size() != 1 || shape[0] < 1) {
+            fail("tide_period", "expected a nonempty one-dimensional array");
+        }
+        nconstituents = static_cast<int>(shape[0]);
+        const auto label_shape = labels[0].get_vshape();
+        if (label_shape.size() != 2 || label_shape[0] != nconstituents || label_shape[1] < 1) {
+            fail("tide_name", "expected (tide, name_strlen), matching tide_period");
+        }
+        if (!data[1].get_vshape().empty()) { fail("tide_epoch", "expected a scalar"); }
+        check_units("tide_period", "s");
+        for (int n = 0; n < names.size(); ++n) {
+            const std::string& name = names[n];
+            Vector<double> missing = {NC_FILL_DOUBLE, static_cast<double>(NC_FILL_FLOAT)};
+            for (const auto& attr : {"_FillValue", "missing_value"}) {
+                if (ncf.var(name).has_attr(attr)) {
+                    std::vector<double> values;
+                    ncf.var(name).get_attr(attr, values);
+                    missing.insert(missing.end(), values.begin(), values.end());
+                }
+            }
+            const double* values = data[n].get_data();
+            for (std::size_t p = 0; p < data[n].ndim(); ++p) {
+                if (!std::isfinite(values[p]) ||
+                    std::find(missing.begin(), missing.end(), values[p]) != missing.end()) {
+                    fail(name, "values must be finite and contain no missing data");
+                }
+                if ((n == 0 && values[p] <= 0.0) ||
+                    (n >= 2 && n % 2 == 0 && values[p] < 0.0)) {
+                    fail(name, n == 0 ? "periods must be positive" : "amplitudes must be nonnegative");
+                }
+            }
+            if (n >= 2) {
+                const int ori = orientations[(n-2)/2];
+                Box coarse_box = destinations[ori]->box();
+                coarse_box.coarsen(IntVect(m_rx, m_ry, 1));
+                const auto field_shape = data[n].get_vshape();
+                if (field_shape.size() != 2 || field_shape[0] != nconstituents ||
+                    field_shape[1] != coarse_box.numPts()) {
+                    fail(name, "expected (tide, boundary_length) on the level-0 grid");
+                }
+                check_units(name, n % 2 == 0 ? (field_name == "zeta" ? "m" : "m s-1")
+                                                       : "degrees");
+            }
+        }
+        tide_epoch = data[1].get_data()[0];
+        tide_periods.assign(data[0].get_data(), data[0].get_data() + nconstituents);
+    }
+    ncf.close();
+    const int root = ParallelDescriptor::IOProcessorNumber();
+    ParallelDescriptor::Bcast(&nconstituents, 1, root);
+    tide_periods.resize(nconstituents);
+    ParallelDescriptor::Bcast(tide_periods.data(), nconstituents, root);
+    ParallelDescriptor::Bcast(&tide_epoch, 1, root);
+    tide_epoch = (tide_epoch + ReadNetCDFTimeOffsetDays(file_name, "tide_epoch", time_ref,
+                                                       true, verbose)) * 86400.0;
+    tide_weights_host.resize(2*nconstituents);
+    tide_weights_device.resize(2*nconstituents);
+
+    Arena* host_arena = The_Arena();
+#ifdef AMREX_USE_GPU
+    host_arena = The_Pinned_Arena();
+#endif
+    for (int b = 0; b < orientations.size(); ++b) {
+        const int ori = orientations[b];
+        Box coarse_box = destinations[ori]->box();
+        coarse_box.coarsen(IntVect(m_rx, m_ry, 1));
+        FArrayBox coarse(coarse_box, 2*nconstituents, host_arena);
+        const auto count = coarse_box.numPts();
+        if (ParallelDescriptor::IOProcessor()) {
+            const double* amplitude = data[2+2*b].get_data();
+            const double* phase = data[3+2*b].get_data();
+            for (int c = 0; c < nconstituents; ++c) {
+                for (Long p = 0; p < count; ++p) {
+                    double cosine, sine;
+                    remora_tide_coefficients(amplitude[c*count+p], phase[c*count+p], cosine, sine);
+                    coarse.dataPtr(2*c)[p] = static_cast<Real>(cosine);
+                    coarse.dataPtr(2*c+1)[p] = static_cast<Real>(sine);
+                }
+            }
+        }
+        ParallelDescriptor::Bcast(coarse.dataPtr(), coarse.size(), root);
+        auto& coefficients = tide_coefficients[ori];
+        coefficients.resize(destinations[ori]->box(), 2*nconstituents);
+        if (m_lev == 0) {
+            Gpu::copy(Gpu::hostToDevice, coarse.dataPtr(), coarse.dataPtr() + coarse.size(),
+                      coefficients.dataPtr());
+        } else {
+            for (int c = 0; c < 2*nconstituents; ++c) {
+                FArrayBox source(coarse, make_alias, c, 1);
+                FArrayBox target(coefficients, make_alias, c, 1);
+                interp_fab(source, target);
+            }
+            // The pinned source must outlive interpolation on the device.
+            Gpu::streamSynchronize();
+        }
+    }
+    if (verbose) {
+        Print() << "Boundary tides use fixed amplitudes and phases: " << nconstituents
+                << " constituents for " << field_name << " from " << file_name << '\n';
+    }
+}
+
+/**
+ * \brief Add the ROMS set_tides.F harmonic sum to the subtidal boundary reference.
+ *
+ * @param[in   ] time  requested boundary time in seconds on the model clock
+ */
+void
+NCTimeSeriesBoundary::add_tides (double time)
+{
+    using namespace amrex;
+    const int nconstituents = static_cast<int>(tide_periods.size());
+    if (nconstituents == 0) { return; }
+    for (int c = 0; c < nconstituents; ++c) {
+        const double angle = remora_tide_argument(time, tide_epoch, tide_periods[c]);
+        tide_weights_host[2*c] = static_cast<Real>(std::cos(angle));
+        tide_weights_host[2*c+1] = static_cast<Real>(std::sin(angle));
+    }
+    Gpu::copy(Gpu::hostToDevice, tide_weights_host.begin(), tide_weights_host.end(),
+              tide_weights_device.begin());
+    const Real* weights = tide_weights_device.data();
+    Array<FArrayBox*, 6> destinations = {&xlo_dat_interp, &ylo_dat_interp, nullptr,
+                                       &xhi_dat_interp, &yhi_dat_interp, nullptr};
+    for (int ori = 0; ori < AMREX_SPACEDIM*2; ++ori) {
+        if (tide_coefficients[ori].nComp() == 0) { continue; }
+        const auto coefficients = tide_coefficients[ori].const_array();
+        const auto dest = destinations[ori]->array();
+        ParallelFor(destinations[ori]->box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real value = Real(0.0);
+            for (int c = 0; c < nconstituents; ++c) {
+                value += coefficients(i,j,k,2*c) * weights[2*c]
+                       + coefficients(i,j,k,2*c+1) * weights[2*c+1];
+            }
+            dest(i,j,k) += value;
+        });
     }
 }
 
@@ -370,6 +564,8 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (double time)
             yhi_interp_arr(i,j,k) = yhi_before_arr(i,j,k) + time_since_before * (yhi_after_arr(i,j,k) - yhi_before_arr(i,j,k)) / dt;
         });
     }
+
+    add_tides(time);
 }
 
 /**

@@ -120,6 +120,137 @@ will define a problem that is periodic on the Western and Eastern sides. Tempera
 :ref:`remora.nc_bdry_file<icbc-parameters>`. The 2D momentum and zeta BCs are calculated from the
 Chapman/Flather conditions, with nudging towards values given in the boundary NetCDF file.
 
+.. _sec:tidal-boundaries:
+
+Tidal boundary forcing
+----------------------
+
+Fixed tidal harmonics can be added to the subtidal elevation and depth-averaged normal
+velocity used by Chapman/Flather boundaries. Configure those boundaries as usual, then set::
+
+    remora.tide_type = netcdf
+    remora.nc_tide_file = boundary_tides.nc
+    remora.nc_bdry_file = subtidal_boundary.nc
+
+``remora.tide_type`` defaults to ``none``. Reading tides requires a PnetCDF build.
+The subtidal boundary file remains required and must cover the simulation time range.
+For tides-only forcing, supply zeros at two times spanning the run. Prepare subtidal boundary
+values with their tidal signal removed before adding these harmonics.
+
+Every constituent in the tidal file participates in the sum. Amplitudes and phases are fixed
+in time and may vary along the boundary. Names are labels; periods determine frequencies.
+Changing the constituent set requires a different file, with no constituent-selection input.
+
+The prescribed elevation and normal velocity enter Flather together. Chapman continues to
+radiate the modeled elevation, and the tangential barotropic velocity retains its existing
+radiation condition. Reconstruction uses the same requested time as the subtidal interpolation,
+including the current practice of using the start of the level's baroclinic step throughout
+its fast steps.
+
+Conventions
+~~~~~~~~~~~
+
+The reconstruction follows `ROMS set_tides.F
+<https://github.com/myroms/roms/blob/develop/ROMS/Nonlinear/set_tides.F>`_:
+
+.. math::
+
+    q_{\mathrm{tide}}(s,t) = \sum_c A_c(s)
+        \cos\left[\frac{2\pi(t-t_0)}{T_c}
+                   - \phi_c(s)\frac{\pi}{180}\right].
+
+Here :math:`q` is elevation or normal barotropic velocity, :math:`s` is position along the
+boundary, and :math:`t_0` is the phase-reference epoch. The external reference is
+:math:`q_{\mathrm{subtidal}}+q_{\mathrm{tide}}`.
+
+.. list-table:: Units and signs
+   :header-rows: 1
+   :widths: 25 20 55
+
+   * - Quantity
+     - File units
+     - Convention
+   * - Period
+     - ``s``
+     - Positive period in seconds.
+   * - Elevation amplitude
+     - ``m``
+     - Nonnegative amplitude. Positive elevation is upward from the subtidal reference.
+   * - Velocity amplitude
+     - ``m s-1``
+     - Nonnegative amplitude of depth-averaged velocity, rather than transport.
+   * - Phase
+     - ``degrees``
+     - Positive phase is a lag. One constituent's positive maximum occurs at
+       :math:`t=t_0+T\phi/360`, modulo its period. Radians are rejected.
+   * - ``ubar``
+     - ``m s-1``
+     - Positive in the model x direction on both west and east boundaries.
+   * - ``vbar``
+     - ``m s-1``
+     - Positive in the model y direction on both south and north boundaries.
+
+Phases are normally in the range 0 to 360 degrees; any finite phase is accepted.
+A negative velocity at the epoch is represented by phase, not a negative amplitude.
+Elevation and velocity have independent phases. Rotate geographic east/north currents into
+model directions before writing the file. Neither velocity uses an outward-normal sign.
+
+``tide_epoch`` is a scalar time with units such as ``days since 2020-01-01 00:00:00``.
+Its value is in days, as for REMORA's other NetCDF times; zero selects the date in the units.
+The epoch is placed on the model clock using ``remora.time_ref`` and does not reset at restart.
+If supplied, ``calendar`` must agree with the model calendar. The reference date uses UTC.
+
+File layout
+~~~~~~~~~~~
+
+Use 64-bit-offset NetCDF classic (CDF-2). The dimensions are ``tide`` for constituents,
+``eta_rho = n_cell_y + 2`` and ``xi_rho = n_cell_x + 2`` on level 0, and ``name_strlen``
+for fixed-length character labels. There is no time-record dimension.
+
+.. list-table:: Tidal variables
+   :header-rows: 1
+   :widths: 55 45
+
+   * - Variable
+     - Dimensions
+   * - ``tide_name``
+     - ``(tide, name_strlen)``, characters
+   * - ``tide_period``
+     - ``(tide)``
+   * - ``tide_epoch``
+     - Scalar
+   * - ``tide_zeta_amp_west``, ``tide_zeta_phase_west``; similarly ``east``
+     - ``(tide, eta_rho)``
+   * - ``tide_ubar_amp_west``, ``tide_ubar_phase_west``; similarly ``east``
+     - ``(tide, eta_rho)``
+   * - ``tide_zeta_amp_south``, ``tide_zeta_phase_south``; similarly ``north``
+     - ``(tide, xi_rho)``
+   * - ``tide_vbar_amp_south``, ``tide_vbar_phase_south``; similarly ``north``
+     - ``(tide, xi_rho)``
+
+Only sides whose normal barotropic velocity uses Flather require amplitude/phase pairs.
+Each such side requires both elevation and normal velocity. Every numeric variable must have
+the exact units above, except ``tide_epoch`` which uses date-bearing time units. All pairs share
+the constituent order of ``tide_period``. Values must be finite and contain no missing-data
+entries; write zero amplitudes where a constituent makes no contribution.
+
+Arrays run in increasing model-coordinate order. West/east entries correspond to level-0
+indices ``j = -1, 0, ..., n_cell_y``; south/north entries correspond to
+``i = -1, 0, ..., n_cell_x``. The first and last entries are boundary-strip endpoints.
+Normal velocities are at their native boundary faces. Elevation is the reference at that
+same face; when preparing it from full-grid rho-point harmonics, average the two adjacent
+harmonics onto the face, as ROMS does. Rotate and average sine/cosine coefficients rather than
+phase angles across 0/360 degrees. REMORA uses those coefficients to interpolate to refined levels.
+
+``Tools/make_boundary_tides.py`` provides ``write_boundary_tides`` for prepared boundary
+amplitude/phase arrays. Running it writes a synthetic example::
+
+    python3 Tools/make_boundary_tides.py --nx 128 --ny 64 \
+        --epoch "2020-01-01 00:00:00" --output boundary_tides.nc
+
+The script requires NumPy and netCDF4. Replace its demonstration harmonics with values for
+the modeled region before using the file for a physical simulation.
+
 .. _sec:bc-per-tracer:
 
 Boundary conditions for individual tracers

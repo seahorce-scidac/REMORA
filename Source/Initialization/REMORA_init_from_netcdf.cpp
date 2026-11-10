@@ -943,6 +943,21 @@ REMORA::init_bdry_from_netcdf (int lev)
                                                                 phys_bc_need_data[ivar], is_2d[ivar], rx, ry,
                                                                 solverChoice.time_ref)));
         boundary_series[lev][ivar]->Initialize();
+        if (solverChoice.tide_type == TideType::netcdf &&
+            (ivar == bdy_zeta() || ivar == bdy_ubar() || ivar == bdy_vbar())) {
+            GpuArray<bool, AMREX_SPACEDIM*2> tide_sides{};
+            for (int dir = 0; dir < 2; ++dir) {
+                const int normal_var = (dir == 0) ? bdy_ubar() : bdy_vbar();
+                const int normal_bc = (dir == 0) ? ubar_bc() : vbar_bc();
+                if (ivar == bdy_zeta() || ivar == normal_var) {
+                    tide_sides[dir] = domain_bcs_type[normal_bc].lo(dir) == REMORABCType::flather;
+                    tide_sides[dir+AMREX_SPACEDIM] =
+                        domain_bcs_type[normal_bc].hi(dir) == REMORABCType::flather;
+                }
+            }
+            boundary_series[lev][ivar]->InitializeTides(solverChoice.nc_tide_file,
+                                                       tide_sides, Verbose());
+        }
     }
 }
 

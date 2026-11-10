@@ -83,6 +83,11 @@ enum class SMFluxType {
     analytic, netcdf
 };
 
+/** \brief Boundary tidal forcing */
+enum class TideType {
+    none, netcdf
+};
+
 /** \brief surface wind */
 enum class WindType {
     analytic, netcdf
@@ -172,6 +177,26 @@ struct SolverChoice {
         pp.queryAdd("use_coriolis", use_coriolis);
 
         pp.queryAdd("use_curvilinear_grid", use_curvilinear_grid);
+
+        std::string tide_type_string = "none";
+        pp.queryAdd("tide_type", tide_type_string);
+        if (amrex::toLower(tide_type_string) == "none") {
+            tide_type = TideType::none;
+        } else if (amrex::toLower(tide_type_string) == "netcdf") {
+            tide_type = TideType::netcdf;
+        } else {
+            amrex::Abort("remora.tide_type must be none or netcdf");
+        }
+        pp.queryAdd("nc_tide_file", nc_tide_file);
+        if (tide_type == TideType::netcdf) {
+#ifdef REMORA_USE_NETCDF
+            if (nc_tide_file.empty()) {
+                amrex::Abort("remora.tide_type = netcdf requires remora.nc_tide_file");
+            }
+#else
+            amrex::Abort("remora.tide_type = netcdf requires a PnetCDF build");
+#endif
+        }
 
         // Whether to do rivers. By default, rivers are temp and salt sources. Rivers
         // have to be momentum sources.
@@ -1118,6 +1143,9 @@ struct SolverChoice {
     bool do_any_clim_nudg = false;
 
     bool boundary_from_netcdf = false;
+
+    TideType tide_type = TideType::none;
+    std::string nc_tide_file;
 };
 
 #endif
