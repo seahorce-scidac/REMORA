@@ -163,11 +163,12 @@ GPU and build-configuration traps that CPU builds miss:
   the test fails.
 - Register tests in `Tests/CTestList.cmake` with the existing helpers (`add_test_r`,
   `add_test_equiv`, `add_test_abort`, ...). Run `ctest -R <Name>` first, then the full suite.
-- A new model or process needs a gold-file test of a full REMORA run. Restart, alias and
-  layout comparisons only show a run agrees with itself, and fixtures fed straight from ROMS
-  skip REMORA's input conventions, so neither catches unit mismatches.
+- Test a new model or process through a full REMORA run, with its inputs set the way users
+  set them. Fixtures fed straight from ROMS skip REMORA's input conventions, so they can't
+  catch unit mismatches, and restart, alias and layout comparisons only show that a run agrees
+  with itself.
 - Don't commit standalone reference fixtures, generator scripts or planning documents. Tests
-  go in the existing structure (`CTestList.cmake`, gold files, `Tests/Unit/`).
+  go in the existing structure (`CTestList.cmake`, `Tests/test_files/`, `Tests/Unit/`).
 - A kernel with per-tile state needs a tiled-versus-untiled bitwise test (`add_test_layout`)
   on a case that varies in both x and y, such as Seamount.
 - Before pushing or opening a PR, a local Release build and ctest is enough; a local Debug
