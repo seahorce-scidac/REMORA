@@ -1483,7 +1483,15 @@ public:
     /** \brief Coarse data ready for a coarse-to-fine interpolation: ghost cells exchanged,
      *         and those beyond a wall made to agree with their periodic images */
     amrex::MultiFab& coarse_for_interp (int crse_lev, amrex::MultiFab& crse,
-                                        amrex::MultiFab& scratch);
+                                        amrex::MultiFab& scratch, bool reuse = false);
+
+    /** \brief Exchange the ghost cells of coarse data a fill reads, once per freeze of the
+     *         level when reuse is set */
+    void exchange_coarse (int crse_lev, amrex::MultiFab& crse, bool reuse);
+
+    /** \brief Start (on) or end (off) a stretch over which level crse_lev does not change,
+     *         so that coarse_for_interp can hand out the same coarse data again */
+    void freeze_coarse_level (int crse_lev, bool on);
 
     /** \brief Fill a new MultiFab by copying in phi from valid region and filling ghost cells without applying boundary conditions */
     void FillPatchNoBC (int lev, amrex::Real time,
@@ -2144,6 +2152,23 @@ private:
     /** \brief per level: bumped whenever register_coarse_data hands the level's new state to
      *         the next finer level, which invalidates that level's cf_2d_cache */
     amrex::Vector<long> cf_crse_gen;
+    /** \brief one coarse MultiFab as coarse_for_interp prepared it during a freeze of its
+     *         level: whether its ghost cells have been exchanged, and whether the
+     *         interpolation-ready data is known -- src itself, or copy when one was needed */
+    struct CrseInterpEntry {
+        const amrex::MultiFab* src = nullptr;
+        amrex::BoxArray ba;
+        amrex::DistributionMapping dm;
+        bool exchanged = false;
+        bool ready = false;
+        std::unique_ptr<amrex::MultiFab> copy;
+    };
+    /** \brief per coarse level: whether it is frozen (see freeze_coarse_level), and the
+     *         entries coarse_for_interp has made since */
+    amrex::Vector<int> crse_frozen;
+    amrex::Vector<amrex::Vector<CrseInterpEntry>> crse_interp_entries;
+    /** \brief the entry for crse while its level is frozen, made if absent; nullptr otherwise */
+    CrseInterpEntry* crse_interp_entry (int crse_lev, const amrex::MultiFab& crse);
     /** \brief distribute the parent's interface mass flux piecewise-constantly over the fine
      *         faces under each parent face, as ROMS's get_persisted2d does, instead of with
      *         the linear tangential variation of AMReX's face interpolator. Both conserve the

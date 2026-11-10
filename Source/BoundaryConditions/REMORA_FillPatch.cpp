@@ -196,17 +196,88 @@ periodic_consistent_ghosts (const MultiFab& mf, const Geometry& geom, MultiFab& 
  * The ghost cells beyond a wall are otherwise taken as the coarse level's own fill left them;
  * they are not refilled from the boundary conditions here.
  *
+ * While crse_lev is frozen (freeze_coarse_level) and reuse is set, the result for a given
+ * crse is made once and handed out again: crse does not change in between, so its exchange
+ * would change nothing and the copy would come out the same. The copy then lives in the
+ * freeze's entry rather than in scratch. Only pass reuse for level data that lives through
+ * the freeze, since entries are found by address.
+ *
  * @param[in   ] crse_lev  level of crse
  * @param[inout] crse      coarse data; its ghost cells are exchanged in place
  * @param[inout] scratch   storage for a consistent copy, used only when one is needed
- * @return crse itself, or scratch holding the consistent copy
+ * @param[in   ] reuse     whether the result may be kept and reused while crse_lev is frozen
+ * @return crse itself, or the consistent copy
  */
 MultiFab&
-REMORA::coarse_for_interp (int crse_lev, MultiFab& crse, MultiFab& scratch)
+REMORA::coarse_for_interp (int crse_lev, MultiFab& crse, MultiFab& scratch, bool reuse)
 {
+    CrseInterpEntry* e = reuse ? crse_interp_entry(crse_lev, crse) : nullptr;
+    if (e && e->ready) { return e->copy ? *e->copy : crse; }
+
+    exchange_coarse(crse_lev, crse, reuse);
+    MultiFab& dst = e ? *(e->copy = std::make_unique<MultiFab>()) : scratch;
+    const MultiFab& src = periodic_consistent_ghosts(crse, geom[crse_lev], dst);
+    if (e) {
+        e->ready = true;
+        if (&src == &crse) { e->copy.reset(); }
+    }
+    return (&src == &crse) ? crse : dst;
+}
+
+/**
+ * @param[in   ] crse_lev  level of crse
+ * @param[inout] crse      coarse data; its ghost cells are exchanged in place
+ * @param[in   ] reuse     whether an exchange already made while crse_lev is frozen counts
+ */
+void
+REMORA::exchange_coarse (int crse_lev, MultiFab& crse, bool reuse)
+{
+    CrseInterpEntry* e = reuse ? crse_interp_entry(crse_lev, crse) : nullptr;
+    if (e && e->exchanged) { return; }
     crse.FillBoundary(geom[crse_lev].periodicity());
-    const MultiFab& src = periodic_consistent_ghosts(crse, geom[crse_lev], scratch);
-    return (&src == &crse) ? crse : scratch;
+    if (e) { e->exchanged = true; }
+}
+
+/**
+ * timeStep freezes a level while its child substeps: the parent has finished its step, and
+ * nothing writes it again until the refluxing and averaging down that follow the substeps.
+ * Ending the freeze drops what coarse_for_interp kept.
+ *
+ * @param[in   ] crse_lev  level to freeze or thaw
+ * @param[in   ] on        true to freeze
+ */
+void
+REMORA::freeze_coarse_level (int crse_lev, bool on)
+{
+    if (int(crse_frozen.size()) <= crse_lev) {
+        crse_frozen.resize(crse_lev+1, 0);
+        crse_interp_entries.resize(crse_lev+1);
+    }
+    crse_frozen[crse_lev] = on ? 1 : 0;
+    crse_interp_entries[crse_lev].clear();
+}
+
+/**
+ * @param[in   ] crse_lev  coarse level
+ * @param[in   ] crse      coarse data
+ * @return the entry for crse if crse_lev is frozen, else nullptr
+ */
+REMORA::CrseInterpEntry*
+REMORA::crse_interp_entry (int crse_lev, const MultiFab& crse)
+{
+    if (crse_lev >= int(crse_frozen.size()) || !crse_frozen[crse_lev]) { return nullptr; }
+    auto& entries = crse_interp_entries[crse_lev];
+    for (auto& e : entries) {
+        if (e.src == &crse && e.ba == crse.boxArray() && e.dm == crse.DistributionMap()) {
+            return &e;
+        }
+    }
+    entries.emplace_back();
+    CrseInterpEntry& e = entries.back();
+    e.src = &crse;
+    e.ba  = crse.boxArray();
+    e.dm  = crse.DistributionMap();
+    return &e;
 }
 
 /**
@@ -338,12 +409,12 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
             Vector<MultiFab*> cmf;
             Vector<Real> ctime;
             if (do_substep && int(mfs_crse_old.size()) >= lev && int(mfs_crse_new.size()) >= lev) {
-                cmf   = {&coarse_for_interp(lev-1, *mfs_crse_old[lev-1], crse_old_scratch),
-                         &coarse_for_interp(lev-1, *mfs_crse_new[lev-1], crse_new_scratch)};
+                cmf   = {&coarse_for_interp(lev-1, *mfs_crse_old[lev-1], crse_old_scratch, true),
+                         &coarse_for_interp(lev-1, *mfs_crse_new[lev-1], crse_new_scratch, true)};
                 ctime = {t_old[lev-1], t_new[lev-1]};
-                mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
+                exchange_coarse(lev-1, *mfs[lev-1], true);
             } else {
-                MultiFab& crse = coarse_for_interp(lev-1, *mfs[lev-1], crse_scratch);
+                MultiFab& crse = coarse_for_interp(lev-1, *mfs[lev-1], crse_scratch, true);
                 cmf   = {&crse, &crse};
                 ctime = {time, time};
             }
@@ -650,12 +721,12 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
         Vector<MultiFab*> cmf;
         Vector<Real> ctime;
         if (do_substep && int(mfs_crse_old.size()) >= lev && int(mfs_crse_new.size()) >= lev) {
-            cmf   = {&coarse_for_interp(lev-1, *mfs_crse_old[lev-1], crse_old_scratch),
-                     &coarse_for_interp(lev-1, *mfs_crse_new[lev-1], crse_new_scratch)};
+            cmf   = {&coarse_for_interp(lev-1, *mfs_crse_old[lev-1], crse_old_scratch, true),
+                     &coarse_for_interp(lev-1, *mfs_crse_new[lev-1], crse_new_scratch, true)};
             ctime = {t_old[lev-1], t_new[lev-1]};
-            mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
+            exchange_coarse(lev-1, *mfs[lev-1], true);
         } else {
-            MultiFab& crse = coarse_for_interp(lev-1, *mfs[lev-1], crse_scratch);
+            MultiFab& crse = coarse_for_interp(lev-1, *mfs[lev-1], crse_scratch, true);
             cmf   = {&crse, &crse};
             ctime = {time, time};
         }
