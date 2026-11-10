@@ -553,11 +553,16 @@ REMORA::refinement_criteria_setup ()
 #ifdef REMORA_USE_NETCDF
         // The grid file that describes the grid may carry the lowest level each cell must be
         // refined to. Known before level 0 is made, so remora.drop_dry_boxes keeps every box.
+        // Only a file the run reads for its grid or mask is opened, so an unused file name in
+        // the inputs stays harmless.
+        const bool reads_grid_file = solverChoice.ic_type == IC_Type::netcdf ||
+                                     solverChoice.mask_type == MaskType::netcdf;
         std::string grid_file = nc_grid_file_hires;
         if (hires_grid_level < 0) {
             grid_file = nc_grid_file[0].empty() ? std::string() : nc_grid_file[0][0];
         }
-        if (!grid_file.empty() && QueryNetCDFHasVars(grid_file, {"refinement"})) {
+        if (reads_grid_file && !grid_file.empty() &&
+            QueryNetCDFHasVars(grid_file, {"refinement"})) {
             refine_from_grid_file = true;
             refine_region_unbounded = true;
             if (verbose > 0) {
@@ -848,14 +853,15 @@ REMORA::refinement_criteria_setup ()
                           && !(has_start || has_end || has_start_tot || has_end_tot);
         } // loop over criteria
 
-        // With only static boxes the grids never change, and each regrid still fills the
-        // ghost cells of the level being regridded, tags and clusters the cells and checks
-        // the masks. The default regrids every other step; say so once unless the input
-        // chose.
-        if (static_only && !refinement_indicators.empty() && regrid_int > 0
-            && !regrid_int_from_input) {
-            Print() << "NOTE: all refinement indicators are fixed boxes without a time"
-                    << " window, so the grids never change, but amr.regrid_int = "
+        // With only static boxes, and the grid file's refinement variable, which is static
+        // too, the grids never change, and each regrid still fills the ghost cells of the
+        // level being regridded, tags and clusters the cells and checks the masks. The
+        // default regrids every other step; say so once unless the input chose.
+        if (static_only && (!refinement_indicators.empty() || refine_from_grid_file)
+            && regrid_int > 0 && !regrid_int_from_input) {
+            Print() << "NOTE: the refinement is fixed (boxes without a time window, or the"
+                    << " grid file's refinement variable), so the grids never change, but"
+                    << " amr.regrid_int = "
                     << regrid_int << " (the default) regrids every " << regrid_int
                     << " steps anyway. Set amr.regrid_int = -1 to skip it.\n";
         }

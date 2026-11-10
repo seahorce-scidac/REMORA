@@ -142,7 +142,10 @@ A NetCDF grid file may carry an optional ``refinement`` variable on the rho poin
 (``eta_rho``, ``xi_rho``), giving for each cell the lowest level that cell must be refined
 to: 0 leaves it on level 0, 1 refines it to at least level 1, and so on. It is read from the
 file that describes the grid, ``remora.nc_grid_file_0``, or ``remora.nc_grid_file_hires`` when
-``remora.hires_grid_level`` is set, whenever ``amr.max_level`` > 0; no other option is needed.
+``remora.hires_grid_level`` is set, whenever ``amr.max_level`` > 0 and the run reads that file
+for its grid or mask (``remora.ic_type = netcdf`` or ``remora.mask_type = netcdf``); no other
+option is needed. In the high-resolution file it has the same grow cells as the other
+variables (see :ref:`Inputs <sec:Inputs>`).
 It is applied at every regrid, together with any ``remora.refinement_indicators``, and land
 cells are refined like water. Levels above ``amr.max_level`` are never made.
 
@@ -306,8 +309,8 @@ it; the fine grids are then the ones the full-domain run makes. This margin cove
 only: a level-2 indicator would grow level 1 by its own buffer and proper nesting, and AMReX
 would clear level-1 tags near a hole without a word, so with ``amr.max_level`` > 1 no box is
 dropped. A field-based criterion, or a ``refinement`` variable in the grid file, can refine
-anywhere, so with one of those no box is dropped either. REMORA aborts after a regrid if level 1, or the level-0 cells its fills need, reaches a
-dropped box.
+anywhere, so with one of those no box is dropped either. REMORA aborts after a regrid if level
+1, or the level-0 cells its fills need, reaches a dropped box.
 
 Coupling Types
 --------------
