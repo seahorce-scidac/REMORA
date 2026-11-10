@@ -63,8 +63,7 @@ public:
     void FillSetKept (amrex::MultiFab& mf, amrex::Real time,
                       amrex::Vector<amrex::BCRec> const& bcs, bool check);
 
-    /** \brief Whether the set region's values depend on the registered coarse data alone.
-     *  Public because it launches a kernel, which nvcc does not allow in a private member. */
+    /** \brief Whether the set region's values depend on the registered coarse data alone. */
     bool SetValuesFromCoarseOnly ();
 
     /** \brief Drop what FillSetKept keeps */
