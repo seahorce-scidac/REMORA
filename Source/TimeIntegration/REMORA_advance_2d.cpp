@@ -191,13 +191,17 @@ REMORA::advance_2d (int lev,
         });
     }
 
-    // These are needed to pass the tests with bathymetry but I don't quite see why
-    if (do_substep && cf_impose_flux) {
+    // The loop above fills each box's ghost faces too, from the ghost cells of ubar, vbar,
+    // zeta and h, which hold the neighbouring box's values, and of the metric, computed from
+    // pm and pn the same way. So a ghost face already holds the bits the neighbour stores
+    // there, and an exchange would change nothing, unless set_2d_cf_flux rewrites some of
+    // the neighbour's faces.
+    const bool cf_flux = do_substep && cf_impose_flux && lev > 0;
+    if (cf_flux) {
         set_2d_cf_flux(lev, t_old[lev], mf_DUon, mf_DVom);
+        // One exchange for both so their messages are in flight together
+        amrex::FillBoundary(Vector<MultiFab*>{&mf_DUon, &mf_DVom}, geom[lev].periodicity());
     }
-
-    // One exchange for both so their messages are in flight together
-    amrex::FillBoundary(Vector<MultiFab*>{&mf_DUon, &mf_DVom}, geom[lev].periodicity());
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_m2_clim_nudg) {
