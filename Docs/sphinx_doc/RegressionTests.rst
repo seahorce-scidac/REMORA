@@ -548,6 +548,12 @@ assertion is that they agree and neither needs a stored reference.
 |                                 |          |                                                         |
 |                                 |          | tracers is rejected, naming the input it wants          |
 +---------------------------------+----------+---------------------------------------------------------+
+| BC_normal_velocity_own_type     | 54 108 4 | an East slip wall for ``u`` and ``ubar`` acts the same  |
+|                                 |          |                                                         |
+|                                 |          | whether ``v`` and ``vbar`` are outflow or slip walls,   |
+|                                 |          |                                                         |
+|                                 |          | since both give the tangential component ``foextrap``   |
++---------------------------------+----------+---------------------------------------------------------+
 
 ``BC_per_variable`` runs both inputs in its test directory and compares the two plotfiles. All four sides
 carry a different condition -- inflow, noslipwall, outflow, slipwall going West, South, East, North -- so
