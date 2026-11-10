@@ -634,6 +634,13 @@ add_test_run(Channel_Test_ML_seam_cf_fill_cache_check Channel_Test_ML_seam "remo
 # coarse pair first and relies on the average-down after the step
 add_test_r_selfcompare(Advection_3L_lockstep_plotint "remora_exec" "plt00007"
                        "remora.plot_int=1" "remora.plot_int=7")
+# The same under the subcycled driver, whose post_timestep skips the average-down timeStep has
+# just done unless an output came in between. A plotfile every step lets post_timestep average
+# down after every step, one only at the end never, so the two agree only if timeStep's own
+# average-down leaves nothing for post_timestep to do.
+compose_test_input(Channel_Test_ML_seam_subcycle_plotint Channel_Test_ML_seam)
+add_test_r_selfcompare(Channel_Test_ML_seam_subcycle_plotint "remora_exec" "plt00010"
+                       "remora.plot_int=1" "remora.plot_int=10")
 
 # The floor. Both totals are exact on one level, so the AMR bounds are measured against
 # roundoff rather than against an unknown scheme error.
