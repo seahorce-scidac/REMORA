@@ -641,6 +641,11 @@ add_test_r_selfcompare(Advection_3L_lockstep_plotint "remora_exec" "plt00007"
 compose_test_input(Channel_Test_ML_seam_subcycle_plotint Channel_Test_ML_seam)
 add_test_r_selfcompare(Channel_Test_ML_seam_subcycle_plotint "remora_exec" "plt00010"
                        "remora.plot_int=1" "remora.plot_int=10")
+# A restart of the same case from step 5 must continue it. None of what the coarse-fine fills
+# keep across the fast steps and substeps is in the checkpoint, so the restarted run has to
+# rebuild it and come out as the continuous one did.
+compose_test_input(Channel_Test_ML_seam_subcycle_restart Channel_Test_ML_seam)
+add_test_restart(Channel_Test_ML_seam_subcycle_restart "remora_exec" "plt00010" "chk00005")
 
 # The floor. Both totals are exact on one level, so the AMR bounds are measured against
 # roundoff rather than against an unknown scheme error.
