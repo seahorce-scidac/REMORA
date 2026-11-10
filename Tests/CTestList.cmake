@@ -810,6 +810,11 @@ add_test_equiv(BC_per_variable BC_per_side "remora_exec" "plt00010" "plt_side000
 
 add_test_abort(BC_inflow_no_value "remora_exec" "needs an inflow value")
 
+# Flather on a side where zeta does not read the boundary file must stop at setup.
+compose_test_input(BC_flather_no_zeta_data BC_per_variable)
+add_test_abort(BC_flather_no_zeta_data "remora_exec"
+               "East boundary uses Flather for the normal barotropic velocity")
+
 #=============================================================================
 # Barotropic substep count
 #

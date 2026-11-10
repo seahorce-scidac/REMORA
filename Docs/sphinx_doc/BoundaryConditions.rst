@@ -226,6 +226,10 @@ Scroll table to the right if not all visible. Rightmost column is sea surface he
 
 The asterisks (*) indicate conditions that require the specification of a :ref:`boundary file <icbc-parameters>`.
 
+Flather relaxes the normal barotropic velocity toward the boundary file's elevation on that side, so a
+side whose normal ``ubar`` or ``vbar`` is ``flather`` must also give ``zeta`` a condition that reads the
+file there (``clamped``, ``chapman`` or ``orlanski_rad_nudg``). The run stops at setup otherwise.
+
 Here ``ext_dir``, ``foextrap``, and ``reflect_even`` refer to AMReX keywords.   The ``ext_dir`` type
 refers to an "external Dirichlet" boundary, which means the values must be specified by the user, unless
 marked as *set to 0* in the table above.
