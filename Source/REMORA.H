@@ -202,10 +202,6 @@ public:
     /** \brief Called after every level 0 timestep */
     void post_timestep (int nstep, amrex::Real time, amrex::Real dt_lev);
 
-    /** \brief true from the end of a coarse step whose driver averaged every level down
-     *         until anything else touches the state; post_timestep then need not repeat it */
-    bool levels_averaged_down = false;
-
     /**
      * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
      *
@@ -1181,9 +1177,6 @@ public:
                && !wvel_every_substep;
     }
 
-    /** \brief Set for a coarse step that ends with a checkpoint, which writes zvel_old */
-    bool wvel_every_substep = false;
-
     /** \brief Per level: zvel_new holds the w of the current state, ghost cells filled */
     amrex::Vector<int> wvel_current;
 
@@ -2131,6 +2124,14 @@ private:
 
     /** \brief Whether to substep fine levels in time */
     int do_substep = 1;
+
+    /** \brief true from the end of a coarse step whose driver averaged every level down
+     *         until anything else touches the state; post_timestep then need not repeat it */
+    bool levels_averaged_down = false;
+
+    /** \brief Set for a coarse step that ends with a checkpoint, which writes zvel_old; the
+     *         finest level then forms w on every substep (wvel_skip_substep) */
+    bool wvel_every_substep = false;
 
     /** \brief interpolate the parent's barotropic mass flux in time at the coarse-fine
      *         interface, rather than holding its step average. Off matches most ROMS
