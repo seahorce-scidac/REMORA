@@ -44,11 +44,26 @@ like its neighbours:
 - Doxygen block above each function, `@param[in   ]` / `@param[inout]` style, saying what it
   does and what corresponds in ROMS (`/** Corresponds to step3d_uv.F ... */`).
 - Kernels are `ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) { ... });` on
-  `Array4`s taken from `MFIter`. Write `Real(0.25)` for literals.
+  `Array4`s, inside an `MFIter` loop with `TilingIfNotGPU()` under
+  `#pragma omp parallel if (Gpu::notInLaunchRegion())` (guarded by `#ifdef AMREX_USE_OMP`).
+  Write `Real(0.25)` for literals.
+- Initializers fill ghost cells too (`setVal` with `nGrowVect()`, not 0 ghosts).
+- Look up state components by name (`component_index`), not by assumed position or a private
+  enum.
 - Use `amrex::` types, existing helpers and AMReX routines (FillPatch, interpolaters,
   `average_down`, ParallelFor reductions) instead of writing new versions. Before adding a
   routine, search for one that already does it, including in AMReX. Pull duplicated code into
   one helper rather than copying it again.
+- Read time-dependent NetCDF input (forcing, boundaries, climatology, rivers) through
+  `NCTimeSeries` (`Source/IO/REMORA_NCTimeSeries*.H`), which also combines records split
+  across files; don't open the files yourself to decide how to read them. Read a static field
+  with `BuildFABsFromNetCDFFile` and copy it into the MultiFab, as
+  `REMORA::init_bathymetry_from_netcdf` does.
+- Fill ghost cells of a per-level field (a vector over levels on the level layouts, like
+  `vec_h`) with `REMORA::FillPatch` and a BC set such as `foextrap_periodic_bc()`. It covers
+  periodic, physical-edge and coarse-to-fine ghosts; `FillBoundary` alone fills only periodic
+  and internal ones. Don't write your own extrapolation loops, and don't use
+  `PhysBCFunctNoOp` on a level that touches a physical boundary.
 - Files are `REMORA_<Name>.cpp/.H`. Reuse existing names for existing quantities (e.g.
   `z_velocity`, as in plotfiles, not a new `w`), and don't use names that clash with ROMS
   notation (`xi`/`eta` are ROMS grid directions).
@@ -65,26 +80,38 @@ GPU and build-configuration traps that CPU builds miss:
   because the whole file is `#ifdef REMORA_USE_NETCDF`. Put generic helpers elsewhere, and
   compile touched files both with and without PnetCDF.
 - `PRECISION=FLOAT` makes `Real` float, but `ParticleReal` stays double, so particle-to-mesh
-  code needs explicit casts.
+  code needs explicit casts. `std::pow(Real, int)` also returns double, so `amrex::min`/`max`
+  can't deduce its type; write `x*x` for squares.
 
 ## Runtime Options
 
 - New options go in the `remora.` namespace. AMReX owns `amr.`. When moving an option out of
   `amr.`, keep the `amr.` name as a fallback.
-- Read options with `pp.query`/`pp.queryAdd` beside the related ones in `REMORA_DataStruct.H`.
+- Read options with `pp.query`/`pp.queryAdd` beside the related ones in `REMORA_DataStruct.H`,
+  or in the component's own parameter reader.
 - A choice of behaviour becomes a runtime option whose default matches ROMS (or the physical
   constant), so runs can still be compared with ROMS.
 - New initializers and forcing follow the existing pattern: one constant/analytic/netcdf
   selector, with variables set by name from the inputs file.
-- Don't add options, switches or hard stops nobody asked for.
-- Document every new option in `Docs/sphinx_doc/` in the same PR.
+- Don't add options, switches or hard stops nobody asked for. But a component that doesn't
+  support a shared option (such as a Fennel-only biology switch) rejects it rather than
+  silently ignoring it.
 
 ## Design
 
 - The goal is to match ROMS. Before designing a numerical change, read how ROMS does it, and
-  ERF for AMR and subcycling. When porting, copy the reference faithfully, including its
-  branching structure and quirks; fix only real bugs such as race conditions, and list
-  suspected bugs apart from intentional differences.
+  ERF for AMR and subcycling.
+- When porting, copy the physics faithfully, including its branching structure and quirks;
+  fix only real bugs such as race conditions, and list suspected bugs apart from intentional
+  differences. Don't transliterate the Fortran itself: use zero-based layer indices with no
+  `k-1` offsets, declare `const` locals at first use, and drop dead variables.
+- REMORA does not always use ROMS units. `srflx` is W/m² (ROMS: kinematic, degC m/s), while
+  the other surface fluxes are kinematic. When porting a formula, check the units of every
+  REMORA field it reads, and drop ROMS's `rho0*Cp` conversions where REMORA stores W/m².
+- Structure a new instance of an existing kind of component (biology model, forcing type)
+  like its sibling, e.g. Fennel for biology: scratch arrays, parameter reader, tests and docs.
+- Keep checkpoint metadata generic: no commit hashes or option-set strings in identity
+  fields, so a version bump doesn't reject older checkpoints.
 - Prefer the simpler design. Ask the user before making a design decision; otherwise go as
   far as you can without intervention.
 - Stay on the task. Don't chase edge cases or side issues; note them and open issues instead.
@@ -136,10 +163,18 @@ GPU and build-configuration traps that CPU builds miss:
   the test fails.
 - Register tests in `Tests/CTestList.cmake` with the existing helpers (`add_test_r`,
   `add_test_equiv`, `add_test_abort`, ...). Run `ctest -R <Name>` first, then the full suite.
-- Before pushing or opening a PR, a local Release or test build and ctest is enough; don't
-  run a local Debug build, which takes too long. CI's Debug build traps FPEs on signalling
-  NaNs that Release misses, so check its result after pushing. To reproduce a Debug trap in a
-  Release run, add `amrex.init_snan=1 amrex.fpe_trap_invalid=1`.
+- A new model or process needs a gold-file test of a full REMORA run. Restart, alias and
+  layout comparisons only show a run agrees with itself, and fixtures fed straight from ROMS
+  skip REMORA's input conventions, so neither catches unit mismatches.
+- Don't commit standalone reference fixtures, generator scripts or planning documents. Tests
+  go in the existing structure (`CTestList.cmake`, gold files, `Tests/Unit/`).
+- A kernel with per-tile state needs a tiled-versus-untiled bitwise test (`add_test_layout`)
+  on a case that varies in both x and y, such as Seamount.
+- Before pushing or opening a PR, a local Release build and ctest is enough; a local Debug
+  build takes too long. After pushing, check CI: its Debug build traps FPEs on signalling
+  NaNs that Release misses (reproduce one in Release with
+  `amrex.init_snan=1 amrex.fpe_trap_invalid=1`), and its CUDA/HIP/SYCL jobs are the first
+  run of device code on GPU.
 - CI has no NetCDF; NetCDF cases run only in the nightly suite. Prefer tests that need no
   NetCDF. Also build the no-PnetCDF configuration when the work was done in a PnetCDF build.
 - Before reporting a failure or bug, reproduce it on unchanged `development`. CI passes there.
@@ -153,7 +188,6 @@ GPU and build-configuration traps that CPU builds miss:
   `fextrema`, and say when a change was verified by hand.
 - State what each number measures and in what units, and check record or time alignment
   before trusting a comparison.
-- Device code must run on GPU. After pushing, check the CUDA/HIP/SYCL CI jobs.
 
 ## Git and Pull Requests
 
