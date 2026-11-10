@@ -493,7 +493,9 @@ REMORA::ReadCheckpointFile ()
             << " plot_int_time/check_int_time cadence. NetCDF time axes and"
             << " start_total_time/end_total_time windows stay where they were."
             << " Keep remora.start_time unchanged to continue the run as it was.";
-        amrex::Warning(msg.str());
+        if (amrex::ParallelDescriptor::IOProcessor()) {
+            amrex::Warning(msg.str());
+        }
     }
 
     // Rebase onto this run's start_time. Take the elapsed time verbatim when the
