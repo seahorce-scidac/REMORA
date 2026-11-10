@@ -1,5 +1,8 @@
 #include <REMORA.H>
 #include <REMORA_Derive.H>
+#ifdef REMORA_USE_NETCDF
+#include "REMORA_NCFile.H"
+#endif
 
 using namespace amrex;
 
@@ -460,6 +463,10 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
                     mask_lo,mask_hi);
     }
 
+    if (refine_from_grid_file) {
+        tag_grid_file_refinement(levc, tags);
+    }
+
     // Promote any tagged cell to a full local z-column.
     for (MFIter mfi(tags, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
@@ -487,6 +494,55 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 }
 
 /**
+ * Tag every cell of level levc whose value of the grid file's refinement variable is above
+ * levc. A cell of a level at or above the one the file describes takes the value of the file
+ * cell it lies in; a cell of a coarser level takes the largest value of the file cells it
+ * covers (see init_refinement_from_netcdf). Land cells are tagged too.
+ *
+ * @param[in   ] levc  level being tagged
+ * @param[inout] tags  tags on level levc
+ */
+void
+REMORA::tag_grid_file_refinement (int levc, TagBoxArray& tags)
+{
+    const int file_lev   = static_cast<int>(vec_refine_full_domain.size()) - 1;
+    const int lookup_lev = std::min(levc, file_lev);
+    IntVect rr(1);
+    for (int lev = lookup_lev; lev < levc; ++lev) {
+        rr *= ref_ratio[lev];
+    }
+
+    // levc's grids in the index space of lookup_lev, on levc's distribution, so each box
+    // holds the values its tag box needs
+    BoxList bl = grids[levc].boxList();
+    for (auto& b : bl) {
+        b = makeSlab(b, 2, 0);
+        b.coarsen(rr);
+    }
+    MultiFab required_level(BoxArray(std::move(bl)), dmap[levc], 1, 0);
+    required_level.ParallelCopy(*vec_refine_full_domain[lookup_lev]);
+
+    const Real this_level = static_cast<Real>(levc);
+    const int rx = rr[0];
+    const int ry = rr[1];
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(tags, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.tilebox();
+        auto const& tag = tags.array(mfi);
+        auto const& req = required_level.const_array(mfi);
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            if (req(amrex::coarsen(i,rx), amrex::coarsen(j,ry), 0) > this_level) {
+                tag(i,j,k) = TagBox::SET;
+            }
+        });
+    }
+}
+
+/**
  * Function to define the refinement criteria based on user input
 */
 void
@@ -494,6 +550,22 @@ REMORA::refinement_criteria_setup ()
 {
     if (max_level > 0)
     {
+#ifdef REMORA_USE_NETCDF
+        // The grid file that describes the grid may carry the lowest level each cell must be
+        // refined to. Known before level 0 is made, so remora.drop_dry_boxes keeps every box.
+        std::string grid_file = nc_grid_file_hires;
+        if (hires_grid_level < 0) {
+            grid_file = nc_grid_file[0].empty() ? std::string() : nc_grid_file[0][0];
+        }
+        if (!grid_file.empty() && QueryNetCDFHasVars(grid_file, {"refinement"})) {
+            refine_from_grid_file = true;
+            refine_region_unbounded = true;
+            if (verbose > 0) {
+                Print() << "Refining each cell at least to the level given by the refinement"
+                        << " variable of grid file " << grid_file << "\n";
+            }
+        }
+#endif
         ParmParse pp(pp_prefix);
         Vector<std::string> refinement_indicators;
         pp.queryarr("refinement_indicators",refinement_indicators,0,pp.countval("refinement_indicators"));

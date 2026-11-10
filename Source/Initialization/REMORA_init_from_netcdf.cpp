@@ -1279,6 +1279,58 @@ REMORA::init_masks_full_domain_from_netcdf ()
     }
 }
 
+/**
+ * Read the refinement variable of the grid file that describes the grid: remora.nc_grid_file_0,
+ * or remora.nc_grid_file_hires with hires_grid_level set. Its value in a cell is the lowest
+ * level that cell must be refined to. It is kept on the whole domain at the file's level, and
+ * coarsened to each level below by the largest value over the fine cells, so a coarse cell is
+ * refined wherever any part of it must be.
+ */
+void
+REMORA::init_refinement_from_netcdf ()
+{
+    const int file_lev = std::max(hires_grid_level, 0);
+    const std::string& fname = (file_lev > 0) ? nc_grid_file_hires : nc_grid_file[0][0];
+    const Box domain = (file_lev > 0) ? nc_hires_grid_box : boxes_at_level[0][0];
+    const IntVect ngrow = (file_lev > 0) ? cum_ref_ratios[file_lev] : IntVect(1,1,0);
+    if (file_lev > 0) {
+        check_hires_dims_from_netcdf(fname, "refinement", domain, ngrow);
+    }
+
+    FArrayBox NC_refine_fab;
+    read_optional_grid_vars_from_netcdf(domain, fname, {"refinement"}, {&NC_refine_fab},
+                                        "refinement levels", ngrow);
+
+    vec_refine_full_domain.resize(file_lev+1);
+    for (int lev = 0; lev <= file_lev; ++lev) {
+        vec_refine_full_domain[lev].reset(new MultiFab(BoxArray(makeSlab(geom[lev].Domain(),2,0)),
+                                                       full_domain_dmap(), 1, 0));
+    }
+
+    // Don't tile this since we are operating on full FABs in this routine
+    for (MFIter mfi(*vec_refine_full_domain[file_lev], false); mfi.isValid(); ++mfi) {
+        (*vec_refine_full_domain[file_lev])[mfi].template copy<RunOn::Device>(NC_refine_fab);
+    }
+
+    for (int lev = file_lev-1; lev >= 0; --lev) {
+        auto const& crse = vec_refine_full_domain[lev]->arrays();
+        auto const& fine = vec_refine_full_domain[lev+1]->const_arrays();
+        const IntVect ratio = refRatio(lev);
+        ParallelFor(*vec_refine_full_domain[lev],
+                [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) noexcept
+        {
+            Real req = fine[box_no](i*ratio[0], j*ratio[1], k);
+            for (int jref = 0; jref < ratio[1]; ++jref) {
+                for (int iref = 0; iref < ratio[0]; ++iref) {
+                    req = amrex::max(req, fine[box_no](i*ratio[0]+iref, j*ratio[1]+jref, k));
+                }
+            }
+            crse[box_no](i,j,k) = req;
+        });
+        Gpu::streamSynchronize();
+    }
+}
+
 void
 REMORA::init_grid_vars_full_domain_from_netcdf ()
 {

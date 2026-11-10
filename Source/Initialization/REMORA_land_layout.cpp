@@ -247,7 +247,7 @@ REMORA::level0_refine_footprint (bool& unbounded) const
 {
     BoxList bl;
     unbounded = false;
-    if (max_level < 1 || ref_tags.empty()) { return bl; }
+    if (max_level < 1 || (ref_tags.empty() && !refine_from_grid_file)) { return bl; }
     unbounded = refine_region_unbounded;
     if (unbounded) { return bl; }
 
@@ -338,7 +338,8 @@ REMORA::drop_dry_level0_boxes (const BoxArray& ba)
     bool unbounded = false;
     const BoxList protect = level0_refine_footprint(unbounded);
     if (unbounded) {
-        amrex::Print() << "remora.drop_dry_boxes: a refinement indicator has no box, so a finer"
+        amrex::Print() << "remora.drop_dry_boxes: a refinement indicator, or the grid file's"
+                       << " refinement variable, has no box, so a finer"
                        << " level may cover any land; no level-0 box is dropped.\n";
         return ba;
     }
