@@ -921,23 +921,8 @@ REMORA::advance_2d (int lev,
                          knew, 1, 0, know, dt2d, zeta_know);
         } else if (!replay_cf_2d_fills(lev, t_old[lev], knew, know, dt2d,
                                        ubar_know, vbar_know, zeta_know)) {
-            // The last argument names the cf_2d_cache slot: within a parent step these fills
-            // repeat for the same few (component, time) pairs
-            FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),
-                      knew, false,true, 0,know, dt2d, ubar_know, {}, {}, 0);
-            FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),
-                      knew, false,true, 0,know, dt2d, vbar_know, {}, {}, 1);
-            // With the snapshot pair the coarse contribution is interpolated onto t_old[lev],
-            // which timeStep guarantees lies inside the parent's step; without it FillPatch
-            // falls back to the parent frozen at the end of that step. See roll_2d_snapshot.
-            if (zeta_fill_from_snapshots(lev)) {
-                FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
-                          knew, false,false, 0,know, dt2d, zeta_know,
-                          GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new), 2);
-            } else {
-                FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
-                          knew, false,false, 0,know, dt2d, zeta_know, {}, {}, 2);
-            }
+            fill_2d_from_parent(lev, t_old[lev], knew, know, dt2d,
+                                ubar_know, vbar_know, zeta_know);
         }
 
         // See fill_ghost_kcomps: without this the components the solver reads in the ghost
@@ -1080,6 +1065,43 @@ REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
         });
     }
     return *band;
+}
+
+/**
+ * The barotropic fills of a fine level in advance_2d, one FillPatch each: ubar and vbar with
+ * FillSet, zeta without, component knew at time.
+ *
+ * @param[in] lev        fine level
+ * @param[in] time       fill time
+ * @param[in] knew       component to fill
+ * @param[in] know       component the boundary conditions read
+ * @param[in] dt2d       barotropic step the boundary conditions use
+ * @param[in] ubar_know  component know of ubar, for the boundary conditions
+ * @param[in] vbar_know  component know of vbar
+ * @param[in] zeta_know  component know of zeta
+ */
+void
+REMORA::fill_2d_from_parent (int lev, Real time, int knew, int know, Real dt2d,
+                             const MultiFab& ubar_know, const MultiFab& vbar_know,
+                             const MultiFab& zeta_know)
+{
+    // The last argument names the cf_2d_cache slot: within a parent step these fills
+    // repeat for the same few (component, time) pairs
+    FillPatch(lev, time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),
+              knew, false,true, 0,know, dt2d, ubar_know, {}, {}, 0);
+    FillPatch(lev, time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),
+              knew, false,true, 0,know, dt2d, vbar_know, {}, {}, 1);
+    // With the snapshot pair the coarse contribution is interpolated onto the fill time,
+    // which timeStep guarantees lies inside the parent's step; without it FillPatch falls
+    // back to the parent frozen at the end of that step. See roll_2d_snapshot.
+    if (zeta_fill_from_snapshots(lev)) {
+        FillPatch(lev, time, *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
+                  knew, false,false, 0,know, dt2d, zeta_know,
+                  GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new), 2);
+    } else {
+        FillPatch(lev, time, *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
+                  knew, false,false, 0,know, dt2d, zeta_know, {}, {}, 2);
+    }
 }
 
 /**

@@ -525,6 +525,10 @@ REMORA::cf_2d_cacheable (int lev, int slot, const MultiFab& mf, int ncomp, bool 
  * only that field, zeta's know component (Flather and Chapman), h and the masks, and still
  * run in the same order, each after its own field's FillSet, replay and exchange.
  *
+ * With remora.cf_2d_fill_cache = 2 the fills are first made by fill_2d_from_parent, which
+ * recomputes what it replays and checks it; the fields are then put back as they were,
+ * replayed here, and the run aborts unless the two results agree bit for bit.
+ *
  * @param[in] lev        fine level
  * @param[in] time       fill time
  * @param[in] knew       component to fill
@@ -540,7 +544,7 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
                             const MultiFab& ubar_know, const MultiFab& vbar_know,
                             const MultiFab& zeta_know)
 {
-    if (cf_2d_fill_cache != 1) { return false; }
+    if (cf_2d_fill_cache == 0) { return false; }
 
     MultiFab* mfs[3]     = {vec_ubar[lev].get(), vec_vbar[lev].get(), vec_zeta[lev].get()};
     MultiFab* crse[3]    = {vec_ubar[lev-1].get(), vec_vbar[lev-1].get(), vec_zeta[lev-1].get()};
@@ -569,9 +573,27 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
     }
 
     BL_PROFILE("REMORA::replay_cf_2d_fills()");
+    const bool check = cf_2d_fill_cache == 2;
+    std::array<std::unique_ptr<MultiFab>,3> fresh;
+    if (check) {
+        std::array<std::unique_ptr<MultiFab>,3> before;
+        for (int n = 0; n < 3; ++n) {
+            before[n] = std::make_unique<MultiFab>(mfs[n]->boxArray(), mfs[n]->DistributionMap(),
+                                                   mfs[n]->nComp(), mfs[n]->nGrowVect());
+            MultiFab::Copy(*before[n], *mfs[n], 0, 0, mfs[n]->nComp(), mfs[n]->nGrowVect());
+        }
+        fill_2d_from_parent(lev, time, knew, know, dt2d, ubar_know, vbar_know, zeta_know);
+        for (int n = 0; n < 3; ++n) {
+            fresh[n] = std::make_unique<MultiFab>(mfs[n]->boxArray(), mfs[n]->DistributionMap(),
+                                                  mfs[n]->nComp(), mfs[n]->nGrowVect());
+            MultiFab::Copy(*fresh[n], *mfs[n], 0, 0, mfs[n]->nComp(), mfs[n]->nGrowVect());
+            MultiFab::Copy(*mfs[n], *before[n], 0, 0, mfs[n]->nComp(), mfs[n]->nGrowVect());
+        }
+    }
+
     if (cf_set_width >= 0) {
-        FPr_ubar[lev-1].FillSetKept(*mfs[0], time, domain_bcs_type, false);
-        FPr_vbar[lev-1].FillSetKept(*mfs[1], time, domain_bcs_type, false);
+        FPr_ubar[lev-1].FillSetKept(*mfs[0], time, domain_bcs_type, check);
+        FPr_vbar[lev-1].FillSetKept(*mfs[1], time, domain_bcs_type, check);
     }
     for (int n = 0; n < 3; ++n) {
         copy_on_mask(*mfs[n], *cache[n]->vals, *cache[n]->mask, knew);
@@ -584,6 +606,19 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
                         Vector<Periodicity>{per, per, per});
     for (int n = 0; n < 3; ++n) {
         FillPatchBCs(lev, time, *mfs[n], bccomp[n], bdy[n], knew, 1, 0, know, dt2d, *mf_calc[n]);
+    }
+
+    if (check) {
+        for (int n = 0; n < 3; ++n) {
+            const Long ndiff = count_bitwise_diff(*mfs[n], *fresh[n], mfs[n]->nComp(),
+                                                  mfs[n]->nGrowVect());
+            if (ndiff > 0) {
+                amrex::Abort("remora.cf_2d_fill_cache = 2: the batched barotropic fill differs "
+                             "from the separate fills in " + std::to_string(ndiff)
+                             + " points (level " + std::to_string(lev) + ", slot "
+                             + std::to_string(n) + ")");
+            }
+        }
     }
     return true;
 }

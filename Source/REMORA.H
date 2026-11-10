@@ -1523,6 +1523,11 @@ public:
                              const amrex::MultiFab& ubar_know, const amrex::MultiFab& vbar_know,
                              const amrex::MultiFab& zeta_know);
 
+    /** \brief advance_2d's three fine-level barotropic fills, one FillPatch each */
+    void fill_2d_from_parent (int lev, amrex::Real time, int knew, int know, amrex::Real dt2d,
+                              const amrex::MultiFab& ubar_know, const amrex::MultiFab& vbar_know,
+                              const amrex::MultiFab& zeta_know);
+
     /** \brief Whether advance_2d fills a fine level's zeta from the parent's end-of-step
      *  snapshot pair (interpolated in time) rather than from the parent's zeta */
     bool zeta_fill_from_snapshots (int lev) const;
@@ -2190,7 +2195,8 @@ private:
      *         FillSet writes for ubar and vbar are kept and replayed likewise, and so is the
      *         parent data coarse_for_interp prepares while the parent is frozen, for every
      *         coarse-fine fill. 2: as 1, but also recompute and abort on any difference in
-     *         the replayed values. Subcycled driver only. */
+     *         the replayed values, the batched replay of the three fills (replay_cf_2d_fills)
+     *         included. Subcycled driver only. */
     int cf_2d_fill_cache = 1;
     /** \brief one cached two-level fill: the values it leaves in the ghost cells it writes
      *         (mask), per component, with the fill time and coarse generation of each */
