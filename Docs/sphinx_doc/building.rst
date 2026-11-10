@@ -80,7 +80,7 @@ The ``NCFormats`` unit test (``ctest -R NCFormats``) writes and reads a small fi
 NetCDF-4 on Perlmutter
 """"""""""""""""""""""
 
-Perlmutter's ``cray-parallel-netcdf`` module has no NetCDF-4 driver, so build PnetCDF yourself on top of Cray's parallel HDF5 and netCDF-C. Use the same modules for the PnetCDF build, the REMORA build, and every job:
+Perlmutter's ``cray-parallel-netcdf`` module has no NetCDF-4 driver, so build PnetCDF yourself on top of Cray's parallel HDF5 and netCDF-C. Use the same modules for the PnetCDF build, the REMORA build, and every job. The netCDF-C and HDF5 libraries PnetCDF links are the GNU builds (``libnetcdf_parallel_gnu_*``), so a programming environment other than ``PrgEnv-gnu`` at run time loads different ones:
 
 .. code:: shell
 
@@ -107,27 +107,41 @@ The ``ldd`` line should list ``libnetcdf_parallel_gnu_*`` and ``libhdf5_parallel
 .. code:: shell
 
           sed -i '/^[[:space:]]*Requires/d' $PNETCDF_DIR/lib/pkgconfig/pnetcdf.pc
+
+From here on, building and running both need the same environment. Put it in a file, for example ``~/pnetcdf-nc4-env.sh``:
+
+.. code:: shell
+
+          module load PrgEnv-gnu cray-mpich cray-hdf5-parallel cray-netcdf-hdf5parallel
+          module unload cray-parallel-netcdf
+          export PNETCDF_DIR=$HOME/pnetcdf-nc4
           export PKG_CONFIG_PATH=$PNETCDF_DIR/lib/pkgconfig:$PKG_CONFIG_PATH
-          pkg-config --libs --cflags pnetcdf
+          export LD_LIBRARY_PATH=$PNETCDF_DIR/lib:$LD_LIBRARY_PATH
+          export PATH=$PNETCDF_DIR/bin:$PATH
+
+``PKG_CONFIG_PATH`` is how the build finds this PnetCDF. ``LD_LIBRARY_PATH`` makes every run load it, and not another ``libpnetcdf.so`` earlier on the path. ``PATH`` puts its ``ncmpidump`` and ``ncmpidiff`` first.
 
 Then build REMORA with CMake, which also builds the ``NCFormats`` test:
 
 .. code:: shell
 
-          export LD_LIBRARY_PATH=$PNETCDF_DIR/lib:$LD_LIBRARY_PATH
+          source ~/pnetcdf-nc4-env.sh
+          pkg-config --libs --cflags pnetcdf
           cmake -S . -B Build -DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=CC \
                 -DREMORA_ENABLE_MPI=ON -DREMORA_ENABLE_PNETCDF=ON \
                 -DREMORA_ENABLE_TESTS=ON -DREMORA_ENABLE_FCOMPARE=ON
           cmake --build Build -j 16
-          ldd Build/Exec/remora_exec | grep pnetcdf           # $PNETCDF_DIR/lib
+          ldd Build/Exec/remora_exec | grep -E "pnetcdf|netcdf|hdf5"
 
-and check the driver from an interactive CPU allocation:
+``libpnetcdf.so.6`` should come from ``$PNETCDF_DIR/lib``, and netCDF-C and HDF5 from ``/opt/cray/pe/lib64`` (``libnetcdf_parallel_gnu_*``, ``libhdf5_parallel_gnu_*``). Check the driver from an interactive CPU allocation:
 
 .. code:: shell
 
           srun -n 2 Build/Tests/Unit/remora_ncformats_tests Tests/test_files/NCFormats/nc_format_test_deflate.nc
 
 which should end with ``0 failures over all ranks, 3 formats``.
+
+For jobs, start from the job scripts in :ref:`Perlmutter<Perlmutter (NERSC)>`, with two changes: ``source ~/pnetcdf-nc4-env.sh`` in place of ``Build/saul-env.sh``, before ``srun``, and the executable from the CMake build above (``Build/Exec/remora_exec``). ``srun`` passes the environment on to every rank.
 
 
 GNU Make
