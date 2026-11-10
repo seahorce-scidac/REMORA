@@ -859,8 +859,8 @@ public:
     /** \brief Set everything up for a step on a level */
     void setup_step(int lev, amrex::Real time, amrex::Real dt_lev);
 
-    /** \brief 3D advance on a single level */
-    void advance_3d_ml (int lev, amrex::Real dt_lev);
+    /** \brief 3D advance on a single level; skip_wvel leaves this step's w stale */
+    void advance_3d_ml (int lev, amrex::Real dt_lev, bool skip_wvel);
 
     /** \brief 2D advance, one predictor/corrector step */
     void advance_2d_onestep (int lev, amrex::Real dt_lev, amrex::Real dtfast_lev, int my_iif, int nfast_counter);
@@ -1183,9 +1183,6 @@ public:
 
     /** \brief Set for a coarse step that ends with a checkpoint, which writes zvel_old */
     bool wvel_every_substep = false;
-
-    /** \brief Set by Advance for advance_3d_ml: leave this step's w stale */
-    bool wvel_skip_this_step = false;
 
     /** \brief Per level: zvel_new holds the w of the current state, ghost cells filled */
     amrex::Vector<int> wvel_current;

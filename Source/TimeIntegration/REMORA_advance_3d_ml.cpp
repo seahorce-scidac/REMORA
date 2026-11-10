@@ -3,10 +3,11 @@
 using namespace amrex;
 
 /**
- * @param[in] lev     refinement level
- * @param[in] dt_lev  time step at refinement level
+ * @param[in] lev        refinement level
+ * @param[in] dt_lev     time step at refinement level
+ * @param[in] skip_wvel  leave this step's w stale (see wvel_skip_substep)
  */
-void REMORA::advance_3d_ml (int lev, Real dt_lev)
+void REMORA::advance_3d_ml (int lev, Real dt_lev, bool skip_wvel)
 {
     BL_PROFILE("REMORA::advance_3d_ml()");
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
@@ -58,7 +59,7 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     // zvel_old, which holds it, is read only by a checkpoint, before which every substep
     // forms w. A regrid or tagging that reads it first calls update_wvel, which forms it from
     // the same state the step would have.
-    if (wvel_is_lazy() || wvel_skip_this_step) {
+    if (wvel_is_lazy() || skip_wvel) {
         wvel_current[lev] = 0;
     } else {
         compute_and_fill_wvel(lev);
