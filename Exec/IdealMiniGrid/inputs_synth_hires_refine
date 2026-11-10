@@ -5,8 +5,9 @@
 #   python3 ../../Tests/tools/make_hires_test_data.py --dir . --n-cell 10 10 4 --ref-ratio 3 \
 #           --with-refinement
 #
-# hires_grd_refine.nc asks for level 1 over the level-0 cells i, j = 0..1, and for level 2 over
-# the level-1 cells i = 10..14, j = 13..17, which start partway into a level-0 cell. With no tag
+# hires_grd_refine.nc asks for level 1 over the level-1 cells i, j = 1..5, and for level 2 over
+# the level-1 cells i = 10..14, j = 13..17. Both start partway into a level-0 cell, which level 0
+# must then refine whole, so the level-1 region becomes level-0 cells 0..1. With no tag
 # buffer and no blocking beyond single cells, the grids are set by the file and by AMReX's
 # proper nesting alone, so the last "GRIDS AT LEVEL" lines printed before step 1 must be
 #

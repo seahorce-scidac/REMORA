@@ -153,11 +153,12 @@ def main():
     mask_rho = np.where(Y < ycut, 0.0, 1.0)
 
     # The lowest level each cell must be refined to, in fine-cell index space (ring excluded).
-    # Level 1 over the level-0 cells i, j = 0..1, which the coarse level resolves exactly; level 2
-    # over fine cells i = 3r+1..5r-1, j = 4r+1..6r-1, which start one fine cell inside a coarse
-    # cell, so the coarse level has to take the largest value of a partly covered cell.
+    # Level 1 over fine cells i, j = 1..2r-1, and level 2 over fine cells i = 3r+1..5r-1,
+    # j = 4r+1..6r-1. Both start one fine cell inside a coarse cell, so level 0 has to take the
+    # largest value of a partly covered cell. Only the level-1 region shows it in the final grids:
+    # AMReX grows level 1 around level 2 whatever level 0 tagged.
     refinement = np.zeros((eta_rho, xi_rho))
-    refinement[r:3 * r, r:3 * r] = 1.0
+    refinement[r + 1:3 * r, r + 1:3 * r] = 1.0
     refinement[r + 4 * r + 1:r + 6 * r, r + 3 * r + 1:r + 5 * r] = 2.0
 
     grids = [("hires_grd.nc", False)]
