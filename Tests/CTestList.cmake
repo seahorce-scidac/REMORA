@@ -728,6 +728,13 @@ compose_test_input(DogboneAnalytic_MLmask_boxwater DogboneAnalytic_MLmask)
 add_test_cells(DogboneAnalytic_MLmask_boxwater     "remora_exec" "plt00010" 1 14400)
 compose_test_input(DogboneAnalytic_MLmask_rr2_boxwater DogboneAnalytic_MLmask_rr2)
 add_test_cells(DogboneAnalytic_MLmask_rr2_boxwater "remora_exec" "plt00010" 1 6400)
+# With tag_land, kept for direct comparison with a ROMS nest, the box is refined in full:
+# 240 level-0 cells, 240*9*16 level-1 cells.
+compose_test_input(DogboneAnalytic_MLmask_boxland DogboneAnalytic_MLmask)
+add_test_cells(DogboneAnalytic_MLmask_boxland      "remora_exec" "plt00010" 1 34560)
+compose_test_input(DogboneAnalytic_MLcoasttag_tagland_abort DogboneAnalytic_MLcoasttag)
+add_test_abort(DogboneAnalytic_MLcoasttag_tagland_abort "remora_exec"
+               "tag_land applies only to a box region")
 # A pair: the same gradient criterion keyed on a physical field, which must not see the coast,
 # and on the mask, which must. Either one alone passes for the wrong reason.
 add_test_nlevels(DogboneAnalytic_MLcoastskip "remora_exec" "plt00010" 0)

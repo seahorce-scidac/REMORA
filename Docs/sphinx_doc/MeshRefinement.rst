@@ -258,6 +258,18 @@ water cover it: because it is adjacent to tagged water, because
 the blocking factor and grouped at ``amr.grid_eff``. In a run without a mask
 (``remora.mask_type = none``) a box is refined in full.
 
+``remora.<box>.tag_land = true`` makes a box tag its land as well, so the whole
+rectangle is refined, as a ROMS nest is. Use it only to compare directly with a
+ROMS nest over a coast, where the edge of the refined grid has to be where the
+nest's is; refining land adds no water and costs time. It is rejected on a field
+criterion.
+
+::
+
+          remora.coastbox.in_box_lo = 2600. 0.
+          remora.coastbox.in_box_hi = 5800. 750.
+          remora.coastbox.tag_land  = true    # only for a direct ROMS-nest comparison
+
 To refine the coastline deliberately, use ``mask`` as the field name. It is the
 one field exempt from the rule above -- a criterion keyed on the mask is asking
 where the coast is, so it is evaluated on every cell. Since the mask is 0 or 1

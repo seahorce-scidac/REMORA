@@ -16,7 +16,8 @@
  * zeroed every step, so a difference taken across a coast measures the coast, not the flow.
  * This class is that EB form with mskr in place of the flags.
  *
- * A box region (in_box_lo/in_box_hi) is guarded too: it tags only the water cells inside it.
+ * A box region (in_box_lo/in_box_hi) is guarded too: it tags only the water cells inside it,
+ * unless SetTagLand asks for the whole rectangle.
  *
  * Guarding each criterion as it is evaluated, rather than clearing land-adjacent tags
  * afterwards, leaves every other criterion's tags alone.
@@ -59,6 +60,13 @@ public:
         return elapsed >= m_min_elapsed && elapsed <= m_max_elapsed &&
                total   >= m_min_total   && total   <= m_max_total;
     }
+
+    /**
+     * Let a box region tag its land cells too, refining the whole rectangle as a ROMS nest
+     * does. Meant only for comparing directly against a ROMS nest; has no effect on a field
+     * criterion.
+     */
+    void SetTagLand (bool tag_land) noexcept { m_tag_land = tag_land; }
 
     /**
      * Apply this criterion to tba, skipping land.
@@ -107,6 +115,7 @@ private:
     double m_max_elapsed = std::numeric_limits<double>::max();
     double m_min_total   = std::numeric_limits<double>::lowest();
     double m_max_total   = std::numeric_limits<double>::max();
+    bool   m_tag_land    = false;
 };
 
 #endif

@@ -112,7 +112,7 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
     // too, and are absent only because refinement_criteria_setup cannot build them -- so
     // assert rather than let a future one slip silently past the guard.
     const bool masked_test = (m_test == GRAD || m_test == LESS || m_test == GREATER ||
-                              m_test == BOX);
+                              (m_test == BOX && !m_tag_land));
 
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(mskr3d == nullptr || masked_test ||
                                      (m_test != RELGRAD && m_test != VORT),
@@ -237,7 +237,8 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
                                     : (dat(i,j,k) * vol >= threshold);
         }
 
-        if (tag_it) { tagma[bi](i,j,k) = tag_update; }
+        // AMReX's BOX test always tags, derefine or not
+        if (tag_it) { tagma[bi](i,j,k) = (test == BOX) ? tagval : tag_update; }
     });
     Gpu::streamSynchronize();
 }
@@ -745,6 +746,12 @@ REMORA::refinement_criteria_setup ()
                 info.SetMaxLevel(ref_max_level);
             }
 
+            if (ppr.contains("tag_land") &&
+                (ppr.countval("value_greater") || ppr.countval("value_less") ||
+                 ppr.countval("adjacent_difference_greater"))) {
+                Abort(ref_prefix + ".tag_land applies only to a box region; a field criterion"
+                      " never tags land except on the mask.");
+            }
             if (ppr.countval("value_greater")) {
                 int num_val = ppr.countval("value_greater");
                 Vector<Real> value(num_val);
@@ -769,6 +776,15 @@ REMORA::refinement_criteria_setup ()
             else if (realbox.ok())
             {
                 ref_tags.push_back(REMORAErrorTag(info));
+                // For a direct comparison with a ROMS nest, which refines its whole rectangle
+                bool tag_land = false;
+                ppr.query("tag_land", tag_land);
+                if (tag_land) {
+                    ref_tags.back().SetTagLand(true);
+                    Print() << "NOTE: " << ref_prefix << ".tag_land refines the box's land as"
+                            << " well as its water. Use it only to compare directly with a"
+                            << " ROMS nest.\n";
+                }
             } else {
                 Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
             }

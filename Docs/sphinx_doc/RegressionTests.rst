@@ -4,16 +4,16 @@
 Regression Tests
 ================
 
-There are currently 65 regression tests which are run as part of every PR on a range of architectures:
+There are currently 67 regression tests which are run as part of every PR on a range of architectures:
 
 * 22 that compare a plotfile against a stored reference;
 * 6 that compare two runs of the model against each other, or a run against its own initial state, and
   need no reference;
 * 5 that assert values against an external reference;
-* 7 that assert the structure of the refined grid;
+* 8 that assert the structure of the refined grid;
 * 8 that assert how far an integrated quantity drifts over a run;
 * 8 that assert a run reaches a behavior it reports in its log;
-* 9 that assert a misconfigured input fails for the stated reason.
+* 10 that assert a misconfigured input fails for the stated reason.
 
 There are also three unit tests, ``DateClock``, ``LatLonRegrid`` and ``BiologyInterface``. The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
@@ -317,6 +317,13 @@ covers -- using ``adjacent_difference_greater`` criteria and static boxes on the
 +---------------------------------+----------+---------------------------------------------------------+
 | DogboneAnalytic_MLmask_rr2\_    | 42 15 16 | the same at ratio 2: 6400 cells                         |
 | boxwater                        |          |                                                         |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmask_boxland  | 42 15 16 | with ``tag_land`` the same box is refined in full,      |
+|                                 |          |                                                         |
+|                                 |          | land included: 34560 cells                              |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLcoasttag\_    | 42 15 16 | ``tag_land`` on a field criterion is rejected           |
+| tagland_abort                   |          |                                                         |
 +---------------------------------+----------+---------------------------------------------------------+
 
 ``MLcoastskip`` and ``MLcoasttag`` are a pair: ``MLcoastskip`` catches a guard that has stopped skipping
