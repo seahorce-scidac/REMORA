@@ -206,7 +206,15 @@ rather than assumed.
   default distribution, two boxes at opposite corners on one rank, and a single box that leaves every
   rank but one with nothing to read. It is also labelled ``regression``, so the PnetCDF CI runs it.
 
-The forcing interpolation as a whole needs PnetCDF and data files, so it is not in ctest; the developer
+- ``REMORA_TideMath_test.cpp`` (ctest ``TideMath``) checks degree-based phase lags, phase wrapping,
+  coefficient interpolation and time arguments with calendar-sized reference times. It needs no NetCDF.
+- ``REMORA_TidalBoundary_test.cpp`` (ctest ``TidalBoundaryReader``, PnetCDF builds only) checks the
+  actual boundary reader on two MPI ranks against independently evaluated harmonics. It covers all
+  four sides, normal and tangential components, repeated and decreasing time requests, shifted epochs,
+  disabled tides and refinement ratios of 2 in x and 3 in y. It also executes the boundary kernels on
+  the device in GPU builds.
+
+The lat-lon forcing interpolation as a whole needs PnetCDF and data files, so it is not in ctest; the developer
 lane ``Exec/IdealMiniGrid/inputs_frc_latlon`` and ``Tests/tools/make_latlon_forcing_test_data.py``
 make a lat-lon forcing file and a rotated grid, run, and check the result exactly.
 

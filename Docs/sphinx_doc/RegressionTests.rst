@@ -18,7 +18,7 @@ There are currently 70 regression tests which are run as part of every PR on a r
 PnetCDF builds add two more that assert the structure of the refined grid, read from a NetCDF grid
 file's ``refinement`` variable (see :ref:`sec:ci-tagging-tests`).
 
-There are also five unit tests, ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp``, ``BiologyInterface`` and, in PnetCDF builds, ``NCFormats``, which is also labelled ``regression``. The CI tests use cmake and are based on the version
+There are also unit tests, ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp``, ``BiologyInterface``, ``TideMath`` and ``TidalBoundaryReader`` and, in PnetCDF builds, ``NCFormats``, which is also labelled ``regression``. The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
 instructions in :ref:`Testing<Testing>`, which also describes the different kinds of assertion and what
 each is for. All of them run under MPI on two ranks, and are checked to be rank-invariant.
@@ -597,6 +597,23 @@ assertion is that they agree and neither needs a stored reference.
 |                                 |          |                                                         |
 |                                 |          | boundary file data is rejected, naming the side         |
 +---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary                   | 8 10 4   | fixed elevation and velocity harmonics agree            |
+|                                 |          | with independently sampled boundary data (PnetCDF)      |
++---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary_phase_units_abort | 8 10 4   | a tidal phase tagged as radians is rejected by name     |
+|                                 |          | (PnetCDF)                                               |
++---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary_restart           | 8 10 4   | tidal forcing continues with the same phase after a     |
+|                                 |          | checkpoint/restart (PnetCDF)                            |
++---------------------------------+----------+---------------------------------------------------------+
+
+``TidalBoundary`` compares subtidal-plus-harmonic forcing with boundary time series evaluated
+independently at each requested time. Both use Chapman/Flather on all four sides, with nonzero,
+spatially varying elevation and normal velocity. The fixture contains two periods, 240 and 600
+seconds, phase lags straddling 0/360 degrees, and a file epoch one day after ``remora.time_ref``.
+``TidalBoundaryReader`` additionally checks the boundary arrays directly, including repeated
+updates and anisotropic refinement; see :ref:`Testing`. Regenerate the small CDF-2 fixtures with
+``python3 Tests/tools/make_tidal_test_data.py`` (NumPy and netCDF4 are required).
 
 ``BC_per_variable`` runs both inputs in its test directory and compares the two plotfiles. All four sides
 carry a different condition -- inflow, noslipwall, outflow, slipwall going West, South, East, North -- so

@@ -13,8 +13,8 @@
 
 /** \brief A class to hold and interpolate time series data read from a NetCDF file
  *
- * The class only ever holds the two time steps necessary to interpoplate to the current
- * simulation time.
+ * The subtidal series holds the two records needed at the requested time. Optional fixed
+ * harmonics add tidal elevation and normal barotropic velocity to that reference.
  */
 class NCTimeSeriesBoundary
 {
@@ -32,6 +32,11 @@ class NCTimeSeriesBoundary
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
 
+        /** \brief Read fixed tidal harmonics for the requested boundary sides. */
+        void InitializeTides (const std::string& file_name,
+                              const amrex::GpuArray<bool, AMREX_SPACEDIM*2>& sides,
+                              bool verbose = false);
+
         /** \brief Calculate interpolated values at time, in seconds on the model clock,
          *         reading in data as necessary */
         void update_interpolated_to_time (double time);
@@ -44,6 +49,9 @@ class NCTimeSeriesBoundary
             return m_dat_interp[ori];
         }
 
+        /** \brief Add the harmonic sum to freshly interpolated subtidal data. */
+        void add_tides (double time);
+
         /// Refinement ratios relative to level 0
         int m_rx; int m_ry;
 
@@ -52,6 +60,12 @@ class NCTimeSeriesBoundary
                          amrex::Orientation ori);
 
     private:
+        amrex::Vector<double> tide_periods;
+        double tide_epoch = 0.0;
+        amrex::Array<amrex::FArrayBox, AMREX_SPACEDIM*2> tide_coefficients;
+        amrex::Vector<amrex::Real> tide_weights_host;
+        amrex::Gpu::DeviceVector<amrex::Real> tide_weights_device;
+
         /** \brief Read in data from file at time index itime and fill into mf */
         void read_in_at_time (std::array<amrex::FArrayBox, AMREX_SPACEDIM*2>& fabs, int itime);
 
