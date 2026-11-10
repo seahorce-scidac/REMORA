@@ -2,6 +2,7 @@
 #include <REMORA_PhysBCFunct.H>
 #include <REMORA_IndexDefines.H>
 #include <REMORA_TimeInterpolatedData.H>
+#include <REMORA_BitwiseDiff.H>
 
 using namespace amrex;
 
@@ -200,7 +201,8 @@ periodic_consistent_ghosts (const MultiFab& mf, const Geometry& geom, MultiFab& 
  * crse is made once and handed out again: crse does not change in between, so its exchange
  * would change nothing and the copy would come out the same. The copy then lives in the
  * freeze's entry rather than in scratch. Only pass reuse for level data that lives through
- * the freeze, since entries are found by address.
+ * the freeze, since entries are found by address. remora.cf_2d_fill_cache = 0 turns the
+ * reuse off, and 2 makes the result afresh on every reuse as well and aborts if it differs.
  *
  * @param[in   ] crse_lev  level of crse
  * @param[inout] crse      coarse data; its ghost cells are exchanged in place
@@ -212,7 +214,22 @@ MultiFab&
 REMORA::coarse_for_interp (int crse_lev, MultiFab& crse, MultiFab& scratch, bool reuse)
 {
     CrseInterpEntry* e = reuse ? crse_interp_entry(crse_lev, crse) : nullptr;
-    if (e && e->ready) { return e->copy ? *e->copy : crse; }
+    if (e && e->ready) {
+        MultiFab& kept = e->copy ? *e->copy : crse;
+        if (cf_2d_fill_cache == 2) {
+            exchange_coarse(crse_lev, crse, reuse);
+            const MultiFab& fresh = periodic_consistent_ghosts(crse, geom[crse_lev], scratch);
+            const bool same = (&fresh == &crse) ? !e->copy
+                : (e->copy && count_bitwise_diff(fresh, kept, kept.nComp(),
+                                                 kept.nGrowVect()) == 0);
+            if (!same) {
+                amrex::Abort("remora.cf_2d_fill_cache = 2: the coarse data kept for level "
+                             + std::to_string(crse_lev) + " during its freeze differs from "
+                             "a fresh copy");
+            }
+        }
+        return kept;
+    }
 
     exchange_coarse(crse_lev, crse, reuse);
     MultiFab& dst = e ? *(e->copy = std::make_unique<MultiFab>()) : scratch;
@@ -228,12 +245,26 @@ REMORA::coarse_for_interp (int crse_lev, MultiFab& crse, MultiFab& scratch, bool
  * @param[in   ] crse_lev  level of crse
  * @param[inout] crse      coarse data; its ghost cells are exchanged in place
  * @param[in   ] reuse     whether an exchange already made while crse_lev is frozen counts
+ *                         (with remora.cf_2d_fill_cache = 2, checked by exchanging a copy)
  */
 void
 REMORA::exchange_coarse (int crse_lev, MultiFab& crse, bool reuse)
 {
     CrseInterpEntry* e = reuse ? crse_interp_entry(crse_lev, crse) : nullptr;
-    if (e && e->exchanged) { return; }
+    if (e && e->exchanged) {
+        if (cf_2d_fill_cache == 2) {
+            MultiFab fresh(crse.boxArray(), crse.DistributionMap(), crse.nComp(), crse.nGrowVect());
+            MultiFab::Copy(fresh, crse, 0, 0, crse.nComp(), crse.nGrowVect());
+            fresh.FillBoundary(geom[crse_lev].periodicity());
+            const Long ndiff = count_bitwise_diff(fresh, crse, crse.nComp(), crse.nGrowVect());
+            if (ndiff > 0) {
+                amrex::Abort("remora.cf_2d_fill_cache = 2: exchanging coarse data of level "
+                             + std::to_string(crse_lev) + " again during its freeze changes "
+                             + std::to_string(ndiff) + " points");
+            }
+        }
+        return;
+    }
     crse.FillBoundary(geom[crse_lev].periodicity());
     if (e) { e->exchanged = true; }
 }
@@ -260,11 +291,13 @@ REMORA::freeze_coarse_level (int crse_lev, bool on)
 /**
  * @param[in   ] crse_lev  coarse level
  * @param[in   ] crse      coarse data
- * @return the entry for crse if crse_lev is frozen, else nullptr
+ * @return the entry for crse if crse_lev is frozen and remora.cf_2d_fill_cache is not 0,
+ *         else nullptr
  */
 REMORA::CrseInterpEntry*
 REMORA::crse_interp_entry (int crse_lev, const MultiFab& crse)
 {
+    if (cf_2d_fill_cache == 0) { return nullptr; }
     if (crse_lev >= int(crse_frozen.size()) || !crse_frozen[crse_lev]) { return nullptr; }
     // The first local FAB's storage tells a MultiFab freed and another made at the same
     // address apart; only level data that lives through the freeze may pass reuse.

@@ -2187,9 +2187,10 @@ private:
      *         replay the result; bitwise identical, since the fill reads only the registered
      *         coarse data and, for faces, the interface faces FillSet rewrites before every
      *         fill, none of which changes inside the parent step. The interface values
-     *         FillSet writes for ubar and vbar are kept and replayed likewise. 2: as 1, but
-     *         also recompute and abort on any difference in the replayed values. Subcycled
-     *         driver only. */
+     *         FillSet writes for ubar and vbar are kept and replayed likewise, and so is the
+     *         parent data coarse_for_interp prepares while the parent is frozen, for every
+     *         coarse-fine fill. 2: as 1, but also recompute and abort on any difference in
+     *         the replayed values. Subcycled driver only. */
     int cf_2d_fill_cache = 1;
     /** \brief one cached two-level fill: the values it leaves in the ghost cells it writes
      *         (mask), per component, with the fill time and coarse generation of each */

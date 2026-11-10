@@ -620,12 +620,15 @@ add_test_conservation(Advection_3L_conservation_control Advection_3L_conservatio
                       "remora.max_step=20 remora.do_reflux=0"
                       tracer 1e-6 above)
 
-# The cached coarse-fine 2D fills, checked against a recomputation on every replay
+# The cached coarse-fine fills, checked against a recomputation on every replay
 # (remora.cf_2d_fill_cache = 2 aborts on any difference): three levels with a regrid every
-# step, and a ratio-3 nest with masks.
+# step, a ratio-3 nest with masks, and a patch on the periodic seam of a domain bounded by
+# walls, the only kind in which the parent data kept during the substeps is a copy.
 add_test_run(Advection_3L_cf_fill_cache_check Advection_3L_conservation "remora_exec"
              "remora.max_step=20 remora.cf_2d_fill_cache=2")
 add_test_run(DogboneAnalytic_MLvel_cf_fill_cache_check DogboneAnalytic_MLvel "remora_exec"
+             "remora.cf_2d_fill_cache=2")
+add_test_run(Channel_Test_ML_seam_cf_fill_cache_check Channel_Test_ML_seam "remora_exec"
              "remora.cf_2d_fill_cache=2")
 # Output must not change a three-level run under the lockstep driver, which averages down
 # coarse pair first and relies on the average-down after the step
