@@ -120,6 +120,11 @@ will define a problem that is periodic on the Western and Eastern sides. Tempera
 :ref:`remora.nc_bdry_file<icbc-parameters>`. The 2D momentum and zeta BCs are calculated from the
 Chapman/Flather conditions, with nudging towards values given in the boundary NetCDF file.
 
+Each velocity entry sets that component's own condition. On the West and East sides, ``u`` and
+``ubar`` are the normal components and ``v`` and ``vbar`` the tangential ones; on the South and North
+sides it is the reverse. So ``slipwall``, ``symmetry`` or ``flather`` takes its normal-velocity form
+on a side only where the normal component's entry names it.
+
 .. _sec:bc-per-tracer:
 
 Boundary conditions for individual tracers
