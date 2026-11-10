@@ -723,15 +723,18 @@ add_test_extent(DogboneAnalytic_MLmask  "remora_exec" "plt00010" 1 1 0.0 750.0)
 add_test_extent(DogboneAnalytic_MLmask_rr2 "remora_exec" "plt00010" 1 1 0.0 750.0)
 # A box tags only its water cells. coastbox holds 100 wet level-0 cells (two columns of 15 at
 # its ends, and five rows of the 14-cell channel between them), so level 1 covers 100*9*16
-# cells at ratio 3 and 100*4*16 at ratio 2; the whole box would be 240 level-0 cells.
+# cells at ratio 3 and 100*4*16 at ratio 2; the whole box would be 240 level-0 cells. The
+# counts are exact because, with no tag buffer and blocking factor 1, the grids at
+# amr.grid_eff = 0.7 cover the wet cells and nothing else. The grids are static, so the
+# initial plotfile of a zero-step run is enough.
 compose_test_input(DogboneAnalytic_MLmask_boxwater DogboneAnalytic_MLmask)
-add_test_cells(DogboneAnalytic_MLmask_boxwater     "remora_exec" "plt00010" 1 14400)
+add_test_cells(DogboneAnalytic_MLmask_boxwater     "remora_exec" "plt00000" 1 14400)
 compose_test_input(DogboneAnalytic_MLmask_rr2_boxwater DogboneAnalytic_MLmask_rr2)
-add_test_cells(DogboneAnalytic_MLmask_rr2_boxwater "remora_exec" "plt00010" 1 6400)
+add_test_cells(DogboneAnalytic_MLmask_rr2_boxwater "remora_exec" "plt00000" 1 6400)
 # With tag_land, kept for direct comparison with a ROMS nest, the box is refined in full:
 # 240 level-0 cells, 240*9*16 level-1 cells.
 compose_test_input(DogboneAnalytic_MLmask_boxland DogboneAnalytic_MLmask)
-add_test_cells(DogboneAnalytic_MLmask_boxland      "remora_exec" "plt00010" 1 34560)
+add_test_cells(DogboneAnalytic_MLmask_boxland      "remora_exec" "plt00000" 1 34560)
 compose_test_input(DogboneAnalytic_MLcoasttag_tagland_abort DogboneAnalytic_MLcoasttag)
 add_test_abort(DogboneAnalytic_MLcoasttag_tagland_abort "remora_exec"
                "tag_land applies only to a box region")

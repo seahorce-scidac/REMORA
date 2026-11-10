@@ -278,7 +278,7 @@ snapshotted. Asserting the dye is zero alongside them is what catches a regressi
 The two ``DogboneAnalytic_MLmask`` lanes also assert where level 1 is. The static box spans the full
 width of the domain in y, 0 to 750, and the coasts run through it; the basins at its two ends are water
 from edge to edge, so level 1 must still reach both edges. Which of the box's cells are refined is
-asserted by the ``_boxwater`` lanes under :ref:`sec:ci-tagging-tests`.
+asserted by the ``_boxwater`` tests under :ref:`sec:ci-tagging-tests`.
 
 .. _sec:ci-tagging-tests:
 

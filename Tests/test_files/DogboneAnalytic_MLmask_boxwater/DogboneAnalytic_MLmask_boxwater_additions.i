@@ -1,1 +1,2 @@
-# DogboneAnalytic_MLmask unchanged; CTestList.cmake asserts the cells its box refines.
+# DogboneAnalytic_MLmask's grids, which CTestList.cmake asserts; no steps are needed.
+remora.max_step = 0
