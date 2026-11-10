@@ -90,8 +90,8 @@ fill_lateral_ghosts_zero_grad (MultiFab& mf)
  * The parameters are documented on the declaration in REMORA_ErrorTag.H.
  *
  * The one thing to know when reading the body: a cell this declines to test is left exactly
- * as it was found, not cleared. That is what lets a static box keep the tags it set over a
- * coast, and it is the whole difference from the derefine criteria this replaced.
+ * as it was found, not cleared. That is what keeps one criterion's tags from being undone by
+ * another, and it is the whole difference from the derefine criteria this replaced.
  */
 void
 REMORAErrorTag::operator() (TagBoxArray&    tba,
@@ -107,10 +107,12 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
 {
     BL_PROFILE("REMORAErrorTag::operator()");
 
-    // The tests that read a field cell by cell, and so have something for the mask to guard.
-    // RELGRAD and VORT do too, and are absent only because refinement_criteria_setup cannot
-    // build them -- so assert rather than let a future one slip silently past the guard.
-    const bool masked_test = (m_test == GRAD || m_test == LESS || m_test == GREATER);
+    // The tests that read a field cell by cell, and so have something for the mask to guard,
+    // and BOX, which tags only the water cells of its region. RELGRAD and VORT read a field
+    // too, and are absent only because refinement_criteria_setup cannot build them -- so
+    // assert rather than let a future one slip silently past the guard.
+    const bool masked_test = (m_test == GRAD || m_test == LESS || m_test == GREATER ||
+                              m_test == BOX);
 
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(mskr3d == nullptr || masked_test ||
                                      (m_test != RELGRAD && m_test != VORT),
@@ -154,10 +156,13 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
     auto const& datma = mf->const_arrays();
     auto const& mskma = mskr3d->const_arrays();
 
+    // A box has no threshold
     auto const nvalues = std::ssize(m_value);
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(nvalues > 0,
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(nvalues > 0 || m_test == BOX,
                                      "Threshold values not properly set in REMORAErrorTag");
-    auto const threshold = m_value[(level < nvalues) ? level : nvalues-1];
+    auto const threshold = (nvalues > 0) ? m_value[(level < nvalues) ? level : nvalues-1]
+                                         : Real(0.0);
+    auto const& tag_rb = m_info.m_realbox;
     auto const tag_update = m_info.m_derefine ? clearval : tagval;
     auto const volume_weighting = m_info.m_volume_weighting;
     auto const& geomdata = geom.data();
@@ -187,7 +192,16 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
         auto const& dat = datma[bi];
         bool tag_it = false;
 
-        if (test == GRAD)
+        if (test == BOX)
+        {
+            // As amrex::AMRErrorTag tests a box: on the cell center
+            const Real pt[AMREX_SPACEDIM] = {
+                AMREX_D_DECL(geomdata.ProbLo(0) + (Real(i)+Real(0.5))*geomdata.CellSize(0),
+                             geomdata.ProbLo(1) + (Real(j)+Real(0.5))*geomdata.CellSize(1),
+                             geomdata.ProbLo(2) + (Real(k)+Real(0.5))*geomdata.CellSize(2))};
+            tag_it = tag_rb.contains(pt);
+        }
+        else if (test == GRAD)
         {
             // A difference only between two clean values, as AMReX's EB form of this test
             // takes one only across a connected face.

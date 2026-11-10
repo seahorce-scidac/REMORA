@@ -4,13 +4,13 @@
 Regression Tests
 ================
 
-There are currently 63 regression tests which are run as part of every PR on a range of architectures:
+There are currently 65 regression tests which are run as part of every PR on a range of architectures:
 
 * 22 that compare a plotfile against a stored reference;
 * 6 that compare two runs of the model against each other, or a run against its own initial state, and
   need no reference;
 * 5 that assert values against an external reference;
-* 5 that assert the structure of the refined grid;
+* 7 that assert the structure of the refined grid;
 * 8 that assert how far an integrated quantity drifts over a run;
 * 8 that assert a run reaches a behavior it reports in its log;
 * 9 that assert a misconfigured input fails for the stated reason.
@@ -276,10 +276,9 @@ snapshotted. Asserting the dye is zero alongside them is what catches a regressi
 ``Bio_comp = Tracer_comp + remora.nscalar`` offset, which would shift a biology tracer into the dye slot.
 
 The two ``DogboneAnalytic_MLmask`` lanes also assert where level 1 is. The static box spans the full
-width of the domain in y, 0 to 750, and the coasts run through it, so the whole box must be refined,
-land included, rather than clipped back to the water (which once gave y in [250, 500]). The ratio-2 lane
-covers the same fix on the other refinement-ratio path: there the grids go from three clipped boxes to
-two full-box grids, which a stationarity comparison alone cannot see.
+width of the domain in y, 0 to 750, and the coasts run through it; the basins at its two ends are water
+from edge to edge, so level 1 must still reach both edges. Which of the box's cells are refined is
+asserted by the ``_boxwater`` lanes under :ref:`sec:ci-tagging-tests`.
 
 .. _sec:ci-tagging-tests:
 
@@ -289,7 +288,7 @@ Refinement tagging tests
 Grid structure is the only place a tagging bug shows: a criterion that has stopped tagging, or one that
 has started tagging the coastline, still writes a self-consistent plotfile that a snapshot comparison
 accepts. These lanes assert the grid itself instead -- which levels exist, or how many cells a level
-covers -- using ``adjacent_difference_greater`` criteria on the Dogbone case at ratio 3.
+covers -- using ``adjacent_difference_greater`` criteria and static boxes on the Dogbone case.
 
 +---------------------------------+----------+---------------------------------------------------------+
 | Test                            | nx ny nz | What it asserts                                         |
@@ -309,6 +308,15 @@ covers -- using ``adjacent_difference_greater`` criteria on the Dogbone case at 
 |                                 |          | of both cells sharing the face, not by the cell's own:  |
 |                                 |          |                                                         |
 |                                 |          | level 1 covers exactly 6480 cells                       |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmask_boxwater | 42 15 16 | a static box across the coast tags only its water: of   |
+|                                 |          |                                                         |
+|                                 |          | its 240 level-0 cells the 100 wet ones are refined,     |
+|                                 |          |                                                         |
+|                                 |          | 14400 level-1 cells at ratio 3                          |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmask_rr2\_    | 42 15 16 | the same at ratio 2: 6400 cells                         |
+| boxwater                        |          |                                                         |
 +---------------------------------+----------+---------------------------------------------------------+
 
 ``MLcoastskip`` and ``MLcoasttag`` are a pair: ``MLcoastskip`` catches a guard that has stopped skipping

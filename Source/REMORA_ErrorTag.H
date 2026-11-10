@@ -16,9 +16,10 @@
  * zeroed every step, so a difference taken across a coast measures the coast, not the flow.
  * This class is that EB form with mskr in place of the flags.
  *
+ * A box region (in_box_lo/in_box_hi) is guarded too: it tags only the water cells inside it.
+ *
  * Guarding each criterion as it is evaluated, rather than clearing land-adjacent tags
- * afterwards, leaves every other criterion's tags alone -- including a static
- * in_box_lo/in_box_hi region drawn across a coast.
+ * afterwards, leaves every other criterion's tags alone.
  *
  * The inheritance is private on purpose: AMRErrorTag::operator() is not virtual, so converting
  * a criterion back to the base would compile and quietly run the unguarded test on masked
@@ -62,9 +63,9 @@ public:
     /**
      * Apply this criterion to tba, skipping land.
      *
-     * Only GRAD, LESS and GREATER consult the mask. BOX and PARSER tag on position alone,
-     * USER hands the whole decision to a functor, and VORT and RELGRAD are unreachable from
-     * REMORA's inputs; all of those go to amrex::AMRErrorTag::operator() unchanged.
+     * GRAD, LESS, GREATER and BOX consult the mask. PARSER tags on position alone, USER hands
+     * the whole decision to a functor, and VORT and RELGRAD are unreachable from REMORA's
+     * inputs; all of those go to amrex::AMRErrorTag::operator() unchanged.
      *
      * @param[inout] tba       tags to update
      * @param[in]    mf        single-component field this criterion tests, with one ghost
