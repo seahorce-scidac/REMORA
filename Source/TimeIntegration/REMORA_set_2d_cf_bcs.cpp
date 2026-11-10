@@ -214,7 +214,9 @@ REMORA::set_2d_cf_bcs (int lev, Real time, int know, int knew)
         // Staging every fab through the pinned arena is not worth it for a diagnostic.
         static bool warned = false;
         if (!warned) {
-            amrex::Warning("remora.cf_print_iface is host-only; ignored on a GPU build");
+            if (amrex::ParallelDescriptor::IOProcessor()) {
+                amrex::Warning("remora.cf_print_iface is host-only; ignored on a GPU build");
+            }
             warned = true;
         }
 #else
