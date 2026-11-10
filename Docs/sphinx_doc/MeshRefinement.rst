@@ -393,10 +393,12 @@ REMORA therefore computes them once and replays them:
 
 - The first fill of a (time level, time) pair does the full two-level fill: it exchanges
   the parent's ghost cells, interpolates the parent onto the fine level and copies fine
-  data where there is any. The values that land in the coarse-fine ghost cells are saved,
-  with a mask of which cells those are. The entry is keyed on the parent's generation (a
-  counter bumped each time the parent registers new data for its child), the fill time and
-  the coarse data the values were interpolated from.
+  data where there is any. While the parent is frozen (see below), an earlier fill may
+  already have exchanged that parent field, and then the exchange is not repeated. The
+  values that land in the coarse-fine ghost cells are saved, with a mask of which cells
+  those are. The entry is keyed on the parent's generation (a counter bumped each time the
+  parent registers new data for its child), the fill time and the coarse data the values
+  were interpolated from.
 - Later fills with a matching key skip the parent exchange and the interpolation. A masked
   copy puts the saved values back into the coarse-fine ghost cells, the fine-fine exchange
   still runs (ghost cells shared with neighbouring fine boxes hold fine data, which changes
@@ -404,18 +406,42 @@ REMORA therefore computes them once and replays them:
   three fields hit, their fine-fine exchanges are posted together and the boundary
   conditions then run in the original order. The interface values ``FillSet`` writes are
   kept and replayed the same way, when they depend on the coarse data alone (checked once
-  per grid layout; true at the default ``remora.cf_set_width = 0``).
-- A miss (new parent data, a new substep time, or a regrid that changed the layout) does
-  the full fill and refreshes the entry. Removing a level frees its entries.
+  per grid layout; true at the default ``remora.cf_set_width = 0``), and so is the parent's
+  barotropic flux on the interface faces (``set_2d_cf_bcs``).
+- A miss does the full fill and refreshes the entry. It comes from new parent data, a new
+  substep time, a regrid that changed the layout, or a change of the coarse data the fill
+  interpolates from: ``zeta`` switches from the parent's own field to the parent's
+  end-of-step snapshot pair (``remora.cf_time_interp_zeta``) once the parent has stored it.
+  Removing a level frees its entries.
 
 The replay is used with the subcycled driver only (``remora.do_substep = 1``), one
 component at a time, and for ``ubar`` and ``vbar`` only when the coarse-fine fill patchers
 set the interface faces first (``remora.cf_width`` and ``remora.cf_set_width`` at least 0).
 It saves the parent exchange and interpolation on all but the first fast step of each
 substep; the results are bitwise identical to recomputing every time.
-``remora.cf_2d_fill_cache`` selects the behaviour: 0 always recomputes, 1 (the default)
-replays, and 2 replays and also does the full fill, aborting if any replayed cell differs
-from the fresh one. The ``*_cf_fill_cache_check`` regression tests run with 2.
+
+A wider reuse covers every coarse-fine fill of a fine level, the 3D ones too. The parent
+does not change while its child substeps, so the subcycled driver freezes it for that
+stretch, and the parent data a fill interpolates from is prepared once per parent field and
+handed out again until the parent thaws. Preparing it means exchanging the parent's ghost
+cells and, in a domain that is periodic in one direction and bounded by a wall in another,
+making a copy whose ghost cells beyond the wall agree with their periodic images. In such a
+domain the frozen parent therefore keeps one full copy of each parent field it hands out,
+from the first fill that needs it until the thaw, instead of freeing each copy after its
+fill. Other domains need no copy and keep only the record of which fields were exchanged.
+
+``remora.cf_2d_fill_cache`` selects the behaviour of all of the above:
+
+- 0 recomputes everything: every fill exchanges and interpolates the parent and copies it
+  when the domain needs it, ``FillSet`` interpolates on every call, and the interface flux
+  is formed for every fast step.
+- 1 (the default) replays as described.
+- 2 replays everything 1 does and also does the fresh computation each time, aborting if
+  any value differs in bit pattern: the saved ghost values, the batched fills of the three
+  fields, the kept ``FillSet`` values, the interface flux, and the exchanged and copied
+  parent data of a frozen parent.
+
+The ``*_cf_fill_cache_check`` regression tests run with 2.
 
 Example
 -------
