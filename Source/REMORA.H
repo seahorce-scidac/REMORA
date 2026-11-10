@@ -1490,6 +1490,10 @@ public:
                              const amrex::MultiFab& ubar_know, const amrex::MultiFab& vbar_know,
                              const amrex::MultiFab& zeta_know);
 
+    /** \brief The coarse-fine ghost band of a fine level's ubar (slot 0), vbar (1) or zeta (2),
+     *  where fill_ghost_kcomps writes; built once per layout */
+    const amrex::iMultiFab& cf_ghost_band (int lev, int slot, const amrex::MultiFab& mf);
+
     /** \brief Coarse data ready for a coarse-to-fine interpolation: ghost cells exchanged,
      *         and those beyond a wall made to agree with their periodic images */
     amrex::MultiFab& coarse_for_interp (int crse_lev, amrex::MultiFab& crse,
@@ -2159,6 +2163,8 @@ private:
     };
     /** \brief per level: the caches for ubar, vbar and zeta (slots 0, 1, 2) */
     amrex::Vector<amrex::Array<CF2DCache,3>> cf_2d_cache;
+    /** \brief per level: the ghost bands of ubar, vbar and zeta (see cf_ghost_band) */
+    amrex::Vector<amrex::Array<std::unique_ptr<amrex::iMultiFab>,3>> cf_band;
     /** \brief per level: bumped whenever register_coarse_data hands the level's new state to
      *         the next finer level, which invalidates that level's cf_2d_cache */
     amrex::Vector<long> cf_crse_gen;
