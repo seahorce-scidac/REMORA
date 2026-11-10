@@ -1172,6 +1172,20 @@ public:
     /** \brief Whether the step leaves w stale until a reader asks for it (single level only) */
     [[nodiscard]] bool wvel_is_lazy () const { return max_level == 0; }
 
+    /** \brief Whether the step of level lev, substep iteration of ncycle, may leave its w
+     *  stale: the finest level of a subcycled run, on every substep but the last, unless a
+     *  checkpoint ends the coarse step */
+    [[nodiscard]] bool wvel_skip_substep (int lev, int iteration, int ncycle) const {
+        return do_substep && lev > 0 && lev == finest_level && iteration < ncycle
+               && !wvel_every_substep;
+    }
+
+    /** \brief Set for a coarse step that ends with a checkpoint, which writes zvel_old */
+    bool wvel_every_substep = false;
+
+    /** \brief Set by Advance for advance_3d_ml: leave this step's w stale */
+    bool wvel_skip_this_step = false;
+
     /** \brief Per level: zvel_new holds the w of the current state, ghost cells filled */
     amrex::Vector<int> wvel_current;
 

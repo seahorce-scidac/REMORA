@@ -408,8 +408,9 @@ REMORA::update_wvel_before_checkpoint_step (int step, Real cur_time, Real stop_e
     const Real time_after = cur_time + dt[0];
     const bool last_step = step+1 >= max_step
                            || time_after >= stop_elapsed - Real(1.e-6)*dt[0];
-    if (checkpoint_due(step, time_after) ||
-        (last_step && (check_int > 0 || check_int_time > zero))) {
+    wvel_every_substep = checkpoint_due(step, time_after) ||
+                         (last_step && (check_int > 0 || check_int_time > zero));
+    if (wvel_every_substep) {
         update_wvel();
     }
 }
