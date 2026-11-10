@@ -548,6 +548,12 @@ assertion is that they agree and neither needs a stored reference.
 |                                 |          |                                                         |
 |                                 |          | tracers is rejected, naming the input it wants          |
 +---------------------------------+----------+---------------------------------------------------------+
+| BC_normal_velocity_own_type     | 54 108 4 | an East slip wall for ``u`` and ``ubar`` acts the same  |
+|                                 |          |                                                         |
+|                                 |          | whether ``v`` and ``vbar`` are outflow or slip walls,   |
+|                                 |          |                                                         |
+|                                 |          | since both give the tangential component ``foextrap``   |
++---------------------------------+----------+---------------------------------------------------------+
 | BC_flather_no_zeta_data         | 54 108 4 | a Flather side whose ``zeta`` condition reads no        |
 |                                 |          |                                                         |
 |                                 |          | boundary file data is rejected, naming the side         |
