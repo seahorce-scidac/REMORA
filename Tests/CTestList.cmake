@@ -810,6 +810,18 @@ add_test_equiv(BC_per_variable BC_per_side "remora_exec" "plt00010" "plt_side000
 
 add_test_abort(BC_inflow_no_value "remora_exec" "needs an inflow value")
 
+# A side's normal velocity condition must come from the normal component's own setting. On the
+# East, u and ubar are slip walls in both inputs, and v and vbar are outflow in one and slip
+# walls in the other. Both give the tangential component foextrap, so the runs must agree.
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test_files/BC_per_variable/BC_per_variable.i
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/test_files/BC_normal_velocity_own_type)
+add_test_equiv(BC_normal_velocity_own_type BC_normal_velocity_slipwall "remora_exec"
+               "plt00010" "plt_slipwall00010")
+
+# Flather on a side where zeta does not read the boundary file must stop at setup.
+compose_test_input(BC_flather_no_zeta_data BC_per_variable)
+add_test_abort(BC_flather_no_zeta_data "remora_exec"
+               "East boundary uses Flather for the normal barotropic velocity")
 if (REMORA_ENABLE_PNETCDF)
     # Harmonic forcing must agree with independently sampled boundary time series.
     add_test_equiv(TidalBoundary reference "remora_exec" "plt_tides00004" "plt_reference00004"

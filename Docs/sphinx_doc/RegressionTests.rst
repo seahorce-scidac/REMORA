@@ -549,6 +549,16 @@ assertion is that they agree and neither needs a stored reference.
 |                                 |          |                                                         |
 |                                 |          | tracers is rejected, naming the input it wants          |
 +---------------------------------+----------+---------------------------------------------------------+
+| BC_normal_velocity_own_type     | 54 108 4 | an East slip wall for ``u`` and ``ubar`` acts the same  |
+|                                 |          |                                                         |
+|                                 |          | whether ``v`` and ``vbar`` are outflow or slip walls,   |
+|                                 |          |                                                         |
+|                                 |          | since both give the tangential component ``foextrap``   |
++---------------------------------+----------+---------------------------------------------------------+
+| BC_flather_no_zeta_data         | 54 108 4 | a Flather side whose ``zeta`` condition reads no        |
+|                                 |          |                                                         |
+|                                 |          | boundary file data is rejected, naming the side         |
++---------------------------------+----------+---------------------------------------------------------+
 | TidalBoundary                   | 8 10 4   | fixed elevation and velocity harmonics agree            |
 |                                 |          | with independently sampled boundary data (PnetCDF)      |
 +---------------------------------+----------+---------------------------------------------------------+
@@ -558,14 +568,6 @@ assertion is that they agree and neither needs a stored reference.
 | TidalBoundary_restart           | 8 10 4   | tidal forcing continues with the same phase after a     |
 |                                 |          | checkpoint/restart (PnetCDF)                            |
 +---------------------------------+----------+---------------------------------------------------------+
-
-``TidalBoundary`` compares subtidal-plus-harmonic forcing with boundary time series evaluated
-independently at each requested time. Both use Chapman/Flather on all four sides, with nonzero,
-spatially varying elevation and normal velocity. The fixture contains two periods, 240 and 600
-seconds, phase lags straddling 0/360 degrees, and a file epoch one day after ``remora.time_ref``.
-``TidalBoundaryReader`` additionally checks the boundary arrays directly, including repeated
-updates and anisotropic refinement; see :ref:`Testing`. Regenerate the small CDF-2 fixtures with
-``python3 Tests/tools/make_tidal_test_data.py`` (NumPy and netCDF4 are required).
 
 ``BC_per_variable`` runs both inputs in its test directory and compares the two plotfiles. All four sides
 carry a different condition -- inflow, noslipwall, outflow, slipwall going West, South, East, North -- so
@@ -589,6 +591,14 @@ The inflow is driven by horizontal diffusion rather than advection. ``ubar`` and
 value of their own, so the barotropic normal velocity at the face stays zero and the barotropic correction
 holds the net flux near zero regardless of the 3D ``velocity`` entry: raising it tenfold moves the dye by
 about 7%. Advective inflow is therefore not covered by either lane.
+
+``TidalBoundary`` compares subtidal-plus-harmonic forcing with boundary time series evaluated
+independently at each requested time. Both use Chapman/Flather on all four sides, with nonzero,
+spatially varying elevation and normal velocity. The fixture contains two periods, 240 and 600
+seconds, phase lags straddling 0/360 degrees, and a file epoch one day after ``remora.time_ref``.
+``TidalBoundaryReader`` additionally checks the boundary arrays directly, including repeated
+updates and anisotropic refinement; see :ref:`Testing`. Regenerate the small CDF-2 fixtures with
+``python3 Tests/tools/make_tidal_test_data.py`` (NumPy and netCDF4 are required).
 
 Nightly Regression Tests on CPU
 -------------------------------
