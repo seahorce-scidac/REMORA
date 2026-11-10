@@ -830,6 +830,20 @@ public:
     /** \brief store this level's barotropic mass flux per unit cell edge length */
     void store_2d_flux (int lev);
 
+    /** \brief the parent's barotropic flux per unit edge length on this level's interface
+     *         faces at time, as set_2d_cf_bcs and set_2d_cf_flux impose it */
+    std::pair<const amrex::MultiFab*, const amrex::MultiFab*>
+    cf_interface_flux (int lev, amrex::Real time);
+
+    /** \brief per level: the last cf_interface_flux result, with the coarse generation and
+     *         time it was made for */
+    struct CFInterfaceFlux {
+        std::unique_ptr<amrex::MultiFab> u, v;
+        long gen = -1;
+        amrex::Real time = amrex::Real(0.0);
+    };
+    amrex::Vector<CFInterfaceFlux> cf_iface_flux;
+
     /** \brief apply the lev/lev+1 tracer flux correction onto lev */
     void reflux_to (int lev);
 

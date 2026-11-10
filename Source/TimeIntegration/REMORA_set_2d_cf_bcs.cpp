@@ -128,6 +128,62 @@ REMORA::store_2d_flux (int lev)
 }
 
 /**
+ * The parent's barotropic flux per unit edge length (Dubar, Dvbar), interpolated in time onto
+ * this level's interface faces and, with cf_flux_pc, made piecewise constant along them; zero
+ * on every other face.
+ *
+ * It depends only on the data the parent registered, which register_coarse_data replaces
+ * (bumping cf_crse_gen), the time and the layout. The fast steps of one fine step all ask
+ * for it at that step's t_old, so the result is kept per level and made again only when the
+ * generation, the time or the layout changes.
+ *
+ * @param[in] lev   level of refinement
+ * @param[in] time  simulation time to interpolate the parent's flux to
+ * @return the u- and v-face fluxes, valid until the next call for this level
+ */
+std::pair<const MultiFab*, const MultiFab*>
+REMORA::cf_interface_flux (int lev, Real time)
+{
+    if (int(cf_iface_flux.size()) <= lev) { cf_iface_flux.resize(lev+1); }
+    CFInterfaceFlux& c = cf_iface_flux[lev];
+    const long gen = (int(cf_crse_gen.size()) >= lev) ? cf_crse_gen[lev-1] : -1;
+
+    const MultiFab& du = *vec_Dubar_new[lev];
+    const MultiFab& dv = *vec_Dvbar_new[lev];
+    const bool same_layout = c.u && c.u->boxArray() == du.boxArray()
+                          && c.u->DistributionMap() == du.DistributionMap()
+                          && c.v->boxArray() == dv.boxArray()
+                          && c.v->DistributionMap() == dv.DistributionMap();
+    if (same_layout && gen >= 0 && c.gen == gen && c.time == time) {
+        return {c.u.get(), c.v.get()};
+    }
+
+    if (!same_layout) {
+        c.u = std::make_unique<MultiFab>(du.boxArray(), du.DistributionMap(), 1, du.nGrowVect());
+        c.v = std::make_unique<MultiFab>(dv.boxArray(), dv.DistributionMap(), 1, dv.nGrowVect());
+    }
+    MultiFab& Dubar_cf = *c.u;
+    MultiFab& Dvbar_cf = *c.v;
+    Dubar_cf.setVal(zero);
+    Dvbar_cf.setVal(zero);
+
+    FPr_Dubar[lev-1].FillSet(Dubar_cf, time, no_bc, domain_bcs_type);
+    FPr_Dvbar[lev-1].FillSet(Dvbar_cf, time, no_bc, domain_bcs_type);
+
+    // an x-face varies along y across the interface, and a y-face along x
+    if (cf_flux_pc) {
+        const int set_mask = FPr_Dubar[lev-1].GetSetMaskVal();
+        const IntVect rr = refRatio(lev-1);
+        group_average_faces(Dubar_cf, *FPr_Dubar[lev-1].GetMask(), set_mask, 1, rr[1]);
+        group_average_faces(Dvbar_cf, *FPr_Dvbar[lev-1].GetMask(), set_mask, 0, rr[0]);
+    }
+
+    c.gen  = gen;
+    c.time = time;
+    return {c.u.get(), c.v.get()};
+}
+
+/**
  * Set the normal barotropic velocity on this level's coarse-fine interface from the parent's
  * time-averaged mass flux, as ROMS does in put_refine2d (nesting.F):
  *
@@ -161,22 +217,9 @@ REMORA::set_2d_cf_bcs (int lev, Real time, int know, int knew)
     // these faces are interior and the barotropic solver rewrites them.
     const int set_mask = FPr_Dubar[lev-1].GetSetMaskVal();
 
-    MultiFab Dubar_cf(vec_Dubar_new[lev]->boxArray(), vec_Dubar_new[lev]->DistributionMap(),
-                      1, vec_Dubar_new[lev]->nGrowVect());
-    MultiFab Dvbar_cf(vec_Dvbar_new[lev]->boxArray(), vec_Dvbar_new[lev]->DistributionMap(),
-                      1, vec_Dvbar_new[lev]->nGrowVect());
-    Dubar_cf.setVal(zero);
-    Dvbar_cf.setVal(zero);
-
-    FPr_Dubar[lev-1].FillSet(Dubar_cf, time, no_bc, domain_bcs_type);
-    FPr_Dvbar[lev-1].FillSet(Dvbar_cf, time, no_bc, domain_bcs_type);
-
-    // an x-face varies along y across the interface, and a y-face along x
-    if (cf_flux_pc) {
-        const IntVect rr = refRatio(lev-1);
-        group_average_faces(Dubar_cf, *FPr_Dubar[lev-1].GetMask(), set_mask, 1, rr[1]);
-        group_average_faces(Dvbar_cf, *FPr_Dvbar[lev-1].GetMask(), set_mask, 0, rr[0]);
-    }
+    const auto [pu, pv] = cf_interface_flux(lev, time);
+    const MultiFab& Dubar_cf = *pu;
+    const MultiFab& Dvbar_cf = *pv;
 
 
 #ifdef _OPENMP
@@ -318,22 +361,9 @@ REMORA::set_2d_cf_flux (int lev, Real time, MultiFab& mf_DUon, MultiFab& mf_DVom
 
     const int set_mask = FPr_Dubar[lev-1].GetSetMaskVal();
 
-    MultiFab Dubar_cf(vec_Dubar_new[lev]->boxArray(), vec_Dubar_new[lev]->DistributionMap(),
-                      1, vec_Dubar_new[lev]->nGrowVect());
-    MultiFab Dvbar_cf(vec_Dvbar_new[lev]->boxArray(), vec_Dvbar_new[lev]->DistributionMap(),
-                      1, vec_Dvbar_new[lev]->nGrowVect());
-    Dubar_cf.setVal(zero);
-    Dvbar_cf.setVal(zero);
-
-    FPr_Dubar[lev-1].FillSet(Dubar_cf, time, no_bc, domain_bcs_type);
-    FPr_Dvbar[lev-1].FillSet(Dvbar_cf, time, no_bc, domain_bcs_type);
-
-    // an x-face varies along y across the interface, and a y-face along x
-    if (cf_flux_pc) {
-        const IntVect rr = refRatio(lev-1);
-        group_average_faces(Dubar_cf, *FPr_Dubar[lev-1].GetMask(), set_mask, 1, rr[1]);
-        group_average_faces(Dvbar_cf, *FPr_Dvbar[lev-1].GetMask(), set_mask, 0, rr[0]);
-    }
+    const auto [pu, pv] = cf_interface_flux(lev, time);
+    const MultiFab& Dubar_cf = *pu;
+    const MultiFab& Dvbar_cf = *pv;
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
