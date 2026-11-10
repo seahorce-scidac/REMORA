@@ -19,10 +19,10 @@
 #                  skipped when not given
 #   -s "NX NY NZ"  Upwelling grid                           ["512 1024 40"]
 #   -m "NX NY NZ"  also run Upwelling with a refined level (case upwnest): this coarse grid
-#                  plus a static level 1 at ratio 3 over the middle half in x and y,
-#                  two-way coupled (inputs/upwelling_ml.in); level 1 has 2.25 times the
-#                  coarse cells and takes 3 substeps, so "512 1024 40" costs about as
-#                  much per step as -s "1024 2048 40" does single-level
+#                  plus a static level 1 at ratio 2 over the middle half in x and y,
+#                  two-way coupled (inputs/upwelling_ml.in); level 1 has as many cells
+#                  as the coarse level and takes 2 substeps; with "512 1024 40" every
+#                  level has 2 boxes per rank on 64 CPU ranks and 2 per GPU
 #   -t steps       steps per run                            [10]
 #   -c "RxT ..."   CPU ranks x threads configurations        ["128x1 64x2 32x4"]
 #   -T "spec ..."  extra CPU tile sizes for every revision      []
