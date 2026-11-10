@@ -33,6 +33,30 @@ void fill_ghost_kcomps (MultiFab& mf, int knew, const iMultiFab& band)
         });
     }
 }
+
+/** Which time averages of the barotropic fluxes a fast step accumulates */
+enum AvgMode : int { avg_none, avg_first_pred, avg_pred, avg_corr };
+
+/** \brief Add one fast step's barotropic flux D at face (i,j) to its time averages.
+ *
+ * avg1 is the average over the fast steps for the 2D equations, avg2 the one the 3D
+ * step is coupled to, with the weights of the step (see advance_2d).
+ */
+template <int mode>
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+void accumulate_flux_avg (int i, int j, Real D, Array4<Real> const& avg1,
+                          Array4<Real> const& avg2, Real cff1_wt1, Real cff2_wt) noexcept
+{
+    if constexpr (mode == avg_first_pred) {
+        avg1(i,j,0)=zero;
+        avg2(i,j,0)=cff2_wt*D;
+    } else if constexpr (mode == avg_pred) {
+        avg1(i,j,0) += cff1_wt1*D;
+        avg2(i,j,0) += cff2_wt*D;
+    } else if constexpr (mode == avg_corr) {
+        avg2(i,j,0)=avg2(i,j,0)+cff2_wt*D;
+    }
+}
 } // namespace
 /** Nonlinear shallow-water rpimitive equations predictor (Leap-frog) and
  * corrector (Adams-Moulton) time-stepping engine. Corresponds to Nonlinear/step2d_LF_AM3.h
@@ -157,8 +181,31 @@ REMORA::advance_2d (int lev,
     AMREX_ALWAYS_ASSERT(ncomp == n_scratch_2d);
     MultiFab& mf = *vec_scratch_2d[lev];
 
+    //  Time-averaging weights
+    auto weight1 = vec_weight1.dataPtr();
+    auto weight2 = vec_weight2.dataPtr();
+    const int avg_mode = predictor_2d_step ? (first_2d_step ? avg_first_pred : avg_pred)
+                                           : avg_corr;
+    Real cff1_wt1 = zero;
+    Real cff2_wt  = zero;
+    if (avg_mode == avg_first_pred) {
+        cff2_wt = (Real(-1.0)/Real(12.0))*weight2[my_iif+1];
+    } else if (avg_mode == avg_pred) {
+        cff1_wt1 = weight1[my_iif-1];
+        cff2_wt  = (Real(8.0)/Real(12.0))*weight2[my_iif]-
+                   (one/Real(12.0))*weight2[my_iif+1];
+    } else if (first_2d_step) {
+        cff2_wt = weight2[my_iif];
+    } else {
+        cff2_wt = Real(5.0)/Real(12.0)*weight2[my_iif];
+    }
+
+    // set_2d_cf_flux rewrites interface faces of the fluxes, which the averages must see
+    const bool cf_flux = do_substep && cf_impose_flux && lev > 0;
+
     // Barotropic mass fluxes, both directions in one launch, with the depth
-    // Drhs = zeta(krhs) + h on either side of the face
+    // Drhs = zeta(krhs) + h on either side of the face, and unless set_2d_cf_flux is to
+    // change them, their time averages
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -174,20 +221,32 @@ REMORA::advance_2d (int lev,
 
         auto DUon = mf_DUon.array(mfi);
         auto DVom = mf_DVom.array(mfi);
+        Array4<Real> const& DU_avg1 = mf_DU_avg1->array(mfi);
+        Array4<Real> const& DU_avg2 = mf_DU_avg2->array(mfi);
+        Array4<Real> const& DV_avg1 = mf_DV_avg1->array(mfi);
+        Array4<Real> const& DV_avg2 = mf_DV_avg2->array(mfi);
 
-        ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
-                    makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        AnyCTO(TypeList<CompileTimeOptions<avg_none,avg_first_pred,avg_pred,avg_corr>>{},
+               {cf_flux ? int(avg_none) : avg_mode},
+        [&] (auto const& fu, auto const& fv) {
+            ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
+                        makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0), fu, fv);
+        },
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
         {
             Real cff1= Real(0.5) * on_u(i,j,0) *((zeta(i,j,0,krhs)+h(i,j,0))+
                                                 (zeta(i-1,j,0,krhs)+h(i-1,j,0)));
-            DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
+            const Real DU = ubar(i,j,0,krhs)*cff1;
+            DUon(i,j,0) = DU;
+            accumulate_flux_avg<decltype(mode)::value>(i, j, DU, DU_avg1, DU_avg2, cff1_wt1, cff2_wt);
         },
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
         {
             Real cff1= Real(0.5) * om_v(i,j,0) * ((zeta(i,j,0,krhs)+h(i,j,0))+
                                                  (zeta(i,j-1,0,krhs)+h(i,j-1,0)));
-            DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
+            const Real DV = vbar(i,j,0,krhs)*cff1;
+            DVom(i,j,0) = DV;
+            accumulate_flux_avg<decltype(mode)::value>(i, j, DV, DV_avg1, DV_avg2, cff1_wt1, cff2_wt);
         });
     }
 
@@ -196,7 +255,6 @@ REMORA::advance_2d (int lev,
     // pm and pn the same way. So a ghost face already holds the bits the neighbour stores
     // there, and an exchange would change nothing, unless set_2d_cf_flux rewrites some of
     // the neighbour's faces.
-    const bool cf_flux = do_substep && cf_impose_flux && lev > 0;
     if (cf_flux) {
         set_2d_cf_flux(lev, t_old[lev], mf_DUon, mf_DVom);
         // One exchange for both so their messages are in flight together
@@ -224,25 +282,6 @@ REMORA::advance_2d (int lev,
     //
     const bool do_step = (my_iif < nfast);
 
-    //  Time-averaging weights
-    auto weight1 = vec_weight1.dataPtr();
-    auto weight2 = vec_weight2.dataPtr();
-    enum AvgMode : int { avg_first_pred, avg_pred, avg_corr };
-    const int avg_mode = predictor_2d_step ? (first_2d_step ? avg_first_pred : avg_pred)
-                                           : avg_corr;
-    Real cff1_wt1 = zero;
-    Real cff2_wt  = zero;
-    if (avg_mode == avg_first_pred) {
-        cff2_wt = (Real(-1.0)/Real(12.0))*weight2[my_iif+1];
-    } else if (avg_mode == avg_pred) {
-        cff1_wt1 = weight1[my_iif-1];
-        cff2_wt  = (Real(8.0)/Real(12.0))*weight2[my_iif]-
-                   (one/Real(12.0))*weight2[my_iif+1];
-    } else if (first_2d_step) {
-        cff2_wt = weight2[my_iif];
-    } else {
-        cff2_wt = Real(5.0)/Real(12.0)*weight2[my_iif];
-    }
 
     //
     //  During the first time-step, the predictor step is Forward-Euler and the corrector
@@ -363,37 +402,24 @@ REMORA::advance_2d (int lev,
         Box ybxD = makeSlab(mfi.nodaltilebox(1),2,0);
 
         //
-        // Time averages of the free surface and the barotropic fluxes
+        // Time averages of the barotropic fluxes set_2d_cf_flux has changed, and of the
+        // free surface
         //
-        AnyCTO(TypeList<CompileTimeOptions<avg_first_pred,avg_pred,avg_corr>>{}, {avg_mode},
-        [&] (auto const& fu, auto const& fv) {
-            ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
-                        makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0), fu, fv);
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
-        {
-            if (mode.value == avg_first_pred) {
-                DU_avg1(i,j,0)=zero;
-                DU_avg2(i,j,0)=cff2_wt*DUon(i,j,0);
-            } else if (mode.value == avg_pred) {
-                DU_avg1(i,j,0) += cff1_wt1*DUon(i,j,0);
-                DU_avg2(i,j,0) += cff2_wt*DUon(i,j,0);
-            } else {
-                DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2_wt*DUon(i,j,0);
-            }
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
-        {
-            if (mode.value == avg_first_pred) {
-                DV_avg1(i,j,0)=zero;
-                DV_avg2(i,j,0)=cff2_wt*DVom(i,j,0);
-            } else if (mode.value == avg_pred) {
-                DV_avg1(i,j,0) += cff1_wt1*DVom(i,j,0);
-                DV_avg2(i,j,0) += cff2_wt*DVom(i,j,0);
-            } else {
-                DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2_wt*DVom(i,j,0);
-            }
-        });
+        if (cf_flux) {
+            AnyCTO(TypeList<CompileTimeOptions<avg_first_pred,avg_pred,avg_corr>>{}, {avg_mode},
+            [&] (auto const& fu, auto const& fv) {
+                ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
+                            makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0), fu, fv);
+            },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
+            {
+                accumulate_flux_avg<decltype(mode)::value>(i, j, DUon(i,j,0), DU_avg1, DU_avg2, cff1_wt1, cff2_wt);
+            },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
+            {
+                accumulate_flux_avg<decltype(mode)::value>(i, j, DVom(i,j,0), DV_avg1, DV_avg2, cff1_wt1, cff2_wt);
+            });
+        }
 
         if (predictor_2d_step) {
             Box gbx3D = makeSlab(mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0)),2,0);
