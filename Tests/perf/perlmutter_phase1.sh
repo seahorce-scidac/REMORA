@@ -19,10 +19,10 @@
 #                  skipped when not given
 #   -s "NX NY NZ"  Upwelling grid                           ["512 1024 40"]
 #   -m "NX NY NZ"  also run Upwelling with a refined level (case upwnest): this coarse grid
-#                  plus a static level 1 at ratio 3 over the middle half in x and y,
-#                  two-way coupled (inputs/upwelling_ml.in); level 1 has 2.25 times the
-#                  coarse cells and takes 3 substeps, so "512 1024 40" costs about as
-#                  much per step as -s "1024 2048 40" does single-level
+#                  plus a static level 1 at ratio 2 over the middle half in x and y,
+#                  two-way coupled (inputs/upwelling_ml.in); level 1 has as many cells
+#                  as the coarse level and takes 2 substeps; with "512 1024 40" every
+#                  level has 2 boxes per rank on 64 CPU ranks and 2 per GPU
 #   -t steps       steps per run                            [10]
 #   -c "RxT ..."   CPU ranks x threads configurations        ["128x1 64x2 32x4"]
 #   -T "spec ..."  extra CPU tile sizes for every revision      []
@@ -223,7 +223,9 @@ fill () {   # fill <template> <out> MGX MGY "NX NY NZ"
 fill "$HERE/inputs/upwelling_perf.in" "$WORK/runs/upwelling_cpu.in" 128 128 "$SIZE"
 fill "$HERE/inputs/upwelling_perf.in" "$WORK/runs/upwelling_gpu.in" 256 256 "$SIZE"
 if [ -n "$NEST" ]; then
-    for a in cpu:128 gpu:256; do
+    # 64x64 on CPU: with 128x128 the coarse level of "512 1024 40" has 32 boxes, so most
+    # ranks of a CPU node would own none and wait in its exchanges
+    for a in cpu:64 gpu:256; do
         f=$WORK/runs/upwnest_${a%%:*}.in
         fill "$HERE/inputs/upwelling_perf.in" "$f" ${a#*:} ${a#*:} "$NEST"
         cat "$HERE/inputs/upwelling_ml.in" >> "$f"
