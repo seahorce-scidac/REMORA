@@ -54,6 +54,16 @@ like its neighbours:
   `average_down`, ParallelFor reductions) instead of writing new versions. Before adding a
   routine, search for one that already does it, including in AMReX. Pull duplicated code into
   one helper rather than copying it again.
+- Read time-dependent NetCDF input (forcing, boundaries, climatology, rivers) through
+  `NCTimeSeries` (`Source/IO/REMORA_NCTimeSeries*.H`), which also combines records split
+  across files; don't open the files yourself to decide how to read them. Read a static field
+  with `BuildFABsFromNetCDFFile` and copy it into the MultiFab, as
+  `REMORA::init_bathymetry_from_netcdf` does.
+- Fill ghost cells of a per-level field (a vector over levels on the level layouts, like
+  `vec_h`) with `REMORA::FillPatch` and a BC set such as `foextrap_periodic_bc()`. It covers
+  periodic, physical-edge and coarse-to-fine ghosts; `FillBoundary` alone fills only periodic
+  and internal ones. Don't write your own extrapolation loops, and don't use
+  `PhysBCFunctNoOp` on a level that touches a physical boundary.
 - Files are `REMORA_<Name>.cpp/.H`. Reuse existing names for existing quantities (e.g.
   `z_velocity`, as in plotfiles, not a new `w`), and don't use names that clash with ROMS
   notation (`xi`/`eta` are ROMS grid directions).
