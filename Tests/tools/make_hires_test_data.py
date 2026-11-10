@@ -9,6 +9,10 @@ not negotiable -- the writer below pins it explicitly and refuses to guess.
     <dir>/hires_grd.nc   h, pm, pn, mask_rho          (SN_WE)
     <dir>/hires_ini.nc   temp, salt, u, v, zeta       (Time_BT_SN_WE / Time_SN_WE)
 
+and, with ``--with-refinement``, a third:
+
+    <dir>/hires_grd_refine.nc   hires_grd.nc plus refinement   (SN_WE)
+
 Only the variables the hires readers actually consume are written. With both hires levels set
 and ``remora.use_coriolis = false``, the level-0 files are never dereferenced, so no ``x_rho``
 or ``f`` is needed anywhere. ``mask_rho`` is written so that ``remora.mask_type = netcdf`` also
@@ -106,6 +110,9 @@ def main():
     ap.add_argument("--with-biology", action="store_true",
                     help="also write the seven Fennel tracers as constants, matching the "
                          "analytic BioToy profile so expected values stay exact")
+    ap.add_argument("--with-refinement", action="store_true",
+                    help="also write hires_grd_refine.nc, hires_grd.nc plus a refinement "
+                         "variable, for inputs_synth_hires_refine")
     args = ap.parse_args()
 
     nx, ny, nz = args.n_cell
@@ -145,18 +152,35 @@ def main():
     ycut = 2.0 * args.dx + dx_f
     mask_rho = np.where(Y < ycut, 0.0, 1.0)
 
-    grd = os.path.join(args.dir, "hires_grd.nc")
-    fh, kind = open_cdf2(grd, {"eta_rho": eta_rho, "xi_rho": xi_rho})
-    put(fh, kind, "h", ("eta_rho", "xi_rho"), h, units="meter",
-        long_name="bathymetry at RHO-points")
-    put(fh, kind, "mask_rho", ("eta_rho", "xi_rho"), mask_rho,
-        long_name="mask on RHO-points", flag_values="0., 1.",
-        flag_meanings="land water")
-    put(fh, kind, "pm", ("eta_rho", "xi_rho"), pm, units="meter-1",
-        long_name="curvilinear coordinate metric in XI")
-    put(fh, kind, "pn", ("eta_rho", "xi_rho"), pn, units="meter-1",
-        long_name="curvilinear coordinate metric in ETA")
-    fh.close()
+    # The lowest level each cell must be refined to, in fine-cell index space (ring excluded).
+    # Level 1 over the level-0 cells i, j = 0..1, which the coarse level resolves exactly; level 2
+    # over fine cells i = 3r+1..5r-1, j = 4r+1..6r-1, which start one fine cell inside a coarse
+    # cell, so the coarse level has to take the largest value of a partly covered cell.
+    refinement = np.zeros((eta_rho, xi_rho))
+    refinement[r:3 * r, r:3 * r] = 1.0
+    refinement[r + 4 * r + 1:r + 6 * r, r + 3 * r + 1:r + 5 * r] = 2.0
+
+    grids = [("hires_grd.nc", False)]
+    if args.with_refinement:
+        grids.append(("hires_grd_refine.nc", True))
+    written = []
+    for name, with_refinement in grids:
+        grd = os.path.join(args.dir, name)
+        written.append(grd)
+        fh, kind = open_cdf2(grd, {"eta_rho": eta_rho, "xi_rho": xi_rho})
+        put(fh, kind, "h", ("eta_rho", "xi_rho"), h, units="meter",
+            long_name="bathymetry at RHO-points")
+        put(fh, kind, "mask_rho", ("eta_rho", "xi_rho"), mask_rho,
+            long_name="mask on RHO-points", flag_values="0., 1.",
+            flag_meanings="land water")
+        put(fh, kind, "pm", ("eta_rho", "xi_rho"), pm, units="meter-1",
+            long_name="curvilinear coordinate metric in XI")
+        put(fh, kind, "pn", ("eta_rho", "xi_rho"), pn, units="meter-1",
+            long_name="curvilinear coordinate metric in ETA")
+        if with_refinement:
+            put(fh, kind, "refinement", ("eta_rho", "xi_rho"), refinement,
+                long_name="lowest refinement level of each cell")
+        fh.close()
 
     # --- initial file ---------------------------------------------------------------------
     # Stratified in k with a horizontal front, so the pressure gradient sees something real.
@@ -205,7 +229,7 @@ def main():
           % (nx, ny, nz, r))
     print("  required dims: xi_rho = %d*%d + 2*%d = %d, eta_rho = %d"
           % (nx, r, r, xi_rho, eta_rho))
-    for path in (grd, ini):
+    for path in written + [ini]:
         print("  %-40s %8.1f KB  sha256=%s"
               % (path, os.path.getsize(path) / 1024.0, sha256(path)))
 

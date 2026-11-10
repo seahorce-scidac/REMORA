@@ -1,0 +1,28 @@
+# inputs_synth_hires with the grids placed by the refinement variable of the high-resolution grid
+# file (see "Refinement From the Grid File" in Docs/sphinx_doc/MeshRefinement.rst). Generate the
+# files first:
+#
+#   python3 ../../Tests/tools/make_hires_test_data.py --dir . --n-cell 10 10 4 --ref-ratio 3 \
+#           --with-refinement
+#
+# hires_grd_refine.nc asks for level 1 over the level-0 cells i, j = 0..1, and for level 2 over
+# the level-1 cells i = 10..14, j = 13..17, which start partway into a level-0 cell. With no tag
+# buffer and no blocking beyond single cells, the grids are set by the file and by AMReX's
+# proper nesting alone, so the last "GRIDS AT LEVEL" lines printed before step 1 must be
+#
+#   level 1: (0,0)-(5,5), and (6,9)-(17,20) around level 2
+#   level 2: (20,26)-(29,35), the requested level-1 cells refined by 2
+#
+# and stay so at every regrid. Without the refinement variable no level 1 is made.
+FILE = inputs_synth_hires
+
+remora.nc_grid_file_hires = "hires_grd_refine.nc"
+remora.max_step           = 4
+remora.plot_file          = plt_refine
+
+amr.max_level      = 2
+amr.ref_ratio_vect = 3 3 1 2 2 1
+amr.n_error_buf    = 0
+amr.blocking_factor = 1
+amr.grid_eff       = 1
+amr.regrid_int     = 2

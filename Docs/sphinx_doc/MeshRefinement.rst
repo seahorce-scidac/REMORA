@@ -153,6 +153,8 @@ refined wherever any part of it must be. A level finer than the file's takes the
 file cell it lies in. As for a box, AMReX adds the tag buffer (``amr.n_error_buf``), rounds the
 grids to the blocking factor, and grows each level so it properly contains the next, so the
 refined region can be larger than the one requested but not smaller.
+``Exec/IdealMiniGrid/inputs_synth_hires_refine`` is an example with two levels, whose header
+lists the grids it must produce.
 
 Dynamic Mesh Refinement
 -----------------------
