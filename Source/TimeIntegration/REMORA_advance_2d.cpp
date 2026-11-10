@@ -251,12 +251,17 @@ REMORA::advance_2d (int lev,
     }
 
     // The loop above fills each box's ghost faces too, from the ghost cells of ubar, vbar,
-    // zeta and h, which hold the neighbouring box's values, and of the metric, computed from
-    // pm and pn the same way. So a ghost face already holds the bits the neighbour stores
-    // there, and an exchange would change nothing, unless set_2d_cf_flux rewrites some of
-    // the neighbour's faces.
+    // zeta and h and of the metric. Those hold the neighbouring box's values only once ubar
+    // and vbar have been exchanged after their boundary conditions: the conditions leave the
+    // outermost ghost face along a wall as the earlier exchange left it, the neighbour's
+    // value before its own conditions ran. When component krhs had that exchange
+    // (uvbar_exchanged_after_bcs), a ghost face already holds the bits the neighbour stores
+    // there, and exchanging the fluxes would change nothing, unless set_2d_cf_flux rewrites
+    // some of the neighbour's faces.
     if (cf_flux) {
         set_2d_cf_flux(lev, t_old[lev], mf_DUon, mf_DVom);
+    }
+    if (cf_flux || !uvbar_exchanged_after_bcs[lev][krhs]) {
         // One exchange for both so their messages are in flight together
         amrex::FillBoundary(Vector<MultiFab*>{&mf_DUon, &mf_DVom}, geom[lev].periodicity());
     }
@@ -281,7 +286,6 @@ REMORA::advance_2d (int lev,
     //  (nfast(ng)+1) time step: only the time averages are accumulated.
     //
     const bool do_step = (my_iif < nfast);
-
 
     //
     //  During the first time-step, the predictor step is Forward-Euler and the corrector
@@ -456,7 +460,7 @@ REMORA::advance_2d (int lev,
         AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
                         CompileTimeOptions<0,1>>{}, {scheme, direct},
         [&] (auto const& f) { ParallelFor(tbxp1D, f); },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch, auto dir)
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch, auto store_direct)
         {
             Real rhs_zeta = zero;
             Real zeta_new, zw;
@@ -489,7 +493,7 @@ REMORA::advance_2d (int lev,
             gzeta2(i,j,0) = gz*zw;
             gzetaSA(i,j,0) = zw*(rhoS(i,j,0)-rhoA(i,j,0));
 
-            if (dir.value) {
+            if (store_direct.value) {
                 zeta(i,j,0,knew) = zeta_new;
                 if (store_rhs) { rzeta(i,j,0,krhs) = rhs_zeta; }
             } else {
@@ -917,6 +921,8 @@ REMORA::advance_2d (int lev,
             dt2d = dtfast_lev;
         }
 
+        uvbar_exchanged_after_bcs[lev][knew] = 0;
+
         MultiFab ubar_know(*vec_ubar[lev], make_alias, know, 1);
         MultiFab vbar_know(*vec_vbar[lev], make_alias, know, 1);
         MultiFab zeta_know(*vec_zeta[lev], make_alias, know, 1);
@@ -977,6 +983,8 @@ REMORA::advance_2d (int lev,
                                 Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
                                                 vec_vbar[lev]->nGrowVect()},
                                 Vector<Periodicity>{per, per});
+            // Whatever writes knew below (rivers) is followed by another exchange
+            uvbar_exchanged_after_bcs[lev][knew] = 1;
         }
 
 #ifdef REMORA_USE_NETCDF

@@ -108,6 +108,7 @@ REMORA::timeStepML (Real time, int /*iteration*/)
 
     int nfast_counter=nfast + 1;
 
+    for (int lev=0; lev <= finest_level; lev++) { reset_uvbar_exchanged(lev); }
     for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
         //Compute fast timestep from dt[lev] and ratio
         for (int lev=0; lev <= finest_level; lev++)
