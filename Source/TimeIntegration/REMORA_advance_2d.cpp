@@ -440,16 +440,23 @@ REMORA::advance_2d (int lev,
 
         //
         //  Free-surface step and the pressure-gradient fields, on the tile grown by one.
-        //  The new free surface and the predictor's right-hand side go to a buffer private
-        //  to the tile, and from there into zeta(knew) and rzeta(krhs) on the growntilebox
-        //  only, so no two tiles of a box store the same cell of the state.
+        //  The new free surface and the predictor's right-hand side are stored into
+        //  zeta(knew) and rzeta(krhs) on the growntilebox only, so no two tiles of a box
+        //  store the same cell of the state. Where the tile is its whole box (always on GPU)
+        //  the two boxes are the same and the pass stores them directly; otherwise they go
+        //  to a buffer private to the tile and are copied from there.
         //
         Box tbxp1D = makeSlab(grow(mfi.tilebox(),IntVect(NGROW-1,NGROW-1,0)),2,0);
-        FArrayBox fab_znew(tbxp1D, 2, The_Async_Arena());
+        Box gbx1D  = makeSlab(mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0)),2,0);
+        const int direct = (tbxp1D == gbx1D) ? 1 : 0;
+        const bool store_rhs = predictor_2d_step;
+        FArrayBox fab_znew;
+        if (!direct) { fab_znew.resize(tbxp1D, 2, The_Async_Arena()); }
         auto znew = fab_znew.array();
-        AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>>{}, {scheme},
+        AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
+                        CompileTimeOptions<0,1>>{}, {scheme, direct},
         [&] (auto const& f) { ParallelFor(tbxp1D, f); },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch)
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch, auto dir)
         {
             Real rhs_zeta = zero;
             Real zeta_new, zw;
@@ -482,15 +489,18 @@ REMORA::advance_2d (int lev,
             gzeta2(i,j,0) = gz*zw;
             gzetaSA(i,j,0) = zw*(rhoS(i,j,0)-rhoA(i,j,0));
 
-            znew(i,j,0,0) = zeta_new;
-            znew(i,j,0,1) = rhs_zeta;
+            if (dir.value) {
+                zeta(i,j,0,knew) = zeta_new;
+                if (store_rhs) { rzeta(i,j,0,krhs) = rhs_zeta; }
+            } else {
+                znew(i,j,0,0) = zeta_new;
+                znew(i,j,0,1) = rhs_zeta;
+            }
         });
 
         //  Load the new free surface into the state at both predictor and corrector steps,
         //  and the predictor's right-hand side.
-        {
-            Box gbx1D = makeSlab(mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0)),2,0);
-            const bool store_rhs = predictor_2d_step;
+        if (!direct) {
             ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
                 zeta(i,j,0,knew) = znew(i,j,0,0);
