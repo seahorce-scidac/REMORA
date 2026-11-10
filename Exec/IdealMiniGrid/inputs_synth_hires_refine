@@ -15,6 +15,10 @@
 #   level 2: (20,26)-(29,35), the requested level-1 cells refined by 2
 #
 # and stay so at every regrid. Without the refinement variable no level 1 is made.
+#
+# Land is not tagged. With remora.mask_type = netcdf, hires_grd_refine.nc's mask_rho puts the
+# level-1 region on land, so the (0,0)-(5,5) box disappears and level 1 is (6,9)-(17,20) alone,
+# in two boxes; level 2 is unchanged.
 FILE = inputs_synth_hires
 
 remora.nc_grid_file_hires = "hires_grd_refine.nc"

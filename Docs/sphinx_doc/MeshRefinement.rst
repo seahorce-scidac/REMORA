@@ -27,7 +27,8 @@ that will be refined.
 
 Tagging criteria based on field variable values or derived quantities are
 evaluated only in unmasked regions. One exception is a criterion keyed on
-``mask`` itself, which exists to find the coast. A region defined by a box
+``mask`` itself, which exists to find the coast. A grid file's ``refinement`` variable (see
+`Refinement From the Grid File`_) also tags water only. A region defined by a box
 (typically used in static mesh refinement) is refined in full whether it is land
 or water. See `Masked Regions and Tagging`_ for what "means something" amounts
 to per field.
@@ -146,8 +147,9 @@ file that describes the grid, ``remora.nc_grid_file_0``, or ``remora.nc_grid_fil
 for its grid or mask (``remora.ic_type = netcdf`` or ``remora.mask_type = netcdf``); no other
 option is needed. In the high-resolution file it has the same grow cells as the other
 variables (see :ref:`Inputs <sec:Inputs>`).
-It is applied at every regrid, together with any ``remora.refinement_indicators``, and land
-cells are refined like water. Levels above ``amr.max_level`` are never made.
+It is applied at every regrid, together with any ``remora.refinement_indicators``. Land cells
+are not tagged, though the grids drawn around the tags can still cover some land. Levels above
+``amr.max_level`` are never made.
 
 A file given at level 0 covers the level-0 cells, so a requested region is refined in whole
 level-0 cells. A file given at ``remora.hires_grid_level`` resolves the region on that level;

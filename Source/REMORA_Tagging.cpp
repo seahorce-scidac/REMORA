@@ -497,7 +497,8 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
  * Tag every cell of level levc whose value of the grid file's refinement variable is above
  * levc. A cell of a level at or above the one the file describes takes the value of the file
  * cell it lies in; a cell of a coarser level takes the largest value of the file cells it
- * covers (see init_refinement_from_netcdf). Land cells are tagged too.
+ * covers (see init_refinement_from_netcdf). Land cells are not tagged; a coarse cell is land
+ * only if every finer cell under it is.
  *
  * @param[in   ] levc  level being tagged
  * @param[inout] tags  tags on level levc
@@ -533,9 +534,11 @@ REMORA::tag_grid_file_refinement (int levc, TagBoxArray& tags)
         const Box& bx = mfi.tilebox();
         auto const& tag = tags.array(mfi);
         auto const& req = required_level.const_array(mfi);
+        auto const& mskr = vec_mskr[levc]->const_array(mfi);
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
-            if (req(amrex::coarsen(i,rx), amrex::coarsen(j,ry), 0) > this_level) {
+            if (mskr(i,j,0) != Real(0.0) &&
+                req(amrex::coarsen(i,rx), amrex::coarsen(j,ry), 0) > this_level) {
                 tag(i,j,k) = TagBox::SET;
             }
         });
