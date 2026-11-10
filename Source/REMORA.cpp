@@ -371,12 +371,14 @@ REMORA::WriteAtIntermediateTime(int step, amrex::Real cur_time)
         last_plot_file_time = cur_time;
         WritePlotFile(step+1);
         history_count++;
+        levels_averaged_down = false;
     }
 
     if (checkpoint_due(step, cur_time)) {
         last_check_file_step = step+1;
         last_check_file_time = cur_time;
         WriteCheckpointFile();
+        levels_averaged_down = false;
     }
 }
 
@@ -481,13 +483,18 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
     particleData.Redistribute();
 #endif
 
-    if (solverChoice.coupling_type == CouplingType::two_way)
+    // Both step drivers end by averaging every level down, finest pair first, as this loop
+    // does. With nothing in between, the fine data and the coarse values the average writes
+    // are what the driver left, so doing it again changes nothing. An output in between can
+    // change both (it refills ghost cells and rewrites masked cells), so then it runs.
+    if (solverChoice.coupling_type == CouplingType::two_way && !levels_averaged_down)
     {
         for (int lev = finest_level-1; lev >= 0; lev--)
         {
             AverageDownTo(lev);
         }
     }
+    levels_averaged_down = false;
 
     if (is_it_time_for_action(nstep, time, dt_lev0, sum_interval, sum_per)) {
         sum_integrated_quantities(time);

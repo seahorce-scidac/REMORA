@@ -202,6 +202,10 @@ public:
     /** \brief Called after every level 0 timestep */
     void post_timestep (int nstep, amrex::Real time, amrex::Real dt_lev);
 
+    /** \brief true from the end of a coarse step whose driver averaged every level down
+     *         until anything else touches the state; post_timestep then need not repeat it */
+    bool levels_averaged_down = false;
+
     /**
      * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
      *

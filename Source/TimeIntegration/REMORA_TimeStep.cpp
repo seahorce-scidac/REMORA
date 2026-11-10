@@ -124,4 +124,8 @@ REMORA::timeStep (int lev, Real time, int iteration)
             AverageDownTo(lev); // average lev+1 down to lev
         }
     }
+
+    // Each level was averaged down after its last change, so once level 0's step is over the
+    // whole hierarchy is (see post_timestep)
+    levels_averaged_down = (lev == 0);
 }
