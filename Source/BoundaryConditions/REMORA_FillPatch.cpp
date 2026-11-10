@@ -340,6 +340,13 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                 } else if (mf_box.ixType() == IndexType(IntVect(0,0,1))) {
                     FPr_w[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
                 }
+            } else if (cf_cache_slot >= 0) {
+                // The cached barotropic fills repeat at one time: keep FillSet's values too
+                if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
+                    FPr_ubar[lev-1].FillSetKept(mf_to_fill, time, domain_bcs_type);
+                } else if (mf_box.ixType() == IndexType(IntVect(0,1,0))) {
+                    FPr_vbar[lev-1].FillSetKept(mf_to_fill, time, domain_bcs_type);
+                }
             } else {
                 if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
                     FPr_ubar[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
@@ -511,8 +518,8 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
 
     BL_PROFILE("REMORA::replay_cf_2d_fills()");
     if (cf_set_width >= 0) {
-        FPr_ubar[lev-1].FillSet(*mfs[0], time, null_bc, domain_bcs_type);
-        FPr_vbar[lev-1].FillSet(*mfs[1], time, null_bc, domain_bcs_type);
+        FPr_ubar[lev-1].FillSetKept(*mfs[0], time, domain_bcs_type);
+        FPr_vbar[lev-1].FillSetKept(*mfs[1], time, domain_bcs_type);
     }
     for (int n = 0; n < 3; ++n) {
         copy_on_mask(*mfs[n], *cache[n]->vals, *cache[n]->mask, knew);
