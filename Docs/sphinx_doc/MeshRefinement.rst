@@ -28,9 +28,9 @@ that will be refined.
 Tagging criteria based on field variable values or derived quantities are
 evaluated only in unmasked regions. One exception is a criterion keyed on
 ``mask`` itself, which exists to find the coast. A region defined by a box
-(typically used in static mesh refinement) is refined in full whether it is land
-or water. See `Masked Regions and Tagging`_ for what "means something" amounts
-to per field.
+(typically used in static mesh refinement) tags only its water cells, though the
+grids drawn around those tags can still cover some land. See `Masked Regions and
+Tagging`_ for what "means something" amounts to per field.
 
 See the `Gridding`_ section of the AMReX documentation for details of how
 individual grids are created.
@@ -70,7 +70,9 @@ Any single tagged region will be covered by one or more boxes. The user may
 specify the refinement criteria and/or region to be covered, but not the
 decomposition of the region into individual grids. Tagging criteria are ignored
 in masked regions and on land-sea boundaries, but these regions may still be
-refined in order to accommodate adjacent tagged regions. One way to think of
+refined in order to accommodate adjacent tagged regions. A box is no exception:
+with a land mask it tags only the water inside it, so the refined grids can be
+smaller than the box (see `Masked Regions and Tagging`_). One way to think of
 static refinement is a permanent adaptive refinement tag. See the Gridding
 section of the AMReX documentation for details of how individual grids are
 created, and how boxes are defined. Input variables associated with AMReX are
@@ -249,11 +251,25 @@ so it is not simply "the wet cells":
 A land cell is never tagged by any of these. The one field exempt from all of it
 is ``mask``, below.
 
-Nothing else is untagged. A region named explicitly with
-``in_box_lo``/``in_box_hi`` (or the index-space forms) is refined in full, land
-included, which is usually what is wanted when the region of interest straddles
-a coast. Land may also end up refined because it is adjacent to a tagged region,
-or because ``amr.n_error_buf`` grew one.
+A region named explicitly with ``in_box_lo``/``in_box_hi`` (or the index-space
+forms) tags only the water cells inside it, so a box drawn across a coast does
+not refine the land behind it for its own sake, and a box entirely on land
+refines nothing. Land is still refined where AMReX's grids around the tagged
+water cover it: where ``amr.n_error_buf`` grew the tags onto it, or where the
+grids are rounded to the blocking factor and grouped at ``amr.grid_eff``. In a run without a mask
+(``remora.mask_type = none``) a box is refined in full.
+
+``remora.<box>.tag_land = true`` makes a box tag its land as well, so the whole
+rectangle is refined, as a ROMS nest is. Use it only to compare directly with a
+ROMS nest over a coast, where the edge of the refined grid has to be where the
+nest's is; refining land adds no water and costs time. It is rejected on a field
+criterion.
+
+::
+
+          remora.coastbox.in_box_lo = 2600. 0.
+          remora.coastbox.in_box_hi = 5800. 750.
+          remora.coastbox.tag_land  = true    # only for a direct ROMS-nest comparison
 
 To refine the coastline deliberately, use ``mask`` as the field name. It is the
 one field exempt from the rule above -- a criterion keyed on the mask is asking

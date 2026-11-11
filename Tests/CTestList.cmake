@@ -717,13 +717,27 @@ add_test_r_gold(DogboneAnalytic_MLhires  "remora_exec" "plt_ml00010" DogboneAnal
 # they need no gold file: plt00010 must equal plt00000. A plain arithmetic average-down
 # lets the zeroed fine land cells drag those coarse cells off their initial value, which
 # breaks stationarity by ~1e-2 in salt and velocity.
-# coastbox spans the full width of the domain, 0 to 750 in y, and the dogbone's coasts run
-# through it, so this asserts the thing a static box is for: the whole box is refined, land
-# included, not clipped back to the water (which would give y in [250,500]).
+# coastbox spans the full width of the domain, 0 to 750 in y. The dogbone's coasts run through
+# it, but the basins at its two ends are water from edge to edge, so level 1 still reaches both.
 add_test_extent(DogboneAnalytic_MLmask  "remora_exec" "plt00010" 1 1 0.0 750.0)
-# Same assertion on the ref-ratio-2 twin: clipping there would give 3 clipped boxes instead of
-# 2 full-box grids, which add_test_0 alone cannot see.
 add_test_extent(DogboneAnalytic_MLmask_rr2 "remora_exec" "plt00010" 1 1 0.0 750.0)
+# A box tags only its water cells. coastbox holds 100 wet level-0 cells (two columns of 15 at
+# its ends, and five rows of the 14-cell channel between them), so level 1 covers 100*9*16
+# cells at ratio 3 and 100*4*16 at ratio 2; the whole box would be 240 level-0 cells. The
+# counts are exact because, with no tag buffer and blocking factor 1, the grids at
+# amr.grid_eff = 0.7 cover the wet cells and nothing else. The grids are static, so the
+# initial plotfile of a zero-step run is enough.
+compose_test_input(DogboneAnalytic_MLmask_boxwater DogboneAnalytic_MLmask)
+add_test_cells(DogboneAnalytic_MLmask_boxwater     "remora_exec" "plt00000" 1 14400)
+compose_test_input(DogboneAnalytic_MLmask_rr2_boxwater DogboneAnalytic_MLmask_rr2)
+add_test_cells(DogboneAnalytic_MLmask_rr2_boxwater "remora_exec" "plt00000" 1 6400)
+# With tag_land, kept for direct comparison with a ROMS nest, the box is refined in full:
+# 240 level-0 cells, 240*9*16 level-1 cells.
+compose_test_input(DogboneAnalytic_MLmask_boxland DogboneAnalytic_MLmask)
+add_test_cells(DogboneAnalytic_MLmask_boxland      "remora_exec" "plt00000" 1 34560)
+compose_test_input(DogboneAnalytic_MLcoasttag_tagland_abort DogboneAnalytic_MLcoasttag)
+add_test_abort(DogboneAnalytic_MLcoasttag_tagland_abort "remora_exec"
+               "tag_land applies only to a box region")
 # A pair: the same gradient criterion keyed on a physical field, which must not see the coast,
 # and on the mask, which must. Either one alone passes for the wrong reason.
 add_test_nlevels(DogboneAnalytic_MLcoastskip "remora_exec" "plt00010" 0)
