@@ -193,10 +193,16 @@ public:
                           const amrex::MultiFab*& msku,
                           const amrex::MultiFab*& mskv) const;
 
-    // Returns the largest |angle| (radians) between east and the xi axis on level 0,
-    // or 0 when the grid file carries no angle. A driver can pass currents between
-    // u-faces and v-faces of two grids only when their axes agree.
-    amrex::Real GetMaxAbsGridAngle () const;
+    /**
+     * \brief Whether the xi axis points east and the eta axis north everywhere on level 0.
+     *
+     * A driver whose grid is aligned with east can pass the surface current between the
+     * u- and v-faces of the two grids only when this holds. A grid file without an angle
+     * counts as aligned. Collective.
+     *
+     * @param[in   ] tol  largest |sin(angle)| accepted as aligned
+     */
+    bool GridAxesAlignedWithEast (amrex::Real tol) const;
 
     /** \brief Init (NOT restart or regrid) */
     void init_only (int lev, amrex::Real time);
@@ -305,6 +311,8 @@ public:
     amrex::Real m_warned_surface_temp_min = amrex::Real(273.15 - 2.5);
     amrex::Real m_warned_surface_temp_max = amrex::Real(273.15 + 40.0);
     amrex::Long m_warned_surface_temp_nan = 0;
+    //! Whether PackSurfaceCurrents has warned that the grid file has no angle
+    bool m_warned_currents_without_angle = false;
 
     // Diagnostics
 

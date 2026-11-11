@@ -132,22 +132,6 @@ void rotate_to_grid (amrex::Real east, amrex::Real north, amrex::Real angle,
     eta = -east * s + north * c;
 }
 
-/**
- * Rotate a vector given on grid axes at angle a from east back to east and north
- * components, the inverse of rotate_to_grid, as COAWST's mct_roms_wrf.h does for the
- * currents it sends to the atmosphere:
- *     E = xi cos a - eta sin a,   N = xi sin a + eta cos a.
- */
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void rotate_to_east_north (amrex::Real xi, amrex::Real eta, amrex::Real angle,
-                           amrex::Real& east, amrex::Real& north)
-{
-    const amrex::Real c = std::cos(angle);
-    const amrex::Real s = std::sin(angle);
-    east  = xi * c - eta * s;
-    north = xi * s + eta * c;
-}
-
 /** Make a longitude axis continuous across the branch cut (170 .. 180, -180 .. -170 becomes
  *  170 .. 190), each step taken modulo 360 */
 inline void unwrap_longitudes (std::vector<double>& lon)
