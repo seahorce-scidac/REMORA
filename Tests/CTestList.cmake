@@ -826,13 +826,9 @@ if (REMORA_ENABLE_PNETCDF)
     # Harmonic forcing must agree with independently sampled boundary time series.
     add_test_equiv(TidalBoundary reference "remora_exec" "plt_tides00004" "plt_reference00004"
                    0.005 x_velocity -0.0114 0.0340 y_velocity -0.0125 0.0314)
-    foreach (test TidalBoundary_phase_units_abort TidalBoundary_restart)
-        file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test_files/TidalBoundary/common.i
-                  ${CMAKE_CURRENT_SOURCE_DIR}/test_files/TidalBoundary/subtidal.nc
-                  ${CMAKE_CURRENT_SOURCE_DIR}/test_files/TidalBoundary/tides.nc
-                  ${CMAKE_CURRENT_SOURCE_DIR}/test_files/TidalBoundary/bad_phase.nc
-             DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/test_files/${test})
-    endforeach ()
+    # Variants of TidalBoundary that read its data files from its test directory
+    compose_test_input(TidalBoundary_phase_units_abort TidalBoundary)
+    compose_test_input(TidalBoundary_restart TidalBoundary)
     add_test_abort(TidalBoundary_phase_units_abort "remora_exec" "units must be 'degrees'")
     add_test_restart(TidalBoundary_restart "remora_exec" "plt00004" "chk00002")
 endif ()
