@@ -66,6 +66,15 @@ registry order. The hook fills the level-0 rho slab and is evaluated at each
 level's slow-step midpoint, using elapsed model seconds. No hook is required for
 the default impermeable boundary.
 
+The Advection problem supplies an example hook using ``bottom_q`` and the named
+incoming concentrations above. Its optional ``remora.prob.bottom_ramp_time``
+(default 0 s) multiplies q by ``1 + time / bottom_ramp_time`` when positive.
+``remora.prob.bottom_q_amplitude`` and
+``remora.prob.bottom_tracer_amplitude`` (both default 0) multiply q and the first
+passive tracer concentration by ``1 + amplitude * cos(2*pi*x/Lx) * cos(2*pi*y/Ly)``,
+using coordinates relative to the domain's lower corner. Other tracer
+concentrations remain constant.
+
 NetCDF input
 ------------
 

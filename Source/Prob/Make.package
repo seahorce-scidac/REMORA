@@ -1,3 +1,4 @@
+CEXE_headers += REMORA_InitAnalyticBottomExchange_Advection.H
 
 CEXE_headers += REMORA_InitAnalyticBathymetry_Advection.H
 CEXE_headers += REMORA_InitAnalyticBathymetry_BoundaryLayer.H
