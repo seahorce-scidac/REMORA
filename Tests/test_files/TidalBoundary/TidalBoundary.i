@@ -35,3 +35,6 @@ remora.tcline = 1.e16
 remora.rdrag = 0.0
 amrex.init_snan = 1
 amrex.fpe_trap_invalid = 1
+remora.tide_type = netcdf
+remora.nc_tide_file = tides.nc
+remora.plot_file = plt_tides
