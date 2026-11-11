@@ -20,6 +20,25 @@ else()
     set(SUBSET_COMPARE_EXE ${CMAKE_CURRENT_BINARY_DIR}/remora_subset_compare${CMAKE_EXECUTABLE_SUFFIX})
 endif()
 
+if(REMORA_BUILD_EXECUTABLES)
+    add_executable(remora_bottom_exchange_api
+        tools/remora_bottom_exchange_api.cpp
+        ${PROJECT_SOURCE_DIR}/Exec/REMORA_Prob.cpp)
+    target_include_directories(remora_bottom_exchange_api PRIVATE ${PROJECT_SOURCE_DIR}/Exec)
+    target_link_libraries(remora_bottom_exchange_api PRIVATE remora_api)
+    add_executable(remora_bottom_exchange_check tools/remora_bottom_exchange_check.cpp)
+    target_link_libraries(remora_bottom_exchange_check PRIVATE ${REMORA_AMREX_TARGET})
+    if(REMORA_ENABLE_PNETCDF)
+        target_compile_definitions(remora_bottom_exchange_check PRIVATE REMORA_USE_NETCDF)
+        target_include_directories(remora_bottom_exchange_check PRIVATE ${PNETCDF_INCLUDE_DIRS})
+        target_link_libraries(remora_bottom_exchange_check PRIVATE ${PNETCDF_LINK_LIBRARIES})
+    endif()
+    if(REMORA_ENABLE_CUDA)
+        setup_target_for_cuda_compilation(remora_bottom_exchange_api)
+        setup_target_for_cuda_compilation(remora_bottom_exchange_check)
+    endif()
+endif()
+
 add_subdirectory(Unit)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/CTestList.cmake)

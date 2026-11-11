@@ -1,0 +1,12 @@
+remora.bottom_exchange_type = analytic
+remora.prob.bottom_q_amplitude = 0.5
+remora.prob.bottom_tracer_amplitude = -0.5
+remora.prob.u_0 = 0
+amr.max_grid_size = 4
+remora.bottom_salt = 0
+amr.max_level = 1
+amr.ref_ratio_vect = 2 2 1
+remora.refinement_indicators = patch
+remora.patch.in_box_lo = 0 0
+remora.patch.in_box_hi = 800 800
+remora.patch.max_level = 1
