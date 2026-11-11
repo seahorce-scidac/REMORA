@@ -39,8 +39,10 @@ enum AvgMode : int { avg_none, avg_first_pred, avg_pred, avg_corr };
 
 /** \brief Add one fast step's barotropic flux D at face (i,j) to its time averages.
  *
- * avg1 is the average over the fast steps for the 2D equations, avg2 the one the 3D
- * step is coupled to, with the weights of the step (see advance_2d).
+ * avg1 is the time-averaged flux for the 2D equations and avg2 the one for coupling to the
+ * 3D equations (DU_avg1 and DU_avg2 in ROMS). cff1_wt1 and cff2_wt are this fast step's
+ * weights, worked out in advance_2d. The first predictor starts both averages, later
+ * predictors add to both, and correctors add to avg2 only; avg_none adds nothing.
  */
 template <int mode>
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE
@@ -200,12 +202,14 @@ REMORA::advance_2d (int lev,
         cff2_wt = Real(5.0)/Real(12.0)*weight2[my_iif];
     }
 
-    // set_2d_cf_flux rewrites interface faces of the fluxes, which the averages must see
+    // Whether set_2d_cf_flux replaces the fluxes on the coarse-fine interface faces below.
+    // The time averages must then see the replaced values, so they are taken after it.
     const bool cf_flux = do_substep && cf_impose_flux && lev > 0;
 
-    // Barotropic mass fluxes, both directions in one launch, with the depth
-    // Drhs = zeta(krhs) + h on either side of the face, and unless set_2d_cf_flux is to
-    // change them, their time averages
+    // Barotropic mass fluxes DUon and DVom: ubar and vbar times the depth zeta(krhs) + h
+    // averaged to the face and the face length, both directions in one launch. Their time
+    // averages are added in the same pass, unless set_2d_cf_flux is about to replace
+    // interface faces; then the separate pass after it adds them.
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -250,14 +254,14 @@ REMORA::advance_2d (int lev,
         });
     }
 
-    // The loop above fills each box's ghost faces too, from the ghost cells of ubar, vbar,
-    // zeta and h and of the metric. Those hold the neighbouring box's values only once ubar
-    // and vbar have been exchanged after their boundary conditions: the conditions leave the
-    // outermost ghost face along a wall as the earlier exchange left it, the neighbour's
-    // value before its own conditions ran. When component krhs had that exchange
-    // (uvbar_exchanged_after_bcs), a ghost face already holds the bits the neighbour stores
-    // there, and exchanging the fluxes would change nothing, unless set_2d_cf_flux rewrites
-    // some of the neighbour's faces.
+    // The loop above also computes each box's ghost faces of the fluxes, from the ghost
+    // cells of its inputs. Those come out bit for bit as the neighbouring box computes them,
+    // so exchanging the fluxes would change nothing, provided that
+    //  - ubar and vbar component krhs were exchanged after their boundary conditions
+    //    (uvbar_exchanged_after_bcs). The boundary conditions do not set the outermost ghost
+    //    face along a wall, which keeps the neighbour's value from before its own conditions
+    //    ran until that exchange replaces it; and
+    //  - set_2d_cf_flux does not replace faces, which a neighbour's ghost copy would miss.
     if (cf_flux) {
         set_2d_cf_flux(lev, t_old[lev], mf_DUon, mf_DVom);
     }
@@ -443,12 +447,12 @@ REMORA::advance_2d (int lev,
         if (!do_step) { continue; }
 
         //
-        //  Free-surface step and the pressure-gradient fields, on the tile grown by one.
-        //  The new free surface and the predictor's right-hand side are stored into
-        //  zeta(knew) and rzeta(krhs) on the growntilebox only, so no two tiles of a box
-        //  store the same cell of the state. Where the tile is its whole box (always on GPU)
-        //  the two boxes are the same and the pass stores them directly; otherwise they go
-        //  to a buffer private to the tile and are copied from there.
+        //  Free-surface step and the pressure-gradient fields, on the tile grown by one
+        //  (tbxp1D). The new free surface and the predictor's right-hand side go into
+        //  zeta(knew) and rzeta(krhs) only on growntilebox(1) (gbx1D), so that no two tiles of
+        //  a box store the same cell. When the tile is its whole box (always on GPU) the two
+        //  boxes coincide and the pass stores into the state directly; otherwise it writes a
+        //  buffer private to the tile, which is copied into the state on gbx1D afterwards.
         //
         Box tbxp1D = makeSlab(grow(mfi.tilebox(),IntVect(NGROW-1,NGROW-1,0)),2,0);
         Box gbx1D  = makeSlab(mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0)),2,0);
@@ -583,8 +587,9 @@ REMORA::advance_2d (int lev,
         });
 
         // The two viscous fluxes at a rho point share the strain term cff, so one pass over
-        // the tile grown by one computes it once for both (the x-flux is read on
-        // [lo-1:hi+1] x [lo:hi], the y-flux on [lo:hi] x [lo-1:hi+1]; the corners are unused).
+        // the tile grown by one computes it once for both. The x-flux is read on
+        // [lo-1:hi+1] x [lo:hi] and the y-flux on [lo:hi] x [lo-1:hi+1]; the four corner cells
+        // are computed but not read.
         ParallelFor(grow(bxD,IntVect(1,1,0)),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -654,8 +659,8 @@ REMORA::advance_2d (int lev,
         });
 
         // Both viscous fluxes at a psi point, on [lo:hi+1]^2, from one shared strain term.
-        // The nodal tile boxes leave out the high face of a tile that does not end its box,
-        // so the box is built from the cell tile box.
+        // The box is grown from the cell tile box: a nodal tile box includes the high face
+        // only on the last tile of a box, and every tile reads it here.
         ParallelFor(growHi(growHi(bxD,0,1),1,1),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -921,6 +926,8 @@ REMORA::advance_2d (int lev,
             dt2d = dtfast_lev;
         }
 
+        // knew is about to be refilled; set again below if the refill ends with an exchange
+        // after the boundary conditions
         uvbar_exchanged_after_bcs[lev][knew] = 0;
 
         MultiFab ubar_know(*vec_ubar[lev], make_alias, know, 1);
@@ -983,7 +990,8 @@ REMORA::advance_2d (int lev,
                                 Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
                                                 vec_vbar[lev]->nGrowVect()},
                                 Vector<Periodicity>{per, per});
-            // Whatever writes knew below (rivers) is followed by another exchange
+            // The river transports written into knew below are followed by another
+            // exchange, so this stays true
             uvbar_exchanged_after_bcs[lev][knew] = 1;
         }
 

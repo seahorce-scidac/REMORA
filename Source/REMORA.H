@@ -2134,8 +2134,9 @@ private:
     bool wvel_every_substep = false;
 
     /** \brief per level and time level of ubar/vbar: whether that component was exchanged
-     *         after its boundary conditions in this set of fast steps, so that its ghost
-     *         faces hold the neighbouring boxes' values (see advance_2d) */
+     *         after its boundary conditions in the current set of fast steps, so that its
+     *         ghost faces hold the neighbouring boxes' values. advance_2d skips the exchange
+     *         of the barotropic fluxes when it is set; reset before each set of fast steps. */
     amrex::Vector<amrex::Array<int,3>> uvbar_exchanged_after_bcs;
     void reset_uvbar_exchanged (int lev) {
         if (int(uvbar_exchanged_after_bcs.size()) <= lev) {
