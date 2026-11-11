@@ -202,14 +202,17 @@ REMORA::advance_2d (int lev,
         cff2_wt = Real(5.0)/Real(12.0)*weight2[my_iif];
     }
 
-    // Whether set_2d_cf_flux replaces the fluxes on the coarse-fine interface faces below.
-    // The time averages must then see the replaced values, so they are taken after it.
+    // Whether set_2d_cf_flux may replace the fluxes on the coarse-fine interface faces below
     const bool cf_flux = do_substep && cf_impose_flux && lev > 0;
 
+    // Whether the fluxes are exchanged after they are computed (see the exchange below). The
+    // time averages must see the fluxes as they are after it, so then they are taken in a
+    // separate pass later; otherwise in the flux pass itself.
+    const bool exchange_flux = cf_flux || !uvbar_exchanged_after_bcs[lev][krhs];
+
     // Barotropic mass fluxes DUon and DVom: ubar and vbar times the depth zeta(krhs) + h
-    // averaged to the face and the face length, both directions in one launch. Their time
-    // averages are added in the same pass, unless set_2d_cf_flux is about to replace
-    // interface faces; then the separate pass after it adds them.
+    // averaged to the face and the face length, both directions in one launch, with their
+    // time averages unless the fluxes are exchanged afterwards.
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -231,7 +234,7 @@ REMORA::advance_2d (int lev,
         Array4<Real> const& DV_avg2 = mf_DV_avg2->array(mfi);
 
         AnyCTO(TypeList<CompileTimeOptions<avg_none,avg_first_pred,avg_pred,avg_corr>>{},
-               {cf_flux ? int(avg_none) : avg_mode},
+               {exchange_flux ? int(avg_none) : avg_mode},
         [&] (auto const& fu, auto const& fv) {
             ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
                         makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0), fu, fv);
@@ -254,18 +257,21 @@ REMORA::advance_2d (int lev,
         });
     }
 
-    // The loop above also computes each box's ghost faces of the fluxes, from the ghost
-    // cells of its inputs. Those come out bit for bit as the neighbouring box computes them,
-    // so exchanging the fluxes would change nothing, provided that
+    // The loop above also computes each box's ghost faces of the fluxes from the ghost cells
+    // of its inputs. On faces another box owns these match that box's values bit for bit,
+    // so the exchange changes nothing, provided that
     //  - ubar and vbar component krhs were exchanged after their boundary conditions
-    //    (uvbar_exchanged_after_bcs). The boundary conditions do not set the outermost ghost
-    //    face along a wall, which keeps the neighbour's value from before its own conditions
-    //    ran until that exchange replaces it; and
-    //  - set_2d_cf_flux does not replace faces, which a neighbour's ghost copy would miss.
+    //    (uvbar_exchanged_after_bcs). The conditions set the velocity on a non-periodic
+    //    domain face everywhere except in the box's outermost ghost row, which keeps the
+    //    neighbour's value from before the neighbour applied its own conditions until a later
+    //    exchange replaces it. zeta, h and the metrics need no such condition: their ghost
+    //    cells inside the domain come from exchanges, and their boundary conditions write
+    //    only outside it; and
+    //  - set_2d_cf_flux has not changed any face, since it writes only each box's own faces.
     if (cf_flux) {
         set_2d_cf_flux(lev, t_old[lev], mf_DUon, mf_DVom);
     }
-    if (cf_flux || !uvbar_exchanged_after_bcs[lev][krhs]) {
+    if (exchange_flux) {
         // One exchange for both so their messages are in flight together
         amrex::FillBoundary(Vector<MultiFab*>{&mf_DUon, &mf_DVom}, geom[lev].periodicity());
     }
@@ -410,10 +416,9 @@ REMORA::advance_2d (int lev,
         Box ybxD = makeSlab(mfi.nodaltilebox(1),2,0);
 
         //
-        // Time averages of the barotropic fluxes set_2d_cf_flux has changed, and of the
-        // free surface
+        // Time averages of the barotropic fluxes after their exchange, and of the free surface
         //
-        if (cf_flux) {
+        if (exchange_flux) {
             AnyCTO(TypeList<CompileTimeOptions<avg_first_pred,avg_pred,avg_corr>>{}, {avg_mode},
             [&] (auto const& fu, auto const& fv) {
                 ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
@@ -587,9 +592,9 @@ REMORA::advance_2d (int lev,
         });
 
         // The two viscous fluxes at a rho point share the strain term cff, so one pass over
-        // the tile grown by one computes it once for both. The x-flux is read on
-        // [lo-1:hi+1] x [lo:hi] and the y-flux on [lo:hi] x [lo-1:hi+1]; the four corner cells
-        // are computed but not read.
+        // the tile grown by one computes it once for both. The x-flux is read on at most
+        // [lo-1:hi+1] x [lo:hi] and the y-flux on [lo:hi] x [lo-1:hi+1]; the rest is computed
+        // but not read.
         ParallelFor(grow(bxD,IntVect(1,1,0)),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -659,8 +664,9 @@ REMORA::advance_2d (int lev,
         });
 
         // Both viscous fluxes at a psi point, on [lo:hi+1]^2, from one shared strain term.
-        // The box is grown from the cell tile box: a nodal tile box includes the high face
-        // only on the last tile of a box, and every tile reads it here.
+        // The box is grown from the cell tile box, because a nodal tile box includes the high
+        // face only on a box's last tile, and every tile's right-hand side reads the psi
+        // points on its high edge.
         ParallelFor(growHi(growHi(bxD,0,1),1,1),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -926,8 +932,7 @@ REMORA::advance_2d (int lev,
             dt2d = dtfast_lev;
         }
 
-        // knew is about to be refilled; set again below if the refill ends with an exchange
-        // after the boundary conditions
+        // Cleared until the refill below ends with an exchange after the boundary conditions
         uvbar_exchanged_after_bcs[lev][knew] = 0;
 
         MultiFab ubar_know(*vec_ubar[lev], make_alias, know, 1);
@@ -983,15 +988,17 @@ REMORA::advance_2d (int lev,
             // set_2d_cf_bcs writes each box's own interface faces. Where a box boundary meets
             // the interface, the neighbouring box's ghost copy of that face still holds the
             // FillPatch value, and the shared face between the two boxes would be advanced
-            // from different neighbours -- the answer then depends on the box layout.
+            // from different neighbours -- the answer then depends on the box layout. On
+            // level 0 set_2d_cf_bcs does nothing, but this exchange still follows the boundary
+            // conditions, which lets the next flux pass skip exchanging the fluxes.
             const Periodicity& per = geom[lev].periodicity();
             amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get()},
                                 Vector<int>{knew, knew}, Vector<int>{1, 1},
                                 Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
                                                 vec_vbar[lev]->nGrowVect()},
                                 Vector<Periodicity>{per, per});
-            // The river transports written into knew below are followed by another
-            // exchange, so this stays true
+            // The rivers below rewrite knew, but an exchange follows them (FillBoundary at
+            // level 0, FillPatchNoBC above it), so the flag still holds
             uvbar_exchanged_after_bcs[lev][knew] = 1;
         }
 

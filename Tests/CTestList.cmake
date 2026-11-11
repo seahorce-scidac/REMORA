@@ -552,6 +552,11 @@ add_test_r(DoubleGyre                   "remora_exec" "plt00010")
 add_test_layout(DoubleGyre_layout_bcs_unexchanged DoubleGyre "remora_exec" "plt00010" "none"
                 "amr.max_grid_size=256 remora.cf_set_2d_bcs=0"
                 "amr.max_grid_size_x=27 amr.max_grid_size_y=54 amr.blocking_factor=1 remora.cf_set_2d_bcs=0")
+# The same with that exchange on the first fast step of each set only (remora.cf_set_2d_bcs = 2),
+# so the record of which time levels had it is both set and cleared during the fast steps
+add_test_layout(DoubleGyre_layout_bcs_first_exchanged DoubleGyre "remora_exec" "plt00010" "none"
+                "amr.max_grid_size=256 remora.cf_set_2d_bcs=2"
+                "amr.max_grid_size_x=27 amr.max_grid_size_y=54 amr.blocking_factor=1 remora.cf_set_2d_bcs=2")
 add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic              "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic_MLvel        "remora_exec" "plt_ml00010")
