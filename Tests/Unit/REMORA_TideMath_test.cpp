@@ -1,14 +1,19 @@
 #include "REMORA_TideMath.H"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <limits>
 
 int main ()
 {
     int failures = 0;
     const double pi = std::acos(-1.0);
+    // The functions use REMORA's PI, which is single precision in a single-precision build
+    const double tolerance = std::max(1.0e-12,
+                                      16.0 * double(std::numeric_limits<amrex::Real>::epsilon()));
     auto check = [&] (const char* name, double actual, double expected) {
-        if (std::abs(actual - expected) > 1.0e-12) {
+        if (std::abs(actual - expected) > tolerance) {
             std::printf("FAIL %s: %.17g != %.17g\n", name, actual, expected);
             ++failures;
         }
