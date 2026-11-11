@@ -130,8 +130,8 @@ on a side only where the normal component's entry names it.
 Tidal boundary forcing
 ----------------------
 
-Fixed tidal harmonics can be added to the subtidal elevation and depth-averaged normal
-velocity used by Chapman/Flather boundaries. Configure those boundaries as usual, then set::
+Fixed tidal harmonics can be added to the boundary elevation and depth-averaged normal
+velocity on Flather boundaries. Configure those boundaries as usual, then set::
 
     remora.tide_type = netcdf
     remora.nc_tide_file = boundary_tides.nc
@@ -146,17 +146,47 @@ Every constituent in the tidal file participates in the sum. Amplitudes and phas
 in time and may vary along the boundary. Names are labels; periods determine frequencies.
 Changing the constituent set requires a different file, with no constituent-selection input.
 
-The prescribed elevation and normal velocity enter Flather together. Chapman continues to
-radiate the modeled elevation, and the tangential barotropic velocity retains its existing
-radiation condition. Reconstruction uses the same requested time as the subtidal interpolation,
-including the current practice of using the start of the level's baroclinic step throughout
-its fast steps.
+Reconstruction uses the same requested time as the subtidal interpolation, including the
+current practice of using the start of the level's baroclinic step throughout its fast steps.
+
+Where tides are applied
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Tides are applied only on a side whose normal barotropic velocity is ``flather``: ``ubar`` on
+the West and East, ``vbar`` on the South and North. On such a side the tide is added to two
+boundary values:
+
+- **Normal barotropic velocity.** Flather relaxes the model's normal ``ubar`` or ``vbar`` toward
+  the subtidal value plus the tide.
+- **Elevation.** The tide is added to the file's ``zeta`` on that side. Flather uses this
+  elevation, and so does zeta's own condition there, which must read the boundary file:
+
+  - ``chapman`` radiates the model's elevation and does not use the file value;
+  - ``clamped`` holds the elevation at the subtidal value plus the tide;
+  - ``orlanski_rad_nudg`` nudges toward the subtidal value plus the tide.
+
+The tangential barotropic velocity keeps its own condition and receives no tide. With
+``flather`` it radiates; with ``clamped`` it is held at the subtidal file value.
+
+Every other side gets no tides, and the run prints a warning naming each such side at startup.
+This includes a ``clamped`` normal velocity, radiation conditions, and walls. Periodic sides
+have no boundary and print nothing.
 
 Conventions
 ~~~~~~~~~~~
 
-The reconstruction follows `ROMS set_tides.F
-<https://github.com/myroms/roms/blob/develop/ROMS/Nonlinear/set_tides.F>`_:
+The harmonic sum follows `ROMS set_tides.F
+<https://github.com/myroms/roms/blob/develop/ROMS/Nonlinear/set_tides.F>`_: the time argument,
+the phase lag in degrees, and the elevation averaged onto the boundary face. REMORA departs from
+ROMS in three ways:
+
+- **Sides.** ROMS adds tides wherever the boundary data is read, clamped sides included.
+- **Velocity harmonics.** ROMS builds tidal velocities from tidal-ellipse parameters for both
+  components. REMORA reads amplitudes and phases of the normal velocity only.
+- **Adding to the file values.** ROMS replaces the boundary values with the tide unless it is
+  built with ``ADD_FSOBC``/``ADD_M2OBC``. REMORA always adds the tide to the subtidal values.
+
+The sum is
 
 .. math::
 
@@ -182,7 +212,7 @@ boundary, and :math:`t_0` is the phase-reference epoch. The external reference i
      - ``m``
      - Nonnegative amplitude. Positive elevation is upward from the subtidal reference.
    * - Velocity amplitude
-     - ``m s-1``
+     - ``m s-1`` or ``meter second-1``
      - Nonnegative amplitude of depth-averaged velocity, rather than transport.
    * - Phase
      - ``degrees``
@@ -235,7 +265,7 @@ for fixed-length character labels. There is no time-record dimension.
 
 Only sides whose normal barotropic velocity uses Flather require amplitude/phase pairs.
 Each such side requires both elevation and normal velocity. Every numeric variable must have
-the exact units above, except ``tide_epoch`` which uses date-bearing time units. All pairs share
+one of the units above exactly, except ``tide_epoch`` which uses date-bearing time units. All pairs share
 the constituent order of ``tide_period``. Values must be finite and contain no missing-data
 entries; write zero amplitudes where a constituent makes no contribution.
 
