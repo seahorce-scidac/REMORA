@@ -831,7 +831,14 @@ if (REMORA_ENABLE_PNETCDF)
     compose_test_input(TidalBoundary_restart TidalBoundary)
     add_test_abort(TidalBoundary_phase_units_abort "remora_exec" "units must be 'degrees'")
     add_test_restart(TidalBoundary_restart "remora_exec" "plt00004" "chk00002")
+else ()
+    compose_test_input(TidalBoundary_no_pnetcdf_abort TidalBoundary)
+    add_test_abort(TidalBoundary_no_pnetcdf_abort "remora_exec"
+                   "remora.tide_type = netcdf requires a PnetCDF build")
 endif ()
+# The tide type is checked while the inputs are read, so this needs no NetCDF.
+compose_test_input(TidalBoundary_type_abort TidalBoundary)
+add_test_abort(TidalBoundary_type_abort "remora_exec" "remora.tide_type must be none or netcdf")
 
 #=============================================================================
 # Barotropic substep count

@@ -568,6 +568,12 @@ assertion is that they agree and neither needs a stored reference.
 | TidalBoundary_restart           | 8 10 4   | tidal forcing continues with the same phase after a     |
 |                                 |          | checkpoint/restart (PnetCDF)                            |
 +---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary_type_abort        | 8 10 4   | an unknown ``remora.tide_type`` is rejected while the   |
+|                                 |          | inputs are read (every build)                           |
++---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary_no_pnetcdf_abort  | 8 10 4   | ``remora.tide_type = netcdf`` is rejected in a build    |
+|                                 |          | without PnetCDF (builds without PnetCDF only)           |
++---------------------------------+----------+---------------------------------------------------------+
 
 ``BC_per_variable`` runs both inputs in its test directory and compares the two plotfiles. All four sides
 carry a different condition -- inflow, noslipwall, outflow, slipwall going West, South, East, North -- so
