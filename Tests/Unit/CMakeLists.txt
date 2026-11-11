@@ -66,12 +66,12 @@ endif ()
 add_test(NAME BiologyInterface COMMAND remora_biology_tests)
 set_tests_properties(BiologyInterface PROPERTIES TIMEOUT 60 LABELS "unit")
 
-if(REMORA_BUILD_EXECUTABLES)
-  # Link the archive so Source/main.cpp is not extracted: this driver supplies
-  # its own main, inputs_name and analytic problem, and exercises the public API.
-  add_executable(remora_bottom_exchange_tests REMORA_BottomExchange_test.cpp)
-  target_link_libraries(remora_bottom_exchange_tests PRIVATE remora_api)
-  if(REMORA_ENABLE_CUDA)
-    setup_target_for_cuda_compilation(remora_bottom_exchange_tests)
-  endif()
+add_executable(remora_bottom_exchange_math REMORA_BottomExchange_test.cpp)
+target_include_directories(remora_bottom_exchange_math PRIVATE
+  ${PROJECT_SOURCE_DIR}/Source/TimeIntegration)
+target_link_libraries(remora_bottom_exchange_math PRIVATE ${REMORA_AMREX_TARGET})
+if(REMORA_ENABLE_CUDA)
+  setup_target_for_cuda_compilation(remora_bottom_exchange_math)
 endif()
+add_test(NAME BottomExchangeMath COMMAND remora_bottom_exchange_math)
+set_tests_properties(BottomExchangeMath PROPERTIES TIMEOUT 60 LABELS "unit;bottom_exchange")

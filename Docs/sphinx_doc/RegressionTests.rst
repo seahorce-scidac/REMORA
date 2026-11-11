@@ -577,17 +577,42 @@ about 7%. Advective inflow is therefore not covered by either lane.
 Bottom exchange tests
 ---------------------
 
-The ``bottom_exchange`` column tests use an 8 x 8 x 8 domain and analytic
-budget assertions. They cover inflow, extraction, matching concentrations,
-the impermeable default, analytic and copied coupler data, reversal, GLS
-instability, subcycled and lockstep refinement, regridding, and restart.
-The wall case uses multiple boxes and a refined patch touching a physical
-boundary. The NetCDF cases require PNetCDF; the multi-file case interpolates
-between two single-record files. MPI builds run the cases on two ranks, with multiple boxes for the coupler
-and multi-file NetCDF cases. The adaptive case exercises time-varying forcing
-with a variable timestep. Rejection tests require the intended error message for
-missing incoming tracers, expired snapshots and excessive source Courant.
+The ``bottom_exchange`` tests use the Advection problem on an 8 x 8 x 8 domain.
+Checkpoint assertions check the prescribed changes in water, temperature, salt,
+passive tracer and horizontal momentum. No gold files are required.
 
+.. list-table:: Bottom exchange assertions
+   :header-rows: 1
+
+   * - Test
+     - Assertion
+   * - BottomBudgets
+     - Inflow, matching salinity, extraction and impermeable budgets.
+   * - BottomAdaptive
+     - Linear time-ramp integral and actual slow-step midpoint velocity.
+   * - BottomGLS
+     - Freshwater budgets, unstable salinity profile and finite positive TKE.
+   * - BottomAMR
+     - Composite budgets with subcycling, lockstep stepping and regridding.
+   * - BottomSpatial
+     - Integrated correlated velocity and dye forcing, on one and two levels.
+   * - BottomCoupler
+     - Snapshot ownership, exported state and budgets, including flow reversal.
+   * - BottomAMRWall
+     - Complete transport halos and budgets at a refined physical boundary.
+   * - BottomRestart
+     - Bitwise equality of restarted and continuous plotfiles.
+   * - BottomTiled
+     - Bitwise equality of tiled and untiled checkpoints and plotfiles.
+   * - BottomMissingTracer, BottomExpired, BottomCourant
+     - The requested rejection diagnostic.
+   * - BottomNetCDF, BottomNetCDFMulti, BottomNetCDFRing
+     - Timed forcing budgets, multi-file interpolation and supplied rho ring.
+   * - BottomExchangeMath
+     - Donor flux identities and neutral-log-layer GLS ratios.
+
+The three NetCDF tests require PNetCDF. MPI builds run the integration cases on
+two ranks. See :ref:`Testing` for the inventory formulas and tolerances.
 
 Nightly Regression Tests on CPU
 -------------------------------
