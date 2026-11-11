@@ -140,6 +140,8 @@ struct SolverChoice {
     {
         amrex::ParmParse pp(pp_prefix);
 
+        pp.queryAdd("solve3d", solve3d);
+
         // Which horizontal advection scheme for tracers
         static std::string tracer_hadv_string = "upstream3";
         pp.queryAdd("tracer_horizontal_advection_scheme",tracer_hadv_string);
@@ -894,8 +896,7 @@ struct SolverChoice {
     // Specify what additional physics/forcing modules we use
     bool        use_coriolis           = false;
 
-    // Specify whether terms are used for debugging purposes
-    bool        use_baroclinic        = true;
+    bool        solve3d               = true;
 
     bool        use_curvilinear_grid  = false;
 

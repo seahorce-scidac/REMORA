@@ -108,6 +108,7 @@ REMORA::advance_2d (int lev,
                    int & next_indx1)
 {
     BL_PROFILE("REMORA::advance2d()");
+    const bool solve3d = solverChoice.solve3d;
     int iic = istep[lev];
     const int nstp  = 0;
     int ntfirst = 0;
@@ -135,6 +136,12 @@ REMORA::advance_2d (int lev,
     // Include indx1 updates for diagnostic purposes?
     //indx1-=1;
     ptsk-=1;
+    if (!solve3d) {
+        krhs = predictor_2d_step ? 0 : 2;
+        kstp = predictor_2d_step && !first_2d_step ? 1 : 0;
+        knew = predictor_2d_step ? 2 : 1;
+        ptsk = 1 - kstp;
+    }
     // Per-level scratch (see MakeNewLevel), every cell read below is written first in
     // this call, so nothing carries over between fast steps.
     MultiFab& mf_DUon = *vec_DUon[lev];
@@ -228,15 +235,15 @@ REMORA::advance_2d (int lev,
                                            : avg_corr;
     Real cff1_wt1 = zero;
     Real cff2_wt  = zero;
-    if (avg_mode == avg_first_pred) {
+    if (solve3d && avg_mode == avg_first_pred) {
         cff2_wt = (Real(-1.0)/Real(12.0))*weight2[my_iif+1];
-    } else if (avg_mode == avg_pred) {
+    } else if (solve3d && avg_mode == avg_pred) {
         cff1_wt1 = weight1[my_iif-1];
         cff2_wt  = (Real(8.0)/Real(12.0))*weight2[my_iif]-
                    (one/Real(12.0))*weight2[my_iif+1];
-    } else if (first_2d_step) {
+    } else if (solve3d && first_2d_step) {
         cff2_wt = weight2[my_iif];
-    } else {
+    } else if (solve3d) {
         cff2_wt = Real(5.0)/Real(12.0)*weight2[my_iif];
     }
 
@@ -246,7 +253,7 @@ REMORA::advance_2d (int lev,
     //  step is Adams-Moulton.
     //
     enum Scheme : int { first_step, leapfrog, adams_moulton };
-    const int scheme = (my_iif == 0) ? first_step
+    const int scheme = first_2d_step ? first_step
                                      : (predictor_2d_step ? leapfrog : adams_moulton);
     Real zcff1 = zero, zcff2 = zero, zcff3 = zero, zcff4 = zero, zcff5 = zero;
     Real mcff1 = zero, mcff2 = zero, mcff3 = zero;
@@ -275,11 +282,11 @@ REMORA::advance_2d (int lev,
     //  or AB3 after that. Every other fast step just adds the 3D forcing.
     enum Couple : int { couple_none, couple_first, couple_second, couple_ab3 };
     int couple = couple_none;
-    if (first_2d_step && predictor_2d_step) {
+    if (solve3d && first_2d_step && predictor_2d_step) {
         couple = (iic==ntfirst) ? couple_first
                                 : ((iic==(ntfirst+1)) ? couple_second : couple_ab3);
     }
-    const int add_frc = (couple == couple_none) ? 1 : 0;
+    const int add_frc = (solve3d && couple == couple_none) ? 1 : 0;
 
     const Real g_half = Real(0.5) * solverChoice.g;
     const Real sixth  = one / Real(6.0);
@@ -361,48 +368,50 @@ REMORA::advance_2d (int lev,
         //
         // Time averages of the free surface and the barotropic fluxes
         //
-        AnyCTO(TypeList<CompileTimeOptions<avg_first_pred,avg_pred,avg_corr>>{}, {avg_mode},
-        [&] (auto const& fu, auto const& fv) {
-            ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
-                        makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0), fu, fv);
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
-        {
-            if (mode.value == avg_first_pred) {
-                DU_avg1(i,j,0)=zero;
-                DU_avg2(i,j,0)=cff2_wt*DUon(i,j,0);
-            } else if (mode.value == avg_pred) {
-                DU_avg1(i,j,0) += cff1_wt1*DUon(i,j,0);
-                DU_avg2(i,j,0) += cff2_wt*DUon(i,j,0);
-            } else {
-                DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2_wt*DUon(i,j,0);
-            }
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
-        {
-            if (mode.value == avg_first_pred) {
-                DV_avg1(i,j,0)=zero;
-                DV_avg2(i,j,0)=cff2_wt*DVom(i,j,0);
-            } else if (mode.value == avg_pred) {
-                DV_avg1(i,j,0) += cff1_wt1*DVom(i,j,0);
-                DV_avg2(i,j,0) += cff2_wt*DVom(i,j,0);
-            } else {
-                DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2_wt*DVom(i,j,0);
-            }
-        });
+        if (solve3d) {
+            AnyCTO(TypeList<CompileTimeOptions<avg_first_pred,avg_pred,avg_corr>>{}, {avg_mode},
+            [&] (auto const& fu, auto const& fv) {
+                ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
+                            makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0), fu, fv);
+            },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
+            {
+                if (mode.value == avg_first_pred) {
+                    DU_avg1(i,j,0)=zero;
+                    DU_avg2(i,j,0)=cff2_wt*DUon(i,j,0);
+                } else if (mode.value == avg_pred) {
+                    DU_avg1(i,j,0) += cff1_wt1*DUon(i,j,0);
+                    DU_avg2(i,j,0) += cff2_wt*DUon(i,j,0);
+                } else {
+                    DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2_wt*DUon(i,j,0);
+                }
+            },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
+            {
+                if (mode.value == avg_first_pred) {
+                    DV_avg1(i,j,0)=zero;
+                    DV_avg2(i,j,0)=cff2_wt*DVom(i,j,0);
+                } else if (mode.value == avg_pred) {
+                    DV_avg1(i,j,0) += cff1_wt1*DVom(i,j,0);
+                    DV_avg2(i,j,0) += cff2_wt*DVom(i,j,0);
+                } else {
+                    DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2_wt*DVom(i,j,0);
+                }
+            });
 
-        if (predictor_2d_step) {
-            Box gbx3D = makeSlab(mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0)),2,0);
-            if (first_2d_step) {
-                ParallelFor(gbx3D, [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    Zt_avg1(i,j,0)=zero;
-                });
-            } else {
-                ParallelFor(gbx3D, [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    Zt_avg1(i,j,0) += cff1_wt1*zeta(i,j,0,krhs);
-                });
+            if (predictor_2d_step) {
+                Box gbx3D = makeSlab(mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0)),2,0);
+                if (first_2d_step) {
+                    ParallelFor(gbx3D, [=] AMREX_GPU_DEVICE (int i, int j, int)
+                    {
+                        Zt_avg1(i,j,0)=zero;
+                    });
+                } else {
+                    ParallelFor(gbx3D, [=] AMREX_GPU_DEVICE (int i, int j, int)
+                    {
+                        Zt_avg1(i,j,0) += cff1_wt1*zeta(i,j,0,krhs);
+                    });
+                }
             }
         }
 
@@ -447,10 +456,10 @@ REMORA::advance_2d (int lev,
             }
             Dnew(i,j,0) = zeta_new+h(i,j,0);
             zwrk(i,j,0) = zw;
-            Real gz = (fac+rhoS(i,j,0))*zw;
+            Real gz = solve3d ? (fac+rhoS(i,j,0))*zw : zw;
             gzeta(i,j,0) = gz;
             gzeta2(i,j,0) = gz*zw;
-            gzetaSA(i,j,0) = zw*(rhoS(i,j,0)-rhoA(i,j,0));
+            gzetaSA(i,j,0) = solve3d ? zw*(rhoS(i,j,0)-rhoA(i,j,0)) : Real(0.0);
 
             znew(i,j,0,0) = zeta_new;
             znew(i,j,0,1) = rhs_zeta;
@@ -673,10 +682,10 @@ REMORA::advance_2d (int lev,
             Real rhs = g_half * on_u(i,j,0) *
                           ((    h(i-1,j,0) +     h(i,j,0))*
                            (gzeta(i-1,j,0) - gzeta(i,j,0))+
-                           (    h(i-1,j,0) -     h(i,j,0))*
+                           (solve3d ? (h(i-1,j,0) - h(i,j,0))*
                            (      gzetaSA(i-1,j,0) + gzetaSA(i,j,0)+
                             third*(   rhoA(i-1,j,0) -    rhoA(i,j,0))*
-                                 (   zwrk(i-1,j,0) -    zwrk(i,j,0)))+
+                                 (   zwrk(i-1,j,0) -    zwrk(i,j,0))) : Real(0.0))+
                            (gzeta2(i-1,j,0)- gzeta2(i  ,j,0)));
 
             rhs -= ((flx(i,j  ,0,aUFx)-flx(i-1,j,0,aUFx)) +
@@ -688,10 +697,10 @@ REMORA::advance_2d (int lev,
             Real rhs = g_half*om_v(i,j,0) *
                           ((    h(i,j-1,0) +     h(i,j,0))*
                            (gzeta(i,j-1,0) - gzeta(i,j,0))+
-                           (    h(i,j-1,0) -     h(i,j,0))*
+                           (solve3d ? (h(i,j-1,0) - h(i,j,0))*
                            (gzetaSA(i,j-1,0)+ gzetaSA(i,j  ,0)+
                             third*(rhoA(i,j-1,0)- rhoA(i,j  ,0))*
-                                 (zwrk(i,j-1,0)- zwrk(i,j  ,0)))+
+                                 (zwrk(i,j-1,0)- zwrk(i,j  ,0))) : Real(0.0))+
                            (gzeta2(i,j-1,0)- gzeta2(i,j  ,0)));
 
             rhs -= ((flx(i+1,j,0,aVFx)-flx(i  ,j,0,aVFx)) +
@@ -770,6 +779,24 @@ REMORA::advance_2d (int lev,
         //
         // Coupling from 3d to 2d on the first predictor step
         //
+        if (!solve3d) {
+            auto const& sustr = vec_sustr[lev]->const_array(mfi);
+            auto const& svstr = vec_svstr[lev]->const_array(mfi);
+            auto const& bustr = vec_bustr[lev]->const_array(mfi);
+            auto const& bvstr = vec_bvstr[lev]->const_array(mfi);
+            auto const& omn_u = vec_metric_u[lev]->const_array(mfi,MetricU::omn_u);
+            auto const& omn_v = vec_metric_v[lev]->const_array(mfi,MetricV::omn_v);
+            ParallelFor(xbxD, ybxD,
+            [=] AMREX_GPU_DEVICE (int i, int j, int) {
+                rhs_ubar(i,j,0) -= bustr(i,j,0)*omn_u(i,j,0);
+                rhs_ubar(i,j,0) += sustr(i,j,0)*omn_u(i,j,0);
+            },
+            [=] AMREX_GPU_DEVICE (int i, int j, int) {
+                rhs_vbar(i,j,0) -= bvstr(i,j,0)*omn_v(i,j,0);
+                rhs_vbar(i,j,0) += svstr(i,j,0)*omn_v(i,j,0);
+            });
+        }
+
         if (couple != couple_none) {
             const Real ccff1 = Real(23.0)/Real(12.0);
             const Real ccff2 = Real(16.0)/Real(12.0);
@@ -883,7 +910,7 @@ REMORA::advance_2d (int lev,
     if (my_iif<nfast) {
         int know;
         Real dt2d;
-        if (my_iif==0) {
+        if (first_2d_step) {
             know = krhs;
             dt2d = dtfast_lev;
         } else if (predictor_2d_step) {

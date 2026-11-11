@@ -106,7 +106,7 @@ REMORA::timeStepML (Real time, int /*iteration*/)
         }
     }
 
-    int nfast_counter=nfast + 1;
+    int nfast_counter=solverChoice.solve3d ? nfast + 1 : 1;
 
     for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
         //Compute fast timestep from dt[lev] and ratio
@@ -132,7 +132,9 @@ REMORA::timeStepML (Real time, int /*iteration*/)
     } // my_iif
 
     for (int lev=0; lev <= finest_level; lev++) {
-        advance_3d_ml(lev, dt[lev], false);
+        if (solverChoice.solve3d) {
+            advance_3d_ml(lev, dt[lev], false);
+        }
         ++istep[lev];
 
         if (Verbose())

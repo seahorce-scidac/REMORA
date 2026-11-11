@@ -142,6 +142,9 @@ REMORA::WriteCheckpointFile ()
        // them. Checkpoints without this line hold them per unit area (see
        // scale_rhs_by_area).
        HeaderFile << "rhs_form kernel\n";
+       if (!solverChoice.solve3d) {
+           HeaderFile << "solve3d false\n";
+       }
 
        // Biology model identity, beyond the tracer names checked above.
        const std::string biology_file = checkpointname + "/BiologyHeader";
@@ -245,6 +248,11 @@ REMORA::WriteCheckpointFile ()
 
        VisMF::Write(*(vec_zeta[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "zeta"));
        VisMF::Write(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Zt_avg1"));
+       if (!solverChoice.solve3d) {
+           VisMF::Write(*vec_rubar[lev], amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rubar"));
+           VisMF::Write(*vec_rvbar[lev], amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rvbar"));
+           VisMF::Write(*vec_rzeta[lev], amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rzeta"));
+       }
 
        VisMF::Write(*(vec_h[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "h"));
 
@@ -427,13 +435,16 @@ REMORA::ReadCheckpointFile ()
     bool have_time_origin = false;
     bool have_start_time = false;
     bool rhs_per_area = true;
+    bool chk_solve3d = true;
     double chk_time_origin = 0.0;
     double chk_start_time = 0.0;
     Vector<double> chk_elapsed;
     while (std::getline(is, line)) {
         std::istringstream lis(line);
         if (!(lis >> word)) { continue; }
-        if (word == "time_origin") {
+        if (word == "solve3d") {
+            lis >> std::boolalpha >> chk_solve3d;
+        } else if (word == "time_origin") {
             lis >> chk_time_origin;
             have_time_origin = true;
         } else if (word == "elapsed_time") {
@@ -472,6 +483,10 @@ REMORA::ReadCheckpointFile ()
                              " remora.biology_model and its options.");
             }
         }
+    }
+
+    if (chk_solve3d != solverChoice.solve3d) {
+        amrex::Abort("Checkpoint solve3d differs from remora.solve3d");
     }
 
     // A checkpoint that records its origin can say whether this run moved it.
@@ -621,6 +636,11 @@ REMORA::ReadCheckpointFile ()
 
        VisMF::Read(*(vec_zeta[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "zeta"));
        VisMF::Read(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Zt_avg1"));
+       if (!solverChoice.solve3d) {
+           VisMF::Read(*vec_rubar[lev], amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rubar"));
+           VisMF::Read(*vec_rvbar[lev], amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rvbar"));
+           VisMF::Read(*vec_rzeta[lev], amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rzeta"));
+       }
 
        VisMF::Read(*(vec_h[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "h"));
 

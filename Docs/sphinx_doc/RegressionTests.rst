@@ -4,16 +4,16 @@
 Regression Tests
 ================
 
-There are currently 68 regression tests which are run as part of every PR on a range of architectures:
+The regression tests run as part of every PR on a range of architectures. They include tests that:
 
-* 22 that compare a plotfile against a stored reference;
-* 6 that compare two runs of the model against each other, or a run against its own initial state, and
+* compare a plotfile against a stored reference;
+* compare two runs of the model against each other, or a run against its own initial state, and
   need no reference;
-* 5 that assert values against an external reference;
-* 8 that assert the structure of the refined grid;
-* 8 that assert how far an integrated quantity drifts over a run;
-* 8 that assert a run reaches a behavior it reports in its log;
-* 11 that assert a misconfigured input fails for the stated reason.
+* assert values against an external reference;
+* assert the structure of the refined grid;
+* assert how far an integrated quantity drifts over a run;
+* assert a run reaches a behavior it reports in its log;
+* assert a misconfigured input fails for the stated reason.
 
 There are also three unit tests, ``DateClock``, ``LatLonRegrid`` and ``BiologyInterface``. The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
@@ -477,7 +477,7 @@ drivers in this case.
 Barotropic substep count tests
 ------------------------------
 
-``remora.ndtfast`` is the number of barotropic steps per baroclinic step. It has no usable default, and a
+With ``remora.solve3d = true``, ``remora.ndtfast`` is the number of barotropic steps per baroclinic step. It has no usable default, and a
 zero divides by zero and sizes the barotropic weights to one element, which the 2D step then reads past
 the end of. These lanes, all on ``Channel_Test``, cover it and the input names around it.
 
@@ -501,6 +501,57 @@ the end of. These lanes, all on ``Channel_Test``, cover it and the input names a
 
 The alias comparison cannot pass for the wrong reason: a run that ignored the alias would be left without
 a count and abort rather than agree.
+
+The standalone 2D tests set ``remora.solve3d = false`` and need no gold files:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Test
+     - Assertion
+   * - Barotropic_wind
+     - Wind-driven zonal velocity equals ``t*sustr/h`` after 40 s over a 500 m
+       flat bottom, to 1e-12 m/s. Meridional and vertical velocities remain zero.
+   * - Barotropic_cfl
+     - The same wind case started from rest uses the external-wave CFL timestep,
+       5.04904994275638 s, regardless of a supplied ``ndtfast = 37``. Its velocity
+       matches the resulting acceleration to 1e-12 m/s.
+   * - Barotropic_wave
+     - With Coriolis enabled, the wind produces the linear rotating shallow-water
+       response at 100 s, within 1e-10 m/s. This checks the free-surface pressure
+       feedback as well as Coriolis and the persistent time history.
+   * - Barotropic_drag
+     - Uniform flow decays according to ``u(0)*exp(-rdrag*t/h)`` after 10 s,
+       within 1e-6 m/s. Temperature and salinity keep their initial values.
+   * - Barotropic_rest
+     - A flat surface stays exactly at rest over the seamount's varying depth.
+   * - Barotropic_ndtfast
+     - Setting the ignored ratio to 1 or 37 gives bitwise-identical velocity
+       output and every checkpoint MultiFab, including the 2D histories.
+   * - Barotropic_driver
+     - Both time-stepping drivers give bitwise-identical output and checkpoint
+       MultiFabs.
+   * - Barotropic_eos
+     - Selecting the linear or nonlinear equation of state leaves the 2D answer
+       and checkpoint MultiFabs bitwise identical.
+   * - Barotropic_tiled
+     - Tiled and untiled runs of the spatially varying Channel_Test agree bit
+       for bit, including checkpoint histories.
+   * - Barotropic_restart
+     - Restarting the drag case at 5 s reproduces the uninterrupted final
+       velocity bit for bit.
+
+For the wave test, let ``a*cos(k*y)`` be the zonal acceleration, ``H`` the depth,
+``d`` the grid spacing in y, ``F = f*cos(k*d/2)`` and ``K = 2*sin(k*d/2)/d``.
+The linear C-grid equations for the velocity amplitudes and free-surface amplitude
+are ``U' = F*V + a``, ``V' = -F*U - g*K*Z`` and ``Z' = H*K*V``. Starting from
+rest, with ``w**2 = F**2 + g*H*K**2``, their closed-form solution is
+``U = a*((1-F**2/w**2)*t + F**2*sin(w*t)/w**3)`` and
+``V = -F*a*(1-cos(w*t))/w**2``. The test uses ``f = 0.01 s-1``, ``H = 500 m``,
+``d = 1000 m`` and a 16000 m wavelength. The asserted extrema include the
+face-to-cell averages used by the velocity output. The wind is weak enough that
+nonlinear corrections are below the stated tolerance.
 
 .. _sec:ci-maskring-tests:
 

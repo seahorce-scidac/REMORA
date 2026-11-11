@@ -955,6 +955,10 @@ List of Parameters for Single-Rate
 |                               |                         |                |                            |
 |                               |                         | Values         |                            |
 +===============================+=========================+================+============================+
+| **remora.solve3d**            | evolve 3D momentum and  | true / false   | true                       |
+|                               | tracers as well as the  |                |                            |
+|                               | barotropic fields       |                |                            |
++-------------------------------+-------------------------+----------------+----------------------------+
 | **remora.cfl**                | Courant number applied  | Real > 0       | 0.8                        |
 |                               | to the advective and    |                |                            |
 |                               | external gravity wave   | and <= 1       |                            |
@@ -978,6 +982,8 @@ List of Parameters for Single-Rate
 |                               | this ratio. Deprecated  |                |                            |
 |                               | alias:                  |                |                            |
 |                               | **fixed_ndtfast_ratio** |                |                            |
+|                               | Ignored when            |                |                            |
+|                               | **solve3d = false**     |                |                            |
 +-------------------------------+-------------------------+----------------+----------------------------+
 | **remora.change_max**         | factor by which         | Real >= 1      | 1.1                        |
 |                               | dt can grow             |                |                            |
@@ -987,6 +993,30 @@ List of Parameters for Single-Rate
 +-------------------------------+-------------------------+----------------+----------------------------+
 
 .. _examples-of-usage-5:
+
+With ``remora.solve3d = false``, each model timestep advances only the free surface
+(``zeta``) and depth-mean horizontal velocities (``ubar`` and ``vbar``).
+``remora.fixed_dt`` is then the barotropic timestep in seconds. ``remora.ndtfast``
+may be omitted; its supplied value is ignored. Without a fixed timestep, the CFL
+estimate uses the depth-mean flow and the external gravity wave speed for the total
+depth ``h + zeta``.
+
+.. warning::
+
+   The 2D-only solver is experimental. It currently requires ``amr.max_level = 0``
+   and linear or quadratic bottom stress. AMR, logarithmic bottom stress and
+   ``remora.eminusp_correct_ssh`` are unsupported in this mode.
+
+The existing initialization and storage are retained: analytic initial velocities
+or the 3D velocities in a NetCDF initial file are averaged over depth. NetCDF
+initialization still requires the existing 3D fields; a file containing only
+``zeta``, ``ubar`` and ``vbar`` is not sufficient. One vertical cell may be used.
+Temperature, salinity and other tracers keep their initial values; tracer transport,
+vertical mixing, biology and particle advection are inactive. Bulk fluxes, when
+enabled, use the fixed surface temperature. Output ``x_velocity`` and ``y_velocity``
+show the depth-uniform barotropic flow after each step; ``z_velocity`` and ``omega``
+are zero. Use ``remora.plot_vars_2d = zeta ubar vbar`` for the prognostic fields.
+A restart must use the same ``solve3d`` setting as its checkpoint.
 
 Examples of Usage
 -----------------

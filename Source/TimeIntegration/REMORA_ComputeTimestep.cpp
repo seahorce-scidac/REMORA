@@ -116,6 +116,8 @@ REMORA::ComputeDt ()
  *
  * pm and pn are the per-cell 1/dx and 1/dy metric terms rather than the geometry's
  * uniform cell size, so stretched and curvilinear grids give the right answer.
+ * In 2D-only mode the horizontal velocities are depth means, the depth is h + zeta,
+ * and the gravity wave limit also includes horizontal advection. ndtfast is then one.
  *
  * @param[in] level    level of refinement
  */
@@ -135,11 +137,28 @@ REMORA::estTimeStep(int level) const
 
     // g is a file-scope constexpr; hoist it into a local for the device lambda.
     const Real grav = solverChoice.g;
+    const bool solve3d = solverChoice.solve3d;
 
     MultiFab ccvel(grids[level],dmap[level],3,0);
 
-    average_face_to_cellcenter(ccvel,0,
-        Array<const MultiFab*,3>{xvel_new[level], yvel_new[level], zvel_new[level]});
+    if (solve3d) {
+        average_face_to_cellcenter(ccvel,0,
+            Array<const MultiFab*,3>{xvel_new[level], yvel_new[level], zvel_new[level]});
+    } else {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MFIter mfi(ccvel, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            auto const& ubar = vec_ubar[level]->const_array(mfi);
+            auto const& vbar = vec_vbar[level]->const_array(mfi);
+            auto const& vel = ccvel.array(mfi);
+            ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                vel(i,j,k,0) = Real(0.5)*(ubar(i,j,0,0) + ubar(i+1,j,0,0));
+                vel(i,j,k,1) = Real(0.5)*(vbar(i,j,0,0) + vbar(i,j+1,0,0));
+                vel(i,j,k,2) = Real(0.0);
+            });
+        }
+    }
 
     // Two maxima over the same cells. amrex::ReduceMax's FabArray overloads take at most
     // three FabArrays and this needs six, so drive ReduceOps directly. Unlike
@@ -165,6 +184,7 @@ REMORA::estTimeStep(int level) const
         // grids[level] with the same DistributionMapping, so they index off this same
         // MFIter and are read at k = 0.
         Array4<Real const> const& h    = vec_h[level]->const_array(mfi);
+        Array4<Real const> const& zeta = vec_Zt_avg1[level]->const_array(mfi);
         Array4<Real const> const& pm   = vec_pm[level]->const_array(mfi);
         Array4<Real const> const& pn   = vec_pn[level]->const_array(mfi);
         Array4<Real const> const& mskr = vec_mskr[level]->const_array(mfi);
@@ -180,14 +200,16 @@ REMORA::estTimeStep(int level) const
 
             // Hz is the true thickness of this terrain-following layer; the geometry's
             // uniform dz is the thickness of a sigma level, not of a cell.
-            if (Hz(i,j,k) > zero) {
+            if (solve3d && Hz(i,j,k) > zero) {
                 inv_adv = amrex::max(inv_adv, amrex::Math::abs(u(i,j,k,2)) / Hz(i,j,k));
             }
 
             // Component 0 of vec_h is the bathymetry, positive down. Component 1 is not a
             // second copy of it -- stretch_transform overwrites it with the bottom z_w.
-            const Real c      = std::sqrt(grav * amrex::Math::abs(h(i,j,0,0)));
-            const Real inv_bt = c * std::sqrt(pm(i,j,0)*pm(i,j,0) + pn(i,j,0)*pn(i,j,0));
+            const Real depth  = h(i,j,0,0) + (solve3d ? Real(0.0) : zeta(i,j,0));
+            const Real c      = std::sqrt(grav * amrex::Math::abs(depth));
+            const Real inv_bt = c * std::sqrt(pm(i,j,0)*pm(i,j,0) + pn(i,j,0)*pn(i,j,0))
+                             + (solve3d ? Real(0.0) : inv_adv);
 
             return {inv_adv, inv_bt};
         });

@@ -42,6 +42,15 @@ macro(setup_test)
     file(GLOB TEST_FILES "${CURRENT_TEST_SOURCE_DIR}/*")
     file(COPY ${TEST_FILES} DESTINATION "${CURRENT_TEST_BINARY_DIR}/")
 
+    # A composed input exists in the build tree and can also be shared by another test.
+    if(${ARGC} GREATER 0)
+        set(COMPOSED_INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_files/${ARGV0}/${ARGV0}.i)
+        if(EXISTS "${COMPOSED_INPUT}" AND
+           NOT "${CMAKE_CURRENT_BINARY_DIR}/test_files/${ARGV0}" STREQUAL "${CURRENT_TEST_BINARY_DIR}")
+            file(COPY "${COMPOSED_INPUT}" DESTINATION "${CURRENT_TEST_BINARY_DIR}/")
+        endif()
+    endif()
+
     if(REMORA_ENABLE_MPI)
         set(NP 2)
         set(MPI_COMMANDS "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${NP} ${MPIEXEC_PREFLAGS}")
@@ -262,11 +271,15 @@ endfunction(add_test_restart)
 # same bit pattern as the continuous run's (remora_subset_compare at zero tolerance).
 function(add_test_restart_exact TEST_NAME TEST_EXE PLTFILE CHKFILE)
 
-    setup_test()
+    set(INPUT_NAME ${TEST_NAME})
+    if(${ARGC} GREATER 4)
+        set(INPUT_NAME ${ARGV4})
+    endif()
+    setup_test(${INPUT_NAME})
 
     resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
 
-    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} remora.restart=../runA/${CHKFILE} remora.check_int=-1 >> ../${TEST_NAME}.log 2>&1 && cd .. && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}")
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} remora.restart=../runA/${CHKFILE} remora.check_int=-1 >> ../${TEST_NAME}.log 2>&1 && cd .. && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}")
 
     add_test(${TEST_NAME} ${test_command})
     set_tests_properties(${TEST_NAME}
@@ -881,6 +894,41 @@ add_test_equiv(Channel_Test_ndtfast_alias Channel_Test_ndtfast_named "remora_exe
 add_test_abort(Channel_Test_ndtfast_unset_abort  "remora_exec" "remora.ndtfast must be a positive integer")
 add_test_abort(Channel_Test_fixed_fast_dt_abort  "remora_exec" "remora.fixed_fast_dt has been removed")
 add_test_abort(Channel_Test_ndtfast_both_abort   "remora_exec" "and remora.fixed_ndtfast_ratio are both")
+
+# Standalone 2D dynamics: closed-form wind acceleration, bottom-drag decay, and rest over
+# varying bathymetry. Compare restarts and layouts using the full checkpoint, including
+# barotropic state and right-hand-side history, as well as the depth-uniform velocity output.
+add_test_extrema(Barotropic_wind "remora_exec" "plt00004" 1e-12
+                x_velocity -3.827454752793095e-6 3.827454752793095e-6
+                y_velocity 0 0 z_velocity 0 0)
+compose_test_input(Barotropic_cfl Barotropic_wind)
+add_test_extrema(Barotropic_cfl "remora_exec" "plt00001" 1e-12
+                x_velocity -4.831252550123152e-7 4.831252550123152e-7
+                y_velocity 0 0)
+compose_test_input(Barotropic_wave Barotropic_wind)
+add_test_extrema(Barotropic_wave "remora_exec" "plt01000" 1e-10
+                x_velocity -8.565319188235369e-6 8.565319188235369e-6
+                y_velocity -2.1535950759979073e-6 2.1535950759979073e-6)
+compose_test_input(Barotropic_drag Advection)
+add_test_extrema(Barotropic_drag "remora_exec" "plt00200" 1e-6
+                x_velocity 0.09355069850316178 0.09355069850316178
+                y_velocity -0.09355069850316178 -0.09355069850316178
+                temp 14 14 salt 35 35)
+compose_test_input(Barotropic_rest Seamount)
+add_test_extrema(Barotropic_rest "remora_exec" "plt00004" 0
+                x_velocity 0 0 y_velocity 0 0 z_velocity 0 0)
+add_test_layout(Barotropic_ndtfast Barotropic_wind "remora_exec" "plt00004" "chk00004"
+                "remora.ndtfast=1" "remora.ndtfast=37")
+add_test_layout(Barotropic_driver Barotropic_wind "remora_exec" "plt00004" "chk00004"
+                "remora.do_substep=1" "remora.do_substep=0")
+add_test_layout(Barotropic_eos Barotropic_wind "remora_exec" "plt00004" "chk00004"
+                "remora.eos_type=linear" "remora.eos_type=nonlinear")
+set(barotropic_channel_options
+    "remora.solve3d=false remora.max_step=4 remora.fixed_dt=1 'remora.n_cell=16 32 1' remora.plot_int=4 remora.check_int=4 amrex.init_snan=1")
+add_test_layout(Barotropic_tiled Channel_Test "remora_exec" "plt00004" "chk00004"
+                "${barotropic_channel_options} 'fabarray.mfiter_tile_size=1024000 1024000 1024000'"
+                "${barotropic_channel_options} 'fabarray.mfiter_tile_size=8 8 1024000'")
+add_test_restart_exact(Barotropic_restart "remora_exec" "plt00200" "chk00100" Barotropic_drag)
 
 #=============================================================================
 # Land on the boundary ring beside water, as in a ROMS closed basin. The gold test pins the

@@ -2767,15 +2767,6 @@ REMORA::ReadParameters ()
     pp.queryAdd("check_plot_z", check_plot_z);
     pp.queryAdd("check_plot_z_tol", check_plot_z_tol);
 
-    // Advance and timeStepML form the fast step as dt / ndtfast, and set_weights sizes
-    // the barotropic filter with the same number, so a non-positive value divides by zero
-    // at all three sites. Nothing can infer it: dt is not known until run time on a
-    // CFL-driven run.
-    if (ndtfast <= 0) {
-        amrex::Abort("remora.ndtfast must be a positive integer: it is the number of "
-                     "barotropic steps taken per baroclinic step");
-    }
-
     // remora.use_barotropic has been removed -- the barotropic mode is always on. Reject
     // it on presence rather than on value: amrex does not abort on unused inputs by
     // default, so a stale "= false" would otherwise silently run different physics than
@@ -3002,6 +2993,28 @@ REMORA::ReadParameters ()
         pp_amr.queryAdd("regrid_int", regrid_int);
     }
     solverChoice.init_params(ncons, nscalar, cons_names);
+
+    if (!solverChoice.solve3d) {
+        ndtfast = 1;
+        if (max_level > 0) {
+            amrex::Abort("remora.solve3d = false currently requires amr.max_level = 0");
+        }
+        if (solverChoice.bottom_stress_type == BottomStressType::logarithmic) {
+            amrex::Abort("remora.solve3d = false supports linear or quadratic bottom stress");
+        }
+        if (solverChoice.eminusp_correct_ssh) {
+            amrex::Abort("remora.solve3d = false does not support remora.eminusp_correct_ssh");
+        }
+        if (amrex::ParallelDescriptor::IOProcessor()) {
+            amrex::Warning("The 2D-only barotropic solver is experimental");
+        }
+        if (verbose) {
+            amrex::Print() << "Solving only the 2D barotropic fields; remora.ndtfast is ignored.\n";
+        }
+    } else if (ndtfast <= 0) {
+        amrex::Abort("remora.ndtfast must be a positive integer: it is the number of "
+                     "barotropic steps taken per baroclinic step");
+    }
 
     // The biology IC source is chosen independently of ic_type, but only one of the two
     // mixed combinations works: NetCDF physics with analytic biology. The reverse has no

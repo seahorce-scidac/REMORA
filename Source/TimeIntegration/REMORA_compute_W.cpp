@@ -125,6 +125,10 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
 void
 REMORA::compute_diagnostic_omega (int lev, MultiFab& mf_omega)
 {
+    if (!solverChoice.solve3d) {
+        mf_omega.setVal(Real(0.0));
+        return;
+    }
     MultiFab mf_Huon(convert(grids[lev],IntVect(1,0,0)), dmap[lev], 1, IntVect(0));
     MultiFab mf_Hvom(convert(grids[lev],IntVect(0,1,0)), dmap[lev], 1, IntVect(0));
     set_massflux_3d(lev, mf_Huon, mf_Hvom);
@@ -149,6 +153,10 @@ REMORA::compute_diagnostic_omega (int lev, MultiFab& mf_omega)
 void
 REMORA::compute_wvel (int lev, MultiFab& mf_w)
 {
+    if (!solverChoice.solve3d) {
+        mf_w.setVal(Real(0.0));
+        return;
+    }
     MultiFab mf_omega(convert(grids[lev],IntVect(0,0,1)), dmap[lev], 1, IntVect(0));
     compute_diagnostic_omega(lev, mf_omega);
     compute_wvel(lev, mf_w, mf_omega);
@@ -162,6 +170,10 @@ REMORA::compute_wvel (int lev, MultiFab& mf_w)
 void
 REMORA::compute_wvel (int lev, MultiFab& mf_w, const MultiFab& mf_omega)
 {
+    if (!solverChoice.solve3d) {
+        mf_w.setVal(Real(0.0));
+        return;
+    }
     const int nz = Geom(lev).Domain().length(2);
     // The cubic stencil reaches three rho-levels in from each end
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(nz >= 3, "compute_wvel needs at least 3 vertical levels");
@@ -266,6 +278,8 @@ REMORA::compute_and_fill_wvel (int lev)
 void
 REMORA::update_wvel ()
 {
+    if (!solverChoice.solve3d) { return; }
+
     for (int lev = 0; lev <= finest_level; ++lev) {
         if (!wvel_current[lev]) {
             compute_and_fill_wvel(lev);
