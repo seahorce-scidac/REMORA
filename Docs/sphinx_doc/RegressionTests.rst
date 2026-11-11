@@ -606,6 +606,12 @@ assertion is that they agree and neither needs a stored reference.
 | TidalBoundary_restart           | 8 10 4   | tidal forcing continues with the same phase after a     |
 |                                 |          | checkpoint/restart (PnetCDF)                            |
 +---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary_type_abort        | 8 10 4   | an unknown ``remora.tide_type`` is rejected while the   |
+|                                 |          | inputs are read (every build)                           |
++---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary_no_pnetcdf_abort  | 8 10 4   | ``remora.tide_type = netcdf`` is rejected in a build    |
+|                                 |          | without PnetCDF (builds without PnetCDF only)           |
++---------------------------------+----------+---------------------------------------------------------+
 
 ``TidalBoundary`` compares subtidal-plus-harmonic forcing with boundary time series evaluated
 independently at each requested time. Both use Chapman/Flather on all four sides, with nonzero,
