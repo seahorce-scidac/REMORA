@@ -46,9 +46,11 @@ jobs:
           https://parallel-netcdf.github.io/Release/pnetcdf-${PNETCDF_VERSION}.tar.gz
         tar xzf pnetcdf.tar.gz
         cd pnetcdf-${PNETCDF_VERSION}
+        # The PnetCDF utilities declare enum constants named true and false, which are
+        # keywords in C23, the default C standard of the runner's GCC.
         ./configure --prefix=${PNETCDF_PREFIX} \
           --disable-fortran --disable-cxx --enable-shared \
-          CC=mpicc
+          CC=mpicc CFLAGS="-O2 -std=gnu17"
         make -j $(nproc)
         make install
 
