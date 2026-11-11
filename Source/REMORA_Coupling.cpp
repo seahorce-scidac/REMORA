@@ -1,4 +1,5 @@
 #include <REMORA.H>
+#include <REMORA_LatLonRegridMath.H>
 
 #include <AMReX_BCRec.H>
 #include <AMReX_Box.H>
@@ -491,6 +492,13 @@ REMORA::GetLandSeaMasks (const amrex::MultiFab*& mskr,
     mskv = (!vec_mskv.empty() && vec_mskv[0]) ? vec_mskv[0].get() : nullptr;
 }
 
+amrex::Real
+REMORA::GetMaxAbsGridAngle () const
+{
+    if (vec_angler.empty() || vec_angler[0] == nullptr) { return zero; }
+    return vec_angler[0]->norm0();
+}
+
 /*
  * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
  *
@@ -592,6 +600,103 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state,
         dst.setVal(zero);
         dst.ParallelCopy(tmp, 0, 0, 1);
     }
+}
+
+/*
+ * \brief Remaps the top-level ocean current onto the driver's layouts.
+ *
+ * The rho-point form is what COAWST's mct_roms_wrf.h sends to WRF (with ROMS's
+ * CURVGRID rotation), taken here from the top level of the new velocity.
+ */
+void
+REMORA::PackSurfaceCurrents (MultiFab& u_dst, MultiFab& v_dst,
+                             bool east_north_at_rho,
+                             const MultiFab* weight_u,
+                             const iMultiFab* index_u,
+                             const iMultiFab* land_u,
+                             const MultiFab* weight_v,
+                             const iMultiFab* index_v,
+                             const iMultiFab* land_v,
+                             int max_stencil_size)
+{
+    const int lev = 0;
+    const int k_sfc = cons_new[lev]->boxArray().minimalBox().bigEnd(2);
+    const DistributionMapping& dm = cons_new[lev]->DistributionMap();
+
+    // The boxes of a 3D layout flattened to k = 0, keeping their index type and order,
+    // so a box of the slab and the 3D box it came from share an MFIter index
+    auto slab_layout = [] (const BoxArray& ba3d) {
+        BoxList bl2d = ba3d.boxList();
+        for (auto& b : bl2d) { b.setRange(2, 0); }
+        return BoxArray(std::move(bl2d));
+    };
+
+    MultiFab u_src, v_src;
+    if (east_north_at_rho) {
+        const BoxArray ba_r = slab_layout(cons_new[lev]->boxArray());
+        u_src.define(ba_r, dm, 1, 0);
+        v_src.define(ba_r, dm, 1, 0);
+
+        const bool has_angle = !vec_angler.empty() && vec_angler[lev] != nullptr;
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MFIter mfi(u_src, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            auto const& u = xvel_new[lev]->const_array(mfi);
+            auto const& v = yvel_new[lev]->const_array(mfi);
+            auto const& mskr = vec_mskr[lev]->const_array(mfi);
+            auto const& angle = has_angle ? vec_angler[lev]->const_array(mfi)
+                                          : Array4<const Real>{};
+            auto const& east = u_src.array(mfi);
+            auto const& north = v_src.array(mfi);
+            ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                const Real xi  = Real(0.5) * (u(i,j,k_sfc) + u(i+1,j,k_sfc));
+                const Real eta = Real(0.5) * (v(i,j,k_sfc) + v(i,j+1,k_sfc));
+                Real e = xi, n = eta;
+                if (has_angle) {
+                    latlon_regrid::rotate_to_east_north(xi, eta, angle(i,j,0), e, n);
+                }
+                east(i,j,0)  = e * mskr(i,j,0);
+                north(i,j,0) = n * mskr(i,j,0);
+            });
+        }
+    } else {
+        u_src.define(slab_layout(xvel_new[lev]->boxArray()), dm, 1, 0);
+        v_src.define(slab_layout(yvel_new[lev]->boxArray()), dm, 1, 0);
+
+        // The top level of each component on its own faces
+        auto copy_top = [k_sfc] (const MultiFab& vel, const MultiFab& mask, MultiFab& src) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(src, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                auto const& f = vel.const_array(mfi);
+                auto const& m = mask.const_array(mfi);
+                auto const& s = src.array(mfi);
+                ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    s(i,j,0) = f(i,j,k_sfc) * m(i,j,0);
+                });
+            }
+        };
+        copy_top(*xvel_new[lev], *vec_msku[lev], u_src);
+        copy_top(*yvel_new[lev], *vec_mskv[lev], v_src);
+    }
+
+    auto remap = [max_stencil_size] (const MultiFab& src, MultiFab& dst, const MultiFab* weight,
+                                     const iMultiFab* index, const iMultiFab* land) {
+        if (weight != nullptr && index != nullptr) {
+            // A destination point with no ocean under it gets the zero fallback: a
+            // surface at rest
+            ApplyConservativeRemap(src, dst, *weight, *index, max_stencil_size, nullptr, land);
+        } else {
+            dst.setVal(zero);
+            dst.ParallelCopy(src, 0, 0, 1);
+        }
+    };
+    remap(u_src, u_dst, weight_u, index_u, land_u);
+    remap(v_src, v_dst, weight_v, index_v, land_v);
 }
 
 /*

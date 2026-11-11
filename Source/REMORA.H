@@ -193,6 +193,11 @@ public:
                           const amrex::MultiFab*& msku,
                           const amrex::MultiFab*& mskv) const;
 
+    // Returns the largest |angle| (radians) between east and the xi axis on level 0,
+    // or 0 when the grid file carries no angle. A driver can pass currents between
+    // u-faces and v-faces of two grids only when their axes agree.
+    amrex::Real GetMaxAbsGridAngle () const;
+
     /** \brief Init (NOT restart or regrid) */
     void init_only (int lev, amrex::Real time);
 
@@ -226,6 +231,36 @@ public:
                           const amrex::iMultiFab* index_o2a_mf,
                           int max_stencil_size,
                           const amrex::iMultiFab* dst_land_mask = nullptr);
+
+    /**
+     * \brief Remaps the top-level ocean current onto the driver's layouts.
+     *
+     * With east_north_at_rho false, u is taken from the u-faces and v from the v-faces,
+     * on REMORA's grid axes. With it true, both are averaged to rho points and rotated to
+     * east and north with the grid angle (unrotated when the grid file has no angle), for
+     * a destination grid whose axes differ from REMORA's. Each component is zeroed on
+     * land before the remap.
+     *
+     * @param[inout] u_dst             x (or east) current [m/s] on the destination layout
+     * @param[inout] v_dst             y (or north) current [m/s] on the destination layout
+     * @param[in   ] east_north_at_rho average to rho points and rotate to east and north
+     * @param[in   ] weight_u          remap weights for u_dst; null for a plain copy
+     * @param[in   ] index_u           remap source indices for u_dst; null for a plain copy
+     * @param[in   ] land_u            destination land mask for u_dst (1 = land), or null
+     * @param[in   ] weight_v          remap weights for v_dst; null for a plain copy
+     * @param[in   ] index_v           remap source indices for v_dst; null for a plain copy
+     * @param[in   ] land_v            destination land mask for v_dst (1 = land), or null
+     * @param[in   ] max_stencil_size  stencil length of the weights
+     */
+    void PackSurfaceCurrents (amrex::MultiFab& u_dst, amrex::MultiFab& v_dst,
+                              bool east_north_at_rho,
+                              const amrex::MultiFab* weight_u,
+                              const amrex::iMultiFab* index_u,
+                              const amrex::iMultiFab* land_u,
+                              const amrex::MultiFab* weight_v,
+                              const amrex::iMultiFab* index_v,
+                              const amrex::iMultiFab* land_v,
+                              int max_stencil_size);
 
     /**
      * \brief Receives atmospheric states from the driver and applies unit conversions.
