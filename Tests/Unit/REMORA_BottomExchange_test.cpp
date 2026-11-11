@@ -245,6 +245,7 @@ int main (int argc, char** argv)
         require_close("dye",final[3],q>=0 ? initial[3]+added*incoming_dye*(spatial ? Real(0.5) : Real(1)) : Real(2)*final[0]);
         require_close("u momentum",final[4],q>=0 ? initial[4] : Real(0.05)*final[0],Real(2.e-8));
         for (int lev=0;lev<=ocean.finestLevel();++lev) {
+            ocean.compute_wvel(lev, *ocean.zvel_new[lev]);
             MultiFab bottom(ocean.vec_mskr[lev]->boxArray(),ocean.cons_new[lev]->DistributionMap(),3,0);
             ocean.PackBottomState(lev,bottom);
             require_close("bottom temperature",bottom.min(0),10);
