@@ -5,9 +5,6 @@
 #include <AMReX_Interpolater.H>
 #include <AMReX_Reduce.H>
 #include <AMReX_BCUtil.H>
-#ifdef REMORA_USE_NETCDF
-#include <REMORA_NCFile.H>
-#endif
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -101,17 +98,13 @@ void REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
         m_bottom_raw = std::make_unique<MultiFab>(ba, dm, nc, ng);
         m_bottom_base_transport = std::make_unique<MultiFab>(ba, dm, nc, ng);
 #ifdef REMORA_USE_NETCDF
-        m_bottom_series.clear(); m_bottom_file_fields.clear(); m_bottom_file_kind.clear();
+        m_bottom_series.clear();
+        m_bottom_file_fields.clear();
 #endif
     }
     const Real sample_time = time + Real(0.5)*dt_lev;
-    bool changing = solverChoice.bottom_exchange_type == BottomExchangeType::analytic;
-#ifdef REMORA_USE_NETCDF
-    if (solverChoice.bottom_exchange_type == BottomExchangeType::netcdf) {
-        changing = m_bottom_file_kind.empty() || std::any_of(m_bottom_series.begin(),
-            m_bottom_series.end(), [] (const auto& series) { return bool(series); });
-    }
-#endif
+    const bool changing = solverChoice.bottom_exchange_type == BottomExchangeType::analytic ||
+                          solverChoice.bottom_exchange_type == BottomExchangeType::netcdf;
     if (GetBottomExchangeTransport(lev) &&
         (!changing || m_bottom_level_times[lev] == sample_time)) { return; }
     Vector<BCRec> bcs(nc);
@@ -133,51 +126,24 @@ void REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
         }
 #ifdef REMORA_USE_NETCDF
         else if (solverChoice.bottom_exchange_type == BottomExchangeType::netcdf) {
-            if (m_bottom_file_kind.empty()) {
-                m_bottom_file_kind.resize(nc, 0);
+            if (m_bottom_series.empty()) {
                 m_bottom_series.resize(nc);
                 m_bottom_file_fields.resize(nc);
-                for (int n=0; n<nc; ++n) {
+                for (int n = 0; n < nc; ++n) {
                     const std::string name = n == 0 ? "bottom_q" : "bottom_" + cons_names[n-1];
-                    int kind = 0;
-                    auto file = ncutils::NCFile::open(solverChoice.bottom_exchange_files[0], NC_NOCLOBBER);
-                    if (file.has_var(name)) {
-                        const auto shape = file.var(name).shape();
-                        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(shape.size() == 2 || shape.size() == 3,
-                            "Bottom variable " + name + " must have shape ([time,] eta_rho, xi_rho)");
-                        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(shape[shape.size()-2] == geom[0].Domain().length(1)+2 &&
-                            shape.back() == geom[0].Domain().length(0)+2,
-                            "Bottom forcing must use model rho dimensions including the ROMS boundary ring");
-                        kind = shape.size() == 2 ? 1 :
-                            (shape[0] == 1 && solverChoice.bottom_exchange_files.size() == 1 ? 2 : 3);
+                    if (n > 0 && !NCTimeSeries::has_field(solverChoice.bottom_exchange_files, name)) {
+                        continue;
                     }
-                    file.close();
-                    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(n != 0 || kind != 0, "Bottom file is missing bottom_q");
-                    m_bottom_file_kind[n] = kind;
-                    if (kind == 0) { continue; } // Explicit deck constant, validated on inflow below.
                     m_bottom_file_fields[n] = std::make_unique<MultiFab>(ba, dm, 1, ng);
-                    if (kind == 3) {
-                        m_bottom_series[n] = std::make_unique<NCTimeSeries>(solverChoice.bottom_exchange_files,
-                            name, solverChoice.bottom_time_name, geom[0].Domain(),
-                            m_bottom_file_fields[n].get(), true, false, solverChoice.time_ref);
-                        m_bottom_series[n]->Initialize();
-                    } else {
-                        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(solverChoice.bottom_exchange_files.size() == 1,
-                            "Static bottom forcing uses one file");
-                        FArrayBox fab;
-                        Vector<FArrayBox*> fabs{&fab};
-                        Vector<std::string> names{name};
-                        Vector<NC_Data_Dims_Type> dims{kind == 1 ? NC_Data_Dims_Type::SN_WE : NC_Data_Dims_Type::Time_SN_WE};
-                        BuildFABsFromNetCDFFile<FArrayBox,Real>(geom[0].Domain(),
-                            solverChoice.bottom_exchange_files[0], names, dims, fabs, kind == 2, 0);
-                        for (MFIter mfi(*m_bottom_file_fields[n]); mfi.isValid(); ++mfi) {
-                            (*m_bottom_file_fields[n])[mfi].template copy<RunOn::Device>(fab);
-                        }
-                    }
+                    m_bottom_series[n] = std::make_unique<NCTimeSeries>(
+                        solverChoice.bottom_exchange_files, name, solverChoice.bottom_time_name,
+                        geom[0].Domain(), m_bottom_file_fields[n].get(), true, false,
+                        solverChoice.time_ref);
+                    m_bottom_series[n]->Initialize();
                 }
             }
             for (int n=0; n<nc; ++n) {
-                if (m_bottom_file_kind[n] == 0) { continue; }
+                if (!m_bottom_series[n]) { continue; }
                 if (m_bottom_series[n]) {
                     m_bottom_series[n]->update_interpolated_to_time(model_time(sample_time), 0,
                         m_bottom_file_fields[n].get(), geom, ref_ratio);
