@@ -12,43 +12,20 @@ namespace {
  * cells. ROMS's put_refine2d sets the contact points it is about to read, so make every
  * component agree with the parent state just filled.
  *
- * The band is found by marking the valid region and calling FillBoundary: ghosts another box
- * on this level covers pick up a 1, so the remaining zeros are the coarse-fine and
- * domain-boundary ghosts. Domain ghosts are excluded so the physical boundary conditions,
- * applied after the FillPatch, are not overwritten.
+ * The band (REMORA::cf_ghost_band) depends on the layout alone.
  */
-void fill_ghost_kcomps (MultiFab& mf, int knew, const Geometry& geom)
+void fill_ghost_kcomps (MultiFab& mf, int knew, const iMultiFab& band)
 {
-    MultiFab valid(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
-    valid.setVal(Real(0.0));
-    valid.setVal(Real(1.0), 0, 1, 0);
-    valid.FillBoundary(geom.periodicity());
-
-    const Box dom = amrex::convert(geom.Domain(), mf.boxArray().ixType());
-
-    const bool per_x = geom.isPeriodic(0);
-    const bool per_y = geom.isPeriodic(1);
-
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Box gbx = mfi.growntilebox();
         const auto& a = mf.array(mfi);
-        const auto& v = valid.const_array(mfi);
-        const auto dlo = amrex::lbound(dom);
-        const auto dhi = amrex::ubound(dom);
+        const auto& b = band.const_array(mfi);
         ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (v(i,j,k) > Real(0.5)) { return; }
-            // Skip ghosts outside the domain only where the domain really ends. A ghost beyond
-            // a periodic edge is not a physical-boundary cell: if the level wraps onto itself
-            // the FillBoundary above already marked it valid, and if it does not -- a patch
-            // covering part of the periodic width -- it is an ordinary coarse-fine ghost that
-            // FillPatch just filled from the parent, needing the same synchronisation as any
-            // other.
-            if (!per_x && (i < dlo.x || i > dhi.x)) { return; }
-            if (!per_y && (j < dlo.y || j > dhi.y)) { return; }
+            if (!b(i,j,k)) { return; }
             const Real val = a(i,j,k,knew);
             a(i,j,k,0) = val;
             a(i,j,k,1) = val;
@@ -942,33 +919,18 @@ REMORA::advance_2d (int lev,
                          knew, 1, 0, know, dt2d, vbar_know);
             FillPatchBCs(lev, t_old[lev], *vec_zeta[lev], zeta_bc(), bdy_zeta(),
                          knew, 1, 0, know, dt2d, zeta_know);
-        } else {
-            // The last argument names the cf_2d_cache slot: within a parent step these fills
-            // repeat for the same few (component, time) pairs
-            FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),
-                      knew, false,true, 0,know, dt2d, ubar_know, {}, {}, 0);
-            FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),
-                      knew, false,true, 0,know, dt2d, vbar_know, {}, {}, 1);
-            // With the snapshot pair the coarse contribution is interpolated onto t_old[lev],
-            // which timeStep guarantees lies inside the parent's step; without it FillPatch
-            // falls back to the parent frozen at the end of that step. See roll_2d_snapshot.
-            if (cf_time_interp_zeta && int(vec_zeta_crse_old.size()) >= lev
-                && vec_zeta_crse_old[lev-1] && vec_zeta_crse_new[lev-1]) {
-                FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
-                          knew, false,false, 0,know, dt2d, zeta_know,
-                          GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new), 2);
-            } else {
-                FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
-                          knew, false,false, 0,know, dt2d, zeta_know, {}, {}, 2);
-            }
+        } else if (!replay_cf_2d_fills(lev, t_old[lev], knew, know, dt2d,
+                                       ubar_know, vbar_know, zeta_know)) {
+            fill_2d_from_parent(lev, t_old[lev], knew, know, dt2d,
+                                ubar_know, vbar_know, zeta_know);
         }
 
         // See fill_ghost_kcomps: without this the components the solver reads in the ghost
         // band lag the one FillPatch just wrote by a whole parent step.
         if (lev > 0 && cf_fill_all_kcomp) {
-            fill_ghost_kcomps(*vec_zeta[lev], knew, geom[lev]);
-            fill_ghost_kcomps(*vec_ubar[lev], knew, geom[lev]);
-            fill_ghost_kcomps(*vec_vbar[lev], knew, geom[lev]);
+            fill_ghost_kcomps(*vec_zeta[lev], knew, cf_ghost_band(lev, 2, *vec_zeta[lev]));
+            fill_ghost_kcomps(*vec_ubar[lev], knew, cf_ghost_band(lev, 0, *vec_ubar[lev]));
+            fill_ghost_kcomps(*vec_vbar[lev], knew, cf_ghost_band(lev, 1, *vec_vbar[lev]));
         }
 
         // Replace the interface faces the FillPatchers just set from the parent's ubar with
@@ -1048,4 +1010,107 @@ REMORA::advance_2d (int lev,
         }
 #endif
     }
+}
+
+/**
+ * The coarse-fine ghost band of one of a fine level's barotropic fields (slot 0 ubar, 1 vbar,
+ * 2 zeta), as fill_ghost_kcomps writes it: 1 on the ghost cells no other box of the level
+ * covers, except those beyond a non-periodic domain face, which the physical boundary
+ * conditions own. It depends only on the layout, so it is built when that changes.
+ *
+ * Covered ghosts are found by marking the valid region and calling FillBoundary: ghosts
+ * another box covers pick up a 1. A ghost beyond a periodic edge stays in the band unless so
+ * covered: if the level wraps onto itself the exchange marks it, and if it does not -- a patch
+ * covering part of the periodic width -- it is an ordinary coarse-fine ghost.
+ *
+ * @param[in] lev   fine level
+ * @param[in] slot  field: 0 ubar, 1 vbar, 2 zeta
+ * @param[in] mf    the field, for its layout
+ */
+const iMultiFab&
+REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
+{
+    if (int(cf_band.size()) <= lev) { cf_band.resize(lev+1); }
+    std::unique_ptr<iMultiFab>& band = cf_band[lev][slot];
+    if (band && band->boxArray() == mf.boxArray() && band->DistributionMap() == mf.DistributionMap()
+             && band->nGrowVect() == mf.nGrowVect()) {
+        return *band;
+    }
+
+    const Geometry& gm = geom[lev];
+    iMultiFab covered(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
+    covered.setVal(0);
+    covered.setVal(1, 0, 1, 0);
+    covered.FillBoundary(gm.periodicity());
+
+    band = std::make_unique<iMultiFab>(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
+
+    const Box dom = amrex::convert(gm.Domain(), mf.boxArray().ixType());
+    const auto dlo = amrex::lbound(dom);
+    const auto dhi = amrex::ubound(dom);
+    const bool per_x = gm.isPeriodic(0);
+    const bool per_y = gm.isPeriodic(1);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(*band, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const auto& b  = band->array(mfi);
+        const auto& cv = covered.const_array(mfi);
+        ParallelFor(mfi.growntilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            const bool outside = (!per_x && (i < dlo.x || i > dhi.x))
+                              || (!per_y && (j < dlo.y || j > dhi.y));
+            b(i,j,k) = (cv(i,j,k) == 0 && !outside) ? 1 : 0;
+        });
+    }
+    return *band;
+}
+
+/**
+ * The barotropic fills of a fine level in advance_2d, one FillPatch each: ubar and vbar with
+ * FillSet, zeta without, component knew at time.
+ *
+ * @param[in] lev        fine level
+ * @param[in] time       fill time
+ * @param[in] knew       component to fill
+ * @param[in] know       component the boundary conditions read
+ * @param[in] dt2d       barotropic step the boundary conditions use
+ * @param[in] ubar_know  component know of ubar, for the boundary conditions
+ * @param[in] vbar_know  component know of vbar
+ * @param[in] zeta_know  component know of zeta
+ */
+void
+REMORA::fill_2d_from_parent (int lev, Real time, int knew, int know, Real dt2d,
+                             const MultiFab& ubar_know, const MultiFab& vbar_know,
+                             const MultiFab& zeta_know)
+{
+    // The last argument names the cf_2d_cache slot: within a parent step these fills
+    // repeat for the same few (component, time) pairs
+    FillPatch(lev, time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),
+              knew, false,true, 0,know, dt2d, ubar_know, {}, {}, 0);
+    FillPatch(lev, time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),
+              knew, false,true, 0,know, dt2d, vbar_know, {}, {}, 1);
+    // With the snapshot pair the coarse contribution is interpolated onto the fill time,
+    // which timeStep guarantees lies inside the parent's step; without it FillPatch falls
+    // back to the parent frozen at the end of that step. See roll_2d_snapshot.
+    if (zeta_fill_from_snapshots(lev)) {
+        FillPatch(lev, time, *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
+                  knew, false,false, 0,know, dt2d, zeta_know,
+                  GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new), 2);
+    } else {
+        FillPatch(lev, time, *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
+                  knew, false,false, 0,know, dt2d, zeta_know, {}, {}, 2);
+    }
+}
+
+/**
+ * @param[in] lev  fine level
+ * @return true once the parent has stored the snapshot pair and remora.cf_time_interp_zeta is on
+ */
+bool
+REMORA::zeta_fill_from_snapshots (int lev) const
+{
+    return cf_time_interp_zeta && int(vec_zeta_crse_old.size()) >= lev
+        && vec_zeta_crse_old[lev-1] && vec_zeta_crse_new[lev-1];
 }

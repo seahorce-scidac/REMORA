@@ -45,6 +45,9 @@ public:
 
     int GetSetMaskVal () { return m_set_mask; }
 
+    /** \brief how many times coarse data has been registered or the patcher defined */
+    [[nodiscard]] long RegCount () const { return m_reg_count; }
+
     int GetRelaxMaskVal () { return m_relax_mask; }
 
     amrex::iMultiFab* GetMask () { return m_cf_mask.get(); }
@@ -53,6 +56,18 @@ public:
     template <typename BC>
     void FillSet (amrex::MultiFab& mf, amrex::Real time,
                   BC& cbc, amrex::Vector<amrex::BCRec> const& bcs);
+
+    /** \brief FillSet without a coarse boundary condition, keeping the values it writes so
+     *  that the next call for the same time and registered data replays them; with check,
+     *  a replay also interpolates and aborts if the two differ */
+    void FillSetKept (amrex::MultiFab& mf, amrex::Real time,
+                      amrex::Vector<amrex::BCRec> const& bcs, bool check);
+
+    /** \brief Whether the set region's values depend on the registered coarse data alone. */
+    bool SetValuesFromCoarseOnly ();
+
+    /** \brief Drop what FillSetKept keeps */
+    void ClearKept () { m_kept.reset(); m_kept_reg = -1; }
 
     /** \brief Fill fine data in the relax region */
     template <typename BC>
@@ -83,6 +98,15 @@ private:
     amrex::Real m_dt_crse;
     int m_set_mask{2};
     int m_relax_mask{1};
+
+    /** \brief bumped by every RegisterCoarseData and Define */
+    long m_reg_count{0};
+    /** \brief what FillSetKept last wrote, for registration m_kept_reg at time m_kept_time */
+    std::unique_ptr<amrex::MultiFab> m_kept;
+    long m_kept_reg{-1};
+    amrex::Real m_kept_time{0};
+    /** \brief SetValuesFromCoarseOnly for the current layout: -1 not yet known, else 0 or 1 */
+    int m_set_pure{-1};
 };
 
 /**

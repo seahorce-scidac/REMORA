@@ -371,12 +371,14 @@ REMORA::WriteAtIntermediateTime(int step, amrex::Real cur_time)
         last_plot_file_time = cur_time;
         WritePlotFile(step+1);
         history_count++;
+        levels_averaged_down = false;
     }
 
     if (checkpoint_due(step, cur_time)) {
         last_check_file_step = step+1;
         last_check_file_time = cur_time;
         WriteCheckpointFile();
+        levels_averaged_down = false;
     }
 }
 
@@ -406,8 +408,9 @@ REMORA::update_wvel_before_checkpoint_step (int step, Real cur_time, Real stop_e
     const Real time_after = cur_time + dt[0];
     const bool last_step = step+1 >= max_step
                            || time_after >= stop_elapsed - Real(1.e-6)*dt[0];
-    if (checkpoint_due(step, time_after) ||
-        (last_step && (check_int > 0 || check_int_time > zero))) {
+    wvel_every_substep = checkpoint_due(step, time_after) ||
+                         (last_step && (check_int > 0 || check_int_time > zero));
+    if (wvel_every_substep) {
         update_wvel();
     }
 }
@@ -481,13 +484,21 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
     particleData.Redistribute();
 #endif
 
-    if (solverChoice.coupling_type == CouplingType::two_way)
+    // timeStep ends by averaging every level down, finest pair first, as this loop does, and
+    // says so through levels_averaged_down. With nothing in between, the fine data and the
+    // coarse values the average writes are what it left, so doing it again changes nothing.
+    // An output in between can change both (it refills ghost cells and rewrites masked
+    // cells), so then it runs. timeStepML averages coarse pair first, which with three or
+    // more levels leaves a coarse level averaged from a stale middle one, so after it this
+    // always runs.
+    if (solverChoice.coupling_type == CouplingType::two_way && !levels_averaged_down)
     {
         for (int lev = finest_level-1; lev >= 0; lev--)
         {
             AverageDownTo(lev);
         }
     }
+    levels_averaged_down = false;
 
     if (is_it_time_for_action(nstep, time, dt_lev0, sum_interval, sum_per)) {
         sum_integrated_quantities(time);

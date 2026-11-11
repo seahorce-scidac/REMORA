@@ -620,13 +620,32 @@ add_test_conservation(Advection_3L_conservation_control Advection_3L_conservatio
                       "remora.max_step=20 remora.do_reflux=0"
                       tracer 1e-6 above)
 
-# The cached coarse-fine 2D fills, checked against a recomputation on every replay
+# The cached coarse-fine fills, checked against a recomputation on every replay
 # (remora.cf_2d_fill_cache = 2 aborts on any difference): three levels with a regrid every
-# step, and a ratio-3 nest with masks.
+# step, a ratio-3 nest with masks, and a patch on the periodic seam of a domain bounded by
+# walls, the only kind in which the parent data kept during the substeps is a copy.
 add_test_run(Advection_3L_cf_fill_cache_check Advection_3L_conservation "remora_exec"
              "remora.max_step=20 remora.cf_2d_fill_cache=2")
 add_test_run(DogboneAnalytic_MLvel_cf_fill_cache_check DogboneAnalytic_MLvel "remora_exec"
              "remora.cf_2d_fill_cache=2")
+add_test_run(Channel_Test_ML_seam_cf_fill_cache_check Channel_Test_ML_seam "remora_exec"
+             "remora.cf_2d_fill_cache=2")
+# Output must not change a three-level run under the lockstep driver, which averages down
+# coarse pair first and relies on the average-down after the step
+add_test_r_selfcompare(Advection_3L_lockstep_plotint "remora_exec" "plt00007"
+                       "remora.plot_int=1" "remora.plot_int=7")
+# The same under the subcycled driver, whose post_timestep skips the average-down timeStep has
+# just done unless an output came in between. A plotfile every step lets post_timestep average
+# down after every step, one only at the end never, so the two agree only if timeStep's own
+# average-down leaves nothing for post_timestep to do.
+compose_test_input(Channel_Test_ML_seam_subcycle_plotint Channel_Test_ML_seam)
+add_test_r_selfcompare(Channel_Test_ML_seam_subcycle_plotint "remora_exec" "plt00010"
+                       "remora.plot_int=1" "remora.plot_int=10")
+# A restart of the same case from step 5 must continue it. None of what the coarse-fine fills
+# keep across the fast steps and substeps is in the checkpoint, so the restarted run has to
+# rebuild it and come out as the continuous one did.
+compose_test_input(Channel_Test_ML_seam_subcycle_restart Channel_Test_ML_seam)
+add_test_restart(Channel_Test_ML_seam_subcycle_restart "remora_exec" "plt00010" "chk00005")
 
 # The floor. Both totals are exact on one level, so the AMR bounds are measured against
 # roundoff rather than against an unknown scheme error.

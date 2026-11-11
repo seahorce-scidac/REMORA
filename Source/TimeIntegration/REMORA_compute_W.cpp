@@ -255,9 +255,11 @@ REMORA::compute_and_fill_wvel (int lev)
  * Make zvel_new hold the w of the current state on every level, as the step would have
  * left it had it formed w itself. Call before anything reads zvel_new.
  *
- * Only a single-level step leaves w stale (wvel_is_lazy). Nothing between the end of its
- * step and the next one changes what compute_wvel reads, and level 0's ghost fill depends
- * only on its valid cells, so w formed here is bitwise the w the step would have formed.
+ * A single-level step leaves w stale (wvel_is_lazy), and so does the finest level's step on
+ * the substeps of a subcycled run before the last (wvel_skip_substep). Nothing between the end
+ * of such a step and the next one changes what compute_wvel reads, nor what the ghost fill
+ * reads (the level's valid cells, and on a fine level the parent's w at both ends of its
+ * step), so w formed here is bitwise the w the step would have formed.
  * The checkpoint also writes zvel_old, the previous step's w, so Evolve calls this before a
  * step that ends with a checkpoint.
  */
