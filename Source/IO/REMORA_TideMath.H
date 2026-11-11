@@ -1,6 +1,8 @@
 #ifndef REMORA_TideMath_H
 #define REMORA_TideMath_H
 
+#include "REMORA_Constants.H"
+
 #include <cmath>
 
 /**
@@ -15,7 +17,7 @@
 inline void
 remora_tide_coefficients (double amplitude, double phase, double& cosine, double& sine)
 {
-    const double angle = std::remainder(phase, 360.0) * std::acos(-1.0) / 180.0;
+    const double angle = std::remainder(phase, 360.0) * static_cast<double>(PI) / 180.0;
     cosine = amplitude * std::cos(angle);
     sine = amplitude * std::sin(angle);
 }
@@ -30,7 +32,7 @@ remora_tide_coefficients (double amplitude, double phase, double& cosine, double
 inline double
 remora_tide_argument (double time, double epoch, double period)
 {
-    return 2.0 * std::acos(-1.0) * (std::remainder(time - epoch, period) / period);
+    return 2.0 * static_cast<double>(PI) * (std::remainder(time - epoch, period) / period);
 }
 
 #endif

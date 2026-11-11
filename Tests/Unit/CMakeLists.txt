@@ -17,6 +17,7 @@ add_executable(remora_tide_math_tests REMORA_TideMath_test.cpp)
 
 foreach (exe ${remora_unit_test_exe_name} ${remora_latlon_test_exe_name} remora_tide_math_tests)
   target_include_directories(${exe} PRIVATE
+    ${PROJECT_SOURCE_DIR}/Source
     ${PROJECT_SOURCE_DIR}/Source/Utils
     ${PROJECT_SOURCE_DIR}/Source/IO
   )

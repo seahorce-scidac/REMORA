@@ -205,16 +205,43 @@ NCTimeSeriesBoundary::InitializeTides (
     const Array<const char*, 6> side_names = {"west", "south", "", "east", "north", ""};
     Array<FArrayBox*, 6> destinations = {&xlo_dat_interp, &ylo_dat_interp, nullptr,
                                        &xhi_dat_interp, &yhi_dat_interp, nullptr};
-    Vector<std::string> names = {"tide_period", "tide_epoch"};
+    // Each variable read from the file, with what it holds and, for a boundary field, its side
+    enum class TideQuantity { period, epoch, amplitude, phase };
+    struct TideVariable {
+        std::string name;
+        TideQuantity quantity;
+        int ori;
+    };
+    Vector<TideVariable> variables = {{"tide_period", TideQuantity::period, -1},
+                                      {"tide_epoch",  TideQuantity::epoch,  -1}};
     Vector<int> orientations;
     for (int ori = 0; ori < AMREX_SPACEDIM*2; ++ori) {
         if (sides[ori] && destinations[ori] != nullptr) {
             orientations.push_back(ori);
-            names.push_back("tide_" + field_name + "_amp_" + side_names[ori]);
-            names.push_back("tide_" + field_name + "_phase_" + side_names[ori]);
+            variables.push_back({"tide_" + field_name + "_amp_" + side_names[ori],
+                                 TideQuantity::amplitude, ori});
+            variables.push_back({"tide_" + field_name + "_phase_" + side_names[ori],
+                                 TideQuantity::phase, ori});
         }
     }
     if (orientations.empty()) { return; }
+
+    Vector<std::string> names;
+    for (const auto& variable : variables) { names.push_back(variable.name); }
+    // Position in names (and so in data) of a variable
+    auto index_of = [&] (TideQuantity quantity, int ori) {
+        for (int n = 0; n < variables.size(); ++n) {
+            if (variables[n].quantity == quantity && variables[n].ori == ori) { return n; }
+        }
+        Abort("Tidal variable lookup failed");
+        return -1;
+    };
+    const int period_index = index_of(TideQuantity::period, -1);
+    const int epoch_index = index_of(TideQuantity::epoch, -1);
+
+    // Amplitude units by field; velocities also accept the ROMS spelling
+    const Vector<std::string> amplitude_units = (field_name == "zeta")
+        ? Vector<std::string>{"m"} : Vector<std::string>{"m s-1", "meter second-1"};
 
     Vector<std::string> required = names;
     required.push_back("tide_name");
@@ -235,13 +262,16 @@ NCTimeSeriesBoundary::InitializeTides (
         auto fail = [&] (const std::string& name, const std::string& reason) {
             Abort("Tidal variable '" + name + "' in " + file_name + ": " + reason);
         };
-        auto check_units = [&] (const std::string& name, const std::string& units) {
+        auto check_units = [&] (const std::string& name, const Vector<std::string>& accepted) {
             auto var = ncf.var(name);
-            if (!var.has_attr("units") || var.get_attr("units") != units) {
-                fail(name, "units must be '" + units + "'");
+            const std::string units = var.has_attr("units") ? var.get_attr("units") : "";
+            if (std::find(accepted.begin(), accepted.end(), units) == accepted.end()) {
+                std::string list;
+                for (const auto& u : accepted) { list += (list.empty() ? "'" : " or '") + u + "'"; }
+                fail(name, "units must be " + list);
             }
         };
-        const auto shape = data[0].get_vshape();
+        const auto shape = data[period_index].get_vshape();
         if (shape.size() != 1 || shape[0] < 1) {
             fail("tide_period", "expected a nonempty one-dimensional array");
         }
@@ -250,10 +280,10 @@ NCTimeSeriesBoundary::InitializeTides (
         if (label_shape.size() != 2 || label_shape[0] != nconstituents || label_shape[1] < 1) {
             fail("tide_name", "expected (tide, name_strlen), matching tide_period");
         }
-        if (!data[1].get_vshape().empty()) { fail("tide_epoch", "expected a scalar"); }
-        check_units("tide_period", "s");
-        for (int n = 0; n < names.size(); ++n) {
-            const std::string& name = names[n];
+        if (!data[epoch_index].get_vshape().empty()) { fail("tide_epoch", "expected a scalar"); }
+        for (int n = 0; n < variables.size(); ++n) {
+            const std::string& name = variables[n].name;
+            const TideQuantity quantity = variables[n].quantity;
             Vector<double> missing = {NC_FILL_DOUBLE, static_cast<double>(NC_FILL_FLOAT)};
             for (const auto& attr : {"_FillValue", "missing_value"}) {
                 if (ncf.var(name).has_attr(attr)) {
@@ -268,26 +298,30 @@ NCTimeSeriesBoundary::InitializeTides (
                     std::find(missing.begin(), missing.end(), values[p]) != missing.end()) {
                     fail(name, "values must be finite and contain no missing data");
                 }
-                if ((n == 0 && values[p] <= 0.0) ||
-                    (n >= 2 && n % 2 == 0 && values[p] < 0.0)) {
-                    fail(name, n == 0 ? "periods must be positive" : "amplitudes must be nonnegative");
+                if (quantity == TideQuantity::period && values[p] <= 0.0) {
+                    fail(name, "periods must be positive");
+                }
+                if (quantity == TideQuantity::amplitude && values[p] < 0.0) {
+                    fail(name, "amplitudes must be nonnegative");
                 }
             }
-            if (n >= 2) {
-                const int ori = orientations[(n-2)/2];
-                Box coarse_box = destinations[ori]->box();
+            if (quantity == TideQuantity::period) {
+                check_units(name, {"s"});
+            } else if (quantity == TideQuantity::amplitude || quantity == TideQuantity::phase) {
+                Box coarse_box = destinations[variables[n].ori]->box();
                 coarse_box.coarsen(IntVect(m_rx, m_ry, 1));
                 const auto field_shape = data[n].get_vshape();
                 if (field_shape.size() != 2 || field_shape[0] != nconstituents ||
                     field_shape[1] != coarse_box.numPts()) {
                     fail(name, "expected (tide, boundary_length) on the level-0 grid");
                 }
-                check_units(name, n % 2 == 0 ? (field_name == "zeta" ? "m" : "m s-1")
-                                                       : "degrees");
+                check_units(name, quantity == TideQuantity::amplitude
+                                  ? amplitude_units : Vector<std::string>{"degrees"});
             }
         }
-        tide_epoch = data[1].get_data()[0];
-        tide_periods.assign(data[0].get_data(), data[0].get_data() + nconstituents);
+        tide_epoch = data[epoch_index].get_data()[0];
+        tide_periods.assign(data[period_index].get_data(),
+                            data[period_index].get_data() + nconstituents);
     }
     ncf.close();
     const int root = ParallelDescriptor::IOProcessorNumber();
@@ -311,8 +345,8 @@ NCTimeSeriesBoundary::InitializeTides (
         FArrayBox coarse(coarse_box, 2*nconstituents, host_arena);
         const auto count = coarse_box.numPts();
         if (ParallelDescriptor::IOProcessor()) {
-            const double* amplitude = data[2+2*b].get_data();
-            const double* phase = data[3+2*b].get_data();
+            const double* amplitude = data[index_of(TideQuantity::amplitude, ori)].get_data();
+            const double* phase = data[index_of(TideQuantity::phase, ori)].get_data();
             for (int c = 0; c < nconstituents; ++c) {
                 for (Long p = 0; p < count; ++p) {
                     double cosine, sine;
