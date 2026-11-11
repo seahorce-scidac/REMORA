@@ -92,6 +92,9 @@ public:
         amrex::MultiFab& mf_cloud,
         amrex::MultiFab& mf_EminusP) override;
 
+    void bottom_exchange (int lev, amrex::Real time, const amrex::Geometry& geom,
+                          const REMORA& remora, amrex::MultiFab& q_and_concentrations) override;
+
     void init_analytic_biology (
         REMORABiology::Biology const& biology,
         REMORABiology::BiologyInitContext& context) override;
