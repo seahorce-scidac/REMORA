@@ -215,5 +215,5 @@ The adaptive case checks time-varying analytic forcing sampled at the actual
 slow-step midpoint. Budget variants and the two AMR timing modes run in separate
 processes within shared CTest entries. In MPI builds these tests run on two
 ranks through the standard test helpers.
-PNetCDF builds also test static, single-record, multi-record and multi-file
+PNetCDF builds also test steady and time-varying multi-record and multi-file
 forcing, including a physical rho ring that differs from the interior.

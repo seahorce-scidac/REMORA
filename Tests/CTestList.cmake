@@ -1046,14 +1046,14 @@ if(REMORA_BUILD_EXECUTABLES)
     set_tests_properties(BottomMissingTracer BottomExpired BottomCourant PROPERTIES
       TIMEOUT 120 LABELS "regression;bottom_exchange")
     if(REMORA_ENABLE_PNETCDF)
-      foreach(kind 1 2 3)
+      foreach(kind 3)
         add_test_bottom_exchange(BottomNetCDF${kind} remora.bottom_exchange_type=netcdf
           remora.bottom_exchange_file=bottom.nc test.file_kind=${kind})
       endforeach()
       add_test_bottom_exchange(BottomNetCDFMulti remora.bottom_exchange_type=netcdf
         "remora.bottom_exchange_file=bottom0.nc bottom1.nc" test.file_kind=4 amr.max_grid_size=4)
       add_test_bottom_exchange(BottomNetCDFRing remora.bottom_exchange_type=netcdf
-        remora.bottom_exchange_file=bottom.nc test.file_kind=1 test.ring=true
+        remora.bottom_exchange_file=bottom.nc test.file_kind=3 test.ring=true
         "remora.is_periodic=1 0 0" remora.bc.ylo.type=slipwall remora.bc.yhi.type=slipwall
         remora.prob.u_0=0 amr.max_grid_size=4)
     endif()

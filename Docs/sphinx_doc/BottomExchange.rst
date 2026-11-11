@@ -75,19 +75,22 @@ Build with PNetCDF support and set::
    remora.bottom_exchange_file = bottom.nc
    remora.bottom_time_name = bottom_time
 
-The file contains ``bottom_q`` and ``bottom_<tracer-name>``. Supported dimensions
-are ``(eta_rho, xi_rho)`` for static fields and
-``(bottom_time, eta_rho, xi_rho)`` for time series. There is no vertical dimension.
-The model rho dimensions include the ROMS boundary ring, so they are
-``(n_cell_y + 2, n_cell_x + 2)``. Supply the data on the level-0 model grid.
+The files contain ``bottom_q`` and ``bottom_<tracer-name>`` on dimensions
+``(bottom_time, eta_rho, xi_rho)``. There is no vertical dimension. The model rho
+dimensions include the ROMS boundary ring, so they are
+``(n_cell_y + 2, n_cell_x + 2)``. Supply data on the level-0 model grid and keep
+variables and dimensions consistent across the file set.
 
-A single time record is treated as constant. Time series use the existing
-``NCTimeSeries`` calendar, reference-date, cyclic-time, and interpolation rules;
-time units are days, with a reference date consistent with ``remora.time_ref``.
-Multiple files can form a time series, including single-record files. Keep the
-variables and their dimensions consistent across the file set. A tracer absent
-from the files may instead be
-supplied explicitly as ``remora.bottom_<name>``. ``bottom_q`` must be in the file.
+All fields are read through ``NCTimeSeries``. Supply at least two time records in
+total; records may be split across files. Equal values at two different times
+specify steady forcing. Static arrays and isolated single-record files are not
+supported. The constant provider is also available for steady forcing.
+
+The existing calendar, reference-date, cyclic-time and interpolation rules apply.
+Time units are days, with a reference date consistent with ``remora.time_ref``.
+A tracer absent from the files may be supplied explicitly as
+``remora.bottom_<name>``. Outflow uses ocean concentrations. ``bottom_q`` must be
+in the files.
 
 Each level samples the interpolated fields at its slow-step midpoint and holds
 the resulting transports through that slow step, including all fast barotropic
@@ -142,7 +145,7 @@ or a future remapping adapter.
 Wet masks must be consistent across refinement wherever exchange is nonzero;
 REMORA rejects a refined land cell that would discard part of a source. Regridding
 invalidates the affected exchange slabs, and each substep samples its own forcing
-time. Constant and static-file transports are reused until the layout changes;
+time. Constant transports are reused until the layout changes;
 coupled transports are reused until the snapshot or layout changes.
 Existing coarse/fine dynamics and conservation options still apply; see
 :ref:`Mesh Refinement <MeshRefinement>`.

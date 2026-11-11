@@ -1748,7 +1748,6 @@ private:
 #ifdef REMORA_USE_NETCDF
     amrex::Vector<std::unique_ptr<NCTimeSeries>> m_bottom_series;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> m_bottom_file_fields;
-    amrex::Vector<int> m_bottom_file_kind;
 #endif
 
     ///////////////////////////
