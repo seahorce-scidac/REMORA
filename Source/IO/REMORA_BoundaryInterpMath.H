@@ -34,7 +34,8 @@ cell_centered_weight (int f, int r, int& c, amrex::Real& w)
     const int num = 2*f + 1 - r;
     const int den = 2*r;
     c = (num >= 0) ? num / den : -((-num + den - 1) / den);
-    w = static_cast<amrex::Real>(num - c*den) / static_cast<amrex::Real>(den);}
+    w = static_cast<amrex::Real>(num - c*den) / static_cast<amrex::Real>(den);
+}
 
 } // namespace boundary_interp
 
