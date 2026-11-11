@@ -290,7 +290,8 @@ struct SolverChoice {
         pp.queryAdd("blk_ZT",blk_ZT);
         pp.queryAdd("blk_ZW",blk_ZW);
         pp.queryAdd("bulk_flux_relative_wind",bulk_flux_relative_wind);
-        pp.queryAdd("bulk_flux_current_factor",bulk_flux_current_factor);
+        const bool current_factor_set =
+            pp.queryAdd("bulk_flux_current_factor",bulk_flux_current_factor);
         pp.queryAdd("eminusp",eminusp);
         pp.queryAdd("eminusp_correct_ssh",eminusp_correct_ssh);
         pp.queryAdd("qair_is_percent",qair_is_percent);
@@ -401,6 +402,9 @@ struct SolverChoice {
         }
         if (bulk_flux_relative_wind and !bulk_fluxes) {
             amrex::Abort("remora.bulk_flux_relative_wind requires bulk flux parametrizations (remora.bulk_fluxes=true)");
+        }
+        if (current_factor_set and !bulk_flux_relative_wind) {
+            amrex::Abort("remora.bulk_flux_current_factor applies only with remora.bulk_flux_relative_wind=true");
         }
         if (!(bulk_flux_current_factor >= amrex::Real(0.0) &&
               bulk_flux_current_factor <= amrex::Real(1.0))) {

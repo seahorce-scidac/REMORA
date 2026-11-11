@@ -626,11 +626,17 @@ needs a reference file.
 +---------------------------------+----------+---------------------------------------------------------+
 | Advection_current_factor_abort  | 81 81 16 | a factor outside 0 to 1 is rejected                     |
 +---------------------------------+----------+---------------------------------------------------------+
+| Advection_current_factor\_      | 81 81 16 | a factor without the relative wind is rejected          |
+| unused_abort                    |          |                                                         |
++---------------------------------+----------+---------------------------------------------------------+
 
 The comparisons fail if the current or the factor is ignored, if the current is added instead of
 subtracted, or if the stress keeps the absolute wind's direction. The values are exact in binary, so
 both runs see the same relative wind to the last bit. The comparison holds for one step only: after
 it, the two currents differ by the stress the wind put into them.
+
+A uniform current is the same on every face, so these tests cannot tell which faces are averaged to
+the rho points, and the domain is periodic, so the boundary faces are not covered either.
 
 A relative wind of exactly zero is not a usable test. The stress is normalized by the wind speed
 without gustiness, as in myROMS, so as the relative wind goes to zero the stress keeps the magnitude

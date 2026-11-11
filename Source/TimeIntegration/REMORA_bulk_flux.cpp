@@ -39,6 +39,9 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
     // The COARE version of the Charnock parameter and the scalar roughness lengths, the
     // only choices myROMS's bulk_flux.F leaves to COARE_30
     const bool coare30 = (solverChoice.bulk_flux_scheme == BulkFluxScheme::coare30);
+    // Fraction of the surface current subtracted from the wind
+    const Real current_factor = solverChoice.bulk_flux_relative_wind
+                              ? solverChoice.bulk_flux_current_factor : zero;
     const BoxArray& ba = mf_cons->boxArray();
     const DistributionMapping& dm = mf_cons->DistributionMap();
     MultiFab mf_Taux(ba, dm, 1, IntVect(NGROW,NGROW,0));
@@ -75,10 +78,6 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Array4<const Real> const& uold = xvel_old[lev]->const_array(mfi);
         Array4<const Real> const& vold = yvel_old[lev]->const_array(mfi);
 
-        // Fraction of the surface current subtracted from the wind
-        const Real current_factor = solverChoice.bulk_flux_relative_wind
-                                  ? solverChoice.bulk_flux_current_factor : zero;
-
         Real Hscale = solverChoice.rho0 * Cp;
         Real Hscale2 = one / (solverChoice.rho0 * Cp);
         Real blk_ZQ = solverChoice.blk_ZQ;
@@ -111,10 +110,10 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Real cloud = cloud_arr(i,j,0);  // Cloud cover fraction [0-1]
 
             // Wind relative to the surface current at the cell centre (Bye and Wolff,
-            // 1999, J. Phys. Oceanogr. 29, 671-691). The current's ghost faces were
-            // filled at the start of the step, so every cell uses the average of its
-            // two faces, where ROMS falls back to one face on the eastern and northern
-            // boundary cells.
+            // 1999, J. Phys. Oceanogr. 29, 671-691). Every cell averages its two faces,
+            // as the mass fluxes in setup_step do; outside the domain those faces hold
+            // what the last boundary fill set. ROMS instead takes one interior face on
+            // its eastern and northern boundary points.
             Real Uair = uwind(i,j,0);
             Real Vair = vwind(i,j,0);
             if (current_factor > zero) {
