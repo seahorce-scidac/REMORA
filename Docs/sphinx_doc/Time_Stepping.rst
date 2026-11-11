@@ -8,6 +8,15 @@ Time Stepping Overview
 ======================
 While time-stepping the model, we have a stored history of the model fields at time :math:`n-1`, an estimate of the fields at the current time :math:`n`, and we need to come up with an estimate for time :math:`n+1`. For reasons of efficiency, we choose to use a split-explicit time-step, integrating the depth-integrated equations with a shorter time-step than the full 3-D equations. There is an integer ratio :math:`M` between the time-steps. The exact details of how the time-stepping is done vary from one version of ROMS to the next, with the east coast ROMS described here being older than other branches. Still, most versions have these steps:
 
+Setting ``remora.solve3d = false`` selects a standalone 2D integration. Each model
+timestep consists of one predictor and one corrector, with the first-step scheme
+used only at startup. Subsequent steps retain the free-surface, velocity and
+right-hand-side history for the leapfrog/Adams--Moulton scheme, as in ROMS
+``main2d.F``. Surface and bottom stresses enter the 2D momentum equations directly.
+Density corrections, 3D forcing, the coupling time averages and the auxiliary fast
+step are omitted. ``remora.ndtfast`` is ignored in this mode. See :ref:`sec:Inputs`
+for the experimental solver's input requirements and limitations.
+
 Great care is taken to avoid the introduction of a mode-splitting instability due to the use of shorter time steps for the depth-integrated computations.
 The mode coupling has evolved through the various ROMS versions, as shown in the figures below [from ``Shchepetkin and McWilliams (2008a)``]. The time-stepping schemes are also listed in the following table and described in detail in ``Shchepetkin and Williams (2005)`` and ``Shchepetkin and McWilliams (2009)``; the relevant ones are described in ``Time-stepping Schemes Review``. REMORA uses the Rutgers Scheme.
 

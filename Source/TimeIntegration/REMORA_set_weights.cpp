@@ -10,6 +10,11 @@ using namespace amrex;
  */
 void REMORA::set_weights (int /*lev*/) {
 
+    if (!solverChoice.solve3d) {
+        nfast = 1;
+        return;
+    }
+
     Real gamma, scale;
     Real wsum, shift, cff;
 
