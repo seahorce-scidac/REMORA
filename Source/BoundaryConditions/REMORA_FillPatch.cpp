@@ -241,7 +241,8 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                   const MultiFab& mf_calc,
                   Vector<MultiFab*> const& mfs_crse_old,
                   Vector<MultiFab*> const& mfs_crse_new,
-                  const int cf_cache_slot)
+                  const int cf_cache_slot,
+                  Interpolater* spatial_mapper)
 {
     BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
     amrex::Interpolater* mapper = nullptr;
@@ -286,7 +287,11 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         ncomp = 1;
     }
 
-    if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
+    if (spatial_mapper != nullptr)
+    {
+        mapper = spatial_mapper;
+    }
+    else if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
     {
         mapper = &cell_cons_interp;
     }

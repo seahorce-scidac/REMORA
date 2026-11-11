@@ -90,7 +90,9 @@ enum class WindType {
 };
 
 /** \brief Provider of water and advected tracers through the bed. */
-enum class BottomExchangeType { none, constant, analytic, netcdf, coupler };
+enum class BottomExchangeType {
+    none, constant, analytic, netcdf, coupler
+};
 
 /** \brief masks */
 enum class MaskType {
@@ -145,15 +147,22 @@ struct SolverChoice {
         std::string bottom_type = "none";
         pp.queryAdd("bottom_exchange_type", bottom_type);
         bottom_type = amrex::toLower(bottom_type);
-        if (bottom_type == "none") { bottom_exchange_type = BottomExchangeType::none; }
-        else if (bottom_type == "constant") { bottom_exchange_type = BottomExchangeType::constant; }
-        else if (bottom_type == "analytic") { bottom_exchange_type = BottomExchangeType::analytic; }
-        else if (bottom_type == "netcdf") { bottom_exchange_type = BottomExchangeType::netcdf; }
-        else if (bottom_type == "coupler") { bottom_exchange_type = BottomExchangeType::coupler; }
-        else { amrex::Abort("Unknown remora.bottom_exchange_type: " + bottom_type); }
+        if (bottom_type == "none") {
+            bottom_exchange_type = BottomExchangeType::none;
+        } else if (bottom_type == "constant") {
+            bottom_exchange_type = BottomExchangeType::constant;
+        } else if (bottom_type == "analytic") {
+            bottom_exchange_type = BottomExchangeType::analytic;
+        } else if (bottom_type == "netcdf") {
+            bottom_exchange_type = BottomExchangeType::netcdf;
+        } else if (bottom_type == "coupler") {
+            bottom_exchange_type = BottomExchangeType::coupler;
+        } else {
+            amrex::Abort("Unknown remora.bottom_exchange_type: " + bottom_type);
+        }
         pp.queryAdd("bottom_q", bottom_q);
         bottom_cons.assign(ncons, std::numeric_limits<amrex::Real>::quiet_NaN());
-        for (int n=0; n<ncons; ++n) {
+        for (int n = 0; n < ncons; ++n) {
             pp.query(("bottom_" + cons_names[n]).c_str(), bottom_cons[n]);
         }
         pp.queryAdd("bottom_exchange_diagnostics", bottom_exchange_diagnostics);

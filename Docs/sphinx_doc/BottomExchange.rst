@@ -169,7 +169,7 @@ there is no independently prescribed incoming TKE or GLS length scale. The
 existing particle boundary behavior remains reflecting; water exchange does
 not inject or remove Lagrangian particles.
 
-With ``remora.bottom_exchange_diagnostics = true``, each slow step reports its
+With ``remora.bottom_exchange_diagnostics = true`` and ``remora.v > 0``, each slow step reports its
 maximum source Courant number and, for GLS, the mechanical measures
 
 .. math::

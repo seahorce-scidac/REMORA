@@ -137,7 +137,13 @@ public:
      * The coupler owns remapping; REMORA copies all data and fills its own halos.
      * Times are elapsed model seconds, and a snapshot is held over [begin,end]. */
     void GetBottomExchangeLayout (amrex::BoxArray& ba, amrex::DistributionMapping& dm) const;
+    /** Names of all transported ocean-state components in storage order. */
     const amrex::Vector<std::string>& GetTracerNames () const noexcept { return cons_names; }
+    /** Look up an ocean-state component by its registry name.
+     * @param[in   ] name temperature, salinity, passive or biology tracer name
+     * @return component in the cell-centered state
+     */
+    int component_index (const std::string& name) const;
     void SetBottomExchangeData (const amrex::MultiFab& q,
                                 const amrex::MultiFab& concentrations,
                                 amrex::Real begin, amrex::Real end);
@@ -1473,7 +1479,10 @@ public:
     /** \brief Fill the physical boundary conditions for cell-centered velocity (diagnostic only) */
     void FillBdyCCVels (int lev, amrex::MultiFab& mf_cc_vel);
 
-    /** \brief Fill a new MultiFab by copying in phi from valid region and filling ghost cells */
+    /** Fill valid and ghost cells from a level hierarchy.
+     * @param[in   ] spatial_mapper optional conservative interpolation override;
+     *                             null uses the field's usual cell/face interpolater
+     */
     void FillPatch (int lev, amrex::Real time,
                     amrex::MultiFab& mf_to_be_filled,
                     amrex::Vector<amrex::MultiFab*> const& mfs,
@@ -1488,7 +1497,8 @@ public:
                     const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_old = {},
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {},
-                    const int cf_cache_slot = -1);
+                    const int cf_cache_slot = -1,
+                    amrex::Interpolater* spatial_mapper = nullptr);
 
     /** \brief Make cf_2d_cache[lev][slot] fit mf's layout: on a layout change, find the
      *  ghost cells a two-level fill of mf from crse writes (by a probe fill) and drop the
@@ -1741,6 +1751,9 @@ private:
     amrex::Vector<amrex::Real> m_bottom_level_times;
     bool m_bottom_base_ready = false;
     amrex::Real m_bottom_base_time = 0;
+    amrex::Long m_bottom_generation = 0;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> m_bottom_work;
+    amrex::Vector<amrex::Long> m_bottom_work_generation;
     std::unique_ptr<amrex::MultiFab> m_bottom_raw;
     std::unique_ptr<amrex::MultiFab> m_bottom_base_transport;
     std::unique_ptr<amrex::MultiFab> m_bottom_coupled;
