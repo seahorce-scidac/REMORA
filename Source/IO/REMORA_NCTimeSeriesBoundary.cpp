@@ -508,8 +508,14 @@ void NCTimeSeriesBoundary::read_in_at_time (amrex::FArrayBox& fab_xlo,
 }
 
 /**
+ * \brief Interpolate a level-0 boundary strip onto this level's strip.
+ *
+ * Values are interpolated linearly along the strip between the coarse points on either side
+ * of each fine point: cell centers where the strip is cell-centered along its length, nodes
+ * where it is nodal. The point across the boundary is not interpolated.
+ *
  * @param[in   ] dat_crse  fab of coarse data to interpolate from
- * @param[  out] dat_fine  fab of fine data to interpoalte to
+ * @param[  out] dat_fine  fab of fine data to interpolate to
  */
 void NCTimeSeriesBoundary::interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine)
 {

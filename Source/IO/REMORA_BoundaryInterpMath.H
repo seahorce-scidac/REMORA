@@ -30,7 +30,8 @@ void
 cell_centered_weight (int f, int r, int& c, amrex::Real& w)
 {
     // 2r times the fine center's position, measured in coarse cells from the center of
-    // coarse cell 0. Integers keep the weights exact.
+    // coarse cell 0. Integer arithmetic gives the coarse index exactly, and the weight with a
+    // single rounding.
     const int num = 2*f + 1 - r;
     const int den = 2*r;
     c = (num >= 0) ? num / den : -((-num + den - 1) / den);
