@@ -5,4 +5,3 @@ CEXE_headers += REMORA_MaskedAverageDown.H
 CEXE_headers += REMORA_BitwiseDiff.H
 CEXE_headers += REMORA_StaggeredBilinear.H
 CEXE_headers += REMORA_NonperiodicGeometry.H
-CEXE_headers += REMORA_BottomExchange.H

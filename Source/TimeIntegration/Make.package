@@ -29,3 +29,6 @@ CEXE_sources += REMORA_ComputeTimestep.cpp
 CEXE_sources += REMORA_TimeStep.cpp
 CEXE_sources += REMORA_TimeStepML.cpp
 
+
+CEXE_sources += REMORA_BottomExchange.cpp
+CEXE_headers += REMORA_BottomExchange.H
