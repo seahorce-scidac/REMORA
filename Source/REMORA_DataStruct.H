@@ -123,7 +123,9 @@ struct SolverChoice {
         if (type == "constant" || type == "const") {
             return BulkForcingType::constant;
         } else if (type == "custom") {
-            amrex::Warning((param_name + " uses 'custom'; use 'analytic' instead.").c_str());
+            if (amrex::ParallelDescriptor::IOProcessor()) {
+                amrex::Warning((param_name + " uses 'custom'; use 'analytic' instead.").c_str());
+            }
             return BulkForcingType::analytic;
         } else if (type == "analytic" || type == "analytical") {
             return BulkForcingType::analytic;
@@ -327,6 +329,9 @@ struct SolverChoice {
         pp.queryAdd("blk_ZQ",blk_ZQ);
         pp.queryAdd("blk_ZT",blk_ZT);
         pp.queryAdd("blk_ZW",blk_ZW);
+        pp.queryAdd("bulk_flux_relative_wind",bulk_flux_relative_wind);
+        const bool current_factor_set =
+            pp.queryAdd("bulk_flux_current_factor",bulk_flux_current_factor);
         pp.queryAdd("eminusp",eminusp);
         pp.queryAdd("eminusp_correct_ssh",eminusp_correct_ssh);
         pp.queryAdd("qair_is_percent",qair_is_percent);
@@ -424,7 +429,9 @@ struct SolverChoice {
         }
 
         if (bulk_flux_type[BulkFlux::LWrad] != BulkForcingType::netcdf && longwave_netcdf_varname != "lwrad") {
-            amrex::Warning("remora.longwave_netcdf_varname is set but remora.lwrad_type is not netcdf; the value will be ignored.");
+            if (amrex::ParallelDescriptor::IOProcessor()) {
+                amrex::Warning("remora.longwave_netcdf_varname is set but remora.lwrad_type is not netcdf; the value will be ignored.");
+            }
         }
 
         if (eminusp_correct_ssh and !bulk_fluxes) {
@@ -432,6 +439,16 @@ struct SolverChoice {
         }
         if (eminusp and !bulk_fluxes) {
             amrex::Abort("Evaporation minus precipitation (E-P) requires bulk flux parametrizations (remora.bulk_fluxes=true)");
+        }
+        if (bulk_flux_relative_wind and !bulk_fluxes) {
+            amrex::Abort("remora.bulk_flux_relative_wind requires bulk flux parametrizations (remora.bulk_fluxes=true)");
+        }
+        if (current_factor_set and !bulk_flux_relative_wind) {
+            amrex::Abort("remora.bulk_flux_current_factor applies only with remora.bulk_flux_relative_wind=true");
+        }
+        if (!(bulk_flux_current_factor >= amrex::Real(0.0) &&
+              bulk_flux_current_factor <= amrex::Real(1.0))) {
+            amrex::Abort("remora.bulk_flux_current_factor must be between 0 and 1");
         }
 
         const bool use_external_lwrad =
@@ -483,7 +500,9 @@ struct SolverChoice {
         if (amrex::toLower(grid_scale_type_string) == "constant") {
             grid_scale_type = GridScaleType::constant;
         } else if (amrex::toLower(grid_scale_type_string) == "custom") {
-            amrex::Warning("Initialization of grid scale from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            if (amrex::ParallelDescriptor::IOProcessor()) {
+                amrex::Warning("Initialization of grid scale from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            }
             grid_scale_type = GridScaleType::analytic;
         } else if (amrex::toLower(grid_scale_type_string) == "analytic") {
             grid_scale_type = GridScaleType::analytic;
@@ -496,18 +515,24 @@ struct SolverChoice {
         pp.queryAdd("ic_type", ic_type_string);
 
         if (found_ic_bc) {
-            amrex::Warning("remora.ic_bc_type is now called remora.ic_type, and will eventually be deprecated");
+            if (amrex::ParallelDescriptor::IOProcessor()) {
+                amrex::Warning("remora.ic_bc_type is now called remora.ic_type, and will eventually be deprecated");
+            }
         }
 
         if ( amrex::toLower(ic_type_string) == "custom") {
-            amrex::Warning("Problem initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            if (amrex::ParallelDescriptor::IOProcessor()) {
+                amrex::Warning("Problem initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            }
             ic_type = IC_Type::analytic;
         } else if ( amrex::toLower(ic_type_string) == "analytic") {
             ic_type = IC_Type::analytic;
         } else if ( amrex::toLower(ic_type_string) == "netcdf") {
             ic_type = IC_Type::netcdf;
         } else if ( amrex::toLower(ic_type_string) == "real") {
-            amrex::Warning("Problem initialization from NetCDF (remora.ic_type) is now called 'netcdf'. 'real' will be deprecated");
+            if (amrex::ParallelDescriptor::IOProcessor()) {
+                amrex::Warning("Problem initialization from NetCDF (remora.ic_type) is now called 'netcdf'. 'real' will be deprecated");
+            }
             ic_type = IC_Type::netcdf;
         } else {
             amrex::Error("Don't know this ic_type");
@@ -542,7 +567,9 @@ struct SolverChoice {
             static std::string coriolis_type_string = "beta_plane";
             pp.queryAdd("coriolis_type",coriolis_type_string);
             if ( amrex::toLower(coriolis_type_string) == "custom") {
-                amrex::Warning("Coriolis initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+                if (amrex::ParallelDescriptor::IOProcessor()) {
+                    amrex::Warning("Coriolis initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+                }
                 coriolis_type = Cor_Type::analytic;
             } else if ( amrex::toLower(coriolis_type_string) == "analytic") {
                 coriolis_type = Cor_Type::analytic;
@@ -552,7 +579,9 @@ struct SolverChoice {
             } else if ( (amrex::toLower(coriolis_type_string) == "netcdf")) {
                 coriolis_type = Cor_Type::netcdf;
             } else if ( (amrex::toLower(coriolis_type_string) == "real")) {
-                amrex::Warning("Coriolis initialization from NetCDF is now called 'netcdf'. 'real' will be deprecated");
+                if (amrex::ParallelDescriptor::IOProcessor()) {
+                    amrex::Warning("Coriolis initialization from NetCDF is now called 'netcdf'. 'real' will be deprecated");
+                }
                 coriolis_type = Cor_Type::netcdf;
             } else {
                 amrex::Abort("Don't know this coriolis_type");
@@ -562,7 +591,9 @@ struct SolverChoice {
         static std::string smflux_type_string = "analytic";
         int smflux_specified = pp.queryAdd("smflux_type",smflux_type_string);
         if ( amrex::toLower(smflux_type_string) == "custom") {
-            amrex::Warning("Surface momentum flux initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            if (amrex::ParallelDescriptor::IOProcessor()) {
+                amrex::Warning("Surface momentum flux initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            }
             smflux_type = SMFluxType::analytic;
         } else if ( amrex::toLower(smflux_type_string) == "analytic") {
             smflux_type = SMFluxType::analytic;
@@ -575,7 +606,9 @@ struct SolverChoice {
         static std::string wind_type_string = "analytic";
         int wind_specified = pp.queryAdd("wind_type",wind_type_string);
         if ( amrex::toLower(wind_type_string) == "custom") {
-            amrex::Warning("Surface wind initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            if (amrex::ParallelDescriptor::IOProcessor()) {
+                amrex::Warning("Surface wind initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            }
             wind_type = WindType::analytic;
         } else if ( amrex::toLower(wind_type_string) == "analytic") {
             wind_type = WindType::analytic;
@@ -1071,6 +1104,13 @@ struct SolverChoice {
     amrex::Real blk_ZQ = amrex::Real(10.0); // air humidity
     amrex::Real blk_ZT = amrex::Real(10.0); // air temperature
     amrex::Real blk_ZW = amrex::Real(10.0); // winds
+
+    // Use the wind relative to the surface current in the bulk fluxes (ROMS's
+    // WIND_MINUS_CURRENT), subtracting bulk_flux_current_factor times the current.
+    // A factor below 1 stands in for the atmosphere's partial response to the
+    // current in a run with prescribed winds.
+    bool bulk_flux_relative_wind = false;
+    amrex::Real bulk_flux_current_factor = amrex::Real(1.0);
 
     bool eminusp = false;
     bool eminusp_correct_ssh = false;

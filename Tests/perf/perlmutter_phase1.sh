@@ -18,6 +18,11 @@
 #   -g dir         directory holding the GS_toy*.nc Gulf Stream files; the nested case is
 #                  skipped when not given
 #   -s "NX NY NZ"  Upwelling grid                           ["512 1024 40"]
+#   -m "NX NY NZ"  also run Upwelling with a refined level (case upwnest): this coarse grid
+#                  plus a static level 1 at ratio 2 over the middle half in x and y,
+#                  two-way coupled (inputs/upwelling_ml.in); level 1 has as many cells
+#                  as the coarse level and takes 2 substeps; with "512 1024 40" every
+#                  level has 2 boxes per rank on 64 CPU ranks and 2 per GPU
 #   -t steps       steps per run                            [10]
 #   -c "RxT ..."   CPU ranks x threads configurations        ["128x1 64x2 32x4"]
 #   -T "spec ..."  extra CPU tile sizes for every revision      []
@@ -41,11 +46,11 @@ set -euo pipefail
 
 ACCOUNT=""; ARCH=both; REVS=""; BASE=""; NEW=""; WORK=""; GULF=""; SIZE="512 1024 40"
 NSTEP=10; QOS=debug; JOBS=16; SUBMIT=1; CPU_CFGS="128x1 64x2 32x4"; TILES=""; FPCONTRACT=off
-XINPUTS=""; NSYS=0; BUILD=""
-while getopts "A:a:r:b:n:w:g:s:t:q:j:Sc:T:F:x:NB:" opt; do
+XINPUTS=""; NSYS=0; BUILD=""; NEST=""
+while getopts "A:a:r:b:n:w:g:s:m:t:q:j:Sc:T:F:x:NB:" opt; do
     case $opt in
         A) ACCOUNT=$OPTARG;; a) ARCH=$OPTARG;; r) REVS=$OPTARG;; b) BASE=$OPTARG;; n) NEW=$OPTARG;;
-        w) WORK=$OPTARG;; g) GULF=$OPTARG;; s) SIZE=$OPTARG;; t) NSTEP=$OPTARG;;
+        w) WORK=$OPTARG;; g) GULF=$OPTARG;; s) SIZE=$OPTARG;; m) NEST=$OPTARG;; t) NSTEP=$OPTARG;;
         q) QOS=$OPTARG;; j) JOBS=$OPTARG;; S) SUBMIT=0;; c) CPU_CFGS=$OPTARG;; T) TILES=$OPTARG;;
         F) FPCONTRACT=$OPTARG;; x) XINPUTS=$OPTARG;; N) NSYS=1;; B) BUILD=$OPTARG;;
         *) echo "unknown option"; exit 1;;
@@ -205,17 +210,27 @@ done
 build_fcompare
 
 # ---------------------------------------------------------------- inputs
-read -r NX NY NZ <<< "$SIZE"
 # Upwelling's domain is 41 km wide and 150 m deep. The barotropic step dtfast = dt/30 is
 # limited by the fast wave c = sqrt(g*150 m) across the cell diagonal: keep its Courant
 # number dtfast*c*sqrt(2)/dx near 0.5 (ROMS blows up above about 0.8), so dtfast = 0.35 dx/c.
-DT=$(python3 -c "import math; dx=41000.0/$NX; print(round(min(50.0, 30*0.35*dx/math.sqrt(9.81*150)), 2))")
-fill () {   # fill <template> <out> MGX MGY
-    sed -e "s/@NSTEP@/$NSTEP/g" -e "s/@NX@/$NX/g" -e "s/@NY@/$NY/g" -e "s/@NZ@/$NZ/g" \
-        -e "s/@MGX@/$3/g" -e "s/@MGY@/$4/g" -e "s/@DT@/$DT/g" "$1" > "$2"
+# A refined level substeps at its ratio, so its Courant number is the coarse one.
+fill () {   # fill <template> <out> MGX MGY "NX NY NZ"
+    local nx ny nz dt; read -r nx ny nz <<< "$5"
+    dt=$(python3 -c "import math; dx=41000.0/$nx; print(round(min(50.0, 30*0.35*dx/math.sqrt(9.81*150)), 2))")
+    sed -e "s/@NSTEP@/$NSTEP/g" -e "s/@NX@/$nx/g" -e "s/@NY@/$ny/g" -e "s/@NZ@/$nz/g" \
+        -e "s/@MGX@/$3/g" -e "s/@MGY@/$4/g" -e "s/@DT@/$dt/g" "$1" > "$2"
 }
-fill "$HERE/inputs/upwelling_perf.in" "$WORK/runs/upwelling_cpu.in" 128 128
-fill "$HERE/inputs/upwelling_perf.in" "$WORK/runs/upwelling_gpu.in" 256 256
+fill "$HERE/inputs/upwelling_perf.in" "$WORK/runs/upwelling_cpu.in" 128 128 "$SIZE"
+fill "$HERE/inputs/upwelling_perf.in" "$WORK/runs/upwelling_gpu.in" 256 256 "$SIZE"
+if [ -n "$NEST" ]; then
+    # 64x64 on CPU: with 128x128 the coarse level of "512 1024 40" has 32 boxes, so most
+    # ranks of a CPU node would own none and wait in its exchanges
+    for a in cpu:64 gpu:256; do
+        f=$WORK/runs/upwnest_${a%%:*}.in
+        fill "$HERE/inputs/upwelling_perf.in" "$f" ${a#*:} ${a#*:} "$NEST"
+        cat "$HERE/inputs/upwelling_ml.in" >> "$f"
+    done
+fi
 if [ -n "$GULF" ]; then
     sed -e "s/@NSTEP@/$((NSTEP*5))/g" "$HERE/inputs/gulf_perf.in" > "$WORK/runs/gulf.in"
 fi
@@ -287,6 +302,15 @@ for cfg in $CPU_CFGS; do
     run_set cpu upwelling $WORK/runs/upwelling_cpu.in \$cfg "srun -n \$R -c \$((256/R)) --cpu-bind=cores"
 done
 EOF
+if [ -n "$NEST" ]; then
+cat >> "$cpu_job" <<EOF
+for cfg in $CPU_CFGS; do
+    R=\${cfg%x*}; T=\${cfg#*x}
+    export OMP_NUM_THREADS=\$T
+    run_set cpu upwnest $WORK/runs/upwnest_cpu.in \$cfg "srun -n \$R -c \$((256/R)) --cpu-bind=cores"
+done
+EOF
+fi
 if [ -n "$GULF" ]; then
 cat >> "$cpu_job" <<EOF
 cd $GULF
@@ -335,6 +359,11 @@ $(common_body)
 SRUN="srun -n 4 --cpus-per-task=32 --cpu-bind=cores $WORK/gpu_wrap.sh"
 run_set gpu upwelling $WORK/runs/upwelling_gpu.in 4gpu "\$SRUN" amrex.use_gpu_aware_mpi=1
 EOF
+if [ -n "$NEST" ]; then
+cat >> "$gpu_job" <<EOF
+run_set gpu upwnest $WORK/runs/upwnest_gpu.in 4gpu "\$SRUN" amrex.use_gpu_aware_mpi=1
+EOF
+fi
 if [ -n "$GULF" ]; then
 cat >> "$gpu_job" <<EOF
 cd $GULF
@@ -347,16 +376,16 @@ fi
 if [ $NSYS = 1 ]; then
 cat > "$WORK/nsys_runs.sh" <<'NSYS_EOF'
 #!/bin/bash
-# nsys_runs.sh <work dir> <inputs> "<revision labels>" "<extra inputs>"
-# Writes runs/gpu_upwelling_4gpu_<label>_nsys/profile.nsys-rep (open it in the Nsight Systems
+# nsys_runs.sh <work dir> <inputs> "<revision labels>" "<extra inputs>" [case]
+# Writes runs/gpu_<case>_4gpu_<label>_nsys/profile.nsys-rep (case defaults to upwelling) (open it in the Nsight Systems
 # GUI for the timeline), CSV summaries of GPU kernels, CUDA API calls and NVTX ranges
 # (stats_*.csv), and prints the ten costliest kernels of each revision.
-W=$1 inp=$2 labels=$3 xin=$4
+W=$1 inp=$2 labels=$3 xin=$4 case=${5:-upwelling}
 SRUN="srun -n 4 --cpus-per-task=32 --cpu-bind=cores $W/gpu_wrap.sh"
 module load cudatoolkit 2>/dev/null || true
 command -v nsys > /dev/null || { echo "nsys not found; load the cudatoolkit module"; exit 1; }
 for v in $labels; do
-    out=$W/runs/gpu_upwelling_4gpu_${v}_nsys; mkdir -p "$out"
+    out=$W/runs/gpu_${case}_4gpu_${v}_nsys; mkdir -p "$out"
     echo "=== nsys $v  $(date +%T)"
     # bounded, so one slow profile cannot use up the job: NSYS_TIMEOUT seconds per revision
     NSYS_OUT=$out/profile timeout ${NSYS_TIMEOUT:-600} $SRUN "$W/bin/remora_${v}_gpu" "$inp" remora.plot_int=-1 \
@@ -386,6 +415,10 @@ chmod +x "$WORK/nsys_runs.sh"
 labels=""; for t in $GPU_VARIANTS; do labels="$labels ${t%%:*}"; done
 printf 'bash %s/nsys_runs.sh %s %s/runs/upwelling_gpu.in "%s" "%s"\n' \
     "$WORK" "$WORK" "$WORK" "$labels" "$XINPUTS" >> "$gpu_job"
+if [ -n "$NEST" ]; then
+    printf 'bash %s/nsys_runs.sh %s %s/runs/upwnest_gpu.in "%s" "%s" upwnest\n' \
+        "$WORK" "$WORK" "$WORK" "$labels" "$XINPUTS" >> "$gpu_job"
+fi
 fi
 
 echo "job scripts: $cpu_job $gpu_job"

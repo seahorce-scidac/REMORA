@@ -10,12 +10,12 @@ The regression suite runs as part of every PR on a range of architectures. It in
 * 6 that compare two runs of the model against each other, or a run against its own initial state, and
   need no reference;
 * 5 that assert values against an external reference;
-* 5 that assert the structure of the refined grid;
+* 8 that assert the structure of the refined grid;
 * 8 that assert how far an integrated quantity drifts over a run;
 * 8 that assert a run reaches a behavior it reports in its log;
-* 9 that assert a misconfigured input fails for the stated reason.
+* 11 that assert a misconfigured input fails for the stated reason.
 
-The unit tests are ``DateClock``, ``LatLonRegrid`` and ``BiologyInterface``. The bottom
+The unit tests are ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp``, and ``BiologyInterface``. The bottom
 exchange column tests add self-checking water, tracer and momentum budgets.
 The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
@@ -278,10 +278,9 @@ snapshotted. Asserting the dye is zero alongside them is what catches a regressi
 ``Bio_comp = Tracer_comp + remora.nscalar`` offset, which would shift a biology tracer into the dye slot.
 
 The two ``DogboneAnalytic_MLmask`` lanes also assert where level 1 is. The static box spans the full
-width of the domain in y, 0 to 750, and the coasts run through it, so the whole box must be refined,
-land included, rather than clipped back to the water (which once gave y in [250, 500]). The ratio-2 lane
-covers the same fix on the other refinement-ratio path: there the grids go from three clipped boxes to
-two full-box grids, which a stationarity comparison alone cannot see.
+width of the domain in y, 0 to 750, and the coasts run through it; the basins at its two ends are water
+from edge to edge, so level 1 must still reach both edges. Which of the box's cells are refined is
+asserted by the ``_boxwater`` tests under :ref:`sec:ci-tagging-tests`.
 
 .. _sec:ci-tagging-tests:
 
@@ -291,7 +290,7 @@ Refinement tagging tests
 Grid structure is the only place a tagging bug shows: a criterion that has stopped tagging, or one that
 has started tagging the coastline, still writes a self-consistent plotfile that a snapshot comparison
 accepts. These lanes assert the grid itself instead -- which levels exist, or how many cells a level
-covers -- using ``adjacent_difference_greater`` criteria on the Dogbone case at ratio 3.
+covers -- using ``adjacent_difference_greater`` criteria and static boxes on the Dogbone case.
 
 +---------------------------------+----------+---------------------------------------------------------+
 | Test                            | nx ny nz | What it asserts                                         |
@@ -311,6 +310,22 @@ covers -- using ``adjacent_difference_greater`` criteria on the Dogbone case at 
 |                                 |          | of both cells sharing the face, not by the cell's own:  |
 |                                 |          |                                                         |
 |                                 |          | level 1 covers exactly 6480 cells                       |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmask_boxwater | 42 15 16 | a static box across the coast tags only its water: of   |
+|                                 |          |                                                         |
+|                                 |          | its 240 level-0 cells the 100 wet ones are refined,     |
+|                                 |          |                                                         |
+|                                 |          | 14400 level-1 cells at ratio 3                          |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmask_rr2\_    | 42 15 16 | the same at ratio 2: 6400 cells                         |
+| boxwater                        |          |                                                         |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmask_boxland  | 42 15 16 | with ``tag_land`` the same box is refined in full,      |
+|                                 |          |                                                         |
+|                                 |          | land included: 34560 cells                              |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLcoasttag\_    | 42 15 16 | ``tag_land`` on a field criterion is rejected           |
+| tagland_abort                   |          |                                                         |
 +---------------------------------+----------+---------------------------------------------------------+
 
 ``MLcoastskip`` and ``MLcoasttag`` are a pair: ``MLcoastskip`` catches a guard that has stopped skipping
@@ -550,6 +565,16 @@ assertion is that they agree and neither needs a stored reference.
 |                                 |          |                                                         |
 |                                 |          | tracers is rejected, naming the input it wants          |
 +---------------------------------+----------+---------------------------------------------------------+
+| BC_normal_velocity_own_type     | 54 108 4 | an East slip wall for ``u`` and ``ubar`` acts the same  |
+|                                 |          |                                                         |
+|                                 |          | whether ``v`` and ``vbar`` are outflow or slip walls,   |
+|                                 |          |                                                         |
+|                                 |          | since both give the tangential component ``foextrap``   |
++---------------------------------+----------+---------------------------------------------------------+
+| BC_flather_no_zeta_data         | 54 108 4 | a Flather side whose ``zeta`` condition reads no        |
+|                                 |          |                                                         |
+|                                 |          | boundary file data is rejected, naming the side         |
++---------------------------------+----------+---------------------------------------------------------+
 
 ``BC_per_variable`` runs both inputs in its test directory and compares the two plotfiles. All four sides
 carry a different condition -- inflow, noslipwall, outflow, slipwall going West, South, East, North -- so
@@ -613,6 +638,50 @@ passive tracer and horizontal momentum. No gold files are required.
 
 The three NetCDF tests require PNetCDF. MPI builds run the integration cases on
 two ranks. See :ref:`Testing` for the inventory formulas and tolerances.
+.. _sec:ci-relative-wind-tests:
+
+Relative wind tests
+-------------------
+
+These cover **remora.bulk_flux_relative_wind** and **remora.bulk_flux_current_factor** on the
+``Advection`` case with a uniform current of (0.5, 0.25) m/s. Each runs one step twice, once with the
+relative wind and once with the absolute wind less the subtracted part of the current. Both runs start
+from the same current, so on that step they see the same relative wind and must agree, and neither
+needs a reference file.
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Advection_wind_minus_current    | 81 81 16 | the relative wind under (5.5, 1.25) m/s acts as the     |
+|                                 |          |                                                         |
+|                                 |          | absolute wind under (5, 1) m/s                          |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_wind_minus_current\_  | 81 81 16 | with a factor of 0.5, the relative wind under           |
+| factor                          |          |                                                         |
+|                                 |          | (5.25, 1.125) m/s acts as the absolute wind under       |
+|                                 |          |                                                         |
+|                                 |          | (5, 1) m/s                                              |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_wind_minus_current\_  | 81 81 16 | the relative wind without bulk fluxes is rejected       |
+| no_bulk_abort                   |          |                                                         |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_current_factor_abort  | 81 81 16 | a factor outside 0 to 1 is rejected                     |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_current_factor\_      | 81 81 16 | a factor without the relative wind is rejected          |
+| unused_abort                    |          |                                                         |
++---------------------------------+----------+---------------------------------------------------------+
+
+The comparisons fail if the current or the factor is ignored, if the current is added instead of
+subtracted, or if the stress keeps the absolute wind's direction. The values are exact in binary, so
+both runs see the same relative wind to the last bit. The comparison holds for one step only: after
+it, the two currents differ by the stress the wind put into them.
+
+A uniform current is the same on every face, so these tests cannot tell which faces are averaged to
+the rho points, and the domain is periodic, so the boundary faces are not covered either.
+
+A relative wind of exactly zero is not a usable test. The stress is normalized by the wind speed
+without gustiness, as in myROMS, so as the relative wind goes to zero the stress keeps the magnitude
+the gustiness gives it and takes the direction of whatever round-off remains.
 
 Nightly Regression Tests on CPU
 -------------------------------

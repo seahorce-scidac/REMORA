@@ -1183,6 +1183,10 @@ remora.refinement_indicators_.start_time = <UNKNOWN_DEFAULT>
 remora.refinement_indicators_.start_total_time = <UNKNOWN_DEFAULT>
 
 # source: Source/REMORA_Tagging.cpp
+# type=bool; method=query
+remora.refinement_indicators_.tag_land = false
+
+# source: Source/REMORA_Tagging.cpp
 # type=Real; method=getarr
 remora.refinement_indicators_.value_greater = <REQUIRED>
 

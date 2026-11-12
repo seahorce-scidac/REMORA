@@ -3,6 +3,9 @@
 using namespace amrex;
 
 /**
+ * Corresponds to bulk_flux.F. With remora.bulk_flux_relative_wind, the wind is taken
+ * relative to the top-level current at the old time, as with ROMS's WIND_MINUS_CURRENT.
+ *
  * @param[in   ] lev            level to operate on
  * @param[in   ] mf_cons        scalar data: temperature, salinity, passsive scalar, etc
  * @param[in   ] mf_uwind       u-direction wind dvelocity
@@ -36,6 +39,9 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
     // The COARE version of the Charnock parameter and the scalar roughness lengths, the
     // only choices myROMS's bulk_flux.F leaves to COARE_30
     const bool coare30 = (solverChoice.bulk_flux_scheme == BulkFluxScheme::coare30);
+    // Fraction of the surface current subtracted from the wind
+    const Real current_factor = solverChoice.bulk_flux_relative_wind
+                              ? solverChoice.bulk_flux_current_factor : zero;
     const BoxArray& ba = mf_cons->boxArray();
     const DistributionMapping& dm = mf_cons->DistributionMap();
     MultiFab mf_Taux(ba, dm, 1, IntVect(NGROW,NGROW,0));
@@ -69,6 +75,8 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Array4<const Real> const& rain  = vec_rain[lev]->const_array(mfi);
         Array4<const Real> const& EminusP = vec_EminusP[lev]->const_array(mfi);
         Array4<const Real> const& cloud_arr = vec_cloud[lev]->const_array(mfi);
+        Array4<const Real> const& uold = xvel_old[lev]->const_array(mfi);
+        Array4<const Real> const& vold = yvel_old[lev]->const_array(mfi);
 
         Real Hscale = solverChoice.rho0 * Cp;
         Real Hscale2 = one / (solverChoice.rho0 * Cp);
@@ -101,8 +109,20 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Real srflux = srflx_arr(i,j,0); // Shortwave radiation flux [W/m²]
             Real cloud = cloud_arr(i,j,0);  // Cloud cover fraction [0-1]
 
+            // Wind relative to the surface current at the cell centre (Bye and Wolff,
+            // 1999, J. Phys. Oceanogr. 29, 671-691). Every cell averages its two faces,
+            // as the mass fluxes in setup_step do; outside the domain those faces hold
+            // what the last boundary fill set. ROMS instead takes one interior face on
+            // its eastern and northern boundary points.
+            Real Uair = uwind(i,j,0);
+            Real Vair = vwind(i,j,0);
+            if (current_factor > zero) {
+                Uair -= current_factor * Real(0.5) * (uold(i,j,N) + uold(i+1,j,N));
+                Vair -= current_factor * Real(0.5) * (vold(i,j,N) + vold(i,j+1,N));
+            }
+
             // Input bulk parametrization fields
-            Real wind_mag = std::sqrt(uwind(i,j,0)*uwind(i,j,0) + vwind(i,j,0) * vwind(i,j,0));
+            Real wind_mag = std::sqrt(Uair*Uair + Vair*Vair);
             Real TseaK = cons(i,j,N,Temp_comp) + Real(273.16);
 
             // Initialize
@@ -366,8 +386,8 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             // rhoAir*(Wstar^2+Taur/rhoAir); this form does not divide by rhoAir, which
             // is 0 where the air pressure is (land fill values)
             cff=(rhoAir*Wstar*Wstar+Taur)/(wind_mag+eps);
-            Taux(i,j,0)=cff*uwind(i,j,0) * mskr(i,j,0);
-            Tauy(i,j,0)=cff*vwind(i,j,0) * mskr(i,j,0);
+            Taux(i,j,0)=cff*Uair * mskr(i,j,0);
+            Tauy(i,j,0)=cff*Vair * mskr(i,j,0);
 
             //=======================================================================
             //  Compute surface net heat flux and surface wind stress.

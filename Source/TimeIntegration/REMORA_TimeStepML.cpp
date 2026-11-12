@@ -108,6 +108,9 @@ REMORA::timeStepML (Real time, int /*iteration*/)
 
     int nfast_counter=nfast + 1;
 
+    // No time level of ubar and vbar counts as exchanged after its boundary conditions
+    // before the fast steps (see advance_2d)
+    for (int lev=0; lev <= finest_level; lev++) { reset_uvbar_exchanged(lev); }
     for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
         //Compute fast timestep from dt[lev] and ratio
         for (int lev=0; lev <= finest_level; lev++)
@@ -132,7 +135,7 @@ REMORA::timeStepML (Real time, int /*iteration*/)
     } // my_iif
 
     for (int lev=0; lev <= finest_level; lev++) {
-        advance_3d_ml(lev, dt[lev]);
+        advance_3d_ml(lev, dt[lev], false);
         ++istep[lev];
 
         if (Verbose())

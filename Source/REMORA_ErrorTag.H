@@ -16,9 +16,11 @@
  * zeroed every step, so a difference taken across a coast measures the coast, not the flow.
  * This class is that EB form with mskr in place of the flags.
  *
+ * A box region (in_box_lo/in_box_hi) is guarded too: it tags only the water cells inside it,
+ * unless SetTagLand asks for the whole rectangle.
+ *
  * Guarding each criterion as it is evaluated, rather than clearing land-adjacent tags
- * afterwards, leaves every other criterion's tags alone -- including a static
- * in_box_lo/in_box_hi region drawn across a coast.
+ * afterwards, leaves every other criterion's tags alone.
  *
  * The inheritance is private on purpose: AMRErrorTag::operator() is not virtual, so converting
  * a criterion back to the base would compile and quietly run the unguarded test on masked
@@ -60,11 +62,18 @@ public:
     }
 
     /**
+     * Let a box region tag its land cells too, refining the whole rectangle as a ROMS nest
+     * does. Meant only for comparing directly against a ROMS nest; has no effect on a field
+     * criterion.
+     */
+    void SetTagLand (bool tag_land) noexcept { m_tag_land = tag_land; }
+
+    /**
      * Apply this criterion to tba, skipping land.
      *
-     * Only GRAD, LESS and GREATER consult the mask. BOX and PARSER tag on position alone,
-     * USER hands the whole decision to a functor, and VORT and RELGRAD are unreachable from
-     * REMORA's inputs; all of those go to amrex::AMRErrorTag::operator() unchanged.
+     * GRAD, LESS, GREATER and BOX consult the mask. PARSER tags on position alone, USER hands
+     * the whole decision to a functor, and VORT and RELGRAD are unreachable from REMORA's
+     * inputs; all of those go to amrex::AMRErrorTag::operator() unchanged.
      *
      * @param[inout] tba       tags to update
      * @param[in]    mf        single-component field this criterion tests, with one ghost
@@ -106,6 +115,7 @@ private:
     double m_max_elapsed = std::numeric_limits<double>::max();
     double m_min_total   = std::numeric_limits<double>::lowest();
     double m_max_total   = std::numeric_limits<double>::max();
+    bool   m_tag_land    = false;
 };
 
 #endif

@@ -1,6 +1,7 @@
 #include <REMORA_FillPatcher.H>
 #include <AMReX_Arena.H>
 #include <AMReX_InterpFaceReg_3D_C.H>
+#include <REMORA_BitwiseDiff.H>
 
 using namespace amrex;
 
@@ -70,6 +71,10 @@ void REMORAFillPatcher::Define (BoxArray const& fba, DistributionMapping const& 
     m_ncomp  = ncomp;  m_interp = interp;
 
     // Delete old MFs if they exist
+    m_kept.reset();
+    m_kept_reg = -1;
+    m_set_pure = -1;
+    ++m_reg_count;
     if (m_cf_crse_data_old) m_cf_crse_data_old.reset();
     if (m_cf_crse_data_new) m_cf_crse_data_new.reset();
     if (m_cf_mask) m_cf_mask.reset();
@@ -246,6 +251,114 @@ void REMORAFillPatcher::RegisterCoarseData (Vector<MultiFab const*> const& crse_
     m_crse_times[1] = crse_time[1]; // time of "new" coarse data
 
     m_dt_crse = crse_time[1] - crse_time[0];
+    ++m_reg_count;
+}
+
+/**
+ * Whether what Fill writes into the set region is a function of the registered coarse data
+ * and the time alone. Cell data and the faces interpolated along the face (the faces on coarse
+ * faces) are. A face between two coarse faces is interpolated from the fine faces on either
+ * side, which are not set unless they too are in the region, so such a face makes the result
+ * depend on the fine data as well.
+ */
+bool REMORAFillPatcher::SetValuesFromCoarseOnly ()
+{
+    const amrex::IndexType ixt = m_fba.ixType();
+    int dir = -1;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (ixt.nodeCentered(d)) { dir = d; }
+    }
+    if (dir < 0) { return true; }
+
+    const int r = m_ratio[dir];
+    const int set_mask = m_set_mask;
+    ReduceOps<ReduceOpSum> reduce_op;
+    ReduceData<int> reduce_data(reduce_op);
+    using ReduceTuple = typename decltype(reduce_data)::Type;
+    for (MFIter mfi(*m_cf_mask); mfi.isValid(); ++mfi) {
+        auto const& m = m_cf_mask->const_array(mfi);
+        reduce_op.eval(mfi.validbox(), reduce_data,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
+        {
+            const int idx = (dir == 0) ? i : ((dir == 1) ? j : k);
+            const bool off = (m(i,j,k) == set_mask) && (idx - amrex::coarsen(idx,r)*r != 0);
+            return { off ? 1 : 0 };
+        });
+    }
+    int noff = amrex::get<0>(reduce_data.value(reduce_op));
+    ParallelDescriptor::ReduceIntSum(noff);
+    return noff == 0;
+}
+
+/**
+ * FillSet with no coarse boundary condition (as every REMORA caller passes), for fills that
+ * repeat at one time: the barotropic fills of a fine level, which all ask for the start of the
+ * fine step. The values written into the set region are kept, and a later call with the same
+ * registered data, time and layout writes them again instead of interpolating. That gives the
+ * same values only when they depend on the coarse data alone (SetValuesFromCoarseOnly);
+ * otherwise every call interpolates. With check, a replay also interpolates into a copy of mf
+ * and aborts if any set value differs in bit pattern from the kept one.
+ *
+ * @param[inout] mf     fine data
+ * @param[in]    time   time to fill at
+ * @param[in]    bcs    boundary condition types, for the cell interpolater
+ * @param[in]    check  whether a replay is checked against a fresh interpolation
+ */
+void REMORAFillPatcher::FillSetKept (MultiFab& mf, Real time, Vector<BCRec> const& bcs,
+                                     bool check)
+{
+    if (m_set_pure < 0) { m_set_pure = SetValuesFromCoarseOnly() ? 1 : 0; }
+
+    // Fill writes every component of the set cells, but one of a z-face
+    const IndexType ixt = mf.boxArray().ixType();
+    const int nwrite = (ixt.nodeCentered(2) && !ixt.nodeCentered(0) && !ixt.nodeCentered(1))
+                     ? 1 : m_ncomp;
+    const bool same_layout = m_kept && m_kept->boxArray() == mf.boxArray()
+                             && m_kept->DistributionMap() == mf.DistributionMap();
+    const int set_mask = m_set_mask;
+
+    PhysBCFunctNoOp no_bc;
+    if (m_set_pure && same_layout && m_kept_reg == m_reg_count && m_kept_time == time) {
+        if (check) {
+            MultiFab fresh(mf.boxArray(), mf.DistributionMap(), mf.nComp(), mf.nGrowVect());
+            MultiFab::Copy(fresh, mf, 0, 0, mf.nComp(), mf.nGrowVect());
+            Fill(fresh, time, no_bc, bcs, m_set_mask);
+            const Long ndiff = count_bitwise_diff(fresh, *m_kept, nwrite, IntVect(0),
+                                                  m_cf_mask.get(), set_mask);
+            if (ndiff > 0) {
+                Abort("remora.cf_2d_fill_cache = 2: the kept FillSet values differ from a fresh "
+                      "FillSet in " + std::to_string(ndiff) + " points");
+            }
+        }
+        for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            auto const& f = mf.array(mfi);
+            auto const& kept = m_kept->const_array(mfi);
+            auto const& m = m_cf_mask->const_array(mfi);
+            ParallelFor(mfi.tilebox(), nwrite, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+                if (m(i,j,k) == set_mask) { f(i,j,k,n) = kept(i,j,k,n); }
+            });
+        }
+        return;
+    }
+
+    Fill(mf, time, no_bc, bcs, m_set_mask);
+    if (!m_set_pure) { return; }
+
+    if (!same_layout) {
+        m_kept = std::make_unique<MultiFab>(mf.boxArray(), mf.DistributionMap(), m_ncomp, 0);
+    }
+    for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        auto const& f = mf.const_array(mfi);
+        auto const& kept = m_kept->array(mfi);
+        auto const& m = m_cf_mask->const_array(mfi);
+        ParallelFor(mfi.tilebox(), nwrite, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            if (m(i,j,k) == set_mask) { kept(i,j,k,n) = f(i,j,k,n); }
+        });
+    }
+    m_kept_reg  = m_reg_count;
+    m_kept_time = time;
 }
 
 /**

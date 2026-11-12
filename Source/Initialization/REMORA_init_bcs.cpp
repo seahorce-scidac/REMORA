@@ -360,18 +360,18 @@ void REMORA::init_bcs ()
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
-            // only do this for xvel and yvel
+            // only do this for xvel and yvel. Component i is normal to this face when i == dir.
             for (int i = 0; i < 2; i++) {
                 auto const bct = phys_bc_type[xvel_bc_idx+i][ori];
                 if ( bct == REMORA_BC::symmetry )
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[xvel_bc_idx+i].setLo(dir, REMORABCType::reflect_even);
-                        if (i==1)
+                        if (i==dir)
                             domain_bcs_type[xvel_bc_idx+dir].setLo(dir, REMORABCType::reflect_odd);
                     } else {
                         domain_bcs_type[xvel_bc_idx+i].setHi(dir, REMORABCType::reflect_even);
-                        if (i==1)
+                        if (i==dir)
                             domain_bcs_type[xvel_bc_idx+dir].setHi(dir, REMORABCType::reflect_odd);
                     }
                 }
@@ -403,14 +403,14 @@ void REMORA::init_bcs ()
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[xvel_bc_idx+i].setLo(dir, REMORABCType::foextrap);
-                        if (i==1) {
+                        if (i==dir) {
                             // Only normal direction has ext_dir
                             domain_bcs_type[xvel_bc_idx+dir].setLo(dir, REMORABCType::ext_dir);
                         }
 
                     } else {
                         domain_bcs_type[xvel_bc_idx+i].setHi(dir, REMORABCType::foextrap);
-                        if (i==1) {
+                        if (i==dir) {
                             // Only normal direction has ext_dir
                             domain_bcs_type[xvel_bc_idx+dir].setHi(dir, REMORABCType::ext_dir);
                         }
@@ -568,6 +568,7 @@ void REMORA::init_bcs ()
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
+            // Component i is normal to this face when i == dir.
             for (int i = 0; i < 2; i++) {
                 auto const bct = phys_bc_type[ubar_bc_idx+i][ori];
                 if ( bct == REMORA_BC::symmetry )
@@ -575,14 +576,14 @@ void REMORA::init_bcs ()
                     if (side == Orientation::low) {
                         domain_bcs_type[ubar_bc_idx+i].setLo(dir, REMORABCType::reflect_even);
                         domain_bcs_type[u2d_simple_bc_idx+i].setLo(dir, REMORABCType::reflect_even);
-                        if (i==1 and dir!=2) {
+                        if (i==dir) {
                             domain_bcs_type[ubar_bc_idx+dir].setLo(dir, REMORABCType::reflect_odd);
                             domain_bcs_type[u2d_simple_bc_idx+dir].setLo(dir, REMORABCType::reflect_odd);
                         }
                     } else {
                         domain_bcs_type[ubar_bc_idx+i].setHi(dir, REMORABCType::reflect_even);
                         domain_bcs_type[u2d_simple_bc_idx+i].setHi(dir, REMORABCType::reflect_even);
-                        if (i==1 and dir!=2) {
+                        if (i==dir) {
                             domain_bcs_type[ubar_bc_idx+dir].setHi(dir, REMORABCType::reflect_odd);
                             domain_bcs_type[u2d_simple_bc_idx+dir].setHi(dir, REMORABCType::reflect_odd);
                         }
@@ -623,7 +624,7 @@ void REMORA::init_bcs ()
                     if (side == Orientation::low) {
                         domain_bcs_type[ubar_bc_idx+i].setLo(dir, REMORABCType::foextrap);
                         domain_bcs_type[u2d_simple_bc_idx+i].setLo(dir, REMORABCType::foextrap);
-                        if (i==1 and dir!=2) {
+                        if (i==dir) {
                             // Only normal direction has ext_dir
                             domain_bcs_type[ubar_bc_idx+dir].setLo(dir, REMORABCType::ext_dir);
                             domain_bcs_type[u2d_simple_bc_idx+dir].setLo(dir, REMORABCType::ext_dir);
@@ -632,7 +633,7 @@ void REMORA::init_bcs ()
                     } else {
                         domain_bcs_type[ubar_bc_idx+i].setHi(dir, REMORABCType::foextrap);
                         domain_bcs_type[u2d_simple_bc_idx+i].setHi(dir, REMORABCType::foextrap);
-                        if (i==1 and dir!=2) {
+                        if (i==dir) {
                             // Only normal direction has ext_dir
                             domain_bcs_type[ubar_bc_idx+dir].setHi(dir, REMORABCType::ext_dir);
                             domain_bcs_type[u2d_simple_bc_idx+dir].setHi(dir, REMORABCType::ext_dir);
@@ -664,7 +665,7 @@ void REMORA::init_bcs ()
                     if (side == Orientation::low) {
                         domain_bcs_type[ubar_bc_idx+i].setLo(dir, REMORABCType::chapman);
                         domain_bcs_type[u2d_simple_bc_idx+i].setLo(dir, REMORABCType::foextrap);
-                        if (i==1 and dir!=2) {
+                        if (i==dir) {
                             // Only normal direction has Flather
                             domain_bcs_type[ubar_bc_idx+dir].setLo(dir, REMORABCType::flather);
                             domain_bcs_type[u2d_simple_bc_idx+dir].setLo(dir, REMORABCType::foextrap);
@@ -673,7 +674,7 @@ void REMORA::init_bcs ()
                     } else {
                         domain_bcs_type[ubar_bc_idx+i].setHi(dir, REMORABCType::chapman);
                         domain_bcs_type[u2d_simple_bc_idx+i].setHi(dir, REMORABCType::foextrap);
-                        if (i==1 and dir!=2) {
+                        if (i==dir) {
                             // Only normal direction has Flather
                             domain_bcs_type[ubar_bc_idx+dir].setHi(dir, REMORABCType::flather);
                             domain_bcs_type[u2d_simple_bc_idx+dir].setHi(dir, REMORABCType::foextrap);
@@ -704,6 +705,27 @@ void REMORA::init_bcs ()
                 {
                     amrex::Abort("ubar or vbar boundary condition not validly specified");
                 }
+            }
+        }
+
+        // Flather relaxes the normal velocity toward the file's elevation on that side, so
+        // zeta must read the boundary file there. Otherwise the zeta boundary values are
+        // never filled. ROMS reads the elevation whenever ubar or vbar reads the file.
+        for (OrientationIter oit; oit; ++oit) {
+            Orientation ori = oit();
+            int dir = ori.coordDir();
+            if (dir == 2) { continue; }
+            const auto& normal_bc = domain_bcs_type[ubar_bc_idx+dir];
+            const auto normal_type = (ori.faceDir() == Orientation::low) ? normal_bc.lo(dir)
+                                                                         : normal_bc.hi(dir);
+            if (normal_type == REMORABCType::flather &&
+                !phys_bc_need_data[bdy_index[zeta_bc_idx]][ori]) {
+                const std::array<std::string, 6> side_names = {"West", "South", "", "East",
+                                                               "North", ""};
+                amrex::Abort("The " + side_names[ori] + " boundary uses Flather for the normal "
+                             "barotropic velocity, which needs the boundary file's elevation "
+                             "there. Set zeta on that side to a condition that reads the "
+                             "boundary file: clamped, chapman, or orlanski_rad_nudg.");
             }
         }
     }
