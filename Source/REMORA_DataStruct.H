@@ -289,6 +289,9 @@ struct SolverChoice {
         pp.queryAdd("blk_ZQ",blk_ZQ);
         pp.queryAdd("blk_ZT",blk_ZT);
         pp.queryAdd("blk_ZW",blk_ZW);
+        pp.queryAdd("bulk_flux_relative_wind",bulk_flux_relative_wind);
+        const bool current_factor_set =
+            pp.queryAdd("bulk_flux_current_factor",bulk_flux_current_factor);
         pp.queryAdd("eminusp",eminusp);
         pp.queryAdd("eminusp_correct_ssh",eminusp_correct_ssh);
         pp.queryAdd("qair_is_percent",qair_is_percent);
@@ -396,6 +399,16 @@ struct SolverChoice {
         }
         if (eminusp and !bulk_fluxes) {
             amrex::Abort("Evaporation minus precipitation (E-P) requires bulk flux parametrizations (remora.bulk_fluxes=true)");
+        }
+        if (bulk_flux_relative_wind and !bulk_fluxes) {
+            amrex::Abort("remora.bulk_flux_relative_wind requires bulk flux parametrizations (remora.bulk_fluxes=true)");
+        }
+        if (current_factor_set and !bulk_flux_relative_wind) {
+            amrex::Abort("remora.bulk_flux_current_factor applies only with remora.bulk_flux_relative_wind=true");
+        }
+        if (!(bulk_flux_current_factor >= amrex::Real(0.0) &&
+              bulk_flux_current_factor <= amrex::Real(1.0))) {
+            amrex::Abort("remora.bulk_flux_current_factor must be between 0 and 1");
         }
 
         const bool use_external_lwrad =
@@ -1043,6 +1056,13 @@ struct SolverChoice {
     amrex::Real blk_ZQ = amrex::Real(10.0); // air humidity
     amrex::Real blk_ZT = amrex::Real(10.0); // air temperature
     amrex::Real blk_ZW = amrex::Real(10.0); // winds
+
+    // Use the wind relative to the surface current in the bulk fluxes (ROMS's
+    // WIND_MINUS_CURRENT), subtracting bulk_flux_current_factor times the current.
+    // A factor below 1 stands in for the atmosphere's partial response to the
+    // current in a run with prescribed winds.
+    bool bulk_flux_relative_wind = false;
+    amrex::Real bulk_flux_current_factor = amrex::Real(1.0);
 
     bool eminusp = false;
     bool eminusp_correct_ssh = false;

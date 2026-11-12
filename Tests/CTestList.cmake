@@ -526,6 +526,26 @@ endfunction(add_test_0)
 add_test_r(DoublyPeriodic               "remora_exec" "plt00010")
 add_test_r(Seamount                     "remora_exec" "plt00010")
 add_test_r(Advection                    "remora_exec" "plt00010")
+# The bulk fluxes with the wind taken relative to the surface current. Over a uniform current, a
+# step with the relative wind must match a step with the absolute wind less the subtracted part
+# of the current (all values exact in binary).
+compose_test_input(Advection_wind_minus_current Advection)
+add_test_r_selfcompare(Advection_wind_minus_current "remora_exec" "plt00001"
+    "remora.bulk_flux_relative_wind=true remora.uwind=5.5 remora.vwind=1.25"
+    "remora.bulk_flux_relative_wind=false remora.uwind=5 remora.vwind=1")
+compose_test_input(Advection_wind_minus_current_factor Advection)
+add_test_r_selfcompare(Advection_wind_minus_current_factor "remora_exec" "plt00001"
+    "remora.bulk_flux_relative_wind=true remora.bulk_flux_current_factor=0.5 remora.uwind=5.25 remora.vwind=1.125"
+    "remora.bulk_flux_relative_wind=false remora.uwind=5 remora.vwind=1")
+compose_test_input(Advection_wind_minus_current_no_bulk_abort Advection)
+add_test_abort(Advection_wind_minus_current_no_bulk_abort "remora_exec"
+    "remora.bulk_flux_relative_wind requires bulk flux")
+compose_test_input(Advection_current_factor_abort Advection)
+add_test_abort(Advection_current_factor_abort "remora_exec"
+    "remora.bulk_flux_current_factor must be between 0 and 1")
+compose_test_input(Advection_current_factor_unused_abort Advection)
+add_test_abort(Advection_current_factor_unused_abort "remora_exec"
+    "remora.bulk_flux_current_factor applies only with remora.bulk_flux_relative_wind=true")
 add_test_r(Advection_ML                 "remora_exec" "plt00010")
 add_test_r(Upwelling                    "remora_exec" "plt00010")
 add_test_r(Upwelling_GLS                "remora_exec" "plt00010")
