@@ -931,6 +931,25 @@ REMORA::init_bdry_from_netcdf (int lev)
             ry *= ref_ratio[k][1];
         }
     }
+    // Tides apply only on sides whose normal barotropic velocity is Flather. Say which
+    // open or closed sides get none, once.
+    if (solverChoice.tide_type == TideType::netcdf && lev == 0) {
+        const std::array<std::string, 6> side_names = {"West", "South", "", "East", "North", ""};
+        for (OrientationIter oit; oit; ++oit) {
+            const Orientation ori = oit();
+            const int dir = ori.coordDir();
+            if (dir == 2 || geom[0].isPeriodic(dir)) { continue; }
+            const auto& normal_bc = domain_bcs_type[(dir == 0) ? ubar_bc() : vbar_bc()];
+            const auto normal_type = (ori.faceDir() == Orientation::low) ? normal_bc.lo(dir)
+                                                                         : normal_bc.hi(dir);
+            if (normal_type != REMORABCType::flather && ParallelDescriptor::IOProcessor()) {
+                amrex::Warning("remora.tide_type = netcdf: no tides on the " + side_names[ori] +
+                               " boundary, because its normal barotropic velocity (" +
+                               std::string(dir == 0 ? "ubar" : "vbar") + ") is not flather. "
+                               "Tides are applied only on Flather boundaries");
+            }
+        }
+    }
     for (int ivar = 0; ivar < num_bdy_vars(); ivar++) {
         boundary_series[lev].push_back(std::unique_ptr<NCTimeSeriesBoundary>(new NCTimeSeriesBoundary(lev, geom, nc_bdry_file, field_name[ivar],
                                                                 bdry_time_name_byvar[ivar],
@@ -938,6 +957,21 @@ REMORA::init_bdry_from_netcdf (int lev)
                                                                 phys_bc_need_data[ivar], is_2d[ivar], rx, ry,
                                                                 solverChoice.time_ref)));
         boundary_series[lev][ivar]->Initialize();
+        if (solverChoice.tide_type == TideType::netcdf &&
+            (ivar == bdy_zeta() || ivar == bdy_ubar() || ivar == bdy_vbar())) {
+            GpuArray<bool, AMREX_SPACEDIM*2> tide_sides{};
+            for (int dir = 0; dir < 2; ++dir) {
+                const int normal_var = (dir == 0) ? bdy_ubar() : bdy_vbar();
+                const int normal_bc = (dir == 0) ? ubar_bc() : vbar_bc();
+                if (ivar == bdy_zeta() || ivar == normal_var) {
+                    tide_sides[dir] = domain_bcs_type[normal_bc].lo(dir) == REMORABCType::flather;
+                    tide_sides[dir+AMREX_SPACEDIM] =
+                        domain_bcs_type[normal_bc].hi(dir) == REMORABCType::flather;
+                }
+            }
+            boundary_series[lev][ivar]->InitializeTides(solverChoice.nc_tide_file,
+                                                       tide_sides, Verbose());
+        }
     }
 }
 

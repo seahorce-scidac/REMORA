@@ -886,6 +886,23 @@ add_test_equiv(BC_normal_velocity_own_type BC_normal_velocity_slipwall "remora_e
 compose_test_input(BC_flather_no_zeta_data BC_per_variable)
 add_test_abort(BC_flather_no_zeta_data "remora_exec"
                "East boundary uses Flather for the normal barotropic velocity")
+if (REMORA_ENABLE_PNETCDF)
+    # Harmonic forcing must agree with independently sampled boundary time series.
+    add_test_equiv(TidalBoundary reference "remora_exec" "plt_tides00004" "plt_reference00004"
+                   0.005 x_velocity -0.0114 0.0340 y_velocity -0.0125 0.0314)
+    # Variants of TidalBoundary that read its data files from its test directory
+    compose_test_input(TidalBoundary_phase_units_abort TidalBoundary)
+    compose_test_input(TidalBoundary_restart TidalBoundary)
+    add_test_abort(TidalBoundary_phase_units_abort "remora_exec" "units must be 'degrees'")
+    add_test_restart(TidalBoundary_restart "remora_exec" "plt00004" "chk00002")
+else ()
+    compose_test_input(TidalBoundary_no_pnetcdf_abort TidalBoundary)
+    add_test_abort(TidalBoundary_no_pnetcdf_abort "remora_exec"
+                   "remora.tide_type = netcdf requires a PnetCDF build")
+endif ()
+# The tide type is checked while the inputs are read, so this needs no NetCDF.
+compose_test_input(TidalBoundary_type_abort TidalBoundary)
+add_test_abort(TidalBoundary_type_abort "remora_exec" "remora.tide_type must be none or netcdf")
 
 #=============================================================================
 # Barotropic substep count

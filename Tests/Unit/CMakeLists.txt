@@ -19,9 +19,12 @@ add_executable(${remora_boundary_interp_test_exe_name}
   ${CMAKE_CURRENT_SOURCE_DIR}/REMORA_BoundaryInterp_test.cpp
 )
 
+add_executable(remora_tide_math_tests REMORA_TideMath_test.cpp)
+
 foreach (exe ${remora_unit_test_exe_name} ${remora_latlon_test_exe_name}
-             ${remora_boundary_interp_test_exe_name})
+             ${remora_boundary_interp_test_exe_name} remora_tide_math_tests)
   target_include_directories(${exe} PRIVATE
+    ${PROJECT_SOURCE_DIR}/Source
     ${PROJECT_SOURCE_DIR}/Source/Utils
     ${PROJECT_SOURCE_DIR}/Source/IO
   )
@@ -54,6 +57,30 @@ set_tests_properties(BoundaryInterp PROPERTIES
   TIMEOUT 60
   LABELS "unit"
 )
+
+add_test(NAME TideMath COMMAND remora_tide_math_tests)
+set_tests_properties(TideMath PROPERTIES TIMEOUT 60 LABELS "unit")
+
+if (REMORA_ENABLE_PNETCDF)
+  add_executable(remora_tidal_boundary_tests
+    REMORA_TidalBoundary_test.cpp
+    ${PROJECT_SOURCE_DIR}/Source/IO/REMORA_NCTimeSeriesBoundary.cpp
+    ${PROJECT_SOURCE_DIR}/Source/IO/REMORA_NCFile.cpp
+    ${PROJECT_SOURCE_DIR}/Source/IO/REMORA_NCInterface.cpp)
+  get_target_property(remora_tidal_include_dirs remora_srclib INCLUDE_DIRECTORIES)
+  target_include_directories(remora_tidal_boundary_tests PRIVATE ${remora_tidal_include_dirs})
+  target_compile_definitions(remora_tidal_boundary_tests PRIVATE REMORA_USE_NETCDF)
+  target_link_libraries(remora_tidal_boundary_tests PRIVATE
+    ${REMORA_AMREX_TARGET} ${PNETCDF_LINK_LIBRARIES})
+  if (REMORA_ENABLE_CUDA)
+    setup_target_for_cuda_compilation(remora_tidal_boundary_tests)
+  endif ()
+  add_test(NAME TidalBoundaryReader COMMAND
+    ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
+    $<TARGET_FILE:remora_tidal_boundary_tests> ${MPIEXEC_POSTFLAGS}
+    data_dir=${PROJECT_SOURCE_DIR}/Tests/test_files/TidalBoundary)
+  set_tests_properties(TidalBoundaryReader PROPERTIES TIMEOUT 60 PROCESSORS 2 LABELS "unit")
+endif ()
 
 # Build the native biology interface independently of the optional Fortran
 # oracle. Linking all remora_srclib objects would also bring in main.cpp.

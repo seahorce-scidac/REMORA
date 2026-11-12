@@ -206,6 +206,12 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   |                                   |                 | or ``flather``.                 |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.tide_type**              | boundary tidal forcing            | ``none`` or     | ``none``                        |
+|                                   |                                   | ``netcdf``      |                                 |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.nc_tide_file**           | fixed tidal harmonics file        | string          | required when ``tide_type``     |
+|                                   |                                   |                 | is ``netcdf``                   |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.nc_frc_file**            | forcing data NetCDF               | string or list  | must be set                     |
 |                                   |                                   |                 |                                 |
 |                                   |                                   |                 | if ``remora.wind_type``         |

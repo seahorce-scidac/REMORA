@@ -15,8 +15,9 @@ There are currently 68 regression tests which are run as part of every PR on a r
 * 8 that assert a run reaches a behavior it reports in its log;
 * 11 that assert a misconfigured input fails for the stated reason.
 
-There are also four unit tests, ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp`` and ``BiologyInterface``. The CI tests use cmake and are based on the version
-of AMReX in the REMORA submodule. This suite can be run following the
+There are also :ref:`unit tests<Testing>`, including ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp``,
+``TideMath`` and ``BiologyInterface``. PnetCDF builds additionally run ``TidalBoundaryReader``. The CI tests use
+cmake and are based on the version of AMReX in the REMORA submodule. This suite can be run following the
 instructions in :ref:`Testing<Testing>`, which also describes the different kinds of assertion and what
 each is for. All of them run under MPI on two ranks, and are checked to be rank-invariant.
 
@@ -573,6 +574,21 @@ assertion is that they agree and neither needs a stored reference.
 |                                 |          |                                                         |
 |                                 |          | boundary file data is rejected, naming the side         |
 +---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary                   | 8 10 4   | fixed elevation and velocity harmonics agree            |
+|                                 |          | with independently sampled boundary data (PnetCDF)      |
++---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary_phase_units_abort | 8 10 4   | a tidal phase tagged as radians is rejected by name     |
+|                                 |          | (PnetCDF)                                               |
++---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary_restart           | 8 10 4   | tidal forcing continues with the same phase after a     |
+|                                 |          | checkpoint/restart (PnetCDF)                            |
++---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary_type_abort        | 8 10 4   | an unknown ``remora.tide_type`` is rejected while the   |
+|                                 |          | inputs are read (every build)                           |
++---------------------------------+----------+---------------------------------------------------------+
+| TidalBoundary_no_pnetcdf_abort  | 8 10 4   | ``remora.tide_type = netcdf`` is rejected in a build    |
+|                                 |          | without PnetCDF (builds without PnetCDF only)           |
++---------------------------------+----------+---------------------------------------------------------+
 
 ``BC_per_variable`` runs both inputs in its test directory and compares the two plotfiles. All four sides
 carry a different condition -- inflow, noslipwall, outflow, slipwall going West, South, East, North -- so
@@ -596,6 +612,14 @@ The inflow is driven by horizontal diffusion rather than advection. ``ubar`` and
 value of their own, so the barotropic normal velocity at the face stays zero and the barotropic correction
 holds the net flux near zero regardless of the 3D ``velocity`` entry: raising it tenfold moves the dye by
 about 7%. Advective inflow is therefore not covered by either lane.
+
+``TidalBoundary`` compares subtidal-plus-harmonic forcing with boundary time series evaluated
+independently at each requested time. Both use Chapman/Flather on all four sides, with nonzero,
+spatially varying elevation and normal velocity. The fixture contains two periods, 240 and 600
+seconds, phase lags straddling 0/360 degrees, and a file epoch one day after ``remora.time_ref``.
+``TidalBoundaryReader`` additionally checks the boundary arrays directly, including repeated
+updates and anisotropic refinement; see :ref:`Testing`. Regenerate the small CDF-2 fixtures with
+``python3 Tests/tools/make_tidal_test_data.py`` (NumPy and netCDF4 are required).
 
 .. _sec:ci-relative-wind-tests:
 
