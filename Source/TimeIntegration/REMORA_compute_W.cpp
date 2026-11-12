@@ -77,15 +77,17 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
     const int N = Geom(lev).Domain().size()[2]-1;
 
     // The first ghost column is computed only where both the output and the fluxes have it:
-    // the particles' omega has it from the fluxes update_massflux_3d keeps on grown boxes,
-    // while the diagnostic omega builds its fluxes on the valid faces only.
+    // the fluxes update_massflux_3d keeps on grown boxes have it (the particles normally take
+    // the same omega from advance_3d, see store_particle_omega), while the diagnostic omega
+    // builds its fluxes on the valid faces only.
     IntVect ng(0);
     for (int d = 0; d < 2; ++d) {
         ng[d] = amrex::min(amrex::min(mf_omega.nGrowVect()[d], 1),
                            amrex::min(mf_Huon.nGrowVect()[d], mf_Hvom.nGrowVect()[d]));
     }
 
-    mf_omega.setVal(zero);
+    // compute_W below fills whole columns of every valid cell
+    mf_omega.setBndry(zero);
 
     // Not tiled: compute_W integrates whole columns
 #ifdef _OPENMP
@@ -233,6 +235,45 @@ REMORA::compute_wvel (int lev, MultiFab& mf_w, const MultiFab& mf_omega)
 }
 
 /**
+ * w of the current state into zvel_new, ghost cells filled as at the end of the step: at
+ * t_old, the start of the step that produced the state, interpolating from the parent's w
+ * at both ends of its step above level 0.
+ *
+ * @param[in ] lev     level
+ */
+void
+REMORA::compute_and_fill_wvel (int lev)
+{
+    BL_PROFILE("REMORA::compute_and_fill_wvel()");
+    compute_wvel(lev, *zvel_new[lev]);
+    FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null,0,true,true,0,0,zero,
+              amrex::MultiFab(), zvel_old, zvel_new);
+    wvel_current[lev] = 1;
+}
+
+/**
+ * Make zvel_new hold the w of the current state on every level, as the step would have
+ * left it had it formed w itself. Call before anything reads zvel_new.
+ *
+ * A single-level step leaves w stale (wvel_is_lazy), and so does the finest level's step on
+ * the substeps of a subcycled run before the last (wvel_skip_substep). Nothing between the end
+ * of such a step and the next one changes what compute_wvel reads, nor what the ghost fill
+ * reads (the level's valid cells, and on a fine level the parent's w at both ends of its
+ * step), so w formed here is bitwise the w the step would have formed.
+ * The checkpoint also writes zvel_old, the previous step's w, so Evolve calls this before a
+ * step that ends with a checkpoint.
+ */
+void
+REMORA::update_wvel ()
+{
+    for (int lev = 0; lev <= finest_level; ++lev) {
+        if (!wvel_current[lev]) {
+            compute_and_fill_wvel(lev);
+        }
+    }
+}
+
+/**
  * Horizontal mass fluxes Hz*u/n and Hz*v/m of the current velocities on the valid faces,
  * as ROMS set_massflux.
  *
@@ -251,12 +292,11 @@ REMORA::set_massflux_3d (int lev, MultiFab& mf_Huon, MultiFab& mf_Hvom)
         Array4<Real      > const& Huon = mf_Huon.array(mfi);
         Array4<Real const> const& u    = xvel_new[lev]->const_array(mfi);
         Array4<Real const> const& Hz   = vec_Hz[lev]->const_array(mfi);
-        Array4<Real const> const& pn   = vec_pn[lev]->const_array(mfi);
+        Array4<Real const> const& on_u = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
 
         ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real on_u = two / (pn(i-1,j,0)+pn(i,j,0));
-            Huon(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i-1,j,k))*u(i,j,k)* on_u;
+            Huon(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i-1,j,k))*u(i,j,k)* on_u(i,j,0);
         });
     }
 #ifdef _OPENMP
@@ -267,12 +307,11 @@ REMORA::set_massflux_3d (int lev, MultiFab& mf_Huon, MultiFab& mf_Hvom)
         Array4<Real      > const& Hvom = mf_Hvom.array(mfi);
         Array4<Real const> const& v    = yvel_new[lev]->const_array(mfi);
         Array4<Real const> const& Hz   = vec_Hz[lev]->const_array(mfi);
-        Array4<Real const> const& pm   = vec_pm[lev]->const_array(mfi);
+        Array4<Real const> const& om_v = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
 
         ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real om_v= two / (pm(i,j-1,0)+pm(i,j,0));
-            Hvom(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k)* om_v;
+            Hvom(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k)* om_v(i,j,0);
         });
     }
 }

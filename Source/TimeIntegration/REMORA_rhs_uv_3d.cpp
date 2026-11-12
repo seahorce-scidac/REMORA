@@ -18,8 +18,8 @@ using namespace amrex;
  * @param[in   ] bvstr   v-direction bottom stress
  * @param[in   ] Huon    u-volume flux
  * @param[in   ] Hvom    v-volume flux
- * @param[in   ] pm      1/dx
- * @param[in   ] pn      1/dy
+ * @param[in   ] omn_u   om_u*on_u at u points
+ * @param[in   ] omn_v   om_v*on_v at v points
  * @param[in   ] W       vertical velocity
  * @param        FC      temporary
  * @param[in   ] nrhs    index of component for RHS
@@ -40,8 +40,8 @@ REMORA::rhs_uv_3d (int lev,
                   const Array4<Real const>& bvstr,
                   const Array4<Real const>& Huon,
                   const Array4<Real const>& Hvom,
-                  const Array4<Real const>& pm,
-                  const Array4<Real const>& pn,
+                  const Array4<Real const>& omn_u,
+                  const Array4<Real const>& omn_v,
                   const Array4<Real const>& W   ,
                   const Array4<Real      >& FC,
                   int nrhs, int N)
@@ -56,12 +56,12 @@ REMORA::rhs_uv_3d (int lev,
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
     //
-    // Scratch space
+    // Scratch space, each defined on exactly the box the flux kernels below write
     //
-    FArrayBox fab_UFx(growLo(xbx,0,1),1,amrex::The_Async_Arena()); fab_UFx.template setVal<RunOn::Device>(zero);
-    FArrayBox fab_UFe(growHi(xbx,1,1),1,amrex::The_Async_Arena()); fab_UFe.template setVal<RunOn::Device>(zero);
-    FArrayBox fab_VFe(growLo(ybx,1,1),1,amrex::The_Async_Arena()); fab_VFe.template setVal<RunOn::Device>(zero);
-    FArrayBox fab_VFx(growHi(ybx,0,1),1,amrex::The_Async_Arena()); fab_VFx.template setVal<RunOn::Device>(zero);
+    FArrayBox fab_UFx(growLo(xbx,0,1),1,amrex::The_Async_Arena());
+    FArrayBox fab_UFe(growHi(xbx,1,1),1,amrex::The_Async_Arena());
+    FArrayBox fab_VFe(growLo(ybx,1,1),1,amrex::The_Async_Arena());
+    FArrayBox fab_VFx(growHi(ybx,0,1),1,amrex::The_Async_Arena());
 
     auto UFx=fab_UFx.array();
     auto UFe=fab_UFe.array();
@@ -69,6 +69,9 @@ REMORA::rhs_uv_3d (int lev,
     auto VFe=fab_VFe.array();
 
     auto uv_hadv_scheme = solverChoice.uv_Hadv_scheme;
+    // The flux scratch is not zeroed: each scheme below writes every flux it reads
+    AMREX_ALWAYS_ASSERT(uv_hadv_scheme == AdvectionScheme::upstream3 ||
+                        uv_hadv_scheme == AdvectionScheme::centered2);
 
     //check this////////////
     const Real Gadv = Real(-0.25);
@@ -214,8 +217,6 @@ REMORA::rhs_uv_3d (int lev,
         ru(i,j,k,nrhs) -= cff;
     });
 
-    Gpu::synchronize();
-
     AMREX_ASSERT(xbx.smallEnd(2) == 0 && xbx.bigEnd(2) == N);
     ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
@@ -223,9 +224,7 @@ REMORA::rhs_uv_3d (int lev,
        {
           rufrc(i,j,0) += ru(i,j,k,nrhs);
 
-          Real om_u = two / (pm(i-1,j,0)+pm(i,j,0));
-          Real on_u = two / (pn(i-1,j,0)+pn(i,j,0));
-          Real cff  = om_u * on_u;
+          Real cff  = omn_u(i,j,0);
 
           Real cff1 = (k == N) ?  sustr(i,j,0)*cff : zero;
           Real cff2 = (k == 0) ? -bustr(i,j,0)*cff : zero;
@@ -353,8 +352,6 @@ REMORA::rhs_uv_3d (int lev,
             }
         });
     }
-    Gpu::synchronize();
-
     ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff = FC(i,j,k+1)-FC(i,j,k);
@@ -362,17 +359,13 @@ REMORA::rhs_uv_3d (int lev,
         rv(i,j,k,nrhs) -= cff;
     });
 
-    Gpu::synchronize();
-
     ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
        for (int k = 0; k <= N; ++k)
        {
           rvfrc(i,j,0) += rv(i,j,k,nrhs);
 
-          Real om_v = two / (pm(i,j-1,0)+pm(i,j,0));
-          Real on_v = two / (pn(i,j-1,0)+pn(i,j,0));
-          Real cff = om_v * on_v;
+          Real cff = omn_v(i,j,0);
 
           Real cff1 = (k == N) ?  svstr(i,j,0)*cff : zero;
           Real cff2 = (k == 0) ? -bvstr(i,j,0)*cff : zero;

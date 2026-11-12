@@ -134,6 +134,8 @@ REMORA::REMORA ()
     yvel_old.resize(nlevs_max);
     zvel_new.resize(nlevs_max);
     zvel_old.resize(nlevs_max);
+    wvel_current.resize(nlevs_max, 1);
+    wvel_old_current.resize(nlevs_max, 1);
 
     advflux_reg.resize(nlevs_max);
 
@@ -195,6 +197,8 @@ REMORA::REMORA (const amrex::RealBox& rb, int max_level_in, const amrex::Vector<
     yvel_old.resize(nlevs_max);
     zvel_new.resize(nlevs_max);
     zvel_old.resize(nlevs_max);
+    wvel_current.resize(nlevs_max, 1);
+    wvel_old_current.resize(nlevs_max, 1);
 
     advflux_reg.resize(nlevs_max);
 
@@ -259,11 +263,8 @@ REMORA::init_scalar_metadata ()
         }
     }
 
-    if (REMORABiology::has_biology(biology_model)) {
-        const auto bio_names = REMORABiology::tracer_names(biology_model, fennel_params);
-        for (const auto& name : bio_names) {
-            cons_names.emplace_back(name);
-        }
+    for (const auto& name : m_biology->declaration().tracer_names) {
+        cons_names.emplace_back(name);
     }
 
     AMREX_ALWAYS_ASSERT(static_cast<int>(cons_names.size()) == ncons);
@@ -295,6 +296,8 @@ REMORA::Evolve ()
             print_timestep_hierarchy();
             reported_finest = finest_level;
         }
+
+        update_wvel_before_checkpoint_step(step, cur_time, stop_elapsed);
 
         int lev = 0;
         int iteration = 1;
@@ -368,13 +371,47 @@ REMORA::WriteAtIntermediateTime(int step, amrex::Real cur_time)
         last_plot_file_time = cur_time;
         WritePlotFile(step+1);
         history_count++;
+        levels_averaged_down = false;
     }
 
-    if ((check_int > 0 && (step+1 - last_check_file_step) == check_int)
-            || (check_int_time > 0 && cur_time >= (last_check_file_time + check_int_time))) {
+    if (checkpoint_due(step, cur_time)) {
         last_check_file_step = step+1;
         last_check_file_time = cur_time;
         WriteCheckpointFile();
+        levels_averaged_down = false;
+    }
+}
+
+/**
+ * @param[in] step      coarse step just taken, counting from 0
+ * @param[in] cur_time  time at the end of that step
+ */
+bool
+REMORA::checkpoint_due (int step, Real cur_time) const
+{
+    return (check_int > 0 && (step+1 - last_check_file_step) == check_int)
+        || (check_int_time > 0 && cur_time >= (last_check_file_time + check_int_time));
+}
+
+/**
+ * A checkpoint written after a coarse step also writes zvel_old, the w of the state the step
+ * starts from, which a single-level step does not form. Called after ComputeDt by every
+ * driver of the coarse steps.
+ *
+ * @param[in] step          coarse step about to be taken, counting from 0
+ * @param[in] cur_time      time at the start of that step
+ * @param[in] stop_elapsed  time at which the run stops
+ */
+void
+REMORA::update_wvel_before_checkpoint_step (int step, Real cur_time, Real stop_elapsed)
+{
+    const Real time_after = cur_time + dt[0];
+    const bool last_step = step+1 >= max_step
+                           || time_after >= stop_elapsed - Real(1.e-6)*dt[0];
+    wvel_every_substep = checkpoint_due(step, time_after) ||
+                         (last_step && (check_int > 0 || check_int_time > zero));
+    if (wvel_every_substep) {
+        update_wvel();
     }
 }
 
@@ -447,13 +484,21 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
     particleData.Redistribute();
 #endif
 
-    if (solverChoice.coupling_type == CouplingType::two_way)
+    // timeStep ends by averaging every level down, finest pair first, as this loop does, and
+    // says so through levels_averaged_down. With nothing in between, the fine data and the
+    // coarse values the average writes are what it left, so doing it again changes nothing.
+    // An output in between can change both (it refills ghost cells and rewrites masked
+    // cells), so then it runs. timeStepML averages coarse pair first, which with three or
+    // more levels leaves a coarse level averaged from a stale middle one, so after it this
+    // always runs.
+    if (solverChoice.coupling_type == CouplingType::two_way && !levels_averaged_down)
     {
         for (int lev = finest_level-1; lev >= 0; lev--)
         {
             AverageDownTo(lev);
         }
     }
+    levels_averaged_down = false;
 
     if (is_it_time_for_action(nstep, time, dt_lev0, sum_interval, sum_per)) {
         sum_integrated_quantities(time);
@@ -507,6 +552,7 @@ REMORA::InitData ()
 
     // Every level's mask exists by now, whether built from scratch or read back
     check_mask_consistency();
+    check_dry_box_nesting();
 
 #ifdef REMORA_USE_MOAB
     InitMOABMesh();
@@ -578,6 +624,7 @@ REMORA::InitData ()
         ComputeDt();
     }
 
+    poison_dry_ghost_cells();
 }
 
 /**
@@ -1834,6 +1881,8 @@ REMORA::ensure_stress_rho_arrays (int lev)
         if ((*vec)[lev] == nullptr || (*vec)[lev]->boxArray() != rho_ba ||
             (*vec)[lev]->DistributionMap() != dm) {
             (*vec)[lev] = std::make_unique<MultiFab>(rho_ba, dm, 1, IntVect(NGROW,NGROW,0));
+            // Made after the level, so zero its ghost cells in dropped boxes here
+            if (lev == 0) { set_dry_ghost_cells(*(*vec)[lev], zero); }
         }
     }
 }
@@ -2513,51 +2562,31 @@ REMORA::ReadParameters ()
     ParmParse pp(pp_prefix);
 
     // Common physics and simulation parameters
-    std::string biology_model_string = REMORABiology::biology_model_name(biology_model);
+    std::string biology_model_string = m_biology->name();
     pp.queryAdd("biology_model", biology_model_string);
-    biology_model = REMORABiology::parse_biology_model(biology_model_string);
+    m_biology = REMORABiology::make_biology(biology_model_string);
+    m_biology->configure(pp_prefix);
+    nbio = static_cast<int>(m_biology->declaration().tracer_names.size());
 
-    if (REMORABiology::has_biology(biology_model)) {
-        fennel_params.init_params(pp_prefix);
-
+    if (nbio > 0) {
         // Source of the biology initial condition, independent of ic_type.
         // Default "follow" takes the biology IC from NetCDF when ic_type is
         // netcdf, else analytic.
         std::string biology_ic_string = REMORABiology::biology_ic_type_name(biology_ic_type);
         pp.queryAdd("biology_ic_type", biology_ic_string);
         biology_ic_type = REMORABiology::parse_biology_ic_type(biology_ic_string);
-
-        // Bridge-vs-native selection and diagnostic verbosity are runtime
-        // controls so a parity comparison never requires a rebuild. Both
-        // parse unconditionally; without USE_FENNEL_FORT there is no bridge
-        // to select, so asking for it is an error rather than a silent
-        // fallback to the path being validated.
-        pp.queryAdd("use_biology_cpp_answer", use_biology_cpp_answer);
-        pp.queryAdd("biology_debug", biology_debug);
-        pp.queryAdd("biology_debug_i", biology_debug_i);
-        pp.queryAdd("biology_debug_j", biology_debug_j);
-#ifndef REMORA_USE_FENNEL_FORT
-        if (use_biology_cpp_answer == 0) {
-            amrex::Abort("remora.use_biology_cpp_answer = 0 selects the ROMS "
-                         "Fennel Fortran bridge, which is not compiled in. "
-                         "Rebuild with USE_FENNEL_FORT=TRUE (GNUmake) or "
-                         "-DREMORA_ENABLE_FENNEL_FORT=ON (CMake).");
+        // The positional list of an earlier draft would otherwise be ignored
+        // silently whenever the selector is not constant.
+        if (pp.contains("biology_initial")) {
+            amrex::Abort("remora.biology_initial is not read. Set"
+                         " remora.biology_ic_type = constant and give each tracer"
+                         " by name, e.g. remora.biology_initial_"
+                         + m_biology->declaration().tracer_names[0] + " = <value>.");
         }
-#endif
-#ifndef REMORA_USE_BIOLOGY_DIAG
-        if (biology_debug > 0) {
-            amrex::Abort("remora.biology_debug > 0 requests the Fennel parity "
-                         "diagnostics, which are not compiled in. Rebuild with "
-                         "USE_BIOLOGY_DIAG=TRUE (GNUmake) or "
-                         "-DREMORA_ENABLE_BIOLOGY_DIAG=ON (CMake).");
+        if (biology_ic_type == REMORABiology::BiologyICType::constant) {
+            biology_constant_ic = REMORABiology::read_constant_biology_ic(
+                m_biology->declaration(), pp_prefix);
         }
-#endif
-
-        // Biology tracers are counted separately from the passive scalars, so a run can
-        // carry dye and biology at once.
-        nbio = static_cast<int>(REMORABiology::tracer_names(biology_model, fennel_params).size());
-    } else {
-        nbio = 0;
     }
     // Dye is opt-in, biology or not: a component nothing asked for is one more thing to
     // advect, diffuse, and explain in every plotfile and boundary file.
@@ -2696,10 +2725,42 @@ REMORA::ReadParameters ()
     pp.queryAdd("cf_avgdown_bar", cf_avgdown_bar);
     pp.queryAdd("cf_fill_all_kcomp", cf_fill_all_kcomp);
     pp.queryAdd("cf_time_interp_zeta", cf_time_interp_zeta);
+    pp.queryAdd("cf_2d_fill_cache", cf_2d_fill_cache);
+    if (cf_2d_fill_cache < 0 || cf_2d_fill_cache > 2) {
+        amrex::Abort("remora.cf_2d_fill_cache must be 0 (recompute), 1 (cache) or 2 (cache and check)");
+    }
     pp.queryAdd("cf_flux_pc", cf_flux_pc);
     pp.queryAdd("cf_avgdown_stencil", cf_avgdown_stencil);
     pp.queryAdd("cf_avgdown_volume_weighted", cf_avgdown_volume_weighted);
     pp.queryAdd("cf_print_iface", cf_print_iface);
+
+    // Box-to-rank assignment; see MakeDistributionMap.
+    {
+        std::string lb = load_balance_name();
+        pp.queryAdd("load_balance", lb);
+        const std::string lbl = amrex::toLower(lb);
+        if (lbl == "amrex") {
+            load_balance = LoadBalance::amrex;
+        } else if (lbl == "sfc") {
+            load_balance = LoadBalance::sfc;
+        } else if (lbl == "knapsack") {
+            load_balance = LoadBalance::knapsack;
+        } else if (lbl == "roundrobin") {
+            load_balance = LoadBalance::roundrobin;
+        } else {
+            amrex::Abort("remora.load_balance must be amrex, sfc, knapsack or roundrobin, not " + lb);
+        }
+        pp.queryAdd("load_balance_land_weight", load_balance_land_weight);
+        if (load_balance_land_weight < zero) {
+            amrex::Abort("remora.load_balance_land_weight must not be negative");
+        }
+    }
+    // Leave all-land level-0 boxes out; see drop_dry_level0_boxes.
+    pp.queryAdd("drop_dry_boxes", drop_dry_boxes);
+    pp.queryAdd("dry_ghost_test", dry_ghost_test);
+    if (dry_ghost_test < 0 || dry_ghost_test > 2) {
+        amrex::Abort("remora.dry_ghost_test must be 0 (off), 1 (signalling NaN) or 2 (remora.dry_ghost_value)");
+    }
 
     // Whether to zero a tracer the correction drives negative, as ROMS does.
     pp.queryAdd("reflux_clamp", reflux_clamp);
@@ -2728,6 +2789,17 @@ REMORA::ReadParameters ()
     if (pp.contains("use_barotropic")) {
         amrex::Abort("remora.use_barotropic has been removed. The barotropic (2D) mode is "
                      "always active; please delete this line from your inputs file");
+    }
+
+    // remora.use_prestep and remora.use_uv3dmix have been removed: the prestep and the
+    // harmonic viscosity are always applied. Rejected on presence for the same reason as
+    // use_barotropic above.
+    for (const char* removed : {"use_prestep", "use_uv3dmix"}) {
+        if (pp.contains(removed)) {
+            amrex::Abort(std::string("remora.") + removed + " has been removed. The prestep "
+                         "and harmonic viscosity are always applied; please delete this line "
+                         "from your inputs file");
+        }
     }
 
     AMREX_ASSERT(cfl > zero || fixed_dt > zero);
@@ -2931,6 +3003,7 @@ REMORA::ReadParameters ()
 
     {
         ParmParse pp_amr("amr");
+        regrid_int_from_input = pp_amr.contains("regrid_int");
         pp_amr.queryAdd("regrid_int", regrid_int);
     }
     solverChoice.init_params(ncons, nscalar, cons_names);
@@ -2939,7 +3012,7 @@ REMORA::ReadParameters ()
     // mixed combinations works: NetCDF physics with analytic biology. The reverse has no
     // file to read from -- nc_init_file is only populated on the netcdf path -- so catch
     // it here instead of failing inside PnetCDF on an empty file name.
-    if (REMORABiology::has_biology(biology_model) and
+    if (nbio > 0 and
         biology_ic_type == REMORABiology::BiologyICType::netcdf and
         solverChoice.ic_type != IC_Type::netcdf) {
         amrex::Abort("remora.biology_ic_type = netcdf requires remora.ic_type = netcdf: the biology "
@@ -3439,6 +3512,9 @@ REMORA::restore_perimeter_faces (const MultiFab& saved, MultiFab& mf,
                                  const MultiFab& covered, int dir, int ncomp)
 {
     const IntVect off = IntVect::TheDimensionVector(dir);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.tilebox();
@@ -3500,6 +3576,9 @@ REMORA::average_down_masked (int crse_lev, const MultiFab& S_fine, MultiFab& S_c
         AMREX_ALWAYS_ASSERT(S_fine.DistributionMap() == vec_pm[flev]->DistributionMap());
         AMREX_ALWAYS_ASSERT(S_fine.DistributionMap() == vec_pn[flev]->DistributionMap());
         wt.define(S_fine.boxArray(), S_fine.DistributionMap(), 1, 0);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for (MFIter mfi(wt, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
             Array4<      Real> const& w  = wt.array(mfi);
@@ -3515,6 +3594,9 @@ REMORA::average_down_masked (int crse_lev, const MultiFab& S_fine, MultiFab& S_c
         }
     }
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(ctmp, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.tilebox();
@@ -3742,4 +3824,33 @@ REMORA::average_down_with_grow_cells (int crse_lev, Vector<std::unique_ptr<Multi
 amrex::Real REMORA::get_t_old(int lev) const
 {
     return t_old[lev];
+}
+
+void
+REMORA::advance_biology (int lev, amrex::MultiFab const& old_state,
+                        amrex::MultiFab& new_state, int N, amrex::Real dt_lev)
+{
+    if (nbio == 0) {
+        return;
+    }
+    const REMORABiology::BiologyAdvanceContext context{
+        .old_state = old_state,
+        .new_state = new_state,
+        .solver_choice = solverChoice,
+        .component_start = Bio_comp,
+        .top_layer = N,
+        .dt = dt_lev,
+        .model_time = model_time(t_old[lev]),
+        .hz = vec_Hz[lev].get(),
+        .z_r = vec_z_r[lev].get(),
+        .z_w = vec_z_w[lev].get(),
+        .mask = vec_mskr[lev].get(),
+        .shortwave = vec_srflx[lev].get(),
+        .stress_u = vec_sustr[lev].get(),
+        .stress_v = vec_svstr[lev].get(),
+        .wind_u = vec_uwind[lev].get(),
+        .wind_v = vec_vwind[lev].get(),
+        .bottom_stress_u = vec_bustr[lev].get(),
+        .bottom_stress_v = vec_bvstr[lev].get()};
+    m_biology->advance(context);
 }

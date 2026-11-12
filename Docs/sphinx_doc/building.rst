@@ -201,6 +201,12 @@ or if using tcsh,
    +-----------------+----------------------------------+------------------+-------------+
    | USE_OMP         | Whether to enable OpenMP         | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
+   | NATIVE_ARCH     | Compile for the CPU of the build | TRUE / FALSE     | FALSE       |
+   |                 | machine (``-march=native``)      |                  |             |
+   +-----------------+----------------------------------+------------------+-------------+
+   | FP_CONTRACT     | Let the compiler fuse multiply-  | TRUE / FALSE     | FALSE       |
+   |                 | adds (Performance tuning page)   |                  |             |
+   +-----------------+----------------------------------+------------------+-------------+
    | USE_CUDA        | Whether to enable CUDA           | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
    | USE_HIP         | Whether to enable HIP            | TRUE / FALSE     | FALSE       |
@@ -228,6 +234,17 @@ or if using tcsh,
 
    .. note::
       **Do not set both USE_OMP and USE_CUDA to true.**
+
+   .. note::
+      With OpenMP, the ``MFIter`` loops of the time step run their tiles in parallel, and
+      CPU builds tile by default in 16x16 columns (``remora.omp_tile_size``), the fastest
+      shape measured on a Perlmutter CPU node (see the Performance tuning page). Where tiles
+      overlap on shared scratch every tile writes the same value, and the coarse-fine flux
+      correction is accumulated in a fixed order, so the answers do not depend on the
+      tiling or the thread count. If tiling is turned off, the threads share
+      a rank's boxes instead, and a rank with fewer boxes on a level than threads leaves
+      threads idle (REMORA warns when a level's grids do so); choose ``amr.max_grid_size``
+      accordingly.
 
    Information on using other compilers can be found in the AMReX documentation at
    https://amrex-codes.github.io/amrex/docs_html/BuildingAMReX.html .
@@ -280,6 +297,16 @@ The options are described in the table below. Standard CMake options like ``CMAK
    | ``REMORA_ENABLE_MPI``            | Whether to enable MPI            | ON / OFF         | OFF         |
    +----------------------------------+----------------------------------+------------------+-------------+
    | ``REMORA_ENABLE_OPENMP``         | Whether to enable OpenMP         | ON / OFF         | OFF         |
+   +----------------------------------+----------------------------------+------------------+-------------+
+   | ``REMORA_ENABLE_NATIVE_ARCH``    | Compile for the CPU of the build | ON / OFF         | OFF         |
+   |                                  | machine (``-march=native``);     |                  |             |
+   |                                  | the binary may not run on other  |                  |             |
+   |                                  | CPUs                             |                  |             |
+   +----------------------------------+----------------------------------+------------------+-------------+
+   | ``REMORA_ENABLE_FP_CONTRACT``    | Let the compiler fuse multiply-  | ON / OFF         | OFF         |
+   |                                  | adds into FMA instructions; the  |                  |             |
+   |                                  | answers then depend on the tile  |                  |             |
+   |                                  | size (:ref:`PerformanceTuning`)  |                  |             |
    +----------------------------------+----------------------------------+------------------+-------------+
    | ``REMORA_ENABLE_CUDA``           | Whether to enable CUDA           | ON / OFF         | OFF         |
    +----------------------------------+----------------------------------+------------------+-------------+

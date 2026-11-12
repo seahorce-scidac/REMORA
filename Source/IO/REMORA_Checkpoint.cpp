@@ -14,6 +14,7 @@ REMORA::GotoNextLine (std::istream& is)
 void
 REMORA::WriteCheckpointFile ()
 {
+    update_wvel();
 
     // chk00010            write a checkpoint file with this root directory
     // chk00010/Header     this contains information you need to save (e.g., finest_level, t_new, etc.) and also
@@ -127,6 +128,29 @@ REMORA::WriteCheckpointFile ()
        const int history_record = (last_plot_file_step == istep[0])
                                 ? history_count - 1 : history_count;
        HeaderFile << "history_count " << history_record << "\n";
+
+       // The cell-centered components in order. The count above cannot tell
+       // apart layouts of the same size, such as different dye counts or
+       // biology models, and the data are stored by position.
+       HeaderFile << "cons_names " << cons_names.size();
+       for (const auto& name : cons_names) {
+           HeaderFile << " " << name;
+       }
+       HeaderFile << "\n";
+
+       // XRHS, YRHS, XRHS2d and YRHS2d hold ru, rv, ru2d and rv2d as the kernels keep
+       // them. Checkpoints without this line hold them per unit area (see
+       // scale_rhs_by_area).
+       HeaderFile << "rhs_form kernel\n";
+
+       // Biology model identity, beyond the tracer names checked above.
+       const std::string biology_file = checkpointname + "/BiologyHeader";
+       std::ofstream biology_header(biology_file);
+       if (!biology_header.good()) amrex::FileOpenFailed(biology_file);
+       biology_header << "REMORA_BIOLOGY 2\n" << m_biology->checkpoint_identity()
+                      << "\n";
+       biology_header.close();
+       if (!biology_header.good()) amrex::Abort("Failed writing " + biology_file);
    }
 
    // write the MultiFab data to, e.g., chk00010/Level_0/
@@ -231,6 +255,18 @@ REMORA::WriteCheckpointFile ()
        VisMF::Write(*(vec_Akp[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akp"));
        VisMF::Write(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akv"));
        VisMF::Write(*(vec_Akt[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akt"));
+
+       // The end-of-step snapshots a subcycled finer level interpolates between (see
+       // roll_2d_snapshot and store_2d_flux). Each step rolls the previous step's into the
+       // start of its own, so a restart needs them to take its first step as an
+       // uninterrupted run would.
+       if (lev < int(vec_zeta_crse_new.size()) && vec_zeta_crse_new[lev]) {
+           VisMF::Write(*(vec_zeta_crse_new[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "zeta_crse"));
+       }
+       if (!Dubar_fresh[lev]) {
+           VisMF::Write(*(vec_Dubar_new[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Dubar"));
+           VisMF::Write(*(vec_Dvbar_new[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Dvbar"));
+       }
    }
 
 #ifdef REMORA_USE_PARTICLES
@@ -242,6 +278,30 @@ void
 REMORA::ReadCheckpointFile ()
 {
     amrex::Print() << "Restart from checkpoint " << restart_chkfile << "\n";
+
+    const std::string biology_file = restart_chkfile + "/BiologyHeader";
+    int has_biology_header = 0;
+    if (ParallelDescriptor::IOProcessor()) {
+        std::ifstream probe(biology_file);
+        has_biology_header = probe.good();
+    }
+    ParallelDescriptor::Bcast(&has_biology_header, 1, ParallelDescriptor::IOProcessorNumber());
+    if (has_biology_header) {
+        Vector<char> buffer;
+        ParallelDescriptor::ReadAndBcastFile(biology_file, buffer);
+        std::istringstream metadata(buffer.dataPtr());
+        std::string schema, identity;
+        int version = 0;
+        metadata >> schema >> version >> identity;
+        // Version 1 also listed the component names, now checked from Header.
+        if (!metadata || schema != "REMORA_BIOLOGY" ||
+            (version != 1 && version != 2) ||
+            identity != m_biology->checkpoint_identity()) {
+            amrex::Abort("Checkpoint biology identity differs from this run: " + biology_file);
+        }
+    } else if (!m_biology->accepts_legacy_checkpoint()) {
+        amrex::Abort("Selected biology requires checkpoint identity metadata: " + biology_file);
+    }
 
     // Header
     std::string File(restart_chkfile + "/Header");
@@ -366,6 +426,7 @@ REMORA::ReadCheckpointFile ()
     //   neither: the time line is on the model clock.
     bool have_time_origin = false;
     bool have_start_time = false;
+    bool rhs_per_area = true;
     double chk_time_origin = 0.0;
     double chk_start_time = 0.0;
     Vector<double> chk_elapsed;
@@ -381,9 +442,35 @@ REMORA::ReadCheckpointFile ()
         } else if (word == "start_time") {
             lis >> chk_start_time;
             have_start_time = true;
+        } else if (word == "rhs_form") {
+            // How ru, rv, ru2d and rv2d are stored. Older checkpoints lack this line and
+            // hold them per unit area.
+            std::string form;
+            lis >> form;
+            if (form != "kernel") {
+                amrex::Abort("Checkpoint rhs_form " + form + " is not known");
+            }
+            rhs_per_area = false;
         } else if (word == "history_count") {
             // History record for this step. Without it, history output starts over.
             lis >> history_count;
+        } else if (word == "cons_names") {
+            // Same count, checked above, is not the same layout: the data are
+            // stored by position. Older checkpoints lack this line.
+            int count = 0;
+            lis >> count;
+            Vector<std::string> chk_names;
+            std::string name;
+            while (lis >> name) { chk_names.push_back(name); }
+            if (count != static_cast<int>(chk_names.size()) || chk_names != cons_names) {
+                std::string have, want;
+                for (const auto& n : chk_names) { have += " " + n; }
+                for (const auto& n : cons_names) { want += " " + n; }
+                amrex::Abort("Checkpoint cell-centered components differ from this run."
+                             "\n  checkpoint:" + have + "\n  this run:  " + want +
+                             "\nThe layout is set by remora.nscalar and"
+                             " remora.biology_model and its options.");
+            }
         }
     }
 
@@ -406,7 +493,9 @@ REMORA::ReadCheckpointFile ()
             << " plot_int_time/check_int_time cadence. NetCDF time axes and"
             << " start_total_time/end_total_time windows stay where they were."
             << " Keep remora.start_time unchanged to continue the run as it was.";
-        amrex::Warning(msg.str());
+        if (amrex::ParallelDescriptor::IOProcessor()) {
+            amrex::Warning(msg.str());
+        }
     }
 
     // Rebase onto this run's start_time. Take the elapsed time verbatim when the
@@ -428,8 +517,8 @@ REMORA::ReadCheckpointFile ()
     }
 
     for (int lev = 0; lev <= finest_level; ++lev) {
-        // create a distribution mapping
-        DistributionMapping dm { chk_ba[lev], ParallelDescriptor::NProcs() };
+        // The same mapping a fresh start gives this BoxArray, remora.load_balance included
+        DistributionMapping dm = MakeDistributionMap(lev, chk_ba[lev]);
 
         MakeNewLevelFromScratch (lev, t_new[lev], chk_ba[lev], dm);
     }
@@ -495,6 +584,13 @@ REMORA::ReadCheckpointFile ()
        VisMF::Read(mf_rv2d, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YRHS2d"));
        MultiFab::Copy(*(vec_rv2d[lev]),mf_rv2d,0,0,2,(vec_rv2d[lev])->nGrowVect());
 
+       if (rhs_per_area) {
+           scale_rhs_by_area(lev, *vec_ru[lev],   0, false);
+           scale_rhs_by_area(lev, *vec_rv[lev],   1, false);
+           scale_rhs_by_area(lev, *vec_ru2d[lev], 0, false);
+           scale_rhs_by_area(lev, *vec_rv2d[lev], 1, false);
+       }
+
        MultiFab mf_mskr(ba2d,dmap[lev],1,(vec_mskr[lev])->nGrowVect());
        VisMF::Read(mf_mskr, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Mskr"));
        MultiFab::Copy(*(vec_mskr[lev]),mf_mskr,0,0,1,(vec_mskr[lev])->nGrowVect());
@@ -536,11 +632,35 @@ REMORA::ReadCheckpointFile ()
        VisMF::Read(*(vec_Akt[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akt"));
        VisMF::Read(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akv"));
 
+       // The subcycling snapshots (see WriteCheckpointFile). A checkpoint written before they
+       // were saved, or at a level that had not taken a step, leaves them as a fresh level
+       // starts them: the free surface is not interpolated in time for one step, and the old
+       // flux snapshot is set to the new one.
+       const std::string zeta_crse_name = amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "zeta_crse");
+       if (VisMF::Exist(zeta_crse_name)) {
+           if (int(vec_zeta_crse_new.size()) <= lev) {
+               vec_zeta_crse_old.resize(lev+1);
+               vec_zeta_crse_new.resize(lev+1);
+           }
+           const MultiFab& like = *vec_zeta[lev];
+           vec_zeta_crse_old[lev] = std::make_unique<MultiFab>(like.boxArray(), like.DistributionMap(),
+                                                               like.nComp(), like.nGrowVect());
+           vec_zeta_crse_new[lev] = std::make_unique<MultiFab>(like.boxArray(), like.DistributionMap(),
+                                                               like.nComp(), like.nGrowVect());
+           VisMF::Read(*(vec_zeta_crse_new[lev]), zeta_crse_name);
+       }
+       const std::string dubar_name = amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Dubar");
+       if (VisMF::Exist(dubar_name)) {
+           VisMF::Read(*(vec_Dubar_new[lev]), dubar_name);
+           VisMF::Read(*(vec_Dvbar_new[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Dvbar"));
+           Dubar_fresh[lev] = 0;
+       }
+
        stretch_transform(lev);
 
     }
 
 #ifdef REMORA_USE_PARTICLES
-   particleData.Restart((amrex::ParGDBBase*)GetParGDB(),restart_chkfile);
+   particleData.Restart((amrex::ParGDBBase*)GetParGDB(),restart_chkfile,vec_z_phys_nd);
 #endif
 }

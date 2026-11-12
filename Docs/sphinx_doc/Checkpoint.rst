@@ -86,3 +86,12 @@ To restart from ``chk_run00061``,for example, then set
 
 -  **remora.restart** = ``chk_run00061``
 
+
+A restart reproduces the run it continues bit for bit. The checkpoint holds the
+momentum right-hand sides ``XRHS``, ``YRHS``, ``XRHS2d`` and ``YRHS2d`` in the form the
+time step keeps them, scaled by face area, and its ``Header`` says so with a
+``rhs_form kernel`` line. Checkpoints without that line hold them per unit area; they
+still restart, converted on reading, but agree with the run they continue only to
+roundoff. A build that predates the ``rhs_form`` line reads a newer checkpoint without
+complaint but with these fields scaled wrongly, so restart only with a build at least as
+new as the one that wrote the checkpoint.

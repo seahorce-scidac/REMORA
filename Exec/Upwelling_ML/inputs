@@ -63,7 +63,6 @@ remora.init_l0int_T =false
 
 # Coriolis params
 remora.use_coriolis = false
-remora.use_uv3dmix = true
 remora.coriolis_type = beta_plane
 remora.coriolis_f0 = -8.26e-5
 remora.coriolis_beta = 0.0

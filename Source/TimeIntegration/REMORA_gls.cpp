@@ -1,6 +1,34 @@
 #include <REMORA.H>
+#include <limits>
 
 using namespace amrex;
+
+namespace {
+/**
+ * std::pow for the GLS exponents, which are run-time parameters and for the usual closures
+ * are small multiples of 1/2 (k-epsilon: 1, -1, 3/2). Those are evaluated with sqrt,
+ * multiplies and divides, which cost a few ns where a pow call costs ~17. pow(x,1) = x and
+ * pow(x,0) = 1 are exact; for a positive finite x the others can differ from std::pow by
+ * about an ulp. A zero or infinite x goes to std::pow, since the sqrt paths would not match
+ * it there (sqrt(-0) is -0 and sqrt(-inf) is NaN).
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real gls_pow (Real x, Real y) noexcept
+{
+    if (y == Real(1.0)) { return x; }
+    if (y == Real(0.0)) { return Real(1.0); }
+    if (y == Real(-1.0)) { return Real(1.0) / x; }
+    if (!(std::abs(x) > Real(0.0) && std::abs(x) < std::numeric_limits<Real>::infinity())) {
+        return std::pow(x, y);
+    }
+    if (y == Real(1.5)) { return x * std::sqrt(x); }
+    if (y == Real(0.5)) { return std::sqrt(x); }
+    if (y == Real(-0.5)) { return Real(1.0) / std::sqrt(x); }
+    if (y == Real(-1.5)) { return Real(1.0) / (x * std::sqrt(x)); }
+    if (y == Real(2.0)) { return x * x; }
+    return std::pow(x, y);
+}
+}
 
 /**
  * @param[in   ] lev            level to operate on
@@ -24,6 +52,9 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 {
     BL_PROFILE("REMORA::gls_prestep()");
     // temps: grad, gradL, XF, FX, FXL, EF, FE, FEL
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& gls = mf_gls->array(mfi);
         Array4<Real> const& tke = mf_tke->array(mfi);
@@ -41,10 +72,6 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Box xbx = surroundingNodes(bx,0);
         Box ybx = surroundingNodes(bx,1);
 
-        Box xbx_hi = growHi(xbx,0,1);
-
-        Box ybx_hi = growHi(ybx,0,1);
-
         const Box& domain = geom[lev].Domain();
         const auto dlo = amrex::lbound(domain);
         const auto dhi = amrex::ubound(domain);
@@ -53,22 +80,16 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         bool is_periodic_in_x = geomdata.isPeriodic(0);
         bool is_periodic_in_y = geomdata.isPeriodic(1);
 
-        int ncomp = 1;
-        Vector<BCRec> bcrs_x(ncomp);
-        Vector<BCRec> bcrs_y(ncomp);
-        amrex::setBC(xbx,domain,xvel_bc(),0,1,domain_bcs_type,bcrs_x);
-        amrex::setBC(ybx,domain,yvel_bc(),0,1,domain_bcs_type,bcrs_y);
-
-        FArrayBox fab_XF(xbx_hi, 1, amrex::The_Async_Arena()); fab_XF.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FX(xbx_hi, 1, amrex::The_Async_Arena()); fab_FX.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FXL(xbx_hi, 1, amrex::The_Async_Arena()); fab_FXL.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_EF(ybx_hi, 1, amrex::The_Async_Arena()); fab_EF.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FE(ybx_hi, 1, amrex::The_Async_Arena()); fab_FE.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FEL(ybx_hi, 1, amrex::The_Async_Arena()); fab_FEL.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_Hz_half(bx, 1, amrex::The_Async_Arena()); fab_Hz_half.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_CF(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena()); fab_CF.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FC(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena()); fab_FC.template setVal<RunOn::Device>(zero);
-        FArrayBox fab_FCL(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena()); fab_FCL.template setVal<RunOn::Device>(zero);
+        // Every scratch cell read below is written first, so none is zero-filled
+        FArrayBox fab_XF(xbx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_FX(xbx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_FXL(xbx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_EF(ybx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_FE(ybx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_FEL(ybx, 1, amrex::The_Async_Arena());
+        FArrayBox fab_CF(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena());
+        FArrayBox fab_FC(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena());
+        FArrayBox fab_FCL(convert(bx,IntVect(0,0,0)), 1, amrex::The_Async_Arena());
 
         auto XF  = fab_XF.array();
         auto FX  = fab_FX.array();
@@ -76,7 +97,6 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         auto EF  = fab_EF.array();
         auto FE  = fab_FE.array();
         auto FEL = fab_FEL.array();
-        auto Hz_half = fab_Hz_half.array();
         auto CF  = fab_CF.array();
         auto FC  = fab_FC.array();
         auto FCL = fab_FCL.array();
@@ -151,22 +171,6 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             indx = 1 - nstp;
         }
 
-        // update tke, gls from [xlo to xhi  ] by [ylo to yhi  ]
-        // need XF/FX/FXL from  [xlo to xhi+1] by [ylo to yhi  ]
-        // need EF/FE/FEL from  [xlo to xhi  ] by [ylo to yhi+1]
-        ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real cff = Real(0.5) * (Hz(i,j,k) + Hz(i,j,k-1));
-            Real cff4 = cff3 * pm(i,j,0) * pn(i,j,0);
-            Hz_half(i,j,k) = cff - cff4 * (XF(i+1,j,k)-XF(i,j,k)+EF(i,j+1,k)-EF(i,j,k));
-            tke(i,j,k,2) = cff * (cff1*tke(i,j,k,nstp) + cff2*tke(i,j,k,indx)) -
-                           cff4 * (FX(i+1,j,k)-FX(i,j,k)+FE(i,j+1,k)-FE(i,j,k));
-            gls(i,j,k,2) = cff * (cff1 * gls(i,j,k,nstp) + cff2 * gls(i,j,k,indx)) -
-                           cff4 * (FXL(i+1,j,k)-FXL(i,j,k)+FEL(i,j+1,k)-FEL(i,j,k));
-            tke(i,j,k,nnew) = cff * tke(i,j,k,nstp);
-            gls(i,j,k,nnew) = cff * gls(i,j,k,nstp);
-        });
-
         // Will do a FillPatch after this, so don't need to do any ghost zones in x,y
         // Compute vertical advection
         ParallelFor(convert(bx,IntVect(0,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -203,26 +207,50 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             }
         });
 
-        // Time-step vertical advection
-        if (iic == ntfirst) {
-            cff3 = Real(0.5) * dt_lev;
-        } else {
-            cff3 = (one - gamma) * dt_lev;
-        }
-        // DO k=1,N-1
+        // Time-step horizontal and vertical advection in one pass. The vertical step uses the
+        // same cff3 as the horizontal one, and every intermediate is rounded as when they
+        // were stored between two passes.
+        // update tke, gls from [xlo to xhi  ] by [ylo to yhi  ]
+        // need XF/FX/FXL from  [xlo to xhi+1] by [ylo to yhi  ]
+        // need EF/FE/FEL from  [xlo to xhi  ] by [ylo to yhi+1]
         ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
+            Real cff = Real(0.5) * (Hz(i,j,k) + Hz(i,j,k-1));
             Real cff4 = cff3 * pm(i,j,0) * pn(i,j,0);
-            Hz_half(i,j,k) = Hz_half(i,j,k) - cff4 * (CF(i,j,k)-CF(i,j,k-1));
-            Real cff1_loc = one / Hz_half(i,j,k);
-            tke(i,j,k,2) = cff1_loc * (tke(i,j,k,2) - cff4 * (FC (i,j,k) - FC (i,j,k-1)));
-            gls(i,j,k,2) = cff1_loc * (gls(i,j,k,2) - cff4 * (FCL(i,j,k) - FCL(i,j,k-1)));
+            Real Hz_half = cff - cff4 * (XF(i+1,j,k)-XF(i,j,k)+EF(i,j+1,k)-EF(i,j,k));
+            Real tke_half = cff * (cff1*tke(i,j,k,nstp) + cff2*tke(i,j,k,indx)) -
+                            cff4 * (FX(i+1,j,k)-FX(i,j,k)+FE(i,j+1,k)-FE(i,j,k));
+            Real gls_half = cff * (cff1 * gls(i,j,k,nstp) + cff2 * gls(i,j,k,indx)) -
+                            cff4 * (FXL(i+1,j,k)-FXL(i,j,k)+FEL(i,j+1,k)-FEL(i,j,k));
+            tke(i,j,k,nnew) = cff * tke(i,j,k,nstp);
+            gls(i,j,k,nnew) = cff * gls(i,j,k,nstp);
+
+            // DO k=1,N-1
+            Hz_half = Hz_half - cff4 * (CF(i,j,k)-CF(i,j,k-1));
+            Real cff1_loc = one / Hz_half;
+            tke(i,j,k,2) = cff1_loc * (tke_half - cff4 * (FC (i,j,k) - FC (i,j,k-1)));
+            gls(i,j,k,2) = cff1_loc * (gls_half - cff4 * (FCL(i,j,k) - FCL(i,j,k-1)));
         });
     }
 
-    for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, t_old[lev], *vec_tke[lev], GetVecOfPtrs(vec_tke), tke_bc(), BdyVars::null, icomp, false, false);
-        FillPatch(lev, t_old[lev], *vec_gls[lev], GetVecOfPtrs(vec_gls), tke_bc(), BdyVars::null, icomp, false, false);
+    if (lev == 0) {
+        // At level 0 each FillPatch below is an exchange of one component followed by its
+        // boundary conditions, which read and write only that component. So exchange all
+        // components of both fields at once, then apply the conditions in the old order.
+        amrex::FillBoundary(Vector<MultiFab*>{vec_tke[lev].get(), vec_gls[lev].get()},
+                            geom[lev].periodicity());
+        const MultiFab no_calc;
+        for (int icomp=0; icomp<3; icomp++) {
+            FillPatchBCs(lev, t_old[lev], *vec_tke[lev], tke_bc(), BdyVars::null, icomp, 1,
+                         0, 0, zero, no_calc);
+            FillPatchBCs(lev, t_old[lev], *vec_gls[lev], tke_bc(), BdyVars::null, icomp, 1,
+                         0, 0, zero, no_calc);
+        }
+    } else {
+        for (int icomp=0; icomp<3; icomp++) {
+            FillPatch(lev, t_old[lev], *vec_tke[lev], GetVecOfPtrs(vec_tke), tke_bc(), BdyVars::null, icomp, false, false);
+            FillPatch(lev, t_old[lev], *vec_gls[lev], GetVecOfPtrs(vec_gls), tke_bc(), BdyVars::null, icomp, false, false);
+        }
     }
 }
 
@@ -388,18 +416,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     const BoxArray&            ba = cons_old[lev]->boxArray();
     const DistributionMapping& dm = cons_old[lev]->DistributionMap();
 
-    int ncomp_w = 0;
-    int dU_comp = ncomp_w++;
-    int dV_comp = ncomp_w++;
-    int CF_comp = ncomp_w++;
-
-    int ncomp = 0;
-    int shear2_comp = ncomp++;
-    int shear2_cache_comp = ncomp++;
-    int buoy2_comp = ncomp++;
-
-    MultiFab mf_w(convert(ba, IntVect(0,0,1)),dm,ncomp_w,IntVect(NGROW,NGROW,0));
-    MultiFab mf(ba,dm,ncomp,IntVect(NGROW,NGROW,0));
+    // Squared shear at w points before its horizontal averaging; level-wide because its
+    // boundary values come from physbcs. The column scratch (dU, dV, CF) and the averaged
+    // shear2/buoy2 are per-tile FArrayBoxes in the loops below.
+    MultiFab mf_shear2_cached(ba,dm,1,IntVect(NGROW,NGROW,0));
 
     const Box& domain = geom[0].Domain();
     const auto dlo = amrex::lbound(domain);
@@ -409,6 +429,9 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Box   bx = mfi.tilebox();
@@ -423,10 +446,11 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Array4<Real> const& u = xvel_old[lev]->array(mfi);
         Array4<Real> const& v = yvel_old[lev]->array(mfi);
 
-        auto dU = mf_w.array(mfi,dU_comp);
-        auto dV = mf_w.array(mfi,dV_comp);
-        auto CF = mf_w.array(mfi,CF_comp);
-        auto shear2_cached = mf.array(mfi,shear2_cache_comp);
+        FArrayBox fab_w(gbx1, 3, amrex::The_Async_Arena());
+        auto dU = fab_w.array(0);
+        auto dV = fab_w.array(1);
+        auto CF = fab_w.array(2);
+        auto shear2_cached = mf_shear2_cached.array(mfi);
 
         ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -456,8 +480,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
     // While potentially counterintuitive, this is what ROMS does for handling shear2 at all boundaries, even
     // periodic
-    (*physbcs[lev])(mf,*mf_mskr,shear2_cache_comp,1,mf.nGrowVect(),t_new[lev],foextrap_bc());
-    mf.setVal(zero,CF_comp,1);
+    (*physbcs[lev])(mf_shear2_cached,*mf_mskr,0,1,mf_shear2_cached.nGrowVect(),t_new[lev],foextrap_bc());
 
     int ncomp_fab = 0;
     int tmp_buoy_comp  = ncomp_fab++;
@@ -472,7 +495,13 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     int FCP_comp = ncomp_fab++;
     int BCK_comp = ncomp_fab++;
     int BCP_comp = ncomp_fab++;
+    int CF_comp = ncomp_fab++;
+    int shear2_comp = ncomp_fab++;
+    int buoy2_comp = ncomp_fab++;
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Box  bx = mfi.tilebox();
@@ -488,12 +517,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         bxD.makeSlab(2,0);
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
-
-        int ncompbc = 1;
-        Vector<BCRec> bcrs_x(ncompbc);
-        Vector<BCRec> bcrs_y(ncompbc);
-        amrex::setBC(xbx,domain,xvel_bc(),0,1,domain_bcs_type,bcrs_x);
-        amrex::setBC(ybx,domain,yvel_bc(),0,1,domain_bcs_type,bcrs_y);
 
         Array4<Real const> const& W = mf_W.const_array(mfi);
         Array4<Real> const& Hz = vec_Hz[lev]->array(mfi);
@@ -517,12 +540,13 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
         Array4<Real> const& ZoBot = vec_ZoBot[lev]->array(mfi);
 
-        FArrayBox fab(gbx1,ncomp_fab, amrex::The_Async_Arena()); fab.template setVal<RunOn::Device>(zero);
+        // Every scratch cell read below is written first, so the fab is not zero-filled
+        FArrayBox fab(gbx1,ncomp_fab, amrex::The_Async_Arena());
 
-        auto CF = mf_w.array(mfi,CF_comp);
-        auto shear2 = mf.array(mfi,shear2_comp);
-        auto shear2_cached = mf.array(mfi,shear2_cache_comp);
-        auto buoy2 = mf.array(mfi,buoy2_comp);
+        auto CF = fab.array(CF_comp);
+        auto shear2 = fab.array(shear2_comp);
+        auto shear2_cached = mf_shear2_cached.array(mfi);
+        auto buoy2 = fab.array(buoy2_comp);
         Array4<Real> const& bvf = vec_bvf[lev]->array(mfi);
 
         auto tmp_buoy = fab.array(tmp_buoy_comp);
@@ -620,20 +644,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             FEP(i,j,k) = cff * Real(0.5) * (gls(i,j-1,k,2)+gls(i,j,k,2)-Gadv*cff2);
         });
 
-        Real gls_Kmin = solverChoice.gls_Kmin;
-        Real gls_Pmin = solverChoice.gls_Pmin;
-        ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real cff = dt_lev * pm(i,j,0) * pn(i,j,0);
-            tke(i,j,k,nnew) = tke(i,j,k,nnew) - cff * (FXK(i+1,j  ,k)-FXK(i,j,k)+
-                                                       FEK(i  ,j+1,k)-FEK(i,j,k));
-            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew), gls_Kmin);
-
-            gls(i,j,k,nnew) = gls(i,j,k,nnew) - cff * (FXP(i+1,j  ,k)-FXP(i,j,k)+
-                                                       FEP(i  ,j+1,k)-FEP(i,j,k));
-            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew), gls_Pmin);
-        });
-
         // Vertical advection
         ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -656,13 +666,24 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             FCK(i,j,N) = cff * (cff1 * tke(i,j,N+1,2)+cff2*tke(i,j,N,2)-cff3*tke(i,j,N-1,2));
             FCP(i,j,N) = cff * (cff1 * gls(i,j,N+1,2)+cff2*gls(i,j,N,2)-cff3*gls(i,j,N-1,2));
         });
-        ParallelFor(grow(bx,2,-1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        // Time-step horizontal, then vertical advection, in one pass (each intermediate is
+        // rounded and limited as it was when stored between two passes)
+        Real gls_Kmin = solverChoice.gls_Kmin;
+        Real gls_Pmin = solverChoice.gls_Pmin;
+        ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real cff = dt_lev * pm(i,j,0) * pn(i,j,0);
-            tke(i,j,k,nnew) = tke(i,j,k,nnew) - cff*(FCK(i,j,k  )-FCK(i,j,k-1));
-            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew),gls_Kmin);
-            gls(i,j,k,nnew) = gls(i,j,k,nnew) - cff*(FCP(i,j,k  )-FCP(i,j,k-1));
-            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew),gls_Pmin);
+            Real tke_new = tke(i,j,k,nnew) - cff * (FXK(i+1,j  ,k)-FXK(i,j,k)+
+                                                    FEK(i  ,j+1,k)-FEK(i,j,k));
+            tke_new = std::max(tke_new, gls_Kmin);
+            tke_new = tke_new - cff*(FCK(i,j,k  )-FCK(i,j,k-1));
+            tke(i,j,k,nnew) = std::max(tke_new,gls_Kmin);
+
+            Real gls_new = gls(i,j,k,nnew) - cff * (FXP(i+1,j  ,k)-FXP(i,j,k)+
+                                                    FEP(i  ,j+1,k)-FEP(i,j,k));
+            gls_new = std::max(gls_new, gls_Pmin);
+            gls_new = gls_new - cff*(FCP(i,j,k  )-FCP(i,j,k-1));
+            gls(i,j,k,nnew) = std::max(gls_new,gls_Pmin);
         });
 
         // Compute vertical mixing, turbulent production and turbulent
@@ -703,20 +724,20 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             gls(i,j,k,nnew) = gls(i,j,k,nnew)+dt_lev
                                 *cff_Hz*Pprod*gls(i,j,k,nstp) / std::max(tke(i,j,k,nstp),gls_Kmin);
 
-            Real gls_exp_exp1 = std::pow(gls(i,j,k,nstp),gls_exp1);
+            Real gls_exp_exp1 = gls_pow(gls(i,j,k,nstp),gls_exp1);
             Real gls_exp_mexp1 = one / (gls_exp_exp1);
-            Real tke_exp_mexp1 = std::pow(tke(i,j,k,nstp),-tke_exp1);
-            Real tke_exp_exp2 = std::pow(tke(i,j,k,nstp),tke_exp2);
+            Real tke_exp_mexp1 = gls_pow(tke(i,j,k,nstp),-tke_exp1);
+            Real tke_exp_exp2 = gls_pow(tke(i,j,k,nstp),tke_exp2);
 
             // Compute dissipation of turbulent energy (m3/s3).
             Real wall_fac = one;
             if (Lmy25) {
                 wall_fac=one+gls_E2/(vonKar*vonKar)*
-                        std::pow(gls_exp_exp1*cmu_fac1*
+                        gls_pow(gls_exp_exp1*cmu_fac1*
                          tke_exp_mexp1*
                          (one/ (z_w(i,j,k)-z_w(i,j,0))),2)+
                         Real(0.25)/(vonKar*vonKar)*
-                        std::pow(gls_exp_exp1*cmu_fac1*
+                        gls_pow(gls_exp_exp1*cmu_fac1*
                          tke_exp_mexp1*
                          (one/ (z_w(i,j,N+1)-z_w(i,j,k))),2);
             }
@@ -736,7 +757,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                           FCP(i,j,k)-FCP(i,j,k-1);
         });
 
-        // Compute production and dissipation terms.
+        // Compute production and dissipation terms. The surface length-scale factors depend
+        // on host constants only, so they are evaluated once here rather than per column.
+        const Real pow_Lsft_Zos = gls_pow(L_sft*Zos_eff,gls_n);
+        const Real pow_Lsft = gls_pow(L_sft,gls_n);
         ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             Real Zob_min = std::max(ZoBot(i,j,0), Real(0.0001));
@@ -759,10 +783,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                                         gls_Kmin);
 
             gls(i,j,N+1,nnew)=std::max(cmu0_exp_p*
-                                    std::pow(tke(i,j,N+1,nnew),gls_m)*
-                                    std::pow(L_sft*Zos_eff,gls_n), gls_Pmin);
-            Real cff_gls = gls_fac4*std::pow(vonKar*Zob_min,gls_n);
-            gls(i,j,0,nnew)=std::max(cff_gls*std::pow(tke(i,j,0,nnew),(gls_m)), gls_Pmin);
+                                    gls_pow(tke(i,j,N+1,nnew),gls_m)*
+                                    pow_Lsft_Zos, gls_Pmin);
+            Real cff_gls = gls_fac4*gls_pow(vonKar*Zob_min,gls_n);
+            gls(i,j,0,nnew)=std::max(cff_gls*gls_pow(tke(i,j,0,nnew),(gls_m)), gls_Pmin);
 
             // Solve tri-diagonal system for turbulent kinetic energy.
             // Might be N instead of N-1?
@@ -785,13 +809,13 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
             // Solve tri-diagonal system for generic statistical field.
             Real cff_tke = Real(0.5) * (tke(i,j,N+1,nnew) + tke(i,j,N,nnew));
-            Real gls_fluxt = dt_lev*gls_fac3*std::pow(cff_tke,gls_m)*
-                             std::pow(L_sft,(gls_n))*
-                             std::pow(Zos_eff+Real(0.5)*Hz(i,j,N),gls_n-one)*
+            Real gls_fluxt = dt_lev*gls_fac3*gls_pow(cff_tke,gls_m)*
+                             pow_Lsft*
+                             gls_pow(Zos_eff+Real(0.5)*Hz(i,j,N),gls_n-one)*
                              Real(0.5)*(Akp(i,j,N+1)+Akp(i,j,N));
             cff_tke=Real(0.5)*(tke(i,j,0,nnew)+tke(i,j,1,nnew));
-            Real gls_fluxb = dt_lev*gls_fac2*std::pow(cff_tke,gls_m)*
-                              std::pow(Real(0.5)*Hz(i,j,0)+Zob_min,gls_n-one)*
+            Real gls_fluxb = dt_lev*gls_fac2*gls_pow(cff_tke,gls_m)*
+                              gls_pow(Real(0.5)*Hz(i,j,0)+Zob_min,gls_n-one)*
                               Real(0.5)*(Akp(i,j,0)+Akp(i,j,1));
             Real cff_BCP = one / BCP(i,j,N);
             CF(i,j,N) = cff_BCP * FCP(i,j,N-1);
@@ -808,23 +832,28 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         });
 
         // Compute vertical mixing coefficients (m2/s).
+        // pow(tke,-tke_exp1) and pow(tke,gls_m) are one call when the exponents agree (gls_n = -1)
+        const bool same_exp_m = (-tke_exp1 == gls_m);
         ParallelFor(grow(bx,2,-1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew),gls_Kmin);
-            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew),gls_Pmin);
+            const Real tke_new = std::max(tke(i,j,k,nnew),gls_Kmin);
+            tke(i,j,k,nnew) = tke_new;
+            Real gls_new = std::max(gls(i,j,k,nnew),gls_Pmin);
             Real gls_comparison = gls_fac5 *
-                                    std::pow(tke(i,j,k,nnew),tke_exp4)*
-                                    std::pow(std::sqrt(std::max(Real(0.0),
+                                    gls_pow(tke_new,tke_exp4)*
+                                    gls_pow(std::sqrt(std::max(Real(0.0),
                                           buoy2(i,j,k)))+eps,-gls_n);
-            gls(i,j,k,nnew) = (gls_n >= Real(0.0)) ? std::min(gls(i,j,k,nnew),gls_comparison) : std::max(gls(i,j,k,nnew),gls_comparison);
+            gls_new = (gls_n >= Real(0.0)) ? std::min(gls_new,gls_comparison) : std::max(gls_new,gls_comparison);
+            const Real tke_pow_m = gls_pow(tke_new,gls_m);
+            const Real tke_pow_mexp1 = same_exp_m ? tke_pow_m : gls_pow(tke_new,(-tke_exp1));
             Real Ls_lmt;
             Real Ls_unlmt=std::max(eps,
-                                   std::pow(gls(i,j,k,nnew),( gls_exp1))*cmu_fac1*
-                                   std::pow(tke(i,j,k,nnew),(-tke_exp1)));
+                                   gls_pow(gls_new,( gls_exp1))*cmu_fac1*
+                                   tke_pow_mexp1);
             // Some problems are very sensitive to this condition (ultimate cause of
             // some discrepancies in BoundaryLayer test between CPU and GPU)
             Ls_lmt = (buoy2(i,j,k) > Real(0.0)) ? std::min(Ls_unlmt,
-                                                std::sqrt(Real(0.56)*tke(i,j,k,nnew)/
+                                                std::sqrt(Real(0.56)*tke_new/
                                                 (std::max(Real(0.0),buoy2(i,j,k))+eps))) : Ls_unlmt;
             //
             // L <= kappa*Depth (ROMS gls_corstep.F). The Galperin limit above
@@ -834,14 +863,14 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             //  Recompute gls based on limited length scale
             //
             gls(i,j,k,nnew)=std::max(cmu0_exp_p*
-                                           std::pow(tke(i,j,k,nnew),gls_m)*
-                                           std::pow(Ls_lmt,gls_n), gls_Pmin);
+                                           tke_pow_m*
+                                           gls_pow(Ls_lmt,gls_n), gls_Pmin);
 
             //   Compute nondimensional stability functions for tracers (Sh) and
             //   momentum (Sm).
             Real Sh, Sm;
             Real Gh=std::min(gls_Gh0,-buoy2(i,j,k)*Ls_lmt*Ls_lmt/
-                            (two*tke(i,j,k,nnew)));
+                            (two*tke_new));
             Gh=std::min(Gh,Gh-(Gh-gls_Ghcri)*(Gh-gls_Ghcri)/
                        (Gh+gls_Gh0-two*gls_Ghcri));
             Gh=std::max(Gh,gls_Ghmin);
@@ -854,7 +883,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 Real Gm=(gls_b0/gls_fac6-gls_b1*Gh+gls_b3*gls_fac6*(Gh*Gh))/
                              (gls_b2-gls_b4*gls_fac6*Gh);
                 Gm=std::min(Gm,shear2(i,j,k)*Ls_lmt*Ls_lmt/
-                            (two*tke(i,j,k,nnew)));
+                            (two*tke_new));
                 /////Gm=std::min(Gm,(gls_s1*gls_fac6*Gh-gls_s0)/(gls_s2*gls_fac6));
                 //
                 //  Compute stability functions
@@ -885,7 +914,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             //  tracers.  Average ql over the two timesteps rather than using
             //  the new Lscale and just averaging tke.
 
-            Real ql=sqrt2*Real(0.5)*(Ls_lmt*std::sqrt(tke(i,j,k,nnew))+
+            Real ql=sqrt2*Real(0.5)*(Ls_lmt*std::sqrt(tke_new)+
                                   Lscale(i,j,k)*std::sqrt(tke(i,j,k,nstp)));
             Akv(i,j,k)=Akv_bak+Sm*ql;
             for (int n=0; n<NAT; n++) {
@@ -937,14 +966,33 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         });
     }
 
-    for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, t_old[lev], *mf_tke, GetVecOfPtrs(vec_tke), tke_bc(), BdyVars::null, icomp, false, false);
-        FillPatch(lev, t_old[lev], *mf_gls, GetVecOfPtrs(vec_gls), tke_bc(), BdyVars::null, icomp, false, false);
+    if (lev == 0) {
+        // At level 0 these fills are exchanges followed, for tke, gls and Akt, by boundary
+        // conditions that read and write only the component being filled: one batched
+        // exchange, then the conditions in the old order.
+        amrex::FillBoundary(Vector<MultiFab*>{mf_tke, mf_gls, mf_Akt, mf_Akv, mf_Akp, mf_Akk},
+                            geom[lev].periodicity());
+        const MultiFab no_calc;
+        for (int icomp=0; icomp<3; icomp++) {
+            FillPatchBCs(lev, t_old[lev], *mf_tke, tke_bc(), BdyVars::null, icomp, 1,
+                         0, 0, zero, no_calc);
+            FillPatchBCs(lev, t_old[lev], *mf_gls, tke_bc(), BdyVars::null, icomp, 1,
+                         0, 0, zero, no_calc);
+        }
+        for (int icomp=0; icomp<NAT; icomp++) {
+            FillPatchBCs(lev, t_old[lev], *mf_Akt, zvel_bc(), BdyVars::null, icomp, 1,
+                         0, 0, zero, no_calc);
+        }
+    } else {
+        for (int icomp=0; icomp<3; icomp++) {
+            FillPatch(lev, t_old[lev], *mf_tke, GetVecOfPtrs(vec_tke), tke_bc(), BdyVars::null, icomp, false, false);
+            FillPatch(lev, t_old[lev], *mf_gls, GetVecOfPtrs(vec_gls), tke_bc(), BdyVars::null, icomp, false, false);
+        }
+        for (int icomp=0; icomp<NAT; icomp++) {
+            FillPatch(lev, t_old[lev], *mf_Akt, GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null, icomp, false, false);
+        }
+        FillPatchNoBC(lev, t_old[lev], *mf_Akv, GetVecOfPtrs(vec_Akv), BdyVars::null);
+        FillPatchNoBC(lev, t_old[lev], *mf_Akp, GetVecOfPtrs(vec_Akp), BdyVars::null);
+        FillPatchNoBC(lev, t_old[lev], *mf_Akk, GetVecOfPtrs(vec_Akk), BdyVars::null);
     }
-    for (int icomp=0; icomp<NAT; icomp++) {
-        FillPatch(lev, t_old[lev], *mf_Akt, GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null, icomp, false, false);
-    }
-    FillPatchNoBC(lev, t_old[lev], *mf_Akv, GetVecOfPtrs(vec_Akv), BdyVars::null);
-    FillPatchNoBC(lev, t_old[lev], *mf_Akp, GetVecOfPtrs(vec_Akp), BdyVars::null);
-    FillPatchNoBC(lev, t_old[lev], *mf_Akk, GetVecOfPtrs(vec_Akk), BdyVars::null);
 }

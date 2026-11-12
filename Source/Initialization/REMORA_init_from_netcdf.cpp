@@ -304,7 +304,7 @@ void
 REMORA::init_biology_from_netcdf (int lev)
 {
     BL_PROFILE("REMORA::init_biology_from_netcdf()");
-    if (!REMORABiology::has_biology(biology_model)) {
+    if (nbio == 0) {
         return;
     }
 
@@ -450,7 +450,7 @@ void
 REMORA::init_biology_full_domain_from_netcdf ()
 {
     BL_PROFILE("REMORA::init_biology_full_domain_from_netcdf()");
-    if (!REMORABiology::has_biology(biology_model)) {
+    if (nbio == 0) {
         return;
     }
 
@@ -657,6 +657,13 @@ REMORA::init_grid_vars_from_netcdf (int lev)
         if (have_angle && vec_angler[lev] == nullptr) {
             vec_angler[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
                                                1, vec_xr[lev]->nGrowVect()));
+        }
+        // These are made after the level's other fields were zeroed in dropped boxes
+        // (zero_level0_dry_ghost_cells), so zero theirs now
+        if (lev == 0) {
+            for (auto* v : {&vec_lonr, &vec_latr, &vec_angler}) {
+                if ((*v)[lev]) { set_dry_ghost_cells(*(*v)[lev], zero); }
+            }
         }
 
 #ifdef _OPENMP
@@ -871,9 +878,24 @@ void
 REMORA::init_masks_from_netcdf (int lev)
 {
     BL_PROFILE("REMORA::init_masks_from_netcdf()");
+    fill_rho_mask_from_netcdf(lev, *vec_mskr[lev]);
+    update_nodal_masks(lev);
+}
+
+/**
+ * Fill a rho-point mask on any layout of level lev from the level's grid file(s), ghost cells
+ * included, as init_masks_from_netcdf does for the level's own mask. Also used before the level
+ * exists, to weigh or drop boxes by their land (see REMORA_land_layout.cpp).
+ *
+ * @param lev   Integer specifying the level whose grid file(s) to read
+ * @param mskr  rho-point mask to fill
+ */
+void
+REMORA::fill_rho_mask_from_netcdf (int lev, MultiFab& mskr)
+{
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<NCLocalFab> NC_mskr_fab     ; NC_mskr_fab.resize(num_boxes_at_level[lev]);
-    const NCRegion region = nc_local_region(*vec_mskr[lev]);
+    const NCRegion region = nc_local_region(mskr);
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -885,9 +907,9 @@ REMORA::init_masks_from_netcdf (int lev)
 #endif
         {
         // Don't tile this since we are operating on full FABs in this routine
-        for ( MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi )
+        for ( MFIter mfi(mskr, false); mfi.isValid(); ++mfi )
         {
-            FArrayBox &mskr_fab  = (*vec_mskr[lev])[mfi];
+            FArrayBox &mskr_fab  = mskr[mfi];
 
             //
             // copy_to copies on intersection from the pieces read for this rank, which cover its FABs
@@ -899,8 +921,7 @@ REMORA::init_masks_from_netcdf (int lev)
     } // idx
 
     // Ghosts first: update_nodal_masks reaches mskr(i-1,j-1).
-    vec_mskr[lev]->FillBoundary(geom[lev].periodicity());
-    update_nodal_masks(lev);
+    mskr.FillBoundary(geom[lev].periodicity());
 }
 
 /**

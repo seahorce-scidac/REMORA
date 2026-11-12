@@ -58,6 +58,11 @@ REMORA::ComputeDt ()
 {
     Vector<Real> dt_tmp(finest_level+1);
 
+    // estTimeStep reads w unless it returns the fixed dt straight away
+    if (fixed_dt <= zero || verbose) {
+        update_wvel();
+    }
+
     for (int lev = 0; lev <= finest_level; ++lev)
     {
         dt_tmp[lev] = estTimeStep(lev);
@@ -118,6 +123,11 @@ Real
 REMORA::estTimeStep(int level) const
 {
     BL_PROFILE("REMORA::estTimeStep()");
+
+    // A fixed dt needs no estimate; it is computed only to be reported alongside it.
+    if (fixed_dt > zero && !verbose) {
+        return fixed_dt;
+    }
 
     // The barotropic mode is substepped ndtfast times per baroclinic step
     // (REMORA_Advance.cpp), so the slow step only has to resolve the external gravity

@@ -35,18 +35,8 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
     // yhi: ori = 4
     // zhi: ori = 5
 
-    //! Based on BCRec for the domain, we need to make BCRec for this Box
-    // bccomp is used as starting index for m_domain_bcs_type
-    //      0 is used as starting index for bcrs
-    amrex::setBC(bx, domain, bccomp, 0, ncomp, m_domain_bcs_type, bcrs);
-
-    amrex::Gpu::DeviceVector<BCRec> bcrs_d(ncomp);
-#ifdef AMREX_USE_GPU
-    Gpu::htod_memcpy_async(bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
-#else
-    std::memcpy(bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
-#endif
-    const amrex::BCRec* bc_ptr = bcrs_d.data();
+    // A single component, so the kernels take its BCRec by value
+    const BCRec bcr = bcrs[0];
     const auto* bc_extdir_vals_ptr = m_bc_extdir_vals_d.data();
 
     GeometryData const& geomdata = m_geom.data();
@@ -67,26 +57,26 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
             bx_xlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 const bool land = masked_var && mskr.contains(i,j,0) && mskr(i,j,0) == Real(0.0);
                 int iflip = dom_lo.x - 1 - i;
-                if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
+                if (bcr.lo(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][0];
-                } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped) {
+                } else if (bcr.lo(0) == REMORABCType::foextrap || bcr.lo(0) == REMORABCType::clamped) {
                     dest_arr(i,j,k) = land ? Real(0.0) : dest_arr(dom_lo.x,j,k);
-                } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
+                } else if (bcr.lo(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) = land ? Real(0.0) : dest_arr(iflip,j,k);
-                } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_odd) {
+                } else if (bcr.lo(0) == REMORABCType::reflect_odd) {
                     dest_arr(i,j,k) = land ? Real(0.0) : -dest_arr(iflip,j,k);
                 }
             },
             bx_xhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 const bool land = masked_var && mskr.contains(i,j,0) && mskr(i,j,0) == Real(0.0);
                 int iflip = 2*dom_hi.x + 1 - i;
-                if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
+                if (bcr.hi(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][3];
-                } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped) {
+                } else if (bcr.hi(0) == REMORABCType::foextrap || bcr.hi(0) == REMORABCType::clamped) {
                     dest_arr(i,j,k) = land ? Real(0.0) : dest_arr(dom_hi.x,j,k);
-                } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
+                } else if (bcr.hi(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) = land ? Real(0.0) : dest_arr(iflip,j,k);
-                } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_odd) {
+                } else if (bcr.hi(0) == REMORABCType::reflect_odd) {
                     dest_arr(i,j,k) = land ? Real(0.0) : -dest_arr(iflip,j,k);
                 }
             }
@@ -101,32 +91,30 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
         ParallelFor(bx_ylo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
             const bool land = masked_var && mskr.contains(i,j,0) && mskr(i,j,0) == Real(0.0);
             int jflip = dom_lo.y - 1 - j;
-            if (bc_ptr[n].lo(1) == REMORABCType::ext_dir) {
+            if (bcr.lo(1) == REMORABCType::ext_dir) {
                 dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][1];
-            } else if (bc_ptr[n].lo(1) == REMORABCType::foextrap || bc_ptr[n].lo(1) == REMORABCType::clamped) {
+            } else if (bcr.lo(1) == REMORABCType::foextrap || bcr.lo(1) == REMORABCType::clamped) {
                 dest_arr(i,j,k) = land ? Real(0.0) : dest_arr(i,dom_lo.y,k);
-            } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_even) {
+            } else if (bcr.lo(1) == REMORABCType::reflect_even) {
                 dest_arr(i,j,k) = land ? Real(0.0) : dest_arr(i,jflip,k);
-            } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_odd) {
+            } else if (bcr.lo(1) == REMORABCType::reflect_odd) {
                 dest_arr(i,j,k) = land ? Real(0.0) : -dest_arr(i,jflip,k);
             }
         },
         bx_yhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
             const bool land = masked_var && mskr.contains(i,j,0) && mskr(i,j,0) == Real(0.0);
             int jflip =  2*dom_hi.y + 1 - j;
-            if (bc_ptr[n].hi(1) == REMORABCType::ext_dir) {
+            if (bcr.hi(1) == REMORABCType::ext_dir) {
                 dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][4];
-            } else if (bc_ptr[n].hi(1) == REMORABCType::foextrap || bc_ptr[n].hi(1) == REMORABCType::clamped) {
+            } else if (bcr.hi(1) == REMORABCType::foextrap || bcr.hi(1) == REMORABCType::clamped) {
                 dest_arr(i,j,k) = land ? Real(0.0) : dest_arr(i,dom_hi.y,k);
-            } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_even) {
+            } else if (bcr.hi(1) == REMORABCType::reflect_even) {
                 dest_arr(i,j,k) = land ? Real(0.0) : dest_arr(i,jflip,k);
-            } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_odd) {
+            } else if (bcr.hi(1) == REMORABCType::reflect_odd) {
                 dest_arr(i,j,k) = land ? Real(0.0) : -dest_arr(i,jflip,k);
             }
         });
     }
 
     // Never need to apply a boundary condition to the top
-
-    Gpu::streamSynchronize();
 }

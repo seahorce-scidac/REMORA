@@ -26,8 +26,15 @@ function(resolve_test_exe TEST_DIR TEST_EXE OUT_VAR)
     endif()
 endfunction()
 
+# Copies the test's inputs into its run directory and sets the MPI launch and default run-time
+# options. The inputs come from test_files/<TEST_NAME>, or from test_files/<INPUT_NAME> when
+# that is given, so several tests can share one case.
 macro(setup_test)
-    set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${TEST_NAME})
+    if(${ARGC} GREATER 0)
+        set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${ARGV0})
+    else()
+        set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${TEST_NAME})
+    endif()
     set(CURRENT_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
     set(PLOT_GOLD ${FCOMPARE_GOLD_FILES_DIRECTORY}/${TEST_NAME})
 
@@ -251,24 +258,81 @@ function(add_test_restart TEST_NAME TEST_EXE PLTFILE CHKFILE)
     )
 endfunction(add_test_restart)
 
+# As add_test_restart, but bitwise: every value of the restarted run's plotfile must have the
+# same bit pattern as the continuous run's (remora_subset_compare at zero tolerance).
+function(add_test_restart_exact TEST_NAME TEST_EXE PLTFILE CHKFILE)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} remora.restart=../runA/${CHKFILE} remora.check_int=-1 >> ../${TEST_NAME}.log 2>&1 && cd .. && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_restart_exact)
+
+# Run one input under two sets of options whose layouts may differ -- box-to-rank assignment,
+# or level-0 boxes left out by remora.drop_dry_boxes -- and require the second run to match the
+# first bitwise on every cell of the second run's boxes, which amrex_fcompare cannot do when
+# the BoxArrays differ. PLTFILE is compared, and CHKFILE too (every MultiFab in it) unless it
+# is "none". INPUT_NAME picks the input file, so several tests can share one case. An extra
+# argument is plain text the second run's output must contain, to show the options took effect.
+# Write test_files/<TEST_NAME>/<TEST_NAME>.i in the build tree as BASE_NAME's input
+# followed by test_files/<TEST_NAME>/<TEST_NAME>_additions.i, so a variant of a case does
+# not copy the case itself. ParmParse reads the last occurrence of a setting, so the
+# additions override the base. Call it before the add_test_* function that runs the test.
+function(compose_test_input TEST_NAME BASE_NAME)
+    set(base_file ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${BASE_NAME}/${BASE_NAME}.i)
+    set(add_file ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${TEST_NAME}/${TEST_NAME}_additions.i)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${base_file} ${add_file})
+    file(READ ${base_file} base_text)
+    file(READ ${add_file} add_text)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME}/${TEST_NAME}.i
+         "${base_text}\n${add_text}")
+endfunction(compose_test_input)
+
+function(add_test_layout TEST_NAME INPUT_NAME TEST_EXE PLTFILE CHKFILE OPTIONS_A OPTIONS_B)
+
+    setup_test(${INPUT_NAME})
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(CHK_CLAUSE "")
+    if(NOT "${CHKFILE}" STREQUAL "none")
+        set(CHK_CLAUSE " && ${SUBSET_COMPARE_EXE} --chk runB/${CHKFILE} runA/${CHKFILE}")
+    endif()
+    set(LOG_CLAUSE "")
+    if(NOT "${ARGN}" STREQUAL "")
+        set(LOG_CLAUSE " && grep -q -- \"${ARGN}\" ${TEST_NAME}.runB.log")
+    endif()
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_A} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} ${OPTIONS_B} > ../${TEST_NAME}.runB.log 2>&1 && cd .. && cat ${TEST_NAME}.runB.log >> ${TEST_NAME}.log && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}${CHK_CLAUSE}${LOG_CLAUSE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_layout)
+
 # Assert how far an integrated quantity drifts over a run. INPUT_NAME picks the input file, so
 # several tests can share one case; OPTIONS go on the command line; the remaining arguments are
 # <column> <bound> <below|above> triples handed to check_conservation.sh.
 function(add_test_conservation TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
 
-    set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${INPUT_NAME})
-    set(CURRENT_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
-    file(MAKE_DIRECTORY ${CURRENT_TEST_BINARY_DIR})
-    file(GLOB TEST_FILES "${CURRENT_TEST_SOURCE_DIR}/*")
-    file(COPY ${TEST_FILES} DESTINATION "${CURRENT_TEST_BINARY_DIR}/")
-
-    if(REMORA_ENABLE_MPI)
-        set(NP 2)
-        set(MPI_COMMANDS "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${NP} ${MPIEXEC_PREFLAGS}")
-    else()
-        set(NP 1)
-        unset(MPI_COMMANDS)
-    endif()
+    setup_test(${INPUT_NAME})
 
     resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
 
@@ -290,6 +354,27 @@ function(add_test_conservation TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
         ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
     )
 endfunction(add_test_conservation)
+
+# Run INPUT_NAME's inputs with OPTIONS and pass if the run exits cleanly: for
+# self-checking modes that abort on an inconsistency, so no gold file is needed.
+function(add_test_run TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
+
+    setup_test(${INPUT_NAME})
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${OPTIONS} > ${TEST_NAME}.log 2>&1")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_run)
 
 # Run must succeed AND its log must contain LOG_SUBSTRING. For a code path whose answers are
 # not worth blessing into a gold file, but which must keep reaching the named behavior.
@@ -434,28 +519,6 @@ function(add_test_0 TEST_NAME TEST_EXE PLTFILE)
     )
 endfunction(add_test_0)
 
-# Standard unit test
-function(add_test_u TEST_NAME)
-    setup_test()
-
-    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
-
-    add_test(${TEST_NAME} sh -c "${MPI_COMMANDS} ${CMAKE_BINARY_DIR}/${amr_wind_unit_test_exe_name}")
-
-    set_tests_properties(${TEST_NAME}
-        PROPERTIES
-        TIMEOUT 500
-        PROCESSORS ${NP}
-        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
-        LABELS "unit"
-    )
-endfunction(add_test_u)
-
-#=============================================================================
-# Unit tests
-#=============================================================================
-# add_test_u(unit_tests)
-
 #=============================================================================
 # Regression tests
 #=============================================================================
@@ -470,6 +533,17 @@ add_test_r(Upwelling_NLEOS              "remora_exec" "plt00010")
 add_test_r(Upwelling_qdrag              "remora_exec" "plt00010")
 add_test_r(Upwelling_logdrag            "remora_exec" "plt00010")
 add_test_r(Upwelling_Fennel             "remora_exec" "plt00010")
+add_test_r(Upwelling_ECB                "remora_exec" "plt00003")
+# The biology kernels must not depend on how CPU tiles split a box: run each model on
+# Seamount, whose biology varies in both x and y, untiled and with small horizontal
+# tiles, and require the two runs to agree bitwise. (Upwelling is uniform in x, so it
+# cannot show a kernel that mixes up columns across x tile edges.)
+compose_test_input(Seamount_Fennel_tiled Seamount)
+add_test_layout(Seamount_Fennel_tiled Seamount_Fennel_tiled "remora_exec" "plt00003" "none"
+    "remora.omp_tile_size=1024000 1024000 1024000" "remora.omp_tile_size=2 3 1024000")
+compose_test_input(Seamount_ECB_tiled Seamount)
+add_test_layout(Seamount_ECB_tiled Seamount_ECB_tiled "remora_exec" "plt00003" "none"
+    "remora.omp_tile_size=1024000 1024000 1024000" "remora.omp_tile_size=2 3 1024000")
 add_test_r(Channel_Test                 "remora_exec" "plt00010")
 add_test_r(DoubleGyre                   "remora_exec" "plt00010")
 add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
@@ -545,6 +619,33 @@ add_test_conservation(Advection_3L_conservation Advection_3L_conservation "remor
 add_test_conservation(Advection_3L_conservation_control Advection_3L_conservation "remora_exec"
                       "remora.max_step=20 remora.do_reflux=0"
                       tracer 1e-6 above)
+
+# The cached coarse-fine fills, checked against a recomputation on every replay
+# (remora.cf_2d_fill_cache = 2 aborts on any difference): three levels with a regrid every
+# step, a ratio-3 nest with masks, and a patch on the periodic seam of a domain bounded by
+# walls, the only kind in which the parent data kept during the substeps is a copy.
+add_test_run(Advection_3L_cf_fill_cache_check Advection_3L_conservation "remora_exec"
+             "remora.max_step=20 remora.cf_2d_fill_cache=2")
+add_test_run(DogboneAnalytic_MLvel_cf_fill_cache_check DogboneAnalytic_MLvel "remora_exec"
+             "remora.cf_2d_fill_cache=2")
+add_test_run(Channel_Test_ML_seam_cf_fill_cache_check Channel_Test_ML_seam "remora_exec"
+             "remora.cf_2d_fill_cache=2")
+# Output must not change a three-level run under the lockstep driver, which averages down
+# coarse pair first and relies on the average-down after the step
+add_test_r_selfcompare(Advection_3L_lockstep_plotint "remora_exec" "plt00007"
+                       "remora.plot_int=1" "remora.plot_int=7")
+# The same under the subcycled driver, whose post_timestep skips the average-down timeStep has
+# just done unless an output came in between. A plotfile every step lets post_timestep average
+# down after every step, one only at the end never, so the two agree only if timeStep's own
+# average-down leaves nothing for post_timestep to do.
+compose_test_input(Channel_Test_ML_seam_subcycle_plotint Channel_Test_ML_seam)
+add_test_r_selfcompare(Channel_Test_ML_seam_subcycle_plotint "remora_exec" "plt00010"
+                       "remora.plot_int=1" "remora.plot_int=10")
+# A restart of the same case from step 5 must continue it. None of what the coarse-fine fills
+# keep across the fast steps and substeps is in the checkpoint, so the restarted run has to
+# rebuild it and come out as the continuous one did.
+compose_test_input(Channel_Test_ML_seam_subcycle_restart Channel_Test_ML_seam)
+add_test_restart(Channel_Test_ML_seam_subcycle_restart "remora_exec" "plt00010" "chk00005")
 
 # The floor. Both totals are exact on one level, so the AMR bounds are measured against
 # roundoff rather than against an unknown scheme error.
@@ -635,13 +736,27 @@ add_test_r_gold(DogboneAnalytic_MLhires  "remora_exec" "plt_ml00010" DogboneAnal
 # they need no gold file: plt00010 must equal plt00000. A plain arithmetic average-down
 # lets the zeroed fine land cells drag those coarse cells off their initial value, which
 # breaks stationarity by ~1e-2 in salt and velocity.
-# coastbox spans the full width of the domain, 0 to 750 in y, and the dogbone's coasts run
-# through it, so this asserts the thing a static box is for: the whole box is refined, land
-# included, not clipped back to the water (which would give y in [250,500]).
+# coastbox spans the full width of the domain, 0 to 750 in y. The dogbone's coasts run through
+# it, but the basins at its two ends are water from edge to edge, so level 1 still reaches both.
 add_test_extent(DogboneAnalytic_MLmask  "remora_exec" "plt00010" 1 1 0.0 750.0)
-# Same assertion on the ref-ratio-2 twin: clipping there would give 3 clipped boxes instead of
-# 2 full-box grids, which add_test_0 alone cannot see.
 add_test_extent(DogboneAnalytic_MLmask_rr2 "remora_exec" "plt00010" 1 1 0.0 750.0)
+# A box tags only its water cells. coastbox holds 100 wet level-0 cells (two columns of 15 at
+# its ends, and five rows of the 14-cell channel between them), so level 1 covers 100*9*16
+# cells at ratio 3 and 100*4*16 at ratio 2; the whole box would be 240 level-0 cells. The
+# counts are exact because, with no tag buffer and blocking factor 1, the grids at
+# amr.grid_eff = 0.7 cover the wet cells and nothing else. The grids are static, so the
+# initial plotfile of a zero-step run is enough.
+compose_test_input(DogboneAnalytic_MLmask_boxwater DogboneAnalytic_MLmask)
+add_test_cells(DogboneAnalytic_MLmask_boxwater     "remora_exec" "plt00000" 1 14400)
+compose_test_input(DogboneAnalytic_MLmask_rr2_boxwater DogboneAnalytic_MLmask_rr2)
+add_test_cells(DogboneAnalytic_MLmask_rr2_boxwater "remora_exec" "plt00000" 1 6400)
+# With tag_land, kept for direct comparison with a ROMS nest, the box is refined in full:
+# 240 level-0 cells, 240*9*16 level-1 cells.
+compose_test_input(DogboneAnalytic_MLmask_boxland DogboneAnalytic_MLmask)
+add_test_cells(DogboneAnalytic_MLmask_boxland      "remora_exec" "plt00000" 1 34560)
+compose_test_input(DogboneAnalytic_MLcoasttag_tagland_abort DogboneAnalytic_MLcoasttag)
+add_test_abort(DogboneAnalytic_MLcoasttag_tagland_abort "remora_exec"
+               "tag_land applies only to a box region")
 # A pair: the same gradient criterion keyed on a physical field, which must not see the coast,
 # and on the mask, which must. Either one alone passes for the wrong reason.
 add_test_nlevels(DogboneAnalytic_MLcoastskip "remora_exec" "plt00010" 0)
@@ -728,6 +843,19 @@ add_test_equiv(BC_per_variable BC_per_side "remora_exec" "plt00010" "plt_side000
 
 add_test_abort(BC_inflow_no_value "remora_exec" "needs an inflow value")
 
+# A side's normal velocity condition must come from the normal component's own setting. On the
+# East, u and ubar are slip walls in both inputs, and v and vbar are outflow in one and slip
+# walls in the other. Both give the tangential component foextrap, so the runs must agree.
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test_files/BC_per_variable/BC_per_variable.i
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/test_files/BC_normal_velocity_own_type)
+add_test_equiv(BC_normal_velocity_own_type BC_normal_velocity_slipwall "remora_exec"
+               "plt00010" "plt_slipwall00010")
+
+# Flather on a side where zeta does not read the boundary file must stop at setup.
+compose_test_input(BC_flather_no_zeta_data BC_per_variable)
+add_test_abort(BC_flather_no_zeta_data "remora_exec"
+               "East boundary uses Flather for the normal barotropic velocity")
+
 #=============================================================================
 # Barotropic substep count
 #
@@ -779,6 +907,94 @@ add_test_equiv(DogboneAnalytic_MLmaskring_periodic DogboneAnalytic_MLmaskring_pe
                "remora_exec" "plt_per00010" "plt_per_hires00010")
 
 #=============================================================================
+# Land layout. Which rank owns a box never changes the answer, so every remora.load_balance
+# strategy, weighting boxes by their wet cells, must reproduce AMReX's own mapping bitwise.
+# Leaving out the level-0 boxes that are land over their whole footprint
+# (remora.drop_dry_boxes) must leave every kept cell -- the plotted fields and every field in
+# the checkpoint -- bitwise as the full layout has it: on one level; with a nest near the coast
+# made at a regrid; with the ghost cells no exchange fills overwritten by a finite value (what
+# is computed from it stays on land, so the plotted fields still agree, though the land-face
+# tendencies in the checkpoint do not; a NaN there would spread to the water); and across a
+# restart, which keeps the checkpoint's BoxArray.
+#=============================================================================
+
+# drop_dry_boxes is on by default, so the reference runs ask for the full layout.
+set(FULL_LAYOUT "remora.drop_dry_boxes=false")
+add_test_layout(DogboneAnalytic_loadbalance_knapsack DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" "remora.load_balance=amrex ${FULL_LAYOUT}"
+                "remora.load_balance=knapsack remora.load_balance_land_weight=0 ${FULL_LAYOUT}")
+add_test_layout(DogboneAnalytic_loadbalance_roundrobin DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" "remora.load_balance=amrex ${FULL_LAYOUT}"
+                "remora.load_balance=roundrobin remora.load_balance_land_weight=0.25 ${FULL_LAYOUT}")
+# With land from the west edge on, weighing wet cells alone moves boxes between the two ranks:
+# 11 and 21 instead of AMReX's 16 and 16. The answer must not move with them. A build without
+# MPI runs on one rank, which holds all 32 boxes whatever the strategy.
+if(REMORA_ENABLE_MPI)
+    set(SFC_BOXES_PER_RANK "boxes per rank 11 to 21")
+else()
+    set(SFC_BOXES_PER_RANK "boxes per rank 32 to 32")
+endif()
+add_test_layout(DogboneAnalytic_loadbalance_sfc DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" "remora.load_balance=amrex remora.prob.mask_x_lo=-100. ${FULL_LAYOUT}"
+                "remora.load_balance=sfc remora.load_balance_land_weight=0 remora.prob.mask_x_lo=-100. ${FULL_LAYOUT}"
+                "${SFC_BOXES_PER_RANK}")
+add_test_layout(DogboneAnalytic_drop DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "chk00020" "${FULL_LAYOUT}" "remora.drop_dry_boxes=true")
+add_test_layout(DogboneAnalytic_MLdrop DogboneAnalytic_MLlandlayout "remora_exec"
+                "plt00008" "chk00008" "${FULL_LAYOUT}" "remora.drop_dry_boxes=true")
+add_test_layout(DogboneAnalytic_drop_ghosts DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "none" "${FULL_LAYOUT}"
+                "remora.drop_dry_boxes=true remora.dry_ghost_test=2 remora.dry_ghost_value=7")
+add_test_restart_exact(DogboneAnalytic_drop_restart "remora_exec" "plt00010" "chk00005")
+# Bulk fluxes work on the box grown by two cells, so on the ghost cells in dropped boxes too,
+# with the logs, powers and divisions by air pressure of the COARE scheme; what they compute
+# there has to stay finite. (NetCDF forcing, which CI does not build, was checked by hand.)
+set(DROP_BULK "remora.bulk_fluxes=true remora.uwind_type=constant remora.vwind_type=constant remora.uwind=5.0 remora.vwind=2.0 remora.air_temperature=23.567 remora.air_humidity=0.776 remora.air_pressure=1013.48 remora.surface_radiation_flux=300.0 remora.rain=1.0e-5")
+add_test_layout(DogboneAnalytic_drop_bulk DogboneAnalytic_landlayout "remora_exec"
+                "plt00020" "chk00020" "${DROP_BULK} ${FULL_LAYOUT}" "${DROP_BULK} remora.drop_dry_boxes=true"
+                "level 0 keeps 24 of 32 boxes")
+# A build with particles drops no box (REMORA_land_layout.cpp), so there these would compare
+# the full layout with itself, or, for drop_bulk, look for a box count that is never printed
+# (#793). They are skipped instead.
+if(REMORA_ENABLE_PARTICLES)
+    set_tests_properties(DogboneAnalytic_drop DogboneAnalytic_MLdrop DogboneAnalytic_drop_ghosts
+                         DogboneAnalytic_drop_restart DogboneAnalytic_drop_bulk
+                         PROPERTIES DISABLED TRUE)
+endif()
+
+#=============================================================================
+# Boxes hold whole water columns. A small amr.max_grid_size cuts the domain in x and y only,
+# since amr.max_grid_size_z defaults to the number of vertical cells; the 24 boxes must give the
+# single-box answer bitwise (before that default, the column was cut and the run aborted). A
+# box cut in z on purpose is refused.
+#=============================================================================
+
+add_test_layout(DogboneAnalytic_maskring_mgs8 DogboneAnalytic_maskring "remora_exec"
+                "plt00010" "chk00010" "" "amr.max_grid_size=8")
+add_test_abort(DogboneAnalytic_split_column_abort "remora_exec" "Boxes must hold whole water columns")
+
+#=============================================================================
 # Performance tests
 #=============================================================================
 
+
+# Checkpoint restart and mismatch checks: a restart from CHKFILE must reproduce PLTFILE
+# exactly, and restart must reject a checkpoint whose BiologyHeader model or Header
+# component list differs from the run's. MISSING_HEADER (accept|reject) says whether a
+# checkpoint without BiologyHeader restarts, as it does for models taking legacy files.
+function(add_test_checkpoint_restart TEST_NAME CHKFILE PLTFILE MISSING_HEADER)
+    setup_test()
+    resolve_test_exe("${TEST_DIR}" "remora_exec" TEST_EXE)
+    # MPI_COMMANDS is deliberately split into launcher arguments for this script.
+    separate_arguments(CHECKPOINT_MPI_COMMANDS NATIVE_COMMAND "${MPI_COMMANDS}")
+    add_test(NAME ${TEST_NAME} COMMAND sh
+        ${CMAKE_CURRENT_SOURCE_DIR}/check_checkpoint_restart.sh
+        ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${FCOMPARE_EXE} ${CHKFILE} ${PLTFILE}
+        ${MISSING_HEADER} ${CHECKPOINT_MPI_COMMANDS} ${TEST_EXE})
+    set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 5400
+        PROCESSORS ${NP} WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}"
+        LABELS "regression")
+endfunction()
+add_test_checkpoint_restart(Upwelling_Fennel_restart "chk00005" "plt00010" accept)
+# ECB takes no checkpoint without BiologyHeader.
+add_test_checkpoint_restart(Upwelling_ECB_restart    "chk00002" "plt00003" reject)

@@ -78,7 +78,11 @@ Output
 Particles are written to AMReX-native plotfiles, but not yet to NetCDF output. To plot the number of
 particles per cell as a mesh variable, add ``<species>_count`` (for example
 ``tracer_particles_count``) to ``remora.plot_vars_3d``; the particle mass density is available the
-same way as ``<species>_mass_density``:
+same way as ``<species>_mass_density``. The density is a cloud-in-cell deposit over the cells around
+each particle, with the vertical weights taken from its level index :math:`s` so that it follows the
+terrain-following levels, divided by each cell's physical volume :math:`H_z/(p_m p_n)`. Weight that
+would fall below the bed, above the free surface or across a non-periodic side goes to the edge cell,
+so the deposit keeps all the mass:
 
 ::
 
@@ -90,6 +94,19 @@ interpolated bilinearly to each particle, and z is the physical height. A viewer
 grid therefore draws each particle inside the cell that holds it. Checkpoints instead keep the
 geometry's uniform coordinates that the particles move in (see :ref:`ParticleAdvection`), which a
 restart needs. The ``xvel`` and ``yvel`` attributes are physical velocities in m/s.
+
+The particles are still filed under the plotfile's grids in AMReX's particle format, and each one is
+filed under the grid that physically holds it. The plotfile header, however, describes the grids in
+the uniform frame (``prob_lo`` and the cell sizes); where they physically sit is given only by the
+nodal displacement (``amrexvec_nu_x``, ``amrexvec_nu_y``, ``amrexvec_nu_z``). A tool that places the
+grids from the header alone, without the displacement, therefore sees particles outside the grid
+they are filed under, or outside ``[prob_lo, prob_hi]``, wherever the physical and uniform
+coordinates differ: on a stretched or curvilinear grid, or on a NetCDF grid whose coordinates do not
+start at the origin. This includes reading the plotfile's particles back into an AMReX
+``ParticleContainer`` (``Restart``, ``Redistribute``, ``OK``), so plotfile particles are meant for
+analysis and visualization, not for reloading; restarts use checkpoints. With
+``remora.plot_nodal_data = false`` the plotfile holds no displacement, but the particle positions are
+still physical. On a uniform grid starting at the origin the two frames agree, up to round-off.
 
 For an example, build the executable in ``Exec`` and run the ``ParticleAdvectionFlat`` case.
 
@@ -149,7 +166,9 @@ where
 
 - :math:`u` and :math:`v` are the physical horizontal velocities (m/s) along the grid directions;
 - :math:`p_m` and :math:`p_n` are interpolated bilinearly to the particle;
-- :math:`H_z = z_{k+1}(x,y) - z_k(x,y)` is the thickness of the particle's cell;
+- :math:`H_z = z_{k+1}(x,y) - z_k(x,y)` is the thickness of the particle's cell (in a cell of zero
+  thickness, as in a dry or degenerate column, :math:`ds/dt` is taken to be zero rather than dividing
+  by zero);
 - :math:`\Omega` is the velocity across the :math:`w`-levels (ROMS's ``omega``), from integrating the
   divergence of the horizontal mass fluxes up the column.
 
@@ -209,18 +228,24 @@ defined on the :math:`w`-levels, is interpolated linearly between them.
 
 After the step, the ``xvel`` and ``yvel`` attributes hold :math:`u` and :math:`v` (m/s, along the grid
 directions) at the midpoint, and ``zvel`` holds the rate of change of the particle's height,
-:math:`\bigl(z^{n+1} - z^n\bigr) / \Delta t`.
+:math:`\bigl(z^{n+1} - z^n\bigr) / \Delta t`, where :math:`z^n` is the height at the end of the
+previous step, on that step's grid.
 
-Limitation
-~~~~~~~~~~
+Moving with the levels
+~~~~~~~~~~~~~~~~~~~~~~
 
-A particle stores its height :math:`z`, not :math:`s`, so :math:`s` is recovered from :math:`z` on the
-current grid at the start of every step. When the free surface moves between steps, a particle
-therefore keeps its height rather than its position relative to the levels, dropping the
+Each particle stores :math:`s` (the ``level_index`` attribute) as well as its height, and the
+time step advances :math:`s` directly. The height is then set from :math:`s` on the current grid, so
+when the free surface moves between steps a particle moves with the levels, picking up the
 level-stretching term
 
 .. math::
-   \left.\frac{\partial z}{\partial t}\right|_s = \frac{\partial \zeta}{\partial t}\,\frac{z + h}{\zeta + h}.
+   \left.\frac{\partial z}{\partial t}\right|_s = \frac{\partial \zeta}{\partial t}\,\frac{z + h}{\zeta + h},
 
-Storing :math:`s` as a particle attribute would remove this, at the cost of a different checkpoint
-layout.
+and ``zvel`` includes it. A particle near a falling surface therefore stays below it rather than
+being clamped onto it. Particles that do not advect with the flow (``advect_with_flow = false``)
+keep a fixed :math:`s` too, so they also rise and fall with the levels.
+
+Checkpoints written before ``level_index`` was stored have one particle attribute fewer. A restart
+from one reads them anyway and computes :math:`s` from each particle's stored height on the grid read
+from the same checkpoint, which is the index the particle's next step would have used.
