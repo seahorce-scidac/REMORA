@@ -1057,3 +1057,25 @@ endfunction()
 add_test_checkpoint_restart(Upwelling_Fennel_restart "chk00005" "plt00010" accept)
 # ECB takes no checkpoint without BiologyHeader.
 add_test_checkpoint_restart(Upwelling_ECB_restart    "chk00002" "plt00003" reject)
+
+# Retained turbulence is exact; new cells use the coarse latest history slot.
+add_test_run(GLS_regrid_lockstep Channel_Test_ML_seam remora_gls_regrid
+  "remora.n_cell=20 24 12 remora.fixed_dt=1 remora.max_step=1 remora.plot_int=-1 remora.check_int=-1 amr.regrid_int=-1 amrex.fpe_trap_invalid=0 remora.do_substep=0")
+add_test_run(GLS_regrid_subcycle Channel_Test_ML_seam remora_gls_regrid
+  "remora.n_cell=20 24 12 remora.fixed_dt=1 remora.max_step=1 remora.plot_int=-1 remora.check_int=-1 amr.regrid_int=-1 amrex.fpe_trap_invalid=0 remora.do_substep=1")
+
+foreach(mode lockstep subcycle)
+    set(TEST_NAME GLS_regrid_restart_${mode})
+    setup_test(Channel_Test_ML_seam)
+    if(mode STREQUAL "subcycle")
+        set(subcycle 1)
+    else()
+        set(subcycle 0)
+    endif()
+    separate_arguments(GLS_MPI_COMMANDS NATIVE_COMMAND "${MPI_COMMANDS}")
+    add_test(NAME ${TEST_NAME} COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/check_gls_regrid_restart.sh
+      ${CURRENT_TEST_BINARY_DIR}/Channel_Test_ML_seam.i $<TARGET_FILE:remora_gls_regrid>
+      ${subcycle} ${GLS_MPI_COMMANDS})
+    set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 120 PROCESSORS ${NP}
+      WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}" LABELS "regression")
+endforeach()

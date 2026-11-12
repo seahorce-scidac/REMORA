@@ -64,6 +64,24 @@ parallel based on how many processes each test is specified to use and fit them 
 on the machine.
 Output for the last set of tests run is available in the ``Build`` directory in ``Testing/Temporary/LastTest.log``.
 
+GLS level lifecycle checks
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Run ``ctest -R GLS_regrid_ --output-on-failure`` to check turbulence transfer through
+changing refinement layouts. These two-level cases reuse the channel setup, advance
+one coarse step, then move and enlarge the fine patch. Distinct values in the two
+history slots check that retained cells keep both slots exactly and new cells use the
+coarse latest slot for both. Subcycling gives the levels different history parities.
+The tests also create a level from coarse data, check finite scratch initialized from
+the fine latest slot, preserve retained values below the bounds, and bound interpolated
+values for all seven turbulence fields. The test decks disable invalid-operation traps;
+explicit finiteness assertions check the transferred fields.
+
+``GLS_regrid_restart_lockstep`` and ``GLS_regrid_restart_subcycle`` continue after the
+layout change, checkpoint, and restart. They compare every file in both checkpoint
+level directories byte for byte against the uninterrupted run, including all turbulence
+components. These checks need no NetCDF files or gold plotfiles.
+
 Adding Tests
 ~~~~~~~~~~~~
 

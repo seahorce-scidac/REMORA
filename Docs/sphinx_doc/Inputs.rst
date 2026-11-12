@@ -1690,6 +1690,14 @@ List of drag-related parameters
 List of GLS-specific parameters
 -------------------------------
 
+With ``remora.vertical_mixing_type = gls``, a regrid retains TKE and GLS history,
+length scale, viscosity and diffusivities in overlapping fine cells. Newly refined
+cells interpolate the coarse latest history into both fine history slots. Scratch
+is initialized from the fine latest slot. Only interpolated values receive the GLS
+minimum and background-coefficient bounds. Fresh levels made at startup initialize
+the closure as usual. This does not change fine-to-coarse averaging or the closure
+equations.
+
 +----------------------------------+--------------------------------------+-------------------+----------------+
 | Parameter                        | Definition                           | Acceptable        | Default        |
 |                                  |                                      | Values            |                |

@@ -1455,6 +1455,9 @@ public:
 
     /** \brief Initialize vertical mixing coefficients from file or analytic */
     void init_set_vmix (int lev);
+    /** \brief Transfer GLS history and coefficients when a fine layout changes. */
+    void remap_gls_state (int lev, amrex::Real time,
+                         const std::array<std::unique_ptr<amrex::MultiFab>, 7>& old_fine);
     /** \brief Set vertical mixing coefficients from analytic */
     void set_analytic_vmix (int lev);
     /** \brief Initialize GLS variables */
