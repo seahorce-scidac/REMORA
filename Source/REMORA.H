@@ -193,17 +193,6 @@ public:
                           const amrex::MultiFab*& msku,
                           const amrex::MultiFab*& mskv) const;
 
-    /**
-     * \brief Whether the xi axis points east and the eta axis north everywhere on level 0.
-     *
-     * A driver whose grid is aligned with east can pass the surface current between the
-     * u- and v-faces of the two grids only when this holds. A grid file without an angle
-     * counts as aligned. Collective.
-     *
-     * @param[in   ] tol  largest |sin(angle)| accepted as aligned
-     */
-    bool GridAxesAlignedWithEast (amrex::Real tol) const;
-
     /** \brief Init (NOT restart or regrid) */
     void init_only (int lev, amrex::Real time);
 
@@ -239,34 +228,25 @@ public:
                           const amrex::iMultiFab* dst_land_mask = nullptr);
 
     /**
-     * \brief Remaps the top-level ocean current onto the driver's layouts.
+     * \brief Remaps the top-level ocean current onto the driver's layout as east and north
+     *        components.
      *
-     * With east_north_at_rho false, u is taken from the u-faces and v from the v-faces,
-     * on REMORA's grid axes. With it true, both are averaged to rho points and rotated to
-     * east and north with the grid angle (unrotated when the grid file has no angle), for
-     * a destination grid whose axes differ from REMORA's. Each component is zeroed on
-     * land before the remap.
+     * Both components are averaged to rho points, rotated from the grid axes to east and
+     * north with the grid angle, zeroed on land, and remapped with the same weights as the
+     * SST. A grid file without an angle is taken to be aligned with east, as ROMS reads it.
      *
-     * @param[inout] u_dst             x (or east) current [m/s] on the destination layout
-     * @param[inout] v_dst             y (or north) current [m/s] on the destination layout
-     * @param[in   ] east_north_at_rho average to rho points and rotate to east and north
-     * @param[in   ] weight_u          remap weights for u_dst; null for a plain copy
-     * @param[in   ] index_u           remap source indices for u_dst; null for a plain copy
-     * @param[in   ] land_u            destination land mask for u_dst (1 = land), or null
-     * @param[in   ] weight_v          remap weights for v_dst; null for a plain copy
-     * @param[in   ] index_v           remap source indices for v_dst; null for a plain copy
-     * @param[in   ] land_v            destination land mask for v_dst (1 = land), or null
+     * @param[inout] east_dst          eastward current [m/s] on the destination layout
+     * @param[inout] north_dst         northward current [m/s] on the destination layout
+     * @param[in   ] weight_o2a_mf     remap weights; null for a plain copy
+     * @param[in   ] index_o2a_mf      remap source indices; null for a plain copy
      * @param[in   ] max_stencil_size  stencil length of the weights
+     * @param[in   ] dst_land_mask     destination land mask (1 = land), or null
      */
-    void PackSurfaceCurrents (amrex::MultiFab& u_dst, amrex::MultiFab& v_dst,
-                              bool east_north_at_rho,
-                              const amrex::MultiFab* weight_u,
-                              const amrex::iMultiFab* index_u,
-                              const amrex::iMultiFab* land_u,
-                              const amrex::MultiFab* weight_v,
-                              const amrex::iMultiFab* index_v,
-                              const amrex::iMultiFab* land_v,
-                              int max_stencil_size);
+    void PackSurfaceCurrents (amrex::MultiFab& east_dst, amrex::MultiFab& north_dst,
+                              const amrex::MultiFab* weight_o2a_mf,
+                              const amrex::iMultiFab* index_o2a_mf,
+                              int max_stencil_size,
+                              const amrex::iMultiFab* dst_land_mask = nullptr);
 
     /**
      * \brief Receives atmospheric states from the driver and applies unit conversions.
@@ -311,8 +291,6 @@ public:
     amrex::Real m_warned_surface_temp_min = amrex::Real(273.15 - 2.5);
     amrex::Real m_warned_surface_temp_max = amrex::Real(273.15 + 40.0);
     amrex::Long m_warned_surface_temp_nan = 0;
-    //! Whether PackSurfaceCurrents has warned that the grid file has no angle
-    bool m_warned_currents_without_angle = false;
 
     // Diagnostics
 

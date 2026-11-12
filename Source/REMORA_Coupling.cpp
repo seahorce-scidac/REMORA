@@ -518,39 +518,6 @@ REMORA::GetLandSeaMasks (const amrex::MultiFab*& mskr,
     mskv = (!vec_mskv.empty() && vec_mskv[0]) ? vec_mskv[0].get() : nullptr;
 }
 
-/**
- * Whether the xi axis points east and the eta axis north everywhere on level 0.
- *
- * Tests the sine and cosine of the angle rather than the angle itself, so an angle of
- * 2*pi counts as aligned and one of pi does not. A grid file without an angle counts as
- * aligned, as ROMS reads it.
- *
- * @param[in   ] tol  largest |sin(angle)| accepted as aligned
- */
-bool
-REMORA::GridAxesAlignedWithEast (Real tol) const
-{
-    if (vec_angler.empty() || vec_angler[0] == nullptr) { return true; }
-    const MultiFab& angle = *vec_angler[0];
-
-    ReduceOps<ReduceOpMax, ReduceOpMin> ops;
-    ReduceData<Real, Real> data(ops);
-    using Tuple = typename decltype(data)::Type;
-    for (MFIter mfi(angle); mfi.isValid(); ++mfi) {
-        const auto a = angle.const_array(mfi);
-        ops.eval(mfi.validbox(), data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> Tuple
-        {
-            return { std::abs(std::sin(a(i,j,k))), std::cos(a(i,j,k)) };
-        });
-    }
-    auto r = data.value(ops);
-    Real max_abs_sin = get<0>(r);
-    Real min_cos = get<1>(r);
-    ParallelDescriptor::ReduceRealMax(max_abs_sin);
-    ParallelDescriptor::ReduceRealMin(min_cos);
-    return max_abs_sin <= tol && min_cos > Real(0.0);
-}
-
 /*
  * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
  *
@@ -644,91 +611,55 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state,
 }
 
 /*
- * \brief Remaps the top-level ocean current onto the driver's layouts.
+ * \brief Remaps the top-level ocean current onto the driver's layout as east and north
+ *        components.
  *
- * The rho-point form is what COAWST's mct_roms_wrf.h sends to WRF (with ROMS's
- * CURVGRID rotation), taken here from the top level of the new velocity.
+ * What COAWST's mct_roms_wrf.h sends to WRF (with ROMS's CURVGRID rotation), taken here
+ * from the top level of the new velocity.
  */
 void
-REMORA::PackSurfaceCurrents (MultiFab& u_dst, MultiFab& v_dst,
-                             bool east_north_at_rho,
-                             const MultiFab* weight_u,
-                             const iMultiFab* index_u,
-                             const iMultiFab* land_u,
-                             const MultiFab* weight_v,
-                             const iMultiFab* index_v,
-                             const iMultiFab* land_v,
-                             int max_stencil_size)
+REMORA::PackSurfaceCurrents (MultiFab& east_dst, MultiFab& north_dst,
+                             const MultiFab* weight_o2a_mf,
+                             const iMultiFab* index_o2a_mf,
+                             int max_stencil_size,
+                             const iMultiFab* dst_land_mask)
 {
     const int lev = 0;
     const int k_sfc = cons_new[lev]->boxArray().minimalBox().bigEnd(2);
-    const DistributionMapping& dm = cons_new[lev]->DistributionMap();
+    const BoxArray ba2d = SurfaceSlabLayout(cons_new[lev]->boxArray());
+    MultiFab east(ba2d, cons_new[lev]->DistributionMap(), 1, 0);
+    MultiFab north(ba2d, cons_new[lev]->DistributionMap(), 1, 0);
 
-    MultiFab u_src, v_src;
-    if (east_north_at_rho) {
-        const BoxArray ba_r = SurfaceSlabLayout(cons_new[lev]->boxArray());
-        u_src.define(ba_r, dm, 1, 0);
-        v_src.define(ba_r, dm, 1, 0);
-
-        const bool has_angle = !vec_angler.empty() && vec_angler[lev] != nullptr;
-        if (!has_angle && !m_warned_currents_without_angle) {
-            m_warned_currents_without_angle = true;
-            amrex::Print() << "WARNING: the surface current is sent to the coupling driver as"
-                           << " east and north components, but the grid file has no angle, so"
-                           << " it is sent unrotated, as if the grid were not rotated."
-                           << std::endl;
-        }
+    const bool has_angle = !vec_angler.empty() && vec_angler[lev] != nullptr;
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-        for (MFIter mfi(u_src, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-            auto const& u = xvel_new[lev]->const_array(mfi);
-            auto const& v = yvel_new[lev]->const_array(mfi);
-            auto const& mskr = vec_mskr[lev]->const_array(mfi);
-            auto const& angle = has_angle ? vec_angler[lev]->const_array(mfi)
-                                          : Array4<const Real>{};
-            auto const& east = u_src.array(mfi);
-            auto const& north = v_src.array(mfi);
-            ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                const Real xi  = Real(0.5) * (u(i,j,k_sfc) + u(i+1,j,k_sfc));
-                const Real eta = Real(0.5) * (v(i,j,k_sfc) + v(i,j+1,k_sfc));
-                // Turning the grid axes back by the angle gives east and north
-                Real e = xi, n = eta;
-                if (has_angle) {
-                    latlon_regrid::rotate_to_grid(xi, eta, -angle(i,j,0), e, n);
-                }
-                east(i,j,0)  = e * mskr(i,j,0);
-                north(i,j,0) = n * mskr(i,j,0);
-            });
-        }
-    } else {
-        u_src.define(SurfaceSlabLayout(xvel_new[lev]->boxArray()), dm, 1, 0);
-        v_src.define(SurfaceSlabLayout(yvel_new[lev]->boxArray()), dm, 1, 0);
-
-        // The top level of each component on its own faces
-        auto copy_top = [k_sfc] (const MultiFab& vel, const MultiFab& mask, MultiFab& src) {
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-            for (MFIter mfi(src, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                auto const& f = vel.const_array(mfi);
-                auto const& m = mask.const_array(mfi);
-                auto const& s = src.array(mfi);
-                ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    s(i,j,0) = f(i,j,k_sfc) * m(i,j,0);
-                });
+    for (MFIter mfi(east, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        auto const& u = xvel_new[lev]->const_array(mfi);
+        auto const& v = yvel_new[lev]->const_array(mfi);
+        auto const& mskr = vec_mskr[lev]->const_array(mfi);
+        auto const& angle = has_angle ? vec_angler[lev]->const_array(mfi)
+                                      : Array4<const Real>{};
+        auto const& e_arr = east.array(mfi);
+        auto const& n_arr = north.array(mfi);
+        ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            const Real xi  = Real(0.5) * (u(i,j,k_sfc) + u(i+1,j,k_sfc));
+            const Real eta = Real(0.5) * (v(i,j,k_sfc) + v(i,j+1,k_sfc));
+            // Turning the grid axes back by the angle gives east and north
+            Real e = xi, n = eta;
+            if (has_angle) {
+                latlon_regrid::rotate_to_grid(xi, eta, -angle(i,j,0), e, n);
             }
-        };
-        copy_top(*xvel_new[lev], *vec_msku[lev], u_src);
-        copy_top(*yvel_new[lev], *vec_mskv[lev], v_src);
+            e_arr(i,j,0) = e * mskr(i,j,0);
+            n_arr(i,j,0) = n * mskr(i,j,0);
+        });
     }
 
     // A destination point with no ocean under it gets the remap's zero fallback: a surface
     // at rest
-    RemapOrCopy(u_src, u_dst, weight_u, index_u, max_stencil_size, land_u);
-    RemapOrCopy(v_src, v_dst, weight_v, index_v, max_stencil_size, land_v);
+    RemapOrCopy(east, east_dst, weight_o2a_mf, index_o2a_mf, max_stencil_size, dst_land_mask);
+    RemapOrCopy(north, north_dst, weight_o2a_mf, index_o2a_mf, max_stencil_size, dst_land_mask);
 }
 
 /*
