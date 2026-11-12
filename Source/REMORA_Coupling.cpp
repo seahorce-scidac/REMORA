@@ -36,6 +36,17 @@ using namespace amrex;
 namespace {
 constexpr int SSTIndex = 0;
 
+// The relative wind lives in REMORA's bulk fluxes, which a driver passing fluxes skips
+void
+CheckRelativeWindForcingMode (bool relative_wind, bool use_coupling_driver,
+                              REMORA::DriverAtmosForcingMode mode)
+{
+    if (relative_wind && use_coupling_driver && !REMORA::DriverUsesStateForcing(mode)) {
+        amrex::Abort("remora.bulk_flux_relative_wind applies to REMORA's bulk fluxes, but the"
+                     " coupling driver passes fluxes, so REMORA computes none");
+    }
+}
+
 // One pass over the wet cells (mask > 0.5) of one component of a 2D field, on
 // the valid region at the field's lowest k. Land cells hold zeros or whatever
 // the atmosphere sent over land, so an unmasked min/max says nothing about what
@@ -350,6 +361,8 @@ REMORA::ConfigureDriverAtmosToOceanCoupling (bool use_coupling_driver,
     running_with_coupling_driver = use_coupling_driver;
     driver_uses_two_way_coupling = use_two_way_coupling;
     driver_atmos_forcing_mode = active_mode;
+    CheckRelativeWindForcingMode(solverChoice.bulk_flux_relative_wind,
+                                 running_with_coupling_driver, driver_atmos_forcing_mode);
 }
 
 void
@@ -395,6 +408,8 @@ void
 REMORA::SetDriverAtmosToOceanForcingMode (DriverAtmosForcingMode mode)
 {
     driver_atmos_forcing_mode = mode;
+    CheckRelativeWindForcingMode(solverChoice.bulk_flux_relative_wind,
+                                 running_with_coupling_driver, driver_atmos_forcing_mode);
 }
 
 void

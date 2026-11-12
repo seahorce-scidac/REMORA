@@ -526,6 +526,26 @@ endfunction(add_test_0)
 add_test_r(DoublyPeriodic               "remora_exec" "plt00010")
 add_test_r(Seamount                     "remora_exec" "plt00010")
 add_test_r(Advection                    "remora_exec" "plt00010")
+# The bulk fluxes with the wind taken relative to the surface current. Over a uniform current, a
+# step with the relative wind must match a step with the absolute wind less the subtracted part
+# of the current (all values exact in binary).
+compose_test_input(Advection_wind_minus_current Advection)
+add_test_r_selfcompare(Advection_wind_minus_current "remora_exec" "plt00001"
+    "remora.bulk_flux_relative_wind=true remora.uwind=5.5 remora.vwind=1.25"
+    "remora.bulk_flux_relative_wind=false remora.uwind=5 remora.vwind=1")
+compose_test_input(Advection_wind_minus_current_factor Advection)
+add_test_r_selfcompare(Advection_wind_minus_current_factor "remora_exec" "plt00001"
+    "remora.bulk_flux_relative_wind=true remora.bulk_flux_current_factor=0.5 remora.uwind=5.25 remora.vwind=1.125"
+    "remora.bulk_flux_relative_wind=false remora.uwind=5 remora.vwind=1")
+compose_test_input(Advection_wind_minus_current_no_bulk_abort Advection)
+add_test_abort(Advection_wind_minus_current_no_bulk_abort "remora_exec"
+    "remora.bulk_flux_relative_wind requires bulk flux")
+compose_test_input(Advection_current_factor_abort Advection)
+add_test_abort(Advection_current_factor_abort "remora_exec"
+    "remora.bulk_flux_current_factor must be between 0 and 1")
+compose_test_input(Advection_current_factor_unused_abort Advection)
+add_test_abort(Advection_current_factor_unused_abort "remora_exec"
+    "remora.bulk_flux_current_factor applies only with remora.bulk_flux_relative_wind=true")
 add_test_r(Advection_ML                 "remora_exec" "plt00010")
 add_test_r(Upwelling                    "remora_exec" "plt00010")
 add_test_r(Upwelling_GLS                "remora_exec" "plt00010")
@@ -546,6 +566,17 @@ add_test_layout(Seamount_ECB_tiled Seamount_ECB_tiled "remora_exec" "plt00003" "
     "remora.omp_tile_size=1024000 1024000 1024000" "remora.omp_tile_size=2 3 1024000")
 add_test_r(Channel_Test                 "remora_exec" "plt00010")
 add_test_r(DoubleGyre                   "remora_exec" "plt00010")
+# Walls on all sides, one box against six, with the 2D velocities not exchanged after their
+# boundary conditions on the fast steps (remora.cf_set_2d_bcs = 0): the barotropic fluxes
+# on the box edges along a wall must still come out the same in every layout
+add_test_layout(DoubleGyre_layout_bcs_unexchanged DoubleGyre "remora_exec" "plt00010" "none"
+                "amr.max_grid_size=256 remora.cf_set_2d_bcs=0"
+                "amr.max_grid_size_x=27 amr.max_grid_size_y=54 amr.blocking_factor=1 remora.cf_set_2d_bcs=0")
+# The same with that exchange on the first fast step of each set only (remora.cf_set_2d_bcs = 2),
+# so the record of which time levels had it is both set and cleared during the fast steps
+add_test_layout(DoubleGyre_layout_bcs_first_exchanged DoubleGyre "remora_exec" "plt00010" "none"
+                "amr.max_grid_size=256 remora.cf_set_2d_bcs=2"
+                "amr.max_grid_size_x=27 amr.max_grid_size_y=54 amr.blocking_factor=1 remora.cf_set_2d_bcs=2")
 add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic              "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic_MLvel        "remora_exec" "plt_ml00010")

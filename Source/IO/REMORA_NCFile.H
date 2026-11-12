@@ -230,6 +230,7 @@ nc_fab_box (const std::string& var_name, NC_Data_Dims_Type NC_dim_type,
             const std::vector<MPI_Offset>& shape, amrex::IntVect custom_ngrow,
             int& nsx, int& nsy, int& nsz)
 {
+    nsx = nsy = nsz = 0;
     if (NC_dim_type == NC_Data_Dims_Type::SN_WE) {
         nsz = 1;
         nsy = shape[0];
@@ -320,7 +321,7 @@ fill_fab_from_arrays (int iv,
                       NC_Data_Dims_Type& NC_dim_type,
                       FAB& temp, amrex::IntVect custom_ngrow)
 {
-    int nsx, nsy, nsz;
+    int nsx = 0, nsy = 0, nsz = 0;
     const amrex::Box my_box = nc_fab_box(var_name, NC_dim_type, nc_arrays[iv].get_vshape(),
                                          custom_ngrow, nsx, nsy, nsz);
 
@@ -654,7 +655,7 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
 
         // The same layout as BuildFABsFromNetCDFFile: the file data fill the
         // corner of the FAB box that starts at its lower corner.
-        int nsx, nsy, nsz;
+        int nsx = 0, nsy = 0, nsz = 0;
         amrex::Box fab_box = nc_fab_box(nc_var_names[iv], dim_type, shape, custom_ngrow,
                                         nsx, nsy, nsz);
         amrex::Box data_box(fab_box.smallEnd(),
