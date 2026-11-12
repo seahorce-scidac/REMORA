@@ -15,7 +15,7 @@ There are currently 68 regression tests which are run as part of every PR on a r
 * 8 that assert a run reaches a behavior it reports in its log;
 * 11 that assert a misconfigured input fails for the stated reason.
 
-There are also three unit tests, ``DateClock``, ``LatLonRegrid`` and ``BiologyInterface``. The CI tests use cmake and are based on the version
+There are also four unit tests, ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp`` and ``BiologyInterface``. The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
 instructions in :ref:`Testing<Testing>`, which also describes the different kinds of assertion and what
 each is for. All of them run under MPI on two ranks, and are checked to be rank-invariant.
