@@ -1345,6 +1345,8 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
         NC_pm_fab[0].copy_to(pm_fab);
         NC_pn_fab[0].copy_to(pn_fab);
     }
+    check_grid_metrics_from_file(*vec_pm_full_domain[hires_grid_level],
+                                 *vec_pn_full_domain[hires_grid_level], nc_grid_file_hires);
 
     // Average down to fill levels below hires_grid_level. Use a special average_down so
     // grow cells get populated by averaged down fine data
@@ -1418,6 +1420,37 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
         }
         for (int lev = hires_grid_level-1; lev >= 0; lev--) {
             average_down_with_grow_cells(lev, *vec);
+        }
+    }
+}
+
+/**
+ * Abort unless pm and pn read from fname are positive over the domain, and warn if either
+ * exceeds 1 (a cell narrower than 1 m), which usually means the file gives them in 1/degree.
+ * Metrics in the wrong units pass every size check.
+ *
+ * @param pm     inverse cell width in x, as read
+ * @param pn     inverse cell width in y, as read
+ * @param fname  the file they came from
+ */
+void
+REMORA::check_grid_metrics_from_file (const MultiFab& pm, const MultiFab& pn,
+                                      const std::string& fname)
+{
+    for (const auto& [name, mf] : { std::pair<std::string, const MultiFab*>{"pm", &pm},
+                                    std::pair<std::string, const MultiFab*>{"pn", &pn} }) {
+        // All three reductions are collective, so every rank evaluates them
+        const bool has_nan = mf->contains_nan(0, 1, 0);
+        const Real mf_min = mf->min(0, 0);
+        const Real mf_max = mf->max(0, 0);
+        if (has_nan || mf_min <= zero) {
+            amrex::Abort(name + " from " + fname + " is not positive everywhere in the domain. "
+                         + name + " is the inverse cell width in 1/m.");
+        }
+        if (mf_max > one && amrex::ParallelDescriptor::IOProcessor()) {
+            amrex::Warning(name + " from " + fname + " reaches " + std::to_string(mf_max)
+                           + ", a cell narrower than 1 m. " + name + " is the inverse cell "
+                           "width in 1/m; check that it is not in 1/degree");
         }
     }
 }

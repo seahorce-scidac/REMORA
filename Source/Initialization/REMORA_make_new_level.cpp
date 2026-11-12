@@ -1034,6 +1034,8 @@ REMORA::set_grid_scale (int lev)
     } else if (solverChoice.ic_type == IC_Type::netcdf) {
         if (lev == 0 && hires_grid_level < 0) {
             init_grid_vars_from_netcdf(lev);
+            // Before anything divides by them; a high-resolution file is checked as it is read
+            check_grid_metrics_from_file(*vec_pm[lev], *vec_pn[lev], nc_grid_file[0][0]);
         } else if (lev > hires_grid_level) {
             Real dummy_time = zero;
             FillCoarsePatch(lev,dummy_time,vec_pm[lev].get(), vec_pm[lev-1].get(), foextrap_bc());
@@ -1077,6 +1079,7 @@ REMORA::set_grid_scale (int lev)
         }
 #endif
     }
+
     if (solverChoice.use_curvilinear_grid) {
         set_curvilinear_terms_from_grid_scale(lev);
     }
