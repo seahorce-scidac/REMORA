@@ -2133,6 +2133,19 @@ private:
      *         finest level then forms w on every substep (wvel_skip_substep) */
     bool wvel_every_substep = false;
 
+    /** \brief per level and time level of ubar/vbar: whether that component was exchanged
+     *         after its boundary conditions in the current set of fast steps, so that its
+     *         ghost faces hold the neighbouring boxes' values. advance_2d skips the exchange
+     *         of the barotropic fluxes when it is set and set_2d_cf_flux does not run;
+     *         reset before each set of fast steps. */
+    amrex::Vector<amrex::Array<int,3>> uvbar_exchanged_after_bcs;
+    void reset_uvbar_exchanged (int lev) {
+        if (int(uvbar_exchanged_after_bcs.size()) <= lev) {
+            uvbar_exchanged_after_bcs.resize(lev+1);
+        }
+        uvbar_exchanged_after_bcs[lev] = {0, 0, 0};
+    }
+
     /** \brief interpolate the parent's barotropic mass flux in time at the coarse-fine
      *         interface, rather than holding its step average. Off matches most ROMS
      *         configurations. */

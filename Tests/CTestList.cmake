@@ -546,6 +546,17 @@ add_test_layout(Seamount_ECB_tiled Seamount_ECB_tiled "remora_exec" "plt00003" "
     "remora.omp_tile_size=1024000 1024000 1024000" "remora.omp_tile_size=2 3 1024000")
 add_test_r(Channel_Test                 "remora_exec" "plt00010")
 add_test_r(DoubleGyre                   "remora_exec" "plt00010")
+# Walls on all sides, one box against six, with the 2D velocities not exchanged after their
+# boundary conditions on the fast steps (remora.cf_set_2d_bcs = 0): the barotropic fluxes
+# on the box edges along a wall must still come out the same in every layout
+add_test_layout(DoubleGyre_layout_bcs_unexchanged DoubleGyre "remora_exec" "plt00010" "none"
+                "amr.max_grid_size=256 remora.cf_set_2d_bcs=0"
+                "amr.max_grid_size_x=27 amr.max_grid_size_y=54 amr.blocking_factor=1 remora.cf_set_2d_bcs=0")
+# The same with that exchange on the first fast step of each set only (remora.cf_set_2d_bcs = 2),
+# so the record of which time levels had it is both set and cleared during the fast steps
+add_test_layout(DoubleGyre_layout_bcs_first_exchanged DoubleGyre "remora_exec" "plt00010" "none"
+                "amr.max_grid_size=256 remora.cf_set_2d_bcs=2"
+                "amr.max_grid_size_x=27 amr.max_grid_size_y=54 amr.blocking_factor=1 remora.cf_set_2d_bcs=2")
 add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic              "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic_MLvel        "remora_exec" "plt_ml00010")

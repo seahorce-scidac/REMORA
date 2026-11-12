@@ -36,6 +36,9 @@ REMORA::Advance (int lev, Real time, Real dt_lev, int iteration, int ncycle)
     //***************************************************
     //Advance nfast_counter steps of the 2d integrator
     //***************************************************
+    // How ubar and vbar were last filled before the fast steps is not tracked, so no time
+    // level counts as exchanged after its boundary conditions (see advance_2d)
+    reset_uvbar_exchanged(lev);
     for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
         advance_2d_onestep(lev, dt_lev, dtfast_lev, my_iif, nfast_counter);
     }
