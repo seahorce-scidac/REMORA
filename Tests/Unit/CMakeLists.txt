@@ -13,9 +13,16 @@ add_executable(${remora_latlon_test_exe_name}
   ${CMAKE_CURRENT_SOURCE_DIR}/REMORA_LatLonRegrid_test.cpp
 )
 
+# The boundary-strip refinement arithmetic, in every build, for the same reason.
+set(remora_boundary_interp_test_exe_name remora_boundary_interp_tests)
+add_executable(${remora_boundary_interp_test_exe_name}
+  ${CMAKE_CURRENT_SOURCE_DIR}/REMORA_BoundaryInterp_test.cpp
+)
+
 add_executable(remora_tide_math_tests REMORA_TideMath_test.cpp)
 
-foreach (exe ${remora_unit_test_exe_name} ${remora_latlon_test_exe_name} remora_tide_math_tests)
+foreach (exe ${remora_unit_test_exe_name} ${remora_latlon_test_exe_name}
+             ${remora_boundary_interp_test_exe_name} remora_tide_math_tests)
   target_include_directories(${exe} PRIVATE
     ${PROJECT_SOURCE_DIR}/Source
     ${PROJECT_SOURCE_DIR}/Source/Utils
@@ -41,6 +48,12 @@ set_tests_properties(DateClock PROPERTIES
 
 add_test(NAME LatLonRegrid COMMAND ${remora_latlon_test_exe_name})
 set_tests_properties(LatLonRegrid PROPERTIES
+  TIMEOUT 60
+  LABELS "unit"
+)
+
+add_test(NAME BoundaryInterp COMMAND ${remora_boundary_interp_test_exe_name})
+set_tests_properties(BoundaryInterp PROPERTIES
   TIMEOUT 60
   LABELS "unit"
 )

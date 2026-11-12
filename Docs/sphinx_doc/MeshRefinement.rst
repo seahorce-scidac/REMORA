@@ -28,9 +28,9 @@ that will be refined.
 Tagging criteria based on field variable values or derived quantities are
 evaluated only in unmasked regions. One exception is a criterion keyed on
 ``mask`` itself, which exists to find the coast. A region defined by a box
-(typically used in static mesh refinement) is refined in full whether it is land
-or water. See `Masked Regions and Tagging`_ for what "means something" amounts
-to per field.
+(typically used in static mesh refinement) tags only its water cells, though the
+grids drawn around those tags can still cover some land. See `Masked Regions and
+Tagging`_ for what "means something" amounts to per field.
 
 See the `Gridding`_ section of the AMReX documentation for details of how
 individual grids are created.
@@ -70,7 +70,9 @@ Any single tagged region will be covered by one or more boxes. The user may
 specify the refinement criteria and/or region to be covered, but not the
 decomposition of the region into individual grids. Tagging criteria are ignored
 in masked regions and on land-sea boundaries, but these regions may still be
-refined in order to accommodate adjacent tagged regions. One way to think of
+refined in order to accommodate adjacent tagged regions. A box is no exception:
+with a land mask it tags only the water inside it, so the refined grids can be
+smaller than the box (see `Masked Regions and Tagging`_). One way to think of
 static refinement is a permanent adaptive refinement tag. See the Gridding
 section of the AMReX documentation for details of how individual grids are
 created, and how boxes are defined. Input variables associated with AMReX are
@@ -249,11 +251,25 @@ so it is not simply "the wet cells":
 A land cell is never tagged by any of these. The one field exempt from all of it
 is ``mask``, below.
 
-Nothing else is untagged. A region named explicitly with
-``in_box_lo``/``in_box_hi`` (or the index-space forms) is refined in full, land
-included, which is usually what is wanted when the region of interest straddles
-a coast. Land may also end up refined because it is adjacent to a tagged region,
-or because ``amr.n_error_buf`` grew one.
+A region named explicitly with ``in_box_lo``/``in_box_hi`` (or the index-space
+forms) tags only the water cells inside it, so a box drawn across a coast does
+not refine the land behind it for its own sake, and a box entirely on land
+refines nothing. Land is still refined where AMReX's grids around the tagged
+water cover it: where ``amr.n_error_buf`` grew the tags onto it, or where the
+grids are rounded to the blocking factor and grouped at ``amr.grid_eff``. In a run without a mask
+(``remora.mask_type = none``) a box is refined in full.
+
+``remora.<box>.tag_land = true`` makes a box tag its land as well, so the whole
+rectangle is refined, as a ROMS nest is. Use it only to compare directly with a
+ROMS nest over a coast, where the edge of the refined grid has to be where the
+nest's is; refining land adds no water and costs time. It is rejected on a field
+criterion.
+
+::
+
+          remora.coastbox.in_box_lo = 2600. 0.
+          remora.coastbox.in_box_hi = 5800. 750.
+          remora.coastbox.tag_land  = true    # only for a direct ROMS-nest comparison
 
 To refine the coastline deliberately, use ``mask`` as the field name. It is the
 one field exempt from the rule above -- a criterion keyed on the mask is asking
@@ -373,6 +389,75 @@ those that occur at periodic boundaries.
 In the ``FillPatch`` operation, ``FillBoundary`` always overrides any
 interpolated values, i.e. if there is fine data available (except at coarse-fine
 boundary) we always use it.
+
+.. _sec:cf2dcache:
+
+Reusing coarse-fine ghost values in the barotropic step
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On a refined level, the barotropic step (``advance_2d``) refills the ghost cells of
+``ubar``, ``vbar`` and ``zeta`` after every fast step. Within one substep of the fine level
+those fills are all made at the same time, the start of the fine 3D step, and the parent
+level does not change while its child substeps; it changes only when
+``register_coarse_data`` hands the child the parent's new state. The values interpolated
+into the coarse-fine ghost cells therefore come out the same on every fast step of the
+substep. For the face fields ``ubar`` and ``vbar`` they also depend on the interface faces
+that the coarse-fine fill patcher sets first (``FillSet``), which come from the same parent
+data at the same time.
+
+REMORA therefore computes them once and replays them:
+
+- The first fill of a (time level, time) pair does the full two-level fill: it exchanges
+  the parent's ghost cells, interpolates the parent onto the fine level and copies fine
+  data where there is any. While the parent is frozen (see below), an earlier fill may
+  already have exchanged that parent field, and then the exchange is not repeated. The
+  values that land in the coarse-fine ghost cells are saved, with a mask of which cells
+  those are. The entry is keyed on the parent's generation (a counter bumped each time the
+  parent registers new data for its child), the fill time and the coarse data the values
+  were interpolated from.
+- Later fills with a matching key skip the parent exchange and the interpolation. A masked
+  copy puts the saved values back into the coarse-fine ghost cells, the fine-fine exchange
+  still runs (ghost cells shared with neighbouring fine boxes hold fine data, which changes
+  every fast step), and the physical boundary conditions are applied as before. When all
+  three fields hit, their fine-fine exchanges are posted together and the boundary
+  conditions then run in the original order. The interface values ``FillSet`` writes are
+  kept and replayed the same way, when they depend on the coarse data alone (checked once
+  per grid layout; true at the default ``remora.cf_set_width = 0``), and so is the parent's
+  barotropic flux on the interface faces (``set_2d_cf_bcs``).
+- A miss does the full fill and refreshes the entry. It comes from new parent data, a new
+  substep time, a regrid that changed the layout, or a change of the coarse data the fill
+  interpolates from: ``zeta`` switches from the parent's own field to the parent's
+  end-of-step snapshot pair (``remora.cf_time_interp_zeta``) once the parent has stored it.
+  Removing a level frees its entries.
+
+The replay is used with the subcycled driver only (``remora.do_substep = 1``), one
+component at a time, and for ``ubar`` and ``vbar`` only when the coarse-fine fill patchers
+set the interface faces first (``remora.cf_width`` and ``remora.cf_set_width`` at least 0).
+It saves the parent exchange and interpolation on all but the first fast step of each
+substep; the results are bitwise identical to recomputing every time.
+
+A wider reuse covers every coarse-fine fill of a fine level, the 3D ones too. The parent
+does not change while its child substeps, so the subcycled driver freezes it for that
+stretch, and the parent data a fill interpolates from is prepared once per parent field and
+handed out again until the parent thaws. Preparing it means exchanging the parent's ghost
+cells and, in a domain that is periodic in one direction and bounded by a wall in another,
+making a copy whose ghost cells beyond the wall agree with their periodic images. In such a
+domain the frozen parent therefore keeps one full copy of each parent field it hands out,
+from the first fill that needs it until the thaw, instead of freeing each copy after its
+fill. Other domains need no copy and keep only the record of which fields were exchanged.
+
+``remora.cf_2d_fill_cache`` selects the behaviour of all of the above:
+
+- 0 recomputes everything: every fill exchanges and interpolates the parent and copies it
+  when the domain needs it, ``FillSet`` interpolates on every call, and the interface flux
+  is formed for every fast step.
+- 1 (the default) replays as described.
+- 2 replays everything 1 does and also does the fresh computation each time, aborting if
+  any value differs in bit pattern: the saved ghost values, the batched fills of the three
+  fields, the kept ``FillSet`` values, the interface flux, and the exchanged and copied
+  parent data of a frozen parent.
+
+The ``*_cf_fill_cache_check`` regression tests run with 2.
 
 Example
 -------

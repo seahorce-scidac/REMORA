@@ -991,6 +991,20 @@ REMORA::ClearLevel (int lev)
     if (lev < idle_threads_warned.size()) { idle_threads_warned[lev] = 0; }
     delete cons_new[lev]; delete xvel_new[lev];  delete yvel_new[lev];  delete zvel_new[lev];
     delete cons_old[lev]; delete xvel_old[lev];  delete yvel_old[lev];  delete zvel_old[lev];
+
+    // Caches of the level's coarse-fine fills, as a fine level and as a parent. Each is
+    // rebuilt on demand, so this only returns the memory.
+    if (lev < int(cf_2d_cache.size())) {
+        for (auto& c : cf_2d_cache[lev]) { c = CF2DCache{}; }
+    }
+    if (lev < int(cf_band.size())) {
+        for (auto& b : cf_band[lev]) { b.reset(); }
+    }
+    if (lev < int(cf_iface_flux.size())) { cf_iface_flux[lev] = CFInterfaceFlux{}; }
+    if (lev < int(crse_interp_entries.size())) { crse_interp_entries[lev].clear(); }
+    if (lev < int(crse_frozen.size())) { crse_frozen[lev] = 0; }
+    if (lev > 0 && lev-1 < int(FPr_ubar.size())) { FPr_ubar[lev-1].ClearKept(); }
+    if (lev > 0 && lev-1 < int(FPr_vbar.size())) { FPr_vbar[lev-1].ClearKept(); }
 #ifdef REMORA_USE_PARTICLES
     if (lev < int(particle_omega.size())) {
         particle_omega[lev].reset(); particle_u[lev].reset(); particle_v[lev].reset();

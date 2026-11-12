@@ -1,6 +1,7 @@
 #include "REMORA_NCTimeSeriesBoundary.H"
 #include "REMORA_NCFile.H"
 #include "REMORA_TideMath.H"
+#include "REMORA_BoundaryInterpMath.H"
 
 #include "AMReX_ParallelDescriptor.H"
 
@@ -737,93 +738,56 @@ void NCTimeSeriesBoundary::read_in_at_time (amrex::FArrayBox& fab_xlo,
 }
 
 /**
+ * \brief Interpolate a level-0 boundary strip onto this level's strip.
+ *
+ * Values are interpolated linearly along the strip between the coarse points on either side
+ * of each fine point: cell centers where the strip is cell-centered along its length, nodes
+ * where it is nodal. The point across the boundary is not interpolated.
+ *
  * @param[in   ] dat_crse  fab of coarse data to interpolate from
- * @param[  out] dat_fine  fab of fine data to interpoalte to
+ * @param[  out] dat_fine  fab of fine data to interpolate to
  */
 void NCTimeSeriesBoundary::interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine)
 {
     amrex::Array4<amrex::Real> crse_arr = dat_crse.array();
     amrex::Array4<amrex::Real> fine_arr = dat_fine.array();
 
-    const auto& bhi = ubound(dat_crse.box());
-
-    int rx = m_rx;
-    int ry = m_ry;
-
-    amrex::Real xfac = one / static_cast<amrex::Real>(rx);
-    amrex::Real yfac = one / static_cast<amrex::Real>(ry);
-
-    // Doing box on x-face
+    // The strip is one point thick across the boundary. Each fine point is interpolated
+    // linearly along the strip from the coarse points on either side of it, at cell centers
+    // or at nodes according to the strip's index type in that direction.
+    int along;
     if (dat_crse.box().length(0) == 1) {
-        // amrex::Print() << "DOING INTERP ON XFACE " << dat_crse.box() << " " << dat_fine.box() << std::endl;
-        if (dat_crse.box().ixType()[1] == 0) {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int i_f = (i == -1) ? -1 : rx*i;
-                if (j == -1) {
-                    fine_arr(i_f,j,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(i_f,ry*j  ,k) = crse_arr(i,j,k);
-                    if (j < bhi.y) {
-                        for (int n = 1; n < ry; n++) {
-                            fine_arr(i_f,ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
-                        }
-                    }
-                }
-            });
-        } else {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int i_f = (i == -1) ? -1 : rx*i;
-                if (j == -1) {
-                    fine_arr(i_f,j,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(i_f,ry*j,k) = crse_arr(i,j,k);
-                    if (j < bhi.y) {
-                        for (int n = 1; n < ry; n++) {
-                            fine_arr(i_f,ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
-                        }
-                    }
-                }
-            });
-        }
+        along = 1;
     } else if (dat_crse.box().length(1) == 1) {
-    // Doing box on y-face
-        // amrex::Print() << "DOING INTERP ON YFACE " << dat_crse.box() << " " << dat_fine.box() << std::endl;
-        if (dat_crse.box().ixType()[0] == 0) {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int j_f = (j == -1) ? -1 : ry*j;
-                if (i == -1) {
-                    fine_arr(i,j_f,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(rx*i  ,j_f,k) = crse_arr(i,j,k);
-                    if (i < bhi.x) {
-                        for (int n = 1; n < rx; n++) {
-                            fine_arr(rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
-                        }
-                    }
-                }
-            });
-        } else {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int j_f = (j == -1) ? -1 : ry*j;
-                if (i == -1) {
-                    fine_arr(i,j_f,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(rx*i,j_f,k) = crse_arr(i,j,k);
-                    if (i < bhi.x) {
-                        for (int n = 1; n < rx; n++) {
-                            fine_arr(rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
-                        }
-                    }
-                }
-            });
-        }
+        along = 0;
     } else {
-        amrex::Abort(" What am I doing here??");
+        amrex::Abort("interp_fab: the boundary strip is not one point thick");
+        return;
     }
+    const int across_crse = dat_crse.box().smallEnd(1 - along);
+    const int ratio = (along == 0) ? m_rx : m_ry;
+    const bool nodal = dat_crse.box().ixType()[along] == 1;
+
+    amrex::ParallelFor(dat_fine.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        int c;
+        amrex::Real w;
+        const int f = (along == 0) ? i : j;
+        if (nodal) {
+            boundary_interp::nodal_weight(f, ratio, c, w);
+        } else {
+            boundary_interp::cell_centered_weight(f, ratio, c, w);
+        }
+        const int ic = (along == 0) ? c : across_crse;
+        const int jc = (along == 0) ? across_crse : c;
+        const amrex::Real lo = crse_arr(ic,jc,k);
+        if (w == amrex::Real(0.0)) {
+            fine_arr(i,j,k) = lo;
+        } else {
+            const amrex::Real hi = (along == 0) ? crse_arr(ic+1,jc,k) : crse_arr(ic,jc+1,k);
+            fine_arr(i,j,k) = lo + w * (hi - lo);
+        }
+    });
 }
 
 #endif // REMORA_USE_NETCDF
