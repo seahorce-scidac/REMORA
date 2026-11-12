@@ -85,6 +85,14 @@ Grid, initial, and time-dependent boundary data can be specified using NetCDF fi
 
 Gridded fields -- the grid, initial, high-resolution, nudging-coefficient, climatology and forcing files -- are read in parallel: each rank reads only the part of each field that its own boxes, ghost cells included, cover. Boundary files, river files, and forcing on a longitude-latitude grid are read on one rank and broadcast.
 
+For large inputs, CDF-5 is the faster format. A compressed NetCDF-4 variable is stored in chunks, and a rank decompresses every chunk its part of the domain touches, whole. If chunks are much larger than one rank's part, ranks decompress the same data again and wait for the slowest. Check a file's chunk sizes with ``ncdump -hs <file> | grep _ChunkSizes``. If they are large compared with your boxes, rechunk the file to about the size of a box, for example for 128 x 128 boxes:
+
+.. code:: shell
+
+    nccopy -c "s_rho/8,eta_rho/128,xi_rho/128,eta_u/128,xi_u/128,eta_v/128,xi_v/128" -d 4 -s in.nc out.nc
+
+or convert it to CDF-5 (``nccopy -k cdf5``). In a 1536 x 1536 x 32 test on 128 to 1024 Perlmutter CPU ranks, reading a compressed NetCDF-4 initial state, grid and forcing took 3.5 to 5 times as long as reading the same data as CDF-5.
+
 A NetCDF-4 file is read through the classic data model: variables and attributes in groups other than the root group are not seen, and text attributes must be character arrays (``NC_CHAR``), not ``NC_STRING``. REMORA names the attribute and exits if it finds an ``NC_STRING`` one.
 
 Any NetCDF file can be converted to CDF-5 by running:

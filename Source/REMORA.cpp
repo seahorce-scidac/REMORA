@@ -2063,6 +2063,11 @@ void
 REMORA::init_only (int lev, Real time)
 {
     BL_PROFILE("REMORA::init_only()");
+#ifdef REMORA_USE_NETCDF
+    // The grid, initial and forcing files are each read by several routines below;
+    // open each once.
+    NCReadSession nc_read_session;
+#endif
     t_new[lev] = time;
     t_old[lev] = time - bogus_large_value;
 

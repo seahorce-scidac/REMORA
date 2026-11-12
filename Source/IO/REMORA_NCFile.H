@@ -2,6 +2,7 @@
 #define _REMORA_NCFILE_H_
 
 #include <initializer_list>
+#include <map>
 #include <sstream>
 #include <string>
 #include <ctime>
@@ -418,6 +419,62 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
     }
 }
 
+/**
+ * \brief Keeps the files BuildLocalFABsFromNetCDFFile opens open until the
+ * outermost session ends, so a run of readers opens each file once.
+ *
+ * Opening a NetCDF-4 file in parallel costs about a second on a thousand ranks,
+ * and the initialization routines read the grid file alone half a dozen times.
+ * Create one of these, on every rank, around such a run of readers; sessions
+ * nest, and the files close, collectively and in name order, when the outermost
+ * one is destroyed. Only for files that are read, not written, while it lasts.
+ */
+class NCReadSession
+{
+public:
+    NCReadSession () { ++state().depth; }
+    ~NCReadSession ()
+    {
+        if (--state().depth == 0) {
+            for (auto& f : state().files) { f.second->close(); }
+            state().files.clear();
+        }
+    }
+    NCReadSession (const NCReadSession&) = delete;
+    NCReadSession& operator= (const NCReadSession&) = delete;
+
+    //! Whether a session is open on this rank
+    static bool active () { return state().depth > 0; }
+
+    //! The file, opened read-only over \p comm the first time it is asked for
+    static ncutils::NCFile& file (const std::string& fname, MPI_Comm comm)
+    {
+        auto& files = state().files;
+        auto it = files.find(fname);
+        if (it == files.end()) {
+            it = files.emplace(fname, open_file(fname, comm)).first;
+        }
+        return *it->second;
+    }
+
+    //! Open \p fname read-only over \p comm, outside any session
+    static std::unique_ptr<ncutils::NCFile> open_file (const std::string& fname, MPI_Comm comm)
+    {
+        BL_PROFILE("NCReadSession::open_file()");
+        auto f = ncutils::NCFile::open(fname, NC_NOWRITE, comm);
+        auto owned = std::make_unique<ncutils::NCFile>(f.ncid);
+        f.is_open = false;
+        return owned;
+    }
+
+private:
+    struct State {
+        int depth = 0;
+        std::map<std::string, std::unique_ptr<ncutils::NCFile>> files;
+    };
+    static State& state () { static State s; return s; }
+};
+
 //! The boxes of the domain, cell-centered, that a rank needs read: see nc_local_region.
 using NCRegion = amrex::Vector<amrex::Box>;
 
@@ -567,8 +624,11 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
     int nreads = static_cast<int>(region.size());
     amrex::ParallelAllReduce::Max(nreads, comm);
 
+    // Inside an NCReadSession the file stays open for the next reader.
     BL_PROFILE_VAR("BuildLocalFABsFromNetCDFFile::open", nc_open);
-    auto ncf = ncutils::NCFile::open(fname, NC_NOWRITE, comm);
+    std::unique_ptr<ncutils::NCFile> own;
+    if (!NCReadSession::active()) { own = NCReadSession::open_file(fname, comm); }
+    ncutils::NCFile& ncf = own ? *own : NCReadSession::file(fname, comm);
     BL_PROFILE_VAR_STOP(nc_open);
 
     BL_PROFILE_VAR("BuildLocalFABsFromNetCDFFile::read", nc_read);
@@ -651,7 +711,7 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
     BL_PROFILE_VAR_STOP(nc_read);
 
     BL_PROFILE_VAR("BuildLocalFABsFromNetCDFFile::close", nc_close);
-    ncf.close();
+    if (own) { own->close(); }
     BL_PROFILE_VAR_STOP(nc_close);
 }
 
