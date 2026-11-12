@@ -85,7 +85,7 @@ Perlmutter's ``cray-parallel-netcdf`` module has no NetCDF-4 driver, so build Pn
 .. code:: shell
 
           module load PrgEnv-gnu cray-mpich cray-hdf5-parallel cray-netcdf-hdf5parallel
-          module unload cray-parallel-netcdf
+          module is-loaded cray-parallel-netcdf && module unload cray-parallel-netcdf
           nc-config --has-parallel4    # yes
           nc-config --has-pnetcdf      # no
 
@@ -113,7 +113,7 @@ From here on, building and running both need the same environment. Put it in a f
 .. code:: shell
 
           module load PrgEnv-gnu cray-mpich cray-hdf5-parallel cray-netcdf-hdf5parallel
-          module unload cray-parallel-netcdf
+          module is-loaded cray-parallel-netcdf && module unload cray-parallel-netcdf
           export PNETCDF_DIR=$HOME/pnetcdf-nc4
           export PKG_CONFIG_PATH=$PNETCDF_DIR/lib/pkgconfig:$PKG_CONFIG_PATH
           export LD_LIBRARY_PATH=$PNETCDF_DIR/lib:$LD_LIBRARY_PATH
