@@ -564,6 +564,7 @@ NCTimeSeries::get_interpolated_mf (int lev) const {
  * @param[in   ] itime     index of time step to read from file
  */
 void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
+    BL_PROFILE("NCTimeSeries::read_in_at_time()");
     const int ifile = file_for_time[itime];
     const std::string& file_name = file_names[ifile];
     const int itime_offset = file_itime_offset[itime];

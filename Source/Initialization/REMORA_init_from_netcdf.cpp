@@ -188,6 +188,7 @@ void read_vec_from_netcdf (int lev, const amrex::Vector<std::string>& fnames, co
 void
 REMORA::init_data_from_netcdf (int lev)
 {
+    BL_PROFILE("REMORA::init_data_from_netcdf()");
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<NCLocalFab> NC_temp_fab ; NC_temp_fab.resize(num_boxes_at_level[lev]);
     Vector<NCLocalFab> NC_salt_fab ; NC_salt_fab.resize(num_boxes_at_level[lev]);
@@ -254,6 +255,7 @@ REMORA::init_data_from_netcdf (int lev)
 void
 REMORA::init_scalars_from_netcdf (int lev)
 {
+    BL_PROFILE("REMORA::init_scalars_from_netcdf()");
     if (nscalar == 0) {
         return;
     }
@@ -301,6 +303,7 @@ REMORA::init_scalars_from_netcdf (int lev)
 void
 REMORA::init_biology_from_netcdf (int lev)
 {
+    BL_PROFILE("REMORA::init_biology_from_netcdf()");
     if (!REMORABiology::has_biology(biology_model)) {
         return;
     }
@@ -339,6 +342,7 @@ REMORA::init_biology_from_netcdf (int lev)
 void
 REMORA::init_data_full_domain_from_netcdf ()
 {
+    BL_PROFILE("REMORA::init_data_full_domain_from_netcdf()");
     if (nc_init_file_hires.empty()) {
         Abort("Must specify high-resolution initial file when initializing from NetCDF and hires_init_level > 0");
     }
@@ -406,6 +410,7 @@ REMORA::init_data_full_domain_from_netcdf ()
 void
 REMORA::init_scalars_full_domain_from_netcdf ()
 {
+    BL_PROFILE("REMORA::init_scalars_full_domain_from_netcdf()");
     if (nscalar == 0) {
         return;
     }
@@ -444,6 +449,7 @@ REMORA::init_scalars_full_domain_from_netcdf ()
 void
 REMORA::init_biology_full_domain_from_netcdf ()
 {
+    BL_PROFILE("REMORA::init_biology_full_domain_from_netcdf()");
     if (!REMORABiology::has_biology(biology_model)) {
         return;
     }
@@ -486,6 +492,7 @@ REMORA::init_biology_full_domain_from_netcdf ()
 void
 REMORA::init_zeta_from_netcdf (int lev)
 {
+    BL_PROFILE("REMORA::init_zeta_from_netcdf()");
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<NCLocalFab> NC_zeta_fab     ; NC_zeta_fab.resize(num_boxes_at_level[lev]);
     const NCRegion region = nc_local_region(*vec_zeta[lev]);
@@ -532,6 +539,7 @@ REMORA::init_zeta_from_netcdf (int lev)
 void
 REMORA::init_zeta_full_domain_from_netcdf ()
 {
+    BL_PROFILE("REMORA::init_zeta_full_domain_from_netcdf()");
     if (nc_init_file_hires.empty()) {
         Abort("Must specify high-resolution initial file when initializing from NetCDF and hires_init_level > 0");
     }
@@ -576,6 +584,7 @@ REMORA::init_zeta_full_domain_from_netcdf ()
 void
 REMORA::init_grid_vars_from_netcdf (int lev)
 {
+    BL_PROFILE("REMORA::init_grid_vars_from_netcdf()");
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<NCLocalFab> NC_pm_fab    ; NC_pm_fab.resize(num_boxes_at_level[lev]);
     Vector<NCLocalFab> NC_pn_fab    ; NC_pn_fab.resize(num_boxes_at_level[lev]);
@@ -777,6 +786,7 @@ REMORA::init_grid_vars_from_netcdf (int lev)
 void
 REMORA::init_bathymetry_from_netcdf (int lev)
 {
+    BL_PROFILE("REMORA::init_bathymetry_from_netcdf()");
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<NCLocalFab> NC_h_fab     ; NC_h_fab.resize(num_boxes_at_level[lev]);
     const NCRegion region = nc_local_region(*vec_h[lev]);
@@ -824,6 +834,7 @@ REMORA::init_bathymetry_from_netcdf (int lev)
 void
 REMORA::init_coriolis_from_netcdf (int lev)
 {
+    BL_PROFILE("REMORA::init_coriolis_from_netcdf()");
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<NCLocalFab> NC_fcor_fab     ; NC_fcor_fab.resize(num_boxes_at_level[lev]);
     const NCRegion region = nc_local_region(*vec_fcor[lev]);
@@ -859,6 +870,7 @@ REMORA::init_coriolis_from_netcdf (int lev)
 void
 REMORA::init_masks_from_netcdf (int lev)
 {
+    BL_PROFILE("REMORA::init_masks_from_netcdf()");
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<NCLocalFab> NC_mskr_fab     ; NC_mskr_fab.resize(num_boxes_at_level[lev]);
     const NCRegion region = nc_local_region(*vec_mskr[lev]);
@@ -897,6 +909,7 @@ REMORA::init_masks_from_netcdf (int lev)
 void
 REMORA::init_bdry_from_netcdf (int lev)
 {
+    BL_PROFILE("REMORA::init_bdry_from_netcdf()");
     if (nc_bdry_file.empty() || nc_bdry_file[0].empty()) {
         amrex::Error("NetCDF boundary file name must be provided via input");
     }
@@ -1033,6 +1046,7 @@ init_scalar_state_from_netcdf (int /*lev*/, FArrayBox& scalar_fab,
 void
 REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
 {
+    BL_PROFILE("REMORA::init_clim_nudg_coeff_from_netcdf()");
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<NCLocalFab> NC_M2NC_fab     ; NC_M2NC_fab.resize(num_boxes_at_level[lev]);
     Vector<NCLocalFab> NC_M3NC_fab     ; NC_M3NC_fab.resize(num_boxes_at_level[lev]);
@@ -1123,6 +1137,7 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
 void
 REMORA::init_riv_pos_from_netcdf (int lev)
 {
+    BL_PROFILE("REMORA::init_riv_pos_from_netcdf()");
     amrex::Vector<int> river_pos_x;
     amrex::Vector<int> river_pos_y;
     amrex::Vector<int> river_direction_tmp;
@@ -1232,6 +1247,7 @@ REMORA::convert_inv_days_to_inv_s (MultiFab* mf) {
 void
 REMORA::init_bathymetry_full_domain_from_netcdf ()
 {
+    BL_PROFILE("REMORA::init_bathymetry_full_domain_from_netcdf()");
     if (nc_grid_file_hires.empty()) {
         Abort("Must specify high-resolution grid file when initializing from NetCDF and hires_grid_level > 0");
     }
@@ -1259,6 +1275,7 @@ REMORA::init_bathymetry_full_domain_from_netcdf ()
 void
 REMORA::init_masks_full_domain_from_netcdf ()
 {
+    BL_PROFILE("REMORA::init_masks_full_domain_from_netcdf()");
     if (nc_grid_file_hires.empty()) {
         Abort("Must specify high-resolution grid file when remora.mask_type = netcdf and hires_grid_level > 0");
     }
@@ -1287,6 +1304,7 @@ REMORA::init_masks_full_domain_from_netcdf ()
 void
 REMORA::init_grid_vars_full_domain_from_netcdf ()
 {
+    BL_PROFILE("REMORA::init_grid_vars_full_domain_from_netcdf()");
     if (nc_grid_file_hires.empty()) {
         Abort("Must specify high-resolution grid file when initializing from NetCDF and hires_grid_level > 0");
     }

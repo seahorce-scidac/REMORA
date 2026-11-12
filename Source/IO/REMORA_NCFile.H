@@ -13,6 +13,7 @@
 #include "AMReX_ParallelContext.H"
 #include "AMReX_ParallelReduce.H"
 #include "AMReX_ParmParse.H"
+#include "AMReX_BLProfiler.H"
 // this includes pnetcdf.h, and mpi.h
 #include "REMORA_NCInterface.H"
 
@@ -99,6 +100,7 @@ template<typename DType>
 void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
                      amrex::Vector<NDArray<DType> >& arrays, bool one_time=false, int fill_time=0)
 {
+    BL_PROFILE("ReadNetCDFFile()");
     AMREX_ASSERT(arrays.size() == names.size());
 
     if (amrex::ParallelDescriptor::IOProcessor())
@@ -368,6 +370,7 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
                          bool one_time=false, int fill_time=0,
                          amrex::IntVect custom_ngrow=amrex::IntVect(1,1,0))
 {
+    BL_PROFILE("BuildFABsFromNetCDFFile()");
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();  // I/O rank
 
     amrex::Vector<NDArray<amrex::Real>> nc_arrays(nc_var_names.size());
@@ -559,12 +562,16 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
                               bool one_time=false, int fill_time=0,
                               amrex::IntVect custom_ngrow=amrex::IntVect(1,1,0))
 {
+    BL_PROFILE("BuildLocalFABsFromNetCDFFile()");
     MPI_Comm comm = amrex::ParallelContext::CommunicatorSub();
     int nreads = static_cast<int>(region.size());
     amrex::ParallelAllReduce::Max(nreads, comm);
 
+    BL_PROFILE_VAR("BuildLocalFABsFromNetCDFFile::open", nc_open);
     auto ncf = ncutils::NCFile::open(fname, NC_NOWRITE, comm);
+    BL_PROFILE_VAR_STOP(nc_open);
 
+    BL_PROFILE_VAR("BuildLocalFABsFromNetCDFFile::read", nc_read);
     for (int iv = 0; iv < nc_var_names.size(); iv++)
     {
         const NC_Data_Dims_Type dim_type = NC_dim_types[iv];
@@ -641,7 +648,11 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
 #endif
         }
     }
+    BL_PROFILE_VAR_STOP(nc_read);
+
+    BL_PROFILE_VAR("BuildLocalFABsFromNetCDFFile::close", nc_close);
     ncf.close();
+    BL_PROFILE_VAR_STOP(nc_close);
 }
 
 #endif
