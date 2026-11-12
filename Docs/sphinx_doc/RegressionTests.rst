@@ -642,6 +642,19 @@ A relative wind of exactly zero is not a usable test. The stress is normalized b
 without gustiness, as in myROMS, so as the relative wind goes to zero the stress keeps the magnitude
 the gustiness gives it and takes the direction of whatever round-off remains.
 
+Grid input tests
+----------------
+
+These check that grid and Coriolis inputs which would otherwise run with wrong values are rejected.
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Seamount_zero_beta_plane_abort  | 49 48 13 | Coriolis on with a beta-plane whose ``coriolis_f0`` and |
+|                                 |          |                                                         |
+|                                 |          | ``coriolis_beta`` are both 0 is rejected                |
++---------------------------------+----------+---------------------------------------------------------+
+
 Nightly Regression Tests on CPU
 -------------------------------
 And the following are currently tested nighly on CPU.
