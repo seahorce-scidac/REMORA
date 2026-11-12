@@ -1077,6 +1077,44 @@ REMORA::set_grid_scale (int lev)
         }
 #endif
     }
+
+    // The curvilinear terms are nonzero where 1/pn varies along x or 1/pm along y, as on any
+    // lat-lon grid; without them such a run silently drops part of the momentum advection.
+    if (!solverChoice.use_curvilinear_grid && lev == 0) {
+        const int dom_hi_x = geom[lev].Domain().bigEnd(0);
+        const int dom_hi_y = geom[lev].Domain().bigEnd(1);
+        ReduceOps<ReduceOpMax> reduce_op;
+        ReduceData<Real> reduce_data(reduce_op);
+        using ReduceTuple = typename decltype(reduce_data)::Type;
+        for (MFIter mfi(*vec_pm[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            Array4<Real const> const& pm = vec_pm[lev]->const_array(mfi);
+            Array4<Real const> const& pn = vec_pn[lev]->const_array(mfi);
+            reduce_op.eval(mfi.tilebox(), reduce_data,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
+            {
+                // Skip a non-positive metric rather than divide by it
+                Real r = zero;
+                if (i < dom_hi_x && pn(i,j,k) > zero) {
+                    r = amrex::max(r, amrex::Math::abs(pn(i+1,j,k) - pn(i,j,k)) / pn(i,j,k));
+                }
+                if (j < dom_hi_y && pm(i,j,k) > zero) {
+                    r = amrex::max(r, amrex::Math::abs(pm(i,j+1,k) - pm(i,j,k)) / pm(i,j,k));
+                }
+                return {r};
+            });
+        }
+        Real variation = amrex::get<0>(reduce_data.value(reduce_op));
+        ParallelDescriptor::ReduceRealMax(variation);
+        // Well above single-precision round-off; a 0.01-degree lat-lon grid varies by ~1e-4
+        if (variation > Real(1.e-6) && ParallelDescriptor::IOProcessor()) {
+            amrex::Warning("pm varies along y or pn along x (by up to " + std::to_string(variation)
+                           + " between neighbouring cells), so the grid is curvilinear, but "
+                           "remora.use_curvilinear_grid is false and the curvilinear terms of the "
+                           "momentum advection are left out. Set remora.use_curvilinear_grid = true "
+                           "to include them");
+        }
+    }
+
     if (solverChoice.use_curvilinear_grid) {
         set_curvilinear_terms_from_grid_scale(lev);
     }
