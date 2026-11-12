@@ -621,6 +621,51 @@ seconds, phase lags straddling 0/360 degrees, and a file epoch one day after ``r
 updates and anisotropic refinement; see :ref:`Testing`. Regenerate the small CDF-2 fixtures with
 ``python3 Tests/tools/make_tidal_test_data.py`` (NumPy and netCDF4 are required).
 
+.. _sec:ci-relative-wind-tests:
+
+Relative wind tests
+-------------------
+
+These cover **remora.bulk_flux_relative_wind** and **remora.bulk_flux_current_factor** on the
+``Advection`` case with a uniform current of (0.5, 0.25) m/s. Each runs one step twice, once with the
+relative wind and once with the absolute wind less the subtracted part of the current. Both runs start
+from the same current, so on that step they see the same relative wind and must agree, and neither
+needs a reference file.
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Advection_wind_minus_current    | 81 81 16 | the relative wind under (5.5, 1.25) m/s acts as the     |
+|                                 |          |                                                         |
+|                                 |          | absolute wind under (5, 1) m/s                          |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_wind_minus_current\_  | 81 81 16 | with a factor of 0.5, the relative wind under           |
+| factor                          |          |                                                         |
+|                                 |          | (5.25, 1.125) m/s acts as the absolute wind under       |
+|                                 |          |                                                         |
+|                                 |          | (5, 1) m/s                                              |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_wind_minus_current\_  | 81 81 16 | the relative wind without bulk fluxes is rejected       |
+| no_bulk_abort                   |          |                                                         |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_current_factor_abort  | 81 81 16 | a factor outside 0 to 1 is rejected                     |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_current_factor\_      | 81 81 16 | a factor without the relative wind is rejected          |
+| unused_abort                    |          |                                                         |
++---------------------------------+----------+---------------------------------------------------------+
+
+The comparisons fail if the current or the factor is ignored, if the current is added instead of
+subtracted, or if the stress keeps the absolute wind's direction. The values are exact in binary, so
+both runs see the same relative wind to the last bit. The comparison holds for one step only: after
+it, the two currents differ by the stress the wind put into them.
+
+A uniform current is the same on every face, so these tests cannot tell which faces are averaged to
+the rho points, and the domain is periodic, so the boundary faces are not covered either.
+
+A relative wind of exactly zero is not a usable test. The stress is normalized by the wind speed
+without gustiness, as in myROMS, so as the relative wind goes to zero the stress keeps the magnitude
+the gustiness gives it and takes the direction of whatever round-off remains.
+
 Nightly Regression Tests on CPU
 -------------------------------
 And the following are currently tested nighly on CPU.

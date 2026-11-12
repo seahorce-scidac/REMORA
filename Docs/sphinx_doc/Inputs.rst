@@ -1838,6 +1838,29 @@ Additional bulk-flux controls:
 |                                      | parameter and the moisture and thermal |                   |                |
 |                                      | roughness lengths (ROMS ``COARE_30``)  |                   |                |
 +--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.bulk_flux_relative_wind**   | Take the wind relative to the surface  | true / false      | false          |
+|                                      | current (ROMS ``WIND_MINUS_CURRENT``)  |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.bulk_flux_current_factor**  | Fraction of the surface current        | 0 to 1            | 1.0            |
+|                                      | subtracted from the wind               |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+
+With **remora.bulk_flux_relative_wind**, the wind in the bulk flux is the wind less
+**remora.bulk_flux_current_factor** times the top-level current, averaged to the rho
+points, at the start of the step (Bye and Wolff, 1999, J. Phys. Oceanogr. 29,
+671-691). The relative wind sets the stress, its direction, and the wind speed in
+the heat and moisture fluxes. The air-sea gas exchange of the biology models still
+uses the absolute wind, as in ROMS. The current is on the grid axes, as are the
+winds the bulk flux reads. Where ROMS takes the current on its eastern and northern
+boundary points from one face, REMORA averages the two faces there too.
+
+A factor of 1 is ROMS's ``WIND_MINUS_CURRENT``. A factor below 1 is an empirical
+correction for an atmosphere that cannot respond to the current, as with prescribed
+winds; studies of current feedback (e.g. Renault et al.) choose it to fit their
+region. Keep the factor at 1 only when the atmosphere itself takes its surface stress
+relative to the current. **remora.bulk_flux_current_factor** without
+**remora.bulk_flux_relative_wind** is rejected, as is the relative wind under a
+coupling driver that passes fluxes, since REMORA then computes no bulk fluxes.
 
 The rest of the bulk flux follows myROMS's ``bulk_flux.F`` whatever the COARE
 version: the buoyancy flux in the gustiness, the vector stress normalized by the

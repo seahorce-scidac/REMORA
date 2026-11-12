@@ -711,11 +711,6 @@ REMORA::init_grid_vars_from_netcdf (int lev)
     }
 
 
-    int ng = vec_pm[lev]->nGrow();
-
-    const auto& dom_lo = amrex::lbound(geom[lev].Domain());
-    const auto& dom_hi = amrex::ubound(geom[lev].Domain());
-
     //
     // We need values of pm and pn outside the domain so we fill
     //    them here with foextrap

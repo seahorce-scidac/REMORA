@@ -228,6 +228,27 @@ public:
                           const amrex::iMultiFab* dst_land_mask = nullptr);
 
     /**
+     * \brief Remaps the top-level ocean current onto the driver's layout as east and north
+     *        components.
+     *
+     * Both components are averaged to rho points, rotated from the grid axes to east and
+     * north with the grid angle, zeroed on land, and remapped with the same weights as the
+     * SST. A grid file without an angle is taken to be aligned with east, as ROMS reads it.
+     *
+     * @param[inout] east_dst          eastward current [m/s] on the destination layout
+     * @param[inout] north_dst         northward current [m/s] on the destination layout
+     * @param[in   ] weight_o2a_mf     remap weights; null for a plain copy
+     * @param[in   ] index_o2a_mf      remap source indices; null for a plain copy
+     * @param[in   ] max_stencil_size  stencil length of the weights
+     * @param[in   ] dst_land_mask     destination land mask (1 = land), or null
+     */
+    void PackSurfaceCurrents (amrex::MultiFab& east_dst, amrex::MultiFab& north_dst,
+                              const amrex::MultiFab* weight_o2a_mf,
+                              const amrex::iMultiFab* index_o2a_mf,
+                              int max_stencil_size,
+                              const amrex::iMultiFab* dst_land_mask = nullptr);
+
+    /**
      * \brief Receives atmospheric states from the driver and applies unit conversions.
      *
      * Fills REMORA's internal forcing MultiFabs from states and records which
@@ -2132,6 +2153,19 @@ private:
     /** \brief Set for a coarse step that ends with a checkpoint, which writes zvel_old; the
      *         finest level then forms w on every substep (wvel_skip_substep) */
     bool wvel_every_substep = false;
+
+    /** \brief per level and time level of ubar/vbar: whether that component was exchanged
+     *         after its boundary conditions in the current set of fast steps, so that its
+     *         ghost faces hold the neighbouring boxes' values. advance_2d skips the exchange
+     *         of the barotropic fluxes when it is set and set_2d_cf_flux does not run;
+     *         reset before each set of fast steps. */
+    amrex::Vector<amrex::Array<int,3>> uvbar_exchanged_after_bcs;
+    void reset_uvbar_exchanged (int lev) {
+        if (int(uvbar_exchanged_after_bcs.size()) <= lev) {
+            uvbar_exchanged_after_bcs.resize(lev+1);
+        }
+        uvbar_exchanged_after_bcs[lev] = {0, 0, 0};
+    }
 
     /** \brief interpolate the parent's barotropic mass flux in time at the coarse-fine
      *         interface, rather than holding its step average. Off matches most ROMS

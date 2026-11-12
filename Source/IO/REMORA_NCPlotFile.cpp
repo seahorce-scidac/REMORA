@@ -1,3 +1,4 @@
+#include <array>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -1349,9 +1350,11 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
                     nc_plot_var.put(tmp_yr.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
 
-                for (const auto& [name, vec] : { std::make_pair("lon_rho", &vec_lonr),
-                                                 std::make_pair("lat_rho", &vec_latr),
-                                                 std::make_pair("angle",   &vec_angler) })
+                const std::array<std::pair<const char*, Vector<std::unique_ptr<MultiFab>>*>, 3>
+                    lonlat_vars {{ {"lon_rho", &vec_lonr},
+                                   {"lat_rho", &vec_latr},
+                                   {"angle",   &vec_angler} }};
+                for (const auto& [name, vec] : lonlat_vars)
                 {
                     if ((*vec)[lev] == nullptr) { continue; }
                     FArrayBox tmp_sph;
@@ -1408,8 +1411,10 @@ void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
                 const bool have_bulk = (vec_Tair[lev] != nullptr);
                 // Uwind, Vwind
                 if (vec_uwind[lev] != nullptr) {
-                    for (const auto& [nm, mf] : { std::make_pair("Uwind", vec_uwind[lev].get()),
-                                                  std::make_pair("Vwind", vec_vwind[lev].get()) }) {
+                    const std::array<std::pair<const char*, MultiFab*>, 2>
+                        wind_vars {{ {"Uwind", vec_uwind[lev].get()},
+                                     {"Vwind", vec_vwind[lev].get()} }};
+                    for (const auto& [nm, mf] : wind_vars) {
                         FArrayBox tmp_wind;
                         tmp_wind.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                         tmp_wind.template copy<RunOn::Device>((*mf)[mfi.index()], 0, 0, 1);
