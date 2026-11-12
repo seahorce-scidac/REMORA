@@ -51,8 +51,12 @@ int main (int argc, char* argv[])
                             const auto actual = result[ori]->const_array();
                             for (BoxIterator it(result[ori]->box()); it.ok(); ++it) {
                                 const IntVect point = it();
+                                // Position in level-0 index units: fine cell centers lie at
+                                // (coordinate + 0.5)/ratio coarse cells and fine nodes at
+                                // coordinate/ratio
                                 const int coordinate = point[along];
-                                const double position = coordinate < 0 ? -1.0
+                                const double position = index_types[q][along] == 0
+                                    ? (coordinate + 0.5) / ratio - 0.5
                                     : static_cast<double>(coordinate) / ratio;
                                 const double p = position + 1 - index_types[q][along];
                                 double expected = 0.02 + 0.002*boundary_number[ori]
