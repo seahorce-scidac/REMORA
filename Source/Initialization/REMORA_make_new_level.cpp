@@ -1029,7 +1029,7 @@ REMORA::set_grid_scale (int lev)
             vec_pm[lev]->FillBoundary(geom[lev].periodicity());
             vec_pn[lev]->FillBoundary(geom[lev].periodicity());
         }
-        set_grid_coords_from_grid_scale(lev);
+        set_grid_coords(lev);
 #ifdef REMORA_USE_NETCDF
     } else if (solverChoice.ic_type == IC_Type::netcdf) {
         if (lev == 0 && hires_grid_level < 0) {
@@ -1070,10 +1070,10 @@ REMORA::set_grid_scale (int lev)
                     pn(i,j,0) = pn(i,j,0) * (rry);
                 });
             }
-            set_grid_coords_from_grid_scale(lev);
+            set_grid_coords(lev);
         } else {
             set_grid_vars_averaged_down(lev);
-            set_grid_coords_from_grid_scale(lev);
+            set_grid_coords(lev);
         }
 #endif
     }
@@ -1240,6 +1240,165 @@ REMORA::set_grid_coords_from_grid_scale (int lev) {
         {
             xp(i,j,0) = i / pm(i,j,0);
             yp(i,j,0) = j / pn(i,j,0);
+        });
+    }
+}
+
+/**
+ * Set a level's x/y coordinates at rho, u, v and psi points wherever they are not read from a
+ * grid file. An analytic grid uses (i+1/2)/pm and the like on every level, as ROMS ana_grid
+ * does and as the analytic problems ported from it expect. On a NetCDF grid, a level 0 built
+ * from a high-resolution file sums the cell widths from its south-west corner, and a refined
+ * level interpolates its parent, so every level agrees with the level-0 coordinates.
+ *
+ * @param[in   ] lev   level to operate on
+ */
+void
+REMORA::set_grid_coords (int lev)
+{
+    if (solverChoice.ic_type == IC_Type::analytic) {
+        set_grid_coords_from_grid_scale(lev);
+    } else if (lev == 0) {
+        set_grid_coords_by_summing_widths();
+    } else {
+        for (auto* vec_ptr : { &vec_xr, &vec_yr, &vec_xu, &vec_yu, &vec_xv, &vec_yv, &vec_xp, &vec_yp }) {
+            interp_staggered_coords_from_coarse(lev, *(*vec_ptr)[lev], *(*vec_ptr)[lev-1]);
+        }
+    }
+}
+
+/**
+ * Level-0 coordinates from the cell widths: x_u = 0 on the domain's west face and grows by 1/pm
+ * per cell along each row, x_rho is half a cell further, and the v- and psi-point values average
+ * the rows either side; y likewise from 1/pn along each column. Ghost cells continue the sums
+ * outward, across a periodic edge too. The domain is gathered into a single box for the sums.
+ */
+void
+REMORA::set_grid_coords_by_summing_widths ()
+{
+    const int ng = NGROW + 1; // ghost cells of vec_xr, the widest coordinate array
+    const Box dom = makeSlab(geom[0].Domain(), 2, 0);
+    const Box rbx = amrex::grow(dom, IntVect(ng, ng, 0));
+    const BoxArray ba_r(rbx);
+    const DistributionMapping& dm = full_domain_dmap();
+
+    MultiFab pm(ba_r, dm, 1, 0), pn(ba_r, dm, 1, 0);
+    pm.ParallelCopy(*vec_pm[0], 0, 0, 1, vec_pm[0]->nGrowVect(), IntVect(0));
+    pn.ParallelCopy(*vec_pn[0], 0, 0, 1, vec_pn[0]->nGrowVect(), IntVect(0));
+
+    MultiFab xr(ba_r, dm, 1, 0), yr(ba_r, dm, 1, 0);
+    MultiFab xu(convert(ba_r, IntVect(1,0,0)), dm, 1, 0), yu(convert(ba_r, IntVect(1,0,0)), dm, 1, 0);
+    MultiFab xv(convert(ba_r, IntVect(0,1,0)), dm, 1, 0), yv(convert(ba_r, IntVect(0,1,0)), dm, 1, 0);
+    MultiFab xp(convert(ba_r, IntVect(1,1,0)), dm, 1, 0), yp(convert(ba_r, IntVect(1,1,0)), dm, 1, 0);
+    // The averaged arrays have one row more than the sums cover; that row is never copied out
+    for (MultiFab* mf : {&xr, &yr, &xu, &yu, &xv, &yv, &xp, &yp}) { mf->setVal(zero); }
+
+    const int ilo = rbx.smallEnd(0), ihi = rbx.bigEnd(0), i0 = dom.smallEnd(0);
+    const int jlo = rbx.smallEnd(1), jhi = rbx.bigEnd(1), j0 = dom.smallEnd(1);
+
+    for (MFIter mfi(pm); mfi.isValid(); ++mfi) {
+        Array4<Real const> const& pm_a = pm.const_array(mfi);
+        Array4<Real const> const& pn_a = pn.const_array(mfi);
+        Array4<Real> const& xr_a = xr.array(mfi);
+        Array4<Real> const& yr_a = yr.array(mfi);
+        Array4<Real> const& xu_a = xu.array(mfi);
+        Array4<Real> const& yu_a = yu.array(mfi);
+        Array4<Real> const& xv_a = xv.array(mfi);
+        Array4<Real> const& yv_a = yv.array(mfi);
+        Array4<Real> const& xp_a = xp.array(mfi);
+        Array4<Real> const& yp_a = yp.array(mfi);
+
+        // One thread per row (x) or column (y), each summing serially along it
+        ParallelFor(Box(IntVect(ilo,jlo,0), IntVect(ilo,jhi,0)), [=] AMREX_GPU_DEVICE (int, int j, int)
+        {
+            xu_a(i0,j,0) = zero;
+            for (int i = i0; i <= ihi; ++i) { xu_a(i+1,j,0) = xu_a(i,j,0) + one / pm_a(i,j,0); }
+            for (int i = i0-1; i >= ilo; --i) { xu_a(i,j,0) = xu_a(i+1,j,0) - one / pm_a(i,j,0); }
+            for (int i = ilo; i <= ihi; ++i) { xr_a(i,j,0) = xu_a(i,j,0) + Real(0.5) / pm_a(i,j,0); }
+        });
+        ParallelFor(Box(IntVect(ilo,jlo,0), IntVect(ihi,jlo,0)), [=] AMREX_GPU_DEVICE (int i, int, int)
+        {
+            yv_a(i,j0,0) = zero;
+            for (int j = j0; j <= jhi; ++j) { yv_a(i,j+1,0) = yv_a(i,j,0) + one / pn_a(i,j,0); }
+            for (int j = j0-1; j >= jlo; --j) { yv_a(i,j,0) = yv_a(i,j+1,0) - one / pn_a(i,j,0); }
+            for (int j = jlo; j <= jhi; ++j) { yr_a(i,j,0) = yv_a(i,j,0) + Real(0.5) / pn_a(i,j,0); }
+        });
+
+        // x at v and psi points from the rows below and above; y at u and psi points likewise
+        ParallelFor(Box(IntVect(ilo,jlo+1,0), IntVect(ihi+1,jhi,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            if (i <= ihi) { xv_a(i,j,0) = Real(0.5) * (xr_a(i,j-1,0) + xr_a(i,j,0)); }
+            xp_a(i,j,0) = Real(0.5) * (xu_a(i,j-1,0) + xu_a(i,j,0));
+        });
+        ParallelFor(Box(IntVect(ilo+1,jlo,0), IntVect(ihi,jhi+1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            if (j <= jhi) { yu_a(i,j,0) = Real(0.5) * (yr_a(i-1,j,0) + yr_a(i,j,0)); }
+            yp_a(i,j,0) = Real(0.5) * (yv_a(i-1,j,0) + yv_a(i,j,0));
+        });
+    }
+
+    vec_xr[0]->ParallelCopy(xr, 0, 0, 1, IntVect(0), vec_xr[0]->nGrowVect());
+    vec_yr[0]->ParallelCopy(yr, 0, 0, 1, IntVect(0), vec_yr[0]->nGrowVect());
+    vec_xu[0]->ParallelCopy(xu, 0, 0, 1, IntVect(0), vec_xu[0]->nGrowVect());
+    vec_yu[0]->ParallelCopy(yu, 0, 0, 1, IntVect(0), vec_yu[0]->nGrowVect());
+    vec_xv[0]->ParallelCopy(xv, 0, 0, 1, IntVect(0), vec_xv[0]->nGrowVect());
+    vec_yv[0]->ParallelCopy(yv, 0, 0, 1, IntVect(0), vec_yv[0]->nGrowVect());
+    vec_xp[0]->ParallelCopy(xp, 0, 0, 1, IntVect(0), vec_xp[0]->nGrowVect());
+    vec_yp[0]->ParallelCopy(yp, 0, 0, 1, IntVect(0), vec_yp[0]->nGrowVect());
+}
+
+/**
+ * Fill a refined level's coordinate array, ghost cells included, by bilinear interpolation of
+ * the parent's array at the same staggering. The parent is read only on the domain plus the
+ * one-cell ring a grid file supplies (no ring along a nodal or periodic direction); points
+ * beyond that extrapolate linearly from the two nearest values. A coordinate linear in the
+ * index is reproduced exactly, so a uniform grid keeps (i+1/2)/pm.
+ *
+ * @param[in   ] lev    the refined level
+ * @param[inout] fine   its coordinate array
+ * @param[in   ] crse   the parent's array at the same staggering
+ */
+void
+REMORA::interp_staggered_coords_from_coarse (int lev, MultiFab& fine, const MultiFab& crse)
+{
+    AMREX_ASSERT(lev > 0);
+    const IntVect stag = fine.ixType().toIntVect();
+    const IntVect rr(ref_ratio[lev-1][0], ref_ratio[lev-1][1], 1);
+
+    Box filled = amrex::convert(makeSlab(geom[lev-1].Domain(), 2, 0), stag);
+    for (int dir = 0; dir < 2; ++dir) {
+        if (stag[dir] == 0 && !geom[lev-1].isPeriodic(dir)) { filled.grow(dir, 1); }
+    }
+
+    // The parent on the refined layout, wide enough for the stencils of the fine ghost cells
+    const IntVect ng_c(fine.nGrow(0) / rr[0] + 2, fine.nGrow(1) / rr[1] + 2, 0);
+    MultiFab crse_on_fine(amrex::coarsen(fine.boxArray(), rr), fine.DistributionMap(), 1, ng_c);
+    crse_on_fine.setVal(zero);
+    crse_on_fine.ParallelCopy(crse, 0, 0, 1, crse.nGrowVect(), ng_c);
+
+    const Real sx = Real(0.5) * Real(1 - stag[0]);
+    const Real sy = Real(0.5) * Real(1 - stag[1]);
+    const int rx = rr[0], ry = rr[1];
+
+    for (MFIter mfi(fine); mfi.isValid(); ++mfi) {
+        const Box use = crse_on_fine[mfi].box() & filled;
+        AMREX_ALWAYS_ASSERT(use.length(0) >= 2 && use.length(1) >= 2);
+        const int ilo = use.smallEnd(0), ihi = use.bigEnd(0) - 1;
+        const int jlo = use.smallEnd(1), jhi = use.bigEnd(1) - 1;
+        Array4<Real> const& f = fine.array(mfi);
+        Array4<Real const> const& c = crse_on_fine.const_array(mfi);
+
+        ParallelFor(mfi.fabbox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            // Position in the parent's index space, measured from its first point
+            const Real tx = (Real(i) + sx) / Real(rx) - sx;
+            const Real ty = (Real(j) + sy) / Real(ry) - sy;
+            const int ic = amrex::min(amrex::max(static_cast<int>(std::floor(tx)), ilo), ihi);
+            const int jc = amrex::min(amrex::max(static_cast<int>(std::floor(ty)), jlo), jhi);
+            const Real wx = tx - Real(ic);
+            const Real wy = ty - Real(jc);
+            f(i,j,k) = (one - wx) * (one - wy) * c(ic  ,jc  ,k) + wx * (one - wy) * c(ic+1,jc  ,k)
+                     + (one - wx) * wy         * c(ic  ,jc+1,k) + wx * wy         * c(ic+1,jc+1,k);
         });
     }
 }
