@@ -12,48 +12,51 @@ namespace {
  * cells. ROMS's put_refine2d sets the contact points it is about to read, so make every
  * component agree with the parent state just filled.
  *
- * The band is found by marking the valid region and calling FillBoundary: ghosts another box
- * on this level covers pick up a 1, so the remaining zeros are the coarse-fine and
- * domain-boundary ghosts. Domain ghosts are excluded so the physical boundary conditions,
- * applied after the FillPatch, are not overwritten.
+ * The band (REMORA::cf_ghost_band) depends on the layout alone.
  */
-void fill_ghost_kcomps (MultiFab& mf, int knew, const Geometry& geom)
+void fill_ghost_kcomps (MultiFab& mf, int knew, const iMultiFab& band)
 {
-    MultiFab valid(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
-    valid.setVal(Real(0.0));
-    valid.setVal(Real(1.0), 0, 1, 0);
-    valid.FillBoundary(geom.periodicity());
-
-    const Box dom = amrex::convert(geom.Domain(), mf.boxArray().ixType());
-
-    const bool per_x = geom.isPeriodic(0);
-    const bool per_y = geom.isPeriodic(1);
-
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Box gbx = mfi.growntilebox();
         const auto& a = mf.array(mfi);
-        const auto& v = valid.const_array(mfi);
-        const auto dlo = amrex::lbound(dom);
-        const auto dhi = amrex::ubound(dom);
+        const auto& b = band.const_array(mfi);
         ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (v(i,j,k) > Real(0.5)) { return; }
-            // Skip ghosts outside the domain only where the domain really ends. A ghost beyond
-            // a periodic edge is not a physical-boundary cell: if the level wraps onto itself
-            // the FillBoundary above already marked it valid, and if it does not -- a patch
-            // covering part of the periodic width -- it is an ordinary coarse-fine ghost that
-            // FillPatch just filled from the parent, needing the same synchronisation as any
-            // other.
-            if (!per_x && (i < dlo.x || i > dhi.x)) { return; }
-            if (!per_y && (j < dlo.y || j > dhi.y)) { return; }
+            if (!b(i,j,k)) { return; }
             const Real val = a(i,j,k,knew);
             a(i,j,k,0) = val;
             a(i,j,k,1) = val;
             a(i,j,k,2) = val;
         });
+    }
+}
+
+/** Which time averages of the barotropic fluxes a fast step accumulates */
+enum AvgMode : int { avg_none, avg_first_pred, avg_pred, avg_corr };
+
+/** \brief Add one fast step's barotropic flux D at face (i,j) to its time averages.
+ *
+ * avg1 is the time-averaged flux for the 2D equations and avg2 the one for coupling to the
+ * 3D equations (DU_avg1 and DU_avg2 in ROMS). cff1_wt1 and cff2_wt are this fast step's
+ * weights, worked out in advance_2d. The first predictor starts both averages, later
+ * predictors add to both, and correctors add to avg2 only; avg_none adds nothing.
+ */
+template <int mode>
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+void accumulate_flux_avg (int i, int j, Real D, Array4<Real> const& avg1,
+                          Array4<Real> const& avg2, Real cff1_wt1, Real cff2_wt) noexcept
+{
+    if constexpr (mode == avg_first_pred) {
+        avg1(i,j,0)=zero;
+        avg2(i,j,0)=cff2_wt*D;
+    } else if constexpr (mode == avg_pred) {
+        avg1(i,j,0) += cff1_wt1*D;
+        avg2(i,j,0) += cff2_wt*D;
+    } else if constexpr (mode == avg_corr) {
+        avg2(i,j,0)=avg2(i,j,0)+cff2_wt*D;
     }
 }
 } // namespace
@@ -180,8 +183,36 @@ REMORA::advance_2d (int lev,
     AMREX_ALWAYS_ASSERT(ncomp == n_scratch_2d);
     MultiFab& mf = *vec_scratch_2d[lev];
 
-    // Barotropic mass fluxes, both directions in one launch, with the depth
-    // Drhs = zeta(krhs) + h on either side of the face
+    //  Time-averaging weights
+    auto weight1 = vec_weight1.dataPtr();
+    auto weight2 = vec_weight2.dataPtr();
+    const int avg_mode = predictor_2d_step ? (first_2d_step ? avg_first_pred : avg_pred)
+                                           : avg_corr;
+    Real cff1_wt1 = zero;
+    Real cff2_wt  = zero;
+    if (avg_mode == avg_first_pred) {
+        cff2_wt = (Real(-1.0)/Real(12.0))*weight2[my_iif+1];
+    } else if (avg_mode == avg_pred) {
+        cff1_wt1 = weight1[my_iif-1];
+        cff2_wt  = (Real(8.0)/Real(12.0))*weight2[my_iif]-
+                   (one/Real(12.0))*weight2[my_iif+1];
+    } else if (first_2d_step) {
+        cff2_wt = weight2[my_iif];
+    } else {
+        cff2_wt = Real(5.0)/Real(12.0)*weight2[my_iif];
+    }
+
+    // Whether set_2d_cf_flux may replace the fluxes on the coarse-fine interface faces below
+    const bool cf_flux = do_substep && cf_impose_flux && lev > 0;
+
+    // Whether the fluxes are exchanged after they are computed (see the exchange below). The
+    // time averages must see the fluxes as they are after it, so then they are taken in a
+    // separate pass later; otherwise in the flux pass itself.
+    const bool exchange_flux = cf_flux || !uvbar_exchanged_after_bcs[lev][krhs];
+
+    // Barotropic mass fluxes DUon and DVom: ubar and vbar times the depth zeta(krhs) + h
+    // averaged to the face and the face length, both directions in one launch, with their
+    // time averages unless the fluxes are exchanged afterwards.
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -197,30 +228,53 @@ REMORA::advance_2d (int lev,
 
         auto DUon = mf_DUon.array(mfi);
         auto DVom = mf_DVom.array(mfi);
+        Array4<Real> const& DU_avg1 = mf_DU_avg1->array(mfi);
+        Array4<Real> const& DU_avg2 = mf_DU_avg2->array(mfi);
+        Array4<Real> const& DV_avg1 = mf_DV_avg1->array(mfi);
+        Array4<Real> const& DV_avg2 = mf_DV_avg2->array(mfi);
 
-        ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
-                    makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        AnyCTO(TypeList<CompileTimeOptions<avg_none,avg_first_pred,avg_pred,avg_corr>>{},
+               {exchange_flux ? int(avg_none) : avg_mode},
+        [&] (auto const& fu, auto const& fv) {
+            ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
+                        makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0), fu, fv);
+        },
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
         {
             Real cff1= Real(0.5) * on_u(i,j,0) *((zeta(i,j,0,krhs)+h(i,j,0))+
                                                 (zeta(i-1,j,0,krhs)+h(i-1,j,0)));
-            DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
+            const Real DU = ubar(i,j,0,krhs)*cff1;
+            DUon(i,j,0) = DU;
+            accumulate_flux_avg<decltype(mode)::value>(i, j, DU, DU_avg1, DU_avg2, cff1_wt1, cff2_wt);
         },
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
         {
             Real cff1= Real(0.5) * om_v(i,j,0) * ((zeta(i,j,0,krhs)+h(i,j,0))+
                                                  (zeta(i,j-1,0,krhs)+h(i,j-1,0)));
-            DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
+            const Real DV = vbar(i,j,0,krhs)*cff1;
+            DVom(i,j,0) = DV;
+            accumulate_flux_avg<decltype(mode)::value>(i, j, DV, DV_avg1, DV_avg2, cff1_wt1, cff2_wt);
         });
     }
 
-    // These are needed to pass the tests with bathymetry but I don't quite see why
-    if (do_substep && cf_impose_flux) {
+    // The loop above also computes each box's ghost faces of the fluxes from the ghost cells
+    // of its inputs. On faces another box owns these match that box's values bit for bit,
+    // so the exchange changes nothing, provided that
+    //  - ubar and vbar component krhs were exchanged after their boundary conditions
+    //    (uvbar_exchanged_after_bcs). The conditions set the velocity on a non-periodic
+    //    domain face everywhere except in the box's outermost ghost row, which keeps the
+    //    neighbour's value from before the neighbour applied its own conditions until a later
+    //    exchange replaces it. zeta, h and the metrics need no such condition: their ghost
+    //    cells inside the domain come from exchanges, and their boundary conditions write
+    //    only outside it; and
+    //  - set_2d_cf_flux has not changed any face, since it writes only each box's own faces.
+    if (cf_flux) {
         set_2d_cf_flux(lev, t_old[lev], mf_DUon, mf_DVom);
     }
-
-    // One exchange for both so their messages are in flight together
-    amrex::FillBoundary(Vector<MultiFab*>{&mf_DUon, &mf_DVom}, geom[lev].periodicity());
+    if (exchange_flux) {
+        // One exchange for both so their messages are in flight together
+        amrex::FillBoundary(Vector<MultiFab*>{&mf_DUon, &mf_DVom}, geom[lev].periodicity());
+    }
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_m2_clim_nudg) {
@@ -242,26 +296,6 @@ REMORA::advance_2d (int lev,
     //  (nfast(ng)+1) time step: only the time averages are accumulated.
     //
     const bool do_step = (my_iif < nfast);
-
-    //  Time-averaging weights
-    auto weight1 = vec_weight1.dataPtr();
-    auto weight2 = vec_weight2.dataPtr();
-    enum AvgMode : int { avg_first_pred, avg_pred, avg_corr };
-    const int avg_mode = predictor_2d_step ? (first_2d_step ? avg_first_pred : avg_pred)
-                                           : avg_corr;
-    Real cff1_wt1 = zero;
-    Real cff2_wt  = zero;
-    if (avg_mode == avg_first_pred) {
-        cff2_wt = (Real(-1.0)/Real(12.0))*weight2[my_iif+1];
-    } else if (avg_mode == avg_pred) {
-        cff1_wt1 = weight1[my_iif-1];
-        cff2_wt  = (Real(8.0)/Real(12.0))*weight2[my_iif]-
-                   (one/Real(12.0))*weight2[my_iif+1];
-    } else if (first_2d_step) {
-        cff2_wt = weight2[my_iif];
-    } else {
-        cff2_wt = Real(5.0)/Real(12.0)*weight2[my_iif];
-    }
 
     //
     //  During the first time-step, the predictor step is Forward-Euler and the corrector
@@ -382,37 +416,23 @@ REMORA::advance_2d (int lev,
         Box ybxD = makeSlab(mfi.nodaltilebox(1),2,0);
 
         //
-        // Time averages of the free surface and the barotropic fluxes
+        // Time averages of the barotropic fluxes after their exchange, and of the free surface
         //
-        AnyCTO(TypeList<CompileTimeOptions<avg_first_pred,avg_pred,avg_corr>>{}, {avg_mode},
-        [&] (auto const& fu, auto const& fv) {
-            ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
-                        makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0), fu, fv);
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
-        {
-            if (mode.value == avg_first_pred) {
-                DU_avg1(i,j,0)=zero;
-                DU_avg2(i,j,0)=cff2_wt*DUon(i,j,0);
-            } else if (mode.value == avg_pred) {
-                DU_avg1(i,j,0) += cff1_wt1*DUon(i,j,0);
-                DU_avg2(i,j,0) += cff2_wt*DUon(i,j,0);
-            } else {
-                DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2_wt*DUon(i,j,0);
-            }
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
-        {
-            if (mode.value == avg_first_pred) {
-                DV_avg1(i,j,0)=zero;
-                DV_avg2(i,j,0)=cff2_wt*DVom(i,j,0);
-            } else if (mode.value == avg_pred) {
-                DV_avg1(i,j,0) += cff1_wt1*DVom(i,j,0);
-                DV_avg2(i,j,0) += cff2_wt*DVom(i,j,0);
-            } else {
-                DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2_wt*DVom(i,j,0);
-            }
-        });
+        if (exchange_flux) {
+            AnyCTO(TypeList<CompileTimeOptions<avg_first_pred,avg_pred,avg_corr>>{}, {avg_mode},
+            [&] (auto const& fu, auto const& fv) {
+                ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
+                            makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0), fu, fv);
+            },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
+            {
+                accumulate_flux_avg<decltype(mode)::value>(i, j, DUon(i,j,0), DU_avg1, DU_avg2, cff1_wt1, cff2_wt);
+            },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
+            {
+                accumulate_flux_avg<decltype(mode)::value>(i, j, DVom(i,j,0), DV_avg1, DV_avg2, cff1_wt1, cff2_wt);
+            });
+        }
 
         if (predictor_2d_step) {
             Box gbx3D = makeSlab(mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0)),2,0);
@@ -432,17 +452,24 @@ REMORA::advance_2d (int lev,
         if (!do_step) { continue; }
 
         //
-        //  Free-surface step and the pressure-gradient fields, on the tile grown by one.
-        //  The new free surface and the predictor's right-hand side go to a buffer private
-        //  to the tile, and from there into zeta(knew) and rzeta(krhs) on the growntilebox
-        //  only, so no two tiles of a box store the same cell of the state.
+        //  Free-surface step and the pressure-gradient fields, on the tile grown by one
+        //  (tbxp1D). The new free surface and the predictor's right-hand side go into
+        //  zeta(knew) and rzeta(krhs) only on growntilebox(1) (gbx1D), so that no two tiles of
+        //  a box store the same cell. When the tile is its whole box (always on GPU) the two
+        //  boxes coincide and the pass stores into the state directly; otherwise it writes a
+        //  buffer private to the tile, which is copied into the state on gbx1D afterwards.
         //
         Box tbxp1D = makeSlab(grow(mfi.tilebox(),IntVect(NGROW-1,NGROW-1,0)),2,0);
-        FArrayBox fab_znew(tbxp1D, 2, The_Async_Arena());
+        Box gbx1D  = makeSlab(mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0)),2,0);
+        const int direct = (tbxp1D == gbx1D) ? 1 : 0;
+        const bool store_rhs = predictor_2d_step;
+        FArrayBox fab_znew;
+        if (!direct) { fab_znew.resize(tbxp1D, 2, The_Async_Arena()); }
         auto znew = fab_znew.array();
-        AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>>{}, {scheme},
+        AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
+                        CompileTimeOptions<0,1>>{}, {scheme, direct},
         [&] (auto const& f) { ParallelFor(tbxp1D, f); },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch)
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch, auto store_direct)
         {
             Real rhs_zeta = zero;
             Real zeta_new, zw;
@@ -475,15 +502,18 @@ REMORA::advance_2d (int lev,
             gzeta2(i,j,0) = gz*zw;
             gzetaSA(i,j,0) = zw*(rhoS(i,j,0)-rhoA(i,j,0));
 
-            znew(i,j,0,0) = zeta_new;
-            znew(i,j,0,1) = rhs_zeta;
+            if (store_direct.value) {
+                zeta(i,j,0,knew) = zeta_new;
+                if (store_rhs) { rzeta(i,j,0,krhs) = rhs_zeta; }
+            } else {
+                znew(i,j,0,0) = zeta_new;
+                znew(i,j,0,1) = rhs_zeta;
+            }
         });
 
         //  Load the new free surface into the state at both predictor and corrector steps,
         //  and the predictor's right-hand side.
-        {
-            Box gbx1D = makeSlab(mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0)),2,0);
-            const bool store_rhs = predictor_2d_step;
+        if (!direct) {
             ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
                 zeta(i,j,0,knew) = znew(i,j,0,0);
@@ -561,7 +591,11 @@ REMORA::advance_2d (int lev,
             }
         });
 
-        ParallelFor(growLo(xbxD,0,1), growLo(ybxD,1,1),
+        // The two viscous fluxes at a rho point share the strain term cff, so one pass over
+        // the tile grown by one computes it once for both. The x-flux is read on at most
+        // [lo-1:hi+1] x [lo:hi] and the y-flux on [lo:hi] x [lo-1:hi+1]; the rest is computed
+        // but not read.
+        ParallelFor(grow(bxD,IntVect(1,1,0)),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             const Real cff = Real(0.5)*(zeta(i,j,0,krhs)+h(i,j,0)) * ( metr(i,j,0,MetricR::pmon_r) *
@@ -570,19 +604,9 @@ REMORA::advance_2d (int lev,
                                                     metr(i,j,0,MetricR::pnom_r) *
                                         ( (pm(i,j  ,0) + pm(i,j+1,0)) * vbar(i,j+1,0,krhs)-
                                           (pm(i,j-1,0) + pm(i,j  ,0)) * vbar(i,j  ,0,krhs) ) );
-            Real on_r = metr(i,j,0,MetricR::on_r);
+            const Real on_r = metr(i,j,0,MetricR::on_r);
+            const Real om_r = metr(i,j,0,MetricR::om_r);
             flx(i,j,0,hUFx) = on_r * on_r * visc2_r(i,j,0) * cff;
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-
-            const Real cff = Real(0.5)*(zeta(i,j,0,krhs)+h(i,j,0)) * ( metr(i,j,0,MetricR::pmon_r) *
-                                        ( (pn(i  ,j,0) + pn(i+1,j,0)) * ubar(i+1,j,0,krhs)-
-                                          (pn(i-1,j,0) + pn(i  ,j,0)) * ubar(i  ,j,0,krhs) )-
-                                                    metr(i,j,0,MetricR::pnom_r) *
-                                        ( (pm(i,j  ,0) + pm(i,j+1,0)) * vbar(i,j+1,0,krhs)-
-                                          (pm(i,j-1,0) + pm(i,j  ,0)) * vbar(i,j  ,0,krhs) ) );
-            Real om_r = metr(i,j,0,MetricR::om_r);
             flx(i,j,0,hVFe) = om_r * om_r * visc2_r(i,j,0) * cff;
         });
 
@@ -639,7 +663,11 @@ REMORA::advance_2d (int lev,
             }
         });
 
-        ParallelFor(growHi(xbxD,1,1), growHi(ybxD,0,1),
+        // Both viscous fluxes at a psi point, on [lo:hi+1]^2, from one shared strain term.
+        // The box is grown from the cell tile box, because a nodal tile box includes the high
+        // face only on a box's last tile, and every tile's right-hand side reads the psi
+        // points on its high edge.
+        ParallelFor(growHi(growHi(bxD,0,1),1,1),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             const Real cff = mskp(i,j,0) * Real(0.125) *
@@ -652,21 +680,8 @@ REMORA::advance_2d (int lev,
                          ((pm(i-1,j  ,0)+pm(i,j  ,0))*ubar(i,j  ,0,krhs)-
                           (pm(i-1,j-1,0)+pm(i,j-1,0))*ubar(i,j-1,0,krhs)));
             const Real om_p = metp(i,j,0,MetricP::om_p);
-            flx(i,j,0,hUFe) = om_p*om_p*visc2_p(i,j,0)*cff;
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-
-            const Real cff = mskp(i,j,0) * Real(0.125) *
-                        ((zeta(i-1,j  ,0,krhs)+h(i-1,j  ,0)) + (zeta(i,j  ,0,krhs)+h(i,j  ,0))+
-                         (zeta(i-1,j-1,0,krhs)+h(i-1,j-1,0)) + (zeta(i,j-1,0,krhs)+h(i,j-1,0)))*
-                        (metp(i,j,0,MetricP::pmon_p)*
-                         ((pn(i  ,j-1,0)+pn(i  ,j,0))*vbar(i  ,j,0,krhs)-
-                          (pn(i-1,j-1,0)+pn(i-1,j,0))*vbar(i-1,j,0,krhs))+
-                         metp(i,j,0,MetricP::pnom_p)*
-                         ((pm(i-1,j  ,0)+pm(i,j  ,0))*ubar(i,j  ,0,krhs)-
-                          (pm(i-1,j-1,0)+pm(i,j-1,0))*ubar(i,j-1,0,krhs)));
             const Real on_p = metp(i,j,0,MetricP::on_p);
+            flx(i,j,0,hUFe) = om_p*om_p*visc2_p(i,j,0)*cff;
             flx(i,j,0,hVFx) = on_p*on_p*visc2_p(i,j,0)*cff;
         });
 
@@ -917,6 +932,9 @@ REMORA::advance_2d (int lev,
             dt2d = dtfast_lev;
         }
 
+        // Cleared until the refill below ends with an exchange after the boundary conditions
+        uvbar_exchanged_after_bcs[lev][knew] = 0;
+
         MultiFab ubar_know(*vec_ubar[lev], make_alias, know, 1);
         MultiFab vbar_know(*vec_vbar[lev], make_alias, know, 1);
         MultiFab zeta_know(*vec_zeta[lev], make_alias, know, 1);
@@ -942,33 +960,18 @@ REMORA::advance_2d (int lev,
                          knew, 1, 0, know, dt2d, vbar_know);
             FillPatchBCs(lev, t_old[lev], *vec_zeta[lev], zeta_bc(), bdy_zeta(),
                          knew, 1, 0, know, dt2d, zeta_know);
-        } else {
-            // The last argument names the cf_2d_cache slot: within a parent step these fills
-            // repeat for the same few (component, time) pairs
-            FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),
-                      knew, false,true, 0,know, dt2d, ubar_know, {}, {}, 0);
-            FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),
-                      knew, false,true, 0,know, dt2d, vbar_know, {}, {}, 1);
-            // With the snapshot pair the coarse contribution is interpolated onto t_old[lev],
-            // which timeStep guarantees lies inside the parent's step; without it FillPatch
-            // falls back to the parent frozen at the end of that step. See roll_2d_snapshot.
-            if (cf_time_interp_zeta && int(vec_zeta_crse_old.size()) >= lev
-                && vec_zeta_crse_old[lev-1] && vec_zeta_crse_new[lev-1]) {
-                FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
-                          knew, false,false, 0,know, dt2d, zeta_know,
-                          GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new), 2);
-            } else {
-                FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
-                          knew, false,false, 0,know, dt2d, zeta_know, {}, {}, 2);
-            }
+        } else if (!replay_cf_2d_fills(lev, t_old[lev], knew, know, dt2d,
+                                       ubar_know, vbar_know, zeta_know)) {
+            fill_2d_from_parent(lev, t_old[lev], knew, know, dt2d,
+                                ubar_know, vbar_know, zeta_know);
         }
 
         // See fill_ghost_kcomps: without this the components the solver reads in the ghost
         // band lag the one FillPatch just wrote by a whole parent step.
         if (lev > 0 && cf_fill_all_kcomp) {
-            fill_ghost_kcomps(*vec_zeta[lev], knew, geom[lev]);
-            fill_ghost_kcomps(*vec_ubar[lev], knew, geom[lev]);
-            fill_ghost_kcomps(*vec_vbar[lev], knew, geom[lev]);
+            fill_ghost_kcomps(*vec_zeta[lev], knew, cf_ghost_band(lev, 2, *vec_zeta[lev]));
+            fill_ghost_kcomps(*vec_ubar[lev], knew, cf_ghost_band(lev, 0, *vec_ubar[lev]));
+            fill_ghost_kcomps(*vec_vbar[lev], knew, cf_ghost_band(lev, 1, *vec_vbar[lev]));
         }
 
         // Replace the interface faces the FillPatchers just set from the parent's ubar with
@@ -985,13 +988,18 @@ REMORA::advance_2d (int lev,
             // set_2d_cf_bcs writes each box's own interface faces. Where a box boundary meets
             // the interface, the neighbouring box's ghost copy of that face still holds the
             // FillPatch value, and the shared face between the two boxes would be advanced
-            // from different neighbours -- the answer then depends on the box layout.
+            // from different neighbours -- the answer then depends on the box layout. On
+            // level 0 set_2d_cf_bcs does nothing, but this exchange still follows the boundary
+            // conditions, which lets the next flux pass skip exchanging the fluxes.
             const Periodicity& per = geom[lev].periodicity();
             amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get()},
                                 Vector<int>{knew, knew}, Vector<int>{1, 1},
                                 Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
                                                 vec_vbar[lev]->nGrowVect()},
                                 Vector<Periodicity>{per, per});
+            // The rivers below rewrite knew, but an exchange follows them (FillBoundary at
+            // level 0, FillPatchNoBC above it), so the flag still holds
+            uvbar_exchanged_after_bcs[lev][knew] = 1;
         }
 
 #ifdef REMORA_USE_NETCDF
@@ -1048,4 +1056,107 @@ REMORA::advance_2d (int lev,
         }
 #endif
     }
+}
+
+/**
+ * The coarse-fine ghost band of one of a fine level's barotropic fields (slot 0 ubar, 1 vbar,
+ * 2 zeta), as fill_ghost_kcomps writes it: 1 on the ghost cells no other box of the level
+ * covers, except those beyond a non-periodic domain face, which the physical boundary
+ * conditions own. It depends only on the layout, so it is built when that changes.
+ *
+ * Covered ghosts are found by marking the valid region and calling FillBoundary: ghosts
+ * another box covers pick up a 1. A ghost beyond a periodic edge stays in the band unless so
+ * covered: if the level wraps onto itself the exchange marks it, and if it does not -- a patch
+ * covering part of the periodic width -- it is an ordinary coarse-fine ghost.
+ *
+ * @param[in] lev   fine level
+ * @param[in] slot  field: 0 ubar, 1 vbar, 2 zeta
+ * @param[in] mf    the field, for its layout
+ */
+const iMultiFab&
+REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
+{
+    if (int(cf_band.size()) <= lev) { cf_band.resize(lev+1); }
+    std::unique_ptr<iMultiFab>& band = cf_band[lev][slot];
+    if (band && band->boxArray() == mf.boxArray() && band->DistributionMap() == mf.DistributionMap()
+             && band->nGrowVect() == mf.nGrowVect()) {
+        return *band;
+    }
+
+    const Geometry& gm = geom[lev];
+    iMultiFab covered(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
+    covered.setVal(0);
+    covered.setVal(1, 0, 1, 0);
+    covered.FillBoundary(gm.periodicity());
+
+    band = std::make_unique<iMultiFab>(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
+
+    const Box dom = amrex::convert(gm.Domain(), mf.boxArray().ixType());
+    const auto dlo = amrex::lbound(dom);
+    const auto dhi = amrex::ubound(dom);
+    const bool per_x = gm.isPeriodic(0);
+    const bool per_y = gm.isPeriodic(1);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(*band, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const auto& b  = band->array(mfi);
+        const auto& cv = covered.const_array(mfi);
+        ParallelFor(mfi.growntilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            const bool outside = (!per_x && (i < dlo.x || i > dhi.x))
+                              || (!per_y && (j < dlo.y || j > dhi.y));
+            b(i,j,k) = (cv(i,j,k) == 0 && !outside) ? 1 : 0;
+        });
+    }
+    return *band;
+}
+
+/**
+ * The barotropic fills of a fine level in advance_2d, one FillPatch each: ubar and vbar with
+ * FillSet, zeta without, component knew at time.
+ *
+ * @param[in] lev        fine level
+ * @param[in] time       fill time
+ * @param[in] knew       component to fill
+ * @param[in] know       component the boundary conditions read
+ * @param[in] dt2d       barotropic step the boundary conditions use
+ * @param[in] ubar_know  component know of ubar, for the boundary conditions
+ * @param[in] vbar_know  component know of vbar
+ * @param[in] zeta_know  component know of zeta
+ */
+void
+REMORA::fill_2d_from_parent (int lev, Real time, int knew, int know, Real dt2d,
+                             const MultiFab& ubar_know, const MultiFab& vbar_know,
+                             const MultiFab& zeta_know)
+{
+    // The last argument names the cf_2d_cache slot: within a parent step these fills
+    // repeat for the same few (component, time) pairs
+    FillPatch(lev, time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),
+              knew, false,true, 0,know, dt2d, ubar_know, {}, {}, 0);
+    FillPatch(lev, time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),
+              knew, false,true, 0,know, dt2d, vbar_know, {}, {}, 1);
+    // With the snapshot pair the coarse contribution is interpolated onto the fill time,
+    // which timeStep guarantees lies inside the parent's step; without it FillPatch falls
+    // back to the parent frozen at the end of that step. See roll_2d_snapshot.
+    if (zeta_fill_from_snapshots(lev)) {
+        FillPatch(lev, time, *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
+                  knew, false,false, 0,know, dt2d, zeta_know,
+                  GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new), 2);
+    } else {
+        FillPatch(lev, time, *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
+                  knew, false,false, 0,know, dt2d, zeta_know, {}, {}, 2);
+    }
+}
+
+/**
+ * @param[in] lev  fine level
+ * @return true once the parent has stored the snapshot pair and remora.cf_time_interp_zeta is on
+ */
+bool
+REMORA::zeta_fill_from_snapshots (int lev) const
+{
+    return cf_time_interp_zeta && int(vec_zeta_crse_old.size()) >= lev
+        && vec_zeta_crse_old[lev-1] && vec_zeta_crse_new[lev-1];
 }

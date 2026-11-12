@@ -186,6 +186,11 @@ rather than assumed.
   bracketing, longitude wrapping and unwrapping, global grids, bilinear weights (a partition of unity
   that reproduces bilinear fields exactly), decreasing axes, and the rotation. It needs no NetCDF, so it
   runs in every build.
+- ``REMORA_BoundaryInterp_test.cpp`` (ctest ``BoundaryInterp``) tests how NetCDF boundary data is
+  interpolated along a boundary onto a refined level, in ``REMORA_BoundaryInterpMath.H``. For
+  refinement ratios 1 to 4, every fine cell center (the strip's end cells included) and every fine
+  node must reproduce a linear profile exactly, using only coarse points inside the strip. It needs
+  no NetCDF, so it runs in every build.
 - ``REMORA_Biology_test.cpp`` (ctest ``BiologyInterface``) tests the biology interface in
   ``Source/Biology`` without running the model: the tracers Fennel and ECB declare and their order,
   finding a tracer's state component by name, configuring each model from its ROMS defaults, constant and

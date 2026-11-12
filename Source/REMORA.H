@@ -228,6 +228,27 @@ public:
                           const amrex::iMultiFab* dst_land_mask = nullptr);
 
     /**
+     * \brief Remaps the top-level ocean current onto the driver's layout as east and north
+     *        components.
+     *
+     * Both components are averaged to rho points, rotated from the grid axes to east and
+     * north with the grid angle, zeroed on land, and remapped with the same weights as the
+     * SST. A grid file without an angle is taken to be aligned with east, as ROMS reads it.
+     *
+     * @param[inout] east_dst          eastward current [m/s] on the destination layout
+     * @param[inout] north_dst         northward current [m/s] on the destination layout
+     * @param[in   ] weight_o2a_mf     remap weights; null for a plain copy
+     * @param[in   ] index_o2a_mf      remap source indices; null for a plain copy
+     * @param[in   ] max_stencil_size  stencil length of the weights
+     * @param[in   ] dst_land_mask     destination land mask (1 = land), or null
+     */
+    void PackSurfaceCurrents (amrex::MultiFab& east_dst, amrex::MultiFab& north_dst,
+                              const amrex::MultiFab* weight_o2a_mf,
+                              const amrex::iMultiFab* index_o2a_mf,
+                              int max_stencil_size,
+                              const amrex::iMultiFab* dst_land_mask = nullptr);
+
+    /**
      * \brief Receives atmospheric states from the driver and applies unit conversions.
      *
      * Fills REMORA's internal forcing MultiFabs from states and records which
@@ -834,6 +855,21 @@ public:
     /** \brief store this level's barotropic mass flux per unit cell edge length */
     void store_2d_flux (int lev);
 
+    /** \brief the parent's barotropic flux per unit edge length on this level's interface
+     *         faces at time, as set_2d_cf_bcs and set_2d_cf_flux impose it */
+    std::pair<const amrex::MultiFab*, const amrex::MultiFab*>
+    cf_interface_flux (int lev, amrex::Real time);
+
+    /** \brief per level: the last cf_interface_flux result, with the coarse generation and
+     *         time it was made for */
+    struct CFInterfaceFlux {
+        std::unique_ptr<amrex::MultiFab> u, v;
+        long gen = -1;
+        long reg_u = -1, reg_v = -1;
+        amrex::Real time = amrex::Real(0.0);
+    };
+    amrex::Vector<CFInterfaceFlux> cf_iface_flux;
+
     /** \brief apply the lev/lev+1 tracer flux correction onto lev */
     void reflux_to (int lev);
 
@@ -848,8 +884,8 @@ public:
     /** \brief Set everything up for a step on a level */
     void setup_step(int lev, amrex::Real time, amrex::Real dt_lev);
 
-    /** \brief 3D advance on a single level */
-    void advance_3d_ml (int lev, amrex::Real dt_lev);
+    /** \brief 3D advance on a single level; skip_wvel leaves this step's w stale */
+    void advance_3d_ml (int lev, amrex::Real dt_lev, bool skip_wvel);
 
     /** \brief 2D advance, one predictor/corrector step */
     void advance_2d_onestep (int lev, amrex::Real dt_lev, amrex::Real dtfast_lev, int my_iif, int nfast_counter);
@@ -1161,6 +1197,14 @@ public:
 
     /** \brief Whether the step leaves w stale until a reader asks for it (single level only) */
     [[nodiscard]] bool wvel_is_lazy () const { return max_level == 0; }
+
+    /** \brief Whether the step of level lev, substep iteration of ncycle, may leave its w
+     *  stale: the finest level of a subcycled run, on every substep but the last, unless a
+     *  checkpoint ends the coarse step */
+    [[nodiscard]] bool wvel_skip_substep (int lev, int iteration, int ncycle) const {
+        return do_substep && lev > 0 && lev == finest_level && iteration < ncycle
+               && !wvel_every_substep;
+    }
 
     /** \brief Per level: zvel_new holds the w of the current state, ghost cells filled */
     amrex::Vector<int> wvel_current;
@@ -1492,10 +1536,41 @@ public:
                             const amrex::MultiFab& crse, amrex::Real time,
                             amrex::Interpolater* mapper, int bccomp);
 
+    /** \brief Whether FillPatch may keep and replay mf's coarse-fine fill in cf_2d_cache */
+    bool cf_2d_cacheable (int lev, int slot, const amrex::MultiFab& mf, int ncomp,
+                          bool fill_set) const;
+
+    /** \brief advance_2d's three fine-level barotropic fills with one exchange, when all
+     *  three are cache hits; returns false, having changed nothing, otherwise */
+    bool replay_cf_2d_fills (int lev, amrex::Real time, int knew, int know, amrex::Real dt2d,
+                             const amrex::MultiFab& ubar_know, const amrex::MultiFab& vbar_know,
+                             const amrex::MultiFab& zeta_know);
+
+    /** \brief advance_2d's three fine-level barotropic fills, one FillPatch each */
+    void fill_2d_from_parent (int lev, amrex::Real time, int knew, int know, amrex::Real dt2d,
+                              const amrex::MultiFab& ubar_know, const amrex::MultiFab& vbar_know,
+                              const amrex::MultiFab& zeta_know);
+
+    /** \brief Whether advance_2d fills a fine level's zeta from the parent's end-of-step
+     *  snapshot pair (interpolated in time) rather than from the parent's zeta */
+    bool zeta_fill_from_snapshots (int lev) const;
+
+    /** \brief The coarse-fine ghost band of a fine level's ubar (slot 0), vbar (1) or zeta (2),
+     *  where fill_ghost_kcomps writes; built once per layout */
+    const amrex::iMultiFab& cf_ghost_band (int lev, int slot, const amrex::MultiFab& mf);
+
     /** \brief Coarse data ready for a coarse-to-fine interpolation: ghost cells exchanged,
      *         and those beyond a wall made to agree with their periodic images */
     amrex::MultiFab& coarse_for_interp (int crse_lev, amrex::MultiFab& crse,
-                                        amrex::MultiFab& scratch);
+                                        amrex::MultiFab& scratch, bool reuse = false);
+
+    /** \brief Exchange the ghost cells of coarse data a fill reads, once per freeze of the
+     *         level when reuse is set */
+    void exchange_coarse (int crse_lev, amrex::MultiFab& crse, bool reuse);
+
+    /** \brief Start (on) or end (off) a stretch over which level crse_lev does not change,
+     *         so that coarse_for_interp can hand out the same coarse data again */
+    void freeze_coarse_level (int crse_lev, bool on);
 
     /** \brief Fill a new MultiFab by copying in phi from valid region and filling ghost cells without applying boundary conditions */
     void FillPatchNoBC (int lev, amrex::Real time,
@@ -2085,6 +2160,27 @@ private:
     /** \brief Whether to substep fine levels in time */
     int do_substep = 1;
 
+    /** \brief true from the end of a coarse step whose driver averaged every level down
+     *         until anything else touches the state; post_timestep then need not repeat it */
+    bool levels_averaged_down = false;
+
+    /** \brief Set for a coarse step that ends with a checkpoint, which writes zvel_old; the
+     *         finest level then forms w on every substep (wvel_skip_substep) */
+    bool wvel_every_substep = false;
+
+    /** \brief per level and time level of ubar/vbar: whether that component was exchanged
+     *         after its boundary conditions in the current set of fast steps, so that its
+     *         ghost faces hold the neighbouring boxes' values. advance_2d skips the exchange
+     *         of the barotropic fluxes when it is set and set_2d_cf_flux does not run;
+     *         reset before each set of fast steps. */
+    amrex::Vector<amrex::Array<int,3>> uvbar_exchanged_after_bcs;
+    void reset_uvbar_exchanged (int lev) {
+        if (int(uvbar_exchanged_after_bcs.size()) <= lev) {
+            uvbar_exchanged_after_bcs.resize(lev+1);
+        }
+        uvbar_exchanged_after_bcs[lev] = {0, 0, 0};
+    }
+
     /** \brief interpolate the parent's barotropic mass flux in time at the coarse-fine
      *         interface, rather than holding its step average. Off matches most ROMS
      *         configurations. */
@@ -2141,9 +2237,13 @@ private:
      *         1 (default): compute once per (component, fill time) within a parent step and
      *         replay the result; bitwise identical, since the fill reads only the registered
      *         coarse data and, for faces, the interface faces FillSet rewrites before every
-     *         fill, none of which changes inside the parent step. 2: as 1, but also
-     *         recompute and abort on any difference in the replayed cells. Subcycled driver
-     *         only. */
+     *         fill, none of which changes inside the parent step. The interface values
+     *         FillSet writes for ubar and vbar are kept and replayed likewise, and so is the
+     *         parent data coarse_for_interp prepares while the parent is frozen, for every
+     *         coarse-fine fill. 2: as 1, but also recompute and abort on any difference in
+     *         the replayed values, the batched replay of the three fills (replay_cf_2d_fills)
+     *         included. The parent's interface flux (cf_interface_flux) follows the same
+     *         setting. Subcycled driver only. */
     int cf_2d_fill_cache = 1;
     /** \brief one cached two-level fill: the values it leaves in the ghost cells it writes
      *         (mask), per component, with the fill time and coarse generation of each */
@@ -2152,12 +2252,35 @@ private:
         std::unique_ptr<amrex::iMultiFab> mask;
         amrex::Vector<amrex::Real> time;
         amrex::Vector<long> gen;
+        /** \brief the coarse data each component was interpolated from: the old snapshot of
+         *         an interpolated pair, or the parent's own field */
+        amrex::Vector<const amrex::MultiFab*> src;
     };
     /** \brief per level: the caches for ubar, vbar and zeta (slots 0, 1, 2) */
     amrex::Vector<amrex::Array<CF2DCache,3>> cf_2d_cache;
+    /** \brief per level: the ghost bands of ubar, vbar and zeta (see cf_ghost_band) */
+    amrex::Vector<amrex::Array<std::unique_ptr<amrex::iMultiFab>,3>> cf_band;
     /** \brief per level: bumped whenever register_coarse_data hands the level's new state to
      *         the next finer level, which invalidates that level's cf_2d_cache */
     amrex::Vector<long> cf_crse_gen;
+    /** \brief one coarse MultiFab as coarse_for_interp prepared it during a freeze of its
+     *         level: whether its ghost cells have been exchanged, and whether the
+     *         interpolation-ready data is known -- src itself, or copy when one was needed */
+    struct CrseInterpEntry {
+        const amrex::MultiFab* src = nullptr;
+        const void* data = nullptr;
+        amrex::BoxArray ba;
+        amrex::DistributionMapping dm;
+        bool exchanged = false;
+        bool ready = false;
+        std::unique_ptr<amrex::MultiFab> copy;
+    };
+    /** \brief per coarse level: whether it is frozen (see freeze_coarse_level), and the
+     *         entries coarse_for_interp has made since */
+    amrex::Vector<int> crse_frozen;
+    amrex::Vector<amrex::Vector<CrseInterpEntry>> crse_interp_entries;
+    /** \brief the entry for crse while its level is frozen, made if absent; nullptr otherwise */
+    CrseInterpEntry* crse_interp_entry (int crse_lev, const amrex::MultiFab& crse);
     /** \brief distribute the parent's interface mass flux piecewise-constantly over the fine
      *         faces under each parent face, as ROMS's get_persisted2d does, instead of with
      *         the linear tangential variation of AMReX's face interpolator. Both conserve the

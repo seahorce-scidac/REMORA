@@ -158,6 +158,14 @@ remora.bottom_stress_type = linear
 # type=bool; method=queryAdd
 remora.boundary_per_variable = false
 
+# Fraction of the surface current subtracted from the wind
+# type=Real; method=queryAdd
+remora.bulk_flux_current_factor = <UNKNOWN_DEFAULT>
+
+# Take the wind relative to the surface current (ROMS ``WIND_MINUS_CURRENT``)
+# type=bool; method=queryAdd
+remora.bulk_flux_relative_wind = <UNKNOWN_DEFAULT>
+
 # COARE version of the Charnock parameter and the moisture and thermal roughness lengths (ROMS ``COARE_30``)
 # type=string; method=queryAdd
 remora.bulk_flux_scheme = coare30
@@ -1181,6 +1189,10 @@ remora.refinement_indicators_.start_time = <UNKNOWN_DEFAULT>
 # source: Source/REMORA_Tagging.cpp
 # type=Real; method=query
 remora.refinement_indicators_.start_total_time = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA_Tagging.cpp
+# type=bool; method=query
+remora.refinement_indicators_.tag_land = false
 
 # source: Source/REMORA_Tagging.cpp
 # type=Real; method=getarr

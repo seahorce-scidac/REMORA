@@ -221,7 +221,7 @@ fill_fab_from_arrays (int iv,
                       NC_Data_Dims_Type& NC_dim_type,
                       FAB& temp, amrex::IntVect custom_ngrow)
 {
-    int nsx, nsy, nsz;
+    int nsx = 0, nsy = 0, nsz = 0;
     if (NC_dim_type == NC_Data_Dims_Type::SN_WE) {
         nsz = 1;
         nsy = nc_arrays[iv].get_vshape()[0];

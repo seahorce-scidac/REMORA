@@ -14,7 +14,7 @@ using namespace amrex;
  * @param[in] ncycle         total number of subcycles, if using
  */
  void
-REMORA::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle*/)
+REMORA::Advance (int lev, Real time, Real dt_lev, int iteration, int ncycle)
 {
     BL_PROFILE("REMORA::Advance()");
 
@@ -36,6 +36,9 @@ REMORA::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycl
     //***************************************************
     //Advance nfast_counter steps of the 2d integrator
     //***************************************************
+    // How ubar and vbar were last filled before the fast steps is not tracked, so no time
+    // level counts as exchanged after its boundary conditions (see advance_2d)
+    reset_uvbar_exchanged(lev);
     for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
         advance_2d_onestep(lev, dt_lev, dtfast_lev, my_iif, nfast_counter);
     }
@@ -61,7 +64,7 @@ REMORA::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycl
     //***************************************************
     //Advance one step of the 3d integrator
     //***************************************************
-    advance_3d_ml(lev, dt_lev);
+    advance_3d_ml(lev, dt_lev, wvel_skip_substep(lev, iteration, ncycle));
 
     // vert_mean_3d has just replaced the depth mean of the fine 3D velocity with the
     // barotropic transport the parent imposed, while its shear is still the profile the

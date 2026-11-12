@@ -107,11 +107,14 @@ REMORA::timeStep (int lev, Real time, int iteration)
 
     if (lev < finest_level)
     {
-        // recursive call for next-finer level
+        // recursive call for next-finer level. This level does not change until the substeps
+        // are done, so the coarse data their fills interpolate from is prepared only once.
+        freeze_coarse_level(lev, true);
         for (int i = 1; i <= nsubsteps[lev+1]; ++i)
         {
             timeStep(lev+1, time+(i-1)*dt[lev+1], i);
         }
+        freeze_coarse_level(lev, false);
 
         // Before the average-down: refluxing writes coarse cells under the fine grid on the
         // assumption they are about to be overwritten from it.
@@ -121,4 +124,8 @@ REMORA::timeStep (int lev, Real time, int iteration)
             AverageDownTo(lev); // average lev+1 down to lev
         }
     }
+
+    // Each level was averaged down after its last change, so once level 0's step is over the
+    // whole hierarchy is (see post_timestep)
+    levels_averaged_down = (lev == 0);
 }

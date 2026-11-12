@@ -526,6 +526,26 @@ endfunction(add_test_0)
 add_test_r(DoublyPeriodic               "remora_exec" "plt00010")
 add_test_r(Seamount                     "remora_exec" "plt00010")
 add_test_r(Advection                    "remora_exec" "plt00010")
+# The bulk fluxes with the wind taken relative to the surface current. Over a uniform current, a
+# step with the relative wind must match a step with the absolute wind less the subtracted part
+# of the current (all values exact in binary).
+compose_test_input(Advection_wind_minus_current Advection)
+add_test_r_selfcompare(Advection_wind_minus_current "remora_exec" "plt00001"
+    "remora.bulk_flux_relative_wind=true remora.uwind=5.5 remora.vwind=1.25"
+    "remora.bulk_flux_relative_wind=false remora.uwind=5 remora.vwind=1")
+compose_test_input(Advection_wind_minus_current_factor Advection)
+add_test_r_selfcompare(Advection_wind_minus_current_factor "remora_exec" "plt00001"
+    "remora.bulk_flux_relative_wind=true remora.bulk_flux_current_factor=0.5 remora.uwind=5.25 remora.vwind=1.125"
+    "remora.bulk_flux_relative_wind=false remora.uwind=5 remora.vwind=1")
+compose_test_input(Advection_wind_minus_current_no_bulk_abort Advection)
+add_test_abort(Advection_wind_minus_current_no_bulk_abort "remora_exec"
+    "remora.bulk_flux_relative_wind requires bulk flux")
+compose_test_input(Advection_current_factor_abort Advection)
+add_test_abort(Advection_current_factor_abort "remora_exec"
+    "remora.bulk_flux_current_factor must be between 0 and 1")
+compose_test_input(Advection_current_factor_unused_abort Advection)
+add_test_abort(Advection_current_factor_unused_abort "remora_exec"
+    "remora.bulk_flux_current_factor applies only with remora.bulk_flux_relative_wind=true")
 add_test_r(Advection_ML                 "remora_exec" "plt00010")
 add_test_r(Upwelling                    "remora_exec" "plt00010")
 add_test_r(Upwelling_GLS                "remora_exec" "plt00010")
@@ -546,6 +566,17 @@ add_test_layout(Seamount_ECB_tiled Seamount_ECB_tiled "remora_exec" "plt00003" "
     "remora.omp_tile_size=1024000 1024000 1024000" "remora.omp_tile_size=2 3 1024000")
 add_test_r(Channel_Test                 "remora_exec" "plt00010")
 add_test_r(DoubleGyre                   "remora_exec" "plt00010")
+# Walls on all sides, one box against six, with the 2D velocities not exchanged after their
+# boundary conditions on the fast steps (remora.cf_set_2d_bcs = 0): the barotropic fluxes
+# on the box edges along a wall must still come out the same in every layout
+add_test_layout(DoubleGyre_layout_bcs_unexchanged DoubleGyre "remora_exec" "plt00010" "none"
+                "amr.max_grid_size=256 remora.cf_set_2d_bcs=0"
+                "amr.max_grid_size_x=27 amr.max_grid_size_y=54 amr.blocking_factor=1 remora.cf_set_2d_bcs=0")
+# The same with that exchange on the first fast step of each set only (remora.cf_set_2d_bcs = 2),
+# so the record of which time levels had it is both set and cleared during the fast steps
+add_test_layout(DoubleGyre_layout_bcs_first_exchanged DoubleGyre "remora_exec" "plt00010" "none"
+                "amr.max_grid_size=256 remora.cf_set_2d_bcs=2"
+                "amr.max_grid_size_x=27 amr.max_grid_size_y=54 amr.blocking_factor=1 remora.cf_set_2d_bcs=2")
 add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic              "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic_MLvel        "remora_exec" "plt_ml00010")
@@ -620,13 +651,32 @@ add_test_conservation(Advection_3L_conservation_control Advection_3L_conservatio
                       "remora.max_step=20 remora.do_reflux=0"
                       tracer 1e-6 above)
 
-# The cached coarse-fine 2D fills, checked against a recomputation on every replay
+# The cached coarse-fine fills, checked against a recomputation on every replay
 # (remora.cf_2d_fill_cache = 2 aborts on any difference): three levels with a regrid every
-# step, and a ratio-3 nest with masks.
+# step, a ratio-3 nest with masks, and a patch on the periodic seam of a domain bounded by
+# walls, the only kind in which the parent data kept during the substeps is a copy.
 add_test_run(Advection_3L_cf_fill_cache_check Advection_3L_conservation "remora_exec"
              "remora.max_step=20 remora.cf_2d_fill_cache=2")
 add_test_run(DogboneAnalytic_MLvel_cf_fill_cache_check DogboneAnalytic_MLvel "remora_exec"
              "remora.cf_2d_fill_cache=2")
+add_test_run(Channel_Test_ML_seam_cf_fill_cache_check Channel_Test_ML_seam "remora_exec"
+             "remora.cf_2d_fill_cache=2")
+# Output must not change a three-level run under the lockstep driver, which averages down
+# coarse pair first and relies on the average-down after the step
+add_test_r_selfcompare(Advection_3L_lockstep_plotint "remora_exec" "plt00007"
+                       "remora.plot_int=1" "remora.plot_int=7")
+# The same under the subcycled driver, whose post_timestep skips the average-down timeStep has
+# just done unless an output came in between. A plotfile every step lets post_timestep average
+# down after every step, one only at the end never, so the two agree only if timeStep's own
+# average-down leaves nothing for post_timestep to do.
+compose_test_input(Channel_Test_ML_seam_subcycle_plotint Channel_Test_ML_seam)
+add_test_r_selfcompare(Channel_Test_ML_seam_subcycle_plotint "remora_exec" "plt00010"
+                       "remora.plot_int=1" "remora.plot_int=10")
+# A restart of the same case from step 5 must continue it. None of what the coarse-fine fills
+# keep across the fast steps and substeps is in the checkpoint, so the restarted run has to
+# rebuild it and come out as the continuous one did.
+compose_test_input(Channel_Test_ML_seam_subcycle_restart Channel_Test_ML_seam)
+add_test_restart(Channel_Test_ML_seam_subcycle_restart "remora_exec" "plt00010" "chk00005")
 
 # The floor. Both totals are exact on one level, so the AMR bounds are measured against
 # roundoff rather than against an unknown scheme error.
@@ -717,13 +767,27 @@ add_test_r_gold(DogboneAnalytic_MLhires  "remora_exec" "plt_ml00010" DogboneAnal
 # they need no gold file: plt00010 must equal plt00000. A plain arithmetic average-down
 # lets the zeroed fine land cells drag those coarse cells off their initial value, which
 # breaks stationarity by ~1e-2 in salt and velocity.
-# coastbox spans the full width of the domain, 0 to 750 in y, and the dogbone's coasts run
-# through it, so this asserts the thing a static box is for: the whole box is refined, land
-# included, not clipped back to the water (which would give y in [250,500]).
+# coastbox spans the full width of the domain, 0 to 750 in y. The dogbone's coasts run through
+# it, but the basins at its two ends are water from edge to edge, so level 1 still reaches both.
 add_test_extent(DogboneAnalytic_MLmask  "remora_exec" "plt00010" 1 1 0.0 750.0)
-# Same assertion on the ref-ratio-2 twin: clipping there would give 3 clipped boxes instead of
-# 2 full-box grids, which add_test_0 alone cannot see.
 add_test_extent(DogboneAnalytic_MLmask_rr2 "remora_exec" "plt00010" 1 1 0.0 750.0)
+# A box tags only its water cells. coastbox holds 100 wet level-0 cells (two columns of 15 at
+# its ends, and five rows of the 14-cell channel between them), so level 1 covers 100*9*16
+# cells at ratio 3 and 100*4*16 at ratio 2; the whole box would be 240 level-0 cells. The
+# counts are exact because, with no tag buffer and blocking factor 1, the grids at
+# amr.grid_eff = 0.7 cover the wet cells and nothing else. The grids are static, so the
+# initial plotfile of a zero-step run is enough.
+compose_test_input(DogboneAnalytic_MLmask_boxwater DogboneAnalytic_MLmask)
+add_test_cells(DogboneAnalytic_MLmask_boxwater     "remora_exec" "plt00000" 1 14400)
+compose_test_input(DogboneAnalytic_MLmask_rr2_boxwater DogboneAnalytic_MLmask_rr2)
+add_test_cells(DogboneAnalytic_MLmask_rr2_boxwater "remora_exec" "plt00000" 1 6400)
+# With tag_land, kept for direct comparison with a ROMS nest, the box is refined in full:
+# 240 level-0 cells, 240*9*16 level-1 cells.
+compose_test_input(DogboneAnalytic_MLmask_boxland DogboneAnalytic_MLmask)
+add_test_cells(DogboneAnalytic_MLmask_boxland      "remora_exec" "plt00000" 1 34560)
+compose_test_input(DogboneAnalytic_MLcoasttag_tagland_abort DogboneAnalytic_MLcoasttag)
+add_test_abort(DogboneAnalytic_MLcoasttag_tagland_abort "remora_exec"
+               "tag_land applies only to a box region")
 # A pair: the same gradient criterion keyed on a physical field, which must not see the coast,
 # and on the mask, which must. Either one alone passes for the wrong reason.
 add_test_nlevels(DogboneAnalytic_MLcoastskip "remora_exec" "plt00010" 0)
@@ -809,6 +873,19 @@ add_test_equiv(BC_per_variable BC_per_side "remora_exec" "plt00010" "plt_side000
                0.05 tracer 0.0 0.127)
 
 add_test_abort(BC_inflow_no_value "remora_exec" "needs an inflow value")
+
+# A side's normal velocity condition must come from the normal component's own setting. On the
+# East, u and ubar are slip walls in both inputs, and v and vbar are outflow in one and slip
+# walls in the other. Both give the tangential component foextrap, so the runs must agree.
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test_files/BC_per_variable/BC_per_variable.i
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/test_files/BC_normal_velocity_own_type)
+add_test_equiv(BC_normal_velocity_own_type BC_normal_velocity_slipwall "remora_exec"
+               "plt00010" "plt_slipwall00010")
+
+# Flather on a side where zeta does not read the boundary file must stop at setup.
+compose_test_input(BC_flather_no_zeta_data BC_per_variable)
+add_test_abort(BC_flather_no_zeta_data "remora_exec"
+               "East boundary uses Flather for the normal barotropic velocity")
 
 #=============================================================================
 # Barotropic substep count
