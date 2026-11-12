@@ -228,6 +228,27 @@ public:
                           const amrex::iMultiFab* dst_land_mask = nullptr);
 
     /**
+     * \brief Remaps the top-level ocean current onto the driver's layout as east and north
+     *        components.
+     *
+     * Both components are averaged to rho points, rotated from the grid axes to east and
+     * north with the grid angle, zeroed on land, and remapped with the same weights as the
+     * SST. A grid file without an angle is taken to be aligned with east, as ROMS reads it.
+     *
+     * @param[inout] east_dst          eastward current [m/s] on the destination layout
+     * @param[inout] north_dst         northward current [m/s] on the destination layout
+     * @param[in   ] weight_o2a_mf     remap weights; null for a plain copy
+     * @param[in   ] index_o2a_mf      remap source indices; null for a plain copy
+     * @param[in   ] max_stencil_size  stencil length of the weights
+     * @param[in   ] dst_land_mask     destination land mask (1 = land), or null
+     */
+    void PackSurfaceCurrents (amrex::MultiFab& east_dst, amrex::MultiFab& north_dst,
+                              const amrex::MultiFab* weight_o2a_mf,
+                              const amrex::iMultiFab* index_o2a_mf,
+                              int max_stencil_size,
+                              const amrex::iMultiFab* dst_land_mask = nullptr);
+
+    /**
      * \brief Receives atmospheric states from the driver and applies unit conversions.
      *
      * Fills REMORA's internal forcing MultiFabs from states and records which
