@@ -150,14 +150,12 @@ REMORA::stretch_transform (int lev)
         Box wgbx3 = gbx3;
         wgbx3.surroundingNodes(2);
 
-        const auto & geomdata = Geom(lev).data();
-
         int nz = geom[lev].Domain().length(2);
 
         auto N = nz; // Number of vertical "levels" aka, NZ
-        //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
 
-        Real hc = -min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
+        // S-coordinate critical depth: Vtransform 2 takes hc = Tcline, as ROMS set_scoord does
+        Real hc = solverChoice.tcline;
 
         Real ds = one / Real(N);
 
@@ -261,9 +259,8 @@ REMORA::stretch_transform_full_domain (int lev, const MultiFab& mf_h, const Mult
     auto Cs_w_dat = Cs_w.data();
     auto Cs_r_dat = Cs_r.data();
 
-    const auto& geomdata = Geom(lev).data();
     const int N = geom[lev].Domain().length(2);
-    const Real hc = -min(geomdata.ProbHi(2),-solverChoice.tcline);
+    const Real hc = solverChoice.tcline;
     const Real ds = one / Real(N);
 
 #ifdef AMREX_USE_OMP
