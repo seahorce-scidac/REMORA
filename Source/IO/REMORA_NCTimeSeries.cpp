@@ -472,12 +472,18 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
 
     auto nodality = mf_interp_lev0->ixType();
 
+    // Everywhere the file holds data: the domain plus the ROMS ring outside a non-nodal edge.
+    // That includes every ghost cell inside the domain, which the FillPatch after this would
+    // refill with the same values from the neighbouring box, except where no box is there
+    // (remora.drop_dry_boxes): those cells would otherwise keep whatever mf_interp_lev0 held.
+    const amrex::Box data_box = amrex::grow(amrex::convert(domain, nodality),
+                                            amrex::IntVect(1-nodality[0],1-nodality[1],0));
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
     for (amrex::MFIter mfi(*mf_interp_lev0,true); mfi.isValid(); ++mfi) {
-        // Adjust box to match ROMS grid
-        amrex::Box bx = mfi.growntilebox(amrex::IntVect(1-nodality[0],1-nodality[1],0));
+        amrex::Box bx = mfi.growntilebox() & data_box;
 
 
         // Temporal interpolation is done once on level 0.
@@ -527,12 +533,79 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
         mapper = &amrex::face_cons_linear_interp;
     }
 
-    amrex::InterpFromCoarseLevel(*mf_to_fill_lev, zero, *mf_interp_lev0,
-                                 0, 0, 1,
-                                 geom[0], geom[lev],
-                                 null_bc_for_fill, 0, null_bc_for_fill, 0,
-                                 cumulative_ref_ratio(lev, ref_ratio),
-                                 mapper, null_dom_bcs, 0);
+    // The interpolation reads coarse cells one beyond the coarse cell under each fine cell, so
+    // near the physical boundary it reads level-0 ghost cells (#759). The time interpolation
+    // above set the domain, the ring the file holds outside a non-nodal edge, and the ghost
+    // cells inside the domain. Copy the outermost of those rows outward across each
+    // non-periodic side, then fill the ghost cells across a periodic edge from the cells they
+    // image. EnforcePeriodicity reads ghost cells too, so a cell that is both beyond a
+    // periodic edge and outside a wall gets its image's (already extended) value, and every
+    // ghost cell then agrees with its periodic image. Only the copy used here is changed;
+    // level 0 itself returned above.
+    {
+        const amrex::Box& dbx = data_box;
+        const bool per_x = geom[0].isPeriodic(0);
+        const bool per_y = geom[0].isPeriodic(1);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        for (amrex::MFIter mfi(*mf_interp_lev0,true); mfi.isValid(); ++mfi) {
+            const amrex::Box bx = mfi.growntilebox();
+            amrex::Array4<amrex::Real> a = mf_interp_lev0->array(mfi);
+            const auto lo = amrex::lbound(dbx);
+            const auto hi = amrex::ubound(dbx);
+            amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                const int ii = per_x ? i : amrex::max(lo.x, amrex::min(hi.x, i));
+                const int jj = per_y ? j : amrex::max(lo.y, amrex::min(hi.y, j));
+                // Only cells outside the data in a non-periodic direction are written, and
+                // their sources lie inside it in every non-periodic direction
+                if (ii != i || jj != j) { a(i,j,k) = a(ii,jj,k); }
+            });
+        }
+        mf_interp_lev0->EnforcePeriodicity(geom[0].periodicity());
+    }
+
+    // Take the coarse data from those ghost cells, without periodic wrap: each coarse cell
+    // then has a single source, its own value, as every ghost cell now holds the value the
+    // wrap would give. Fill the fine ghost cells outside the domain as far as the coarse
+    // ghost cells reach, horizontally only: nothing above fills level-0 ghost cells in z.
+    const amrex::IntVect ratio = cumulative_ref_ratio(lev, ref_ratio);
+    const amrex::IntVect cng = mf_interp_lev0->nGrowVect();
+    const amrex::IntVect fng = mf_to_fill_lev->nGrowVect();
+    const auto coarsener = mapper->BoxCoarsener(ratio);
+    amrex::IntVect ng_outside(0);
+    bool fits = true;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        bool found = false;
+        for (int n = (d < 2) ? fng[d] : 0; n >= 0 && !found; --n) {
+            amrex::IntVect nv(0);
+            nv[d] = n;
+            const amrex::Box crse = coarsener.doit(amrex::Box(-nv, amrex::IntVect(32), idx_type));
+            if (-crse.smallEnd(d) <= cng[d]) {
+                ng_outside[d] = n;
+                found = true;
+            }
+        }
+        fits = fits && found;
+    }
+
+    if (fits) {
+        const amrex::Geometry& cg = geom[0];
+        const amrex::Geometry crse_geom_nonperiodic(cg.Domain(), cg.ProbDomain(), cg.Coord(),
+                                                    amrex::Array<int,AMREX_SPACEDIM>{AMREX_D_DECL(0,0,0)});
+        amrex::InterpFromCoarseLevel(*mf_to_fill_lev, fng, ng_outside, *mf_interp_lev0,
+                                     0, 0, 1,
+                                     crse_geom_nonperiodic, geom[lev],
+                                     ratio, mapper, null_dom_bcs, 0);
+    } else {
+        // Too few level-0 ghost cells for the stencil at the boundary: as before
+        amrex::InterpFromCoarseLevel(*mf_to_fill_lev, zero, *mf_interp_lev0,
+                                     0, 0, 1,
+                                     geom[0], geom[lev],
+                                     null_bc_for_fill, 0, null_bc_for_fill, 0,
+                                     ratio, mapper, null_dom_bcs, 0);
+    }
 
     mf_to_fill_lev->FillBoundary(geom[lev].periodicity());
 }

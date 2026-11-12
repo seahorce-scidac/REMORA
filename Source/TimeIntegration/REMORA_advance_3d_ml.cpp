@@ -3,17 +3,17 @@
 using namespace amrex;
 
 /**
- * @param[in] lev     refinement level
- * @param[in] dt_lev  time step at refinement level
+ * @param[in] lev        refinement level
+ * @param[in] dt_lev     time step at refinement level
+ * @param[in] skip_wvel  leave this step's w stale (see wvel_skip_substep)
  */
-void REMORA::advance_3d_ml (int lev, Real dt_lev)
+void REMORA::advance_3d_ml (int lev, Real dt_lev, bool skip_wvel)
 {
     BL_PROFILE("REMORA::advance_3d_ml()");
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call
     //FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t);
-    xvel_new[lev]->FillBoundary(geom[lev].periodicity());
-    yvel_new[lev]->FillBoundary(geom[lev].periodicity());
+    amrex::FillBoundary(Vector<MultiFab*>{xvel_new[lev], yvel_new[lev]}, geom[lev].periodicity());
     //FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, BCVars::zvel_bc, BdyVars::null);
 
     //FillPatch(lev, t_old[lev], *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t);
@@ -33,26 +33,37 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
                vec_msku[lev].get(), vec_mskv[lev].get(),
                N, dt_lev);
 
-    // Ideally can roll all of these into a single call
-    FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),0,false,false);
-    FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),0,false,false);
-    FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),1,false,false);
-    FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),1,false,false);
-    FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),2,false,false);
-    FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),2,false,false);
+    // All three time levels of ubar and vbar: one exchange at level 0, one two-level fill
+    // per field above it. Filling all components hands the interpolator the BCRecs of the
+    // next bccomps for components 1 and 2, which face_cons_linear_interp ignores.
+    if (lev == 0) {
+        amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get()},
+                            geom[lev].periodicity());
+    } else {
+        FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),0,true,false);
+        FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),0,true,false);
+    }
     //FillPatch(lev, t_old[lev], *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t);
 
 
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call
     // Note that we need the fine-fine and physical bc's in order to correctly move the particles
-    xvel_new[lev]->FillBoundary(geom[lev].periodicity());
-    yvel_new[lev]->FillBoundary(geom[lev].periodicity());
-    // Diagnose the true vertical velocity from the updated state; nothing in the
-    // dynamics reads it
-    compute_wvel(lev, *zvel_new[lev]);
-    FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null,0,true,true,0,0,zero,
-              amrex::MultiFab(), zvel_old, zvel_new);
+    amrex::FillBoundary(Vector<MultiFab*>{xvel_new[lev], yvel_new[lev]}, geom[lev].periodicity());
+    // The true vertical velocity is a diagnostic: nothing in the dynamics reads it. A single
+    // level leaves it for update_wvel to compute when a reader asks. With refinement, coarse w
+    // is averaged down from the fine level and the fine ghost cells are
+    // interpolated from the parent's w at both ends of its step, so w is formed every step
+    // -- except on the finest level's substeps before the last (wvel_skip_substep). Nothing
+    // reads that w: the parent averages down the last substep's, and the next substep's
+    // zvel_old, which holds it, is read only by a checkpoint, before which every substep
+    // forms w. A regrid or tagging that reads it first calls update_wvel, which forms it from
+    // the same state the step would have.
+    if (wvel_is_lazy() || skip_wvel) {
+        wvel_current[lev] = 0;
+    } else {
+        compute_and_fill_wvel(lev);
+    }
 
     // Apply land/sea mask to tracers
 #ifdef _OPENMP

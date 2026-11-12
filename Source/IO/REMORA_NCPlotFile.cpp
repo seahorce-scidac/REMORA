@@ -38,6 +38,84 @@ plot_2d_var_requested (const amrex::Vector<std::string>& names, const std::strin
 }
 
 /**
+ * \brief The box a grid writes for a face- or node-centered variable: its valid box made nodal
+ *        in the directions of nodal, and grown by one point into the ghost row beyond the
+ *        subdomain in the directions of edge where the grid meets the subdomain's edge.
+ */
+amrex::Box
+face_write_box (const amrex::Box& cc, const amrex::Box& subdomain, const amrex::IntVect& nodal,
+                const amrex::IntVect& edge)
+{
+    amrex::Box b(cc);
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (nodal[d]) { b.surroundingNodes(d); }
+    }
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (!edge[d]) { continue; }
+        if (b.smallEnd(d) == subdomain.smallEnd(d)) { b.growLo(d, 1); }
+        if (b.bigEnd(d) == subdomain.bigEnd(d)) { b.growHi(d, 1); }
+    }
+    return b;
+}
+
+/**
+ * \brief The parts of grid i's write box (face_write_box) that no lower-numbered grid of the
+ *        level writes.
+ *
+ * A grid's u, v and psi points include the faces on both of its sides, so neighbouring grids
+ * would both write the points they share. The values agree, but overlapping file regions in
+ * one collective put_varn made Open MPI's OMPIO overrun a buffer (a heap overflow on 3 or
+ * more ranks; ROMIO tolerated it). Giving each point to the lowest-numbered
+ * grid whose write box holds it means every file point is written exactly once, whatever the
+ * layout: aligned level-0 boxes, misaligned refined grids, dropped dry boxes.
+ */
+amrex::BoxList
+owned_write_boxes (const amrex::BoxArray& ba, int i, const amrex::Box& subdomain,
+                   const amrex::IntVect& nodal, const amrex::IntVect& edge)
+{
+    const amrex::Box mine = face_write_box(ba[i], subdomain, nodal, edge);
+    amrex::BoxList bl(mine);
+    // Write boxes reach one point beyond their grid, so only grids within two cells can overlap
+    for (const auto& is : ba.intersections(amrex::grow(ba[i], 2))) {
+        const int j = is.first;
+        if (j >= i) { continue; }
+        const amrex::Box theirs = face_write_box(ba[j], subdomain, nodal, edge);
+        if (!theirs.intersects(mine)) { continue; }
+        amrex::BoxList left(mine.ixType());
+        for (const amrex::Box& b : bl) { left.join(amrex::boxDiff(b, theirs)); }
+        bl = std::move(left);
+    }
+    return bl;
+}
+
+/** \brief Abort on a PnetCDF error */
+void
+nc_check (int ierr)
+{
+    if (ierr != NC_NOERR) {
+        amrex::Abort(std::string("NetCDF error: ") + ncmpi_strerror(ierr));
+    }
+}
+
+/**
+ * \brief Whether a variable is laid out over the horizontal grid (has an xi_* dimension).
+ */
+bool
+nc_var_is_gridded (int ncid, int varid)
+{
+    int ndims = 0;
+    nc_check(ncmpi_inq_varndims(ncid, varid, &ndims));
+    std::vector<int> dimids(ndims);
+    nc_check(ncmpi_inq_vardimid(ncid, varid, dimids.data()));
+    for (int d : dimids) {
+        char dname[NC_MAX_NAME+1];
+        nc_check(ncmpi_inq_dimname(ncid, d, dname));
+        if (std::string(dname).rfind("xi_", 0) == 0) { return true; }
+    }
+    return false;
+}
+
+/**
  * \brief Accumulates each rank's hyperslabs and writes them with collective I/O.
  *
  * PnetCDF's collective APIs have to be called by every rank that opened the file,
@@ -165,6 +243,45 @@ private:
 };
 } // namespace
 
+namespace {
+/**
+ * Move a file aside, if there is one, so a new file can take its name.
+ *
+ * @param path   file to move
+ * @param why    what is wrong with it, for the message
+ */
+void move_aside (const std::string& path, const std::string& why)
+{
+    if (amrex::ParallelDescriptor::IOProcessor() && amrex::FileExists(path)) {
+        std::string newoldname(path + ".old." + amrex::UniqueString());
+        amrex::Print() << "WriteNCPlotFile:  " << path << " " << why
+                       << ".  Renaming to:  " << newoldname << std::endl;
+        if (std::rename(path.c_str(), newoldname.c_str())) {
+            amrex::Abort("WriteNCPlotfile:: std::rename failed");
+        }
+    }
+    amrex::ParallelDescriptor::Barrier();
+}
+
+/**
+ * Whether a history file is shaped for a level's NetCDF region and has a time
+ * variable (it may have no records yet).
+ *
+ * @param ncf         open history file
+ * @param subdomain   the level's NetCDF region
+ */
+bool fits_level (const ncutils::NCFile& ncf, const amrex::Box& subdomain)
+{
+    auto dim_is = [&] (const std::string& name, long long len) {
+        return ncf.has_dim(name) && ncf.dim(name).len() == len;
+    };
+    return dim_is("xi_rho", subdomain.length(0) + 2) &&
+           dim_is("eta_rho", subdomain.length(1) + 2) &&
+           dim_is("s_rho", subdomain.length(2)) &&
+           ncf.has_var("ocean_time");
+}
+} // namespace
+
 /**
  * @param which_step   current step for output
  * @param plotMF       cell-centered plot variables at this level
@@ -174,14 +291,70 @@ private:
  */
 void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
                              MultiFab const* mf_omega, MultiFab const* mf_wvel) {
-    // A refined level is written to its own file, _d02 and up, the way ROMS names a nested
-    // grid. Its dimensions come from boxes_at_level, so a level covering nx by ny cells gets
-    // xi_rho = nx+2, xi_u = nx+1 and so on, exactly as ROMS shapes a child grid.
-    int which_subdomain = 0;
-    int which_step_in_chunk = -1;
+    // Each level is written to its own file, _d02 and up for the refined levels, the way
+    // ROMS names a nested grid. Every level's file covers the whole domain at that level's
+    // resolution, so a level covering nx by ny cells gets xi_rho = nx+2, xi_u = nx+1 and
+    // so on; a refined level's cells outside its grids hold the fill value.
+    const std::string FullPath = netcdf_plot_path(which_step, lev);
 
-    // Create filename
-    std::string plt_string;
+    if (!REMORA::write_history_file) {
+        move_aside(FullPath, "exists");
+        auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
+        amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << std::endl;
+        WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, true, true, ncf, false);
+        return;
+    }
+
+    if (history_files.size() <= lev) {
+        history_files.resize(lev+1);
+    }
+    NCHistoryFile& hf = history_files[lev];
+
+    // On this run's first write to a file, fix where its records start. A restarted run
+    // continues each level's first file at the restart time. Any other file already
+    // there is from an earlier run, as when a refined level first appears after the
+    // first output, and is moved aside.
+    if (FullPath != hf.path) {
+        const bool resume = !restart_chkfile.empty() && hf.path.empty();
+        hf.path = FullPath;
+        hf.next_record = 0;
+        hf.grids_written = BoxArray();
+        if (resume && amrex::FileExists(FullPath)) {
+            hf.next_record = history_restart_record(lev, FullPath);
+        } else {
+            move_aside(FullPath, "exists");
+        }
+    }
+    const long long record = hf.next_record++;
+    const bool write_header = !(amrex::FileExists(FullPath));
+
+    // The fixed grid variables are written with the header, and again whenever the
+    // level's grids have changed since this run last wrote the file, so a level that
+    // moves or grows fills in the cells it reaches
+    const bool write_grid = write_header || grids[lev] != hf.grids_written;
+    hf.grids_written = grids[lev];
+
+    auto ncf =
+            write_header ?
+                    ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
+                    ncutils::NCFile::open(FullPath, NC_WRITE, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
+
+    amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
+
+    WriteNCPlotFile_which(lev, plotMF, mf_omega, mf_wvel, write_header, write_grid, ncf,
+                          true, record);
+}
+
+/**
+ * The NetCDF file a level's output goes to at this output step.
+ *
+ * @param which_step   step being written, naming the file when each output step gets
+ *                     its own
+ * @param lev          level being written
+ * @return             path of the file
+ */
+std::string REMORA::netcdf_plot_path (int which_step, int lev) const
+{
     std::string plotfilename;
     if (REMORA::write_history_file) {
         plotfilename = plot_file_name + "_his";
@@ -192,85 +365,8 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
     if (REMORA::write_history_file and REMORA::chunk_history_file) {
         int which_chunk = history_count / REMORA::steps_per_history_file;
         plotfilename = Concatenate(plotfilename, which_chunk, file_min_digits);
-        which_step_in_chunk = history_count - which_chunk * REMORA::steps_per_history_file;
     }
-
-    // Set the full IO path for NetCDF output
-    std::string FullPath = plotfilename;
-    if (lev == 0) {
-        const std::string &extension = amrex::Concatenate("_d", lev + 1, 2);
-        FullPath += extension + ".nc";
-    } else {
-        const std::string &extension = amrex::Concatenate("_d", lev + 1 + which_subdomain, 2);
-        FullPath += extension + ".nc";
-    }
-
-    //
-    // Check if this file/directory already exists and if so,
-    //       have the IOProcessor move the existing
-    //       file/directory to filename.old
-    //
-    if ((!REMORA::write_history_file) || (history_count == 0) ||
-        (which_step_in_chunk == 0)) {
-        if (amrex::ParallelDescriptor::IOProcessor()) {
-            if (amrex::FileExists(FullPath)) {
-                std::string newoldname(FullPath + ".old." + amrex::UniqueString());
-                amrex::Print() << "WriteNCPlotFile:  " << FullPath << " exists.  Renaming to:  " << newoldname << std::endl;
-                if (std::rename(FullPath.c_str(), newoldname.c_str())) {
-                    amrex::Abort("WriteNCPlotfile:: std::rename failed");
-                }
-            }
-        }
-        ParallelDescriptor::Barrier();
-    }
-
-    bool is_history;
-
-    if (REMORA::write_history_file) {
-        is_history = true;
-
-        if (history_file_in_use.size() <= lev) {
-            history_file_in_use.resize(lev+1);
-            history_record_shift.resize(lev+1, 0);
-        }
-        const long long record = chunk_history_file
-                               ? history_count % steps_per_history_file
-                               : history_count;
-
-        // On the first write to a file, fix where its records start. A restarted
-        // run continues an existing file at the restart time, else starts at 0.
-        if (FullPath != history_file_in_use[lev]) {
-            history_file_in_use[lev] = FullPath;
-            long long start = record;
-            if (!restart_chkfile.empty()) {
-                start = amrex::FileExists(FullPath)
-                      ? history_restart_record(lev, FullPath) : 0;
-            }
-            history_record_shift[lev] = record - start;
-        }
-        bool write_header = !(amrex::FileExists(FullPath));
-
-        auto ncf =
-                write_header ?
-                        ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
-                        ncutils::NCFile::open(FullPath, NC_WRITE, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
-
-        amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
-
-        WriteNCPlotFile_which(lev, which_subdomain, plotMF, mf_omega, mf_wvel, write_header, ncf,
-                              is_history, record - history_record_shift[lev]);
-
-    } else {
-
-        is_history = false;
-        bool write_header = true;
-
-        // Open new netcdf file to write data
-        auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
-        amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << std::endl;
-
-        WriteNCPlotFile_which(lev, which_subdomain, plotMF, mf_omega, mf_wvel, write_header, ncf, is_history);
-    }
+    return plotfilename + amrex::Concatenate("_d", lev + 1, 2) + ".nc";
 }
 
 /**
@@ -293,13 +389,7 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
         auto ncf = ncutils::NCFile::open(
             path, NC_NOWRITE, amrex::ParallelContext::CommunicatorSub(),
             MPI_INFO_NULL);
-        auto dim_is = [&] (const std::string& name, long long len) {
-            return ncf.has_dim(name) && ncf.dim(name).len() == len;
-        };
-        fits = dim_is("xi_rho", subdomain.length(0) + 2) &&
-               dim_is("eta_rho", subdomain.length(1) + 2) &&
-               dim_is("s_rho", subdomain.length(2)) &&
-               ncf.has_var("ocean_time");
+        fits = fits_level(ncf, subdomain);
         if (fits) {
             nrec = ncf.dim("ocean_time").len();
             std::vector<double> times(nrec);
@@ -314,16 +404,7 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
     }
 
     if (!fits) {
-        if (amrex::ParallelDescriptor::IOProcessor()) {
-            std::string newoldname(path + ".old." + amrex::UniqueString());
-            amrex::Print() << "WriteNCPlotFile:  " << path
-                           << " does not match level " << lev
-                           << ".  Renaming to:  " << newoldname << std::endl;
-            if (std::rename(path.c_str(), newoldname.c_str())) {
-                amrex::Abort("WriteNCPlotfile:: std::rename failed");
-            }
-        }
-        ParallelDescriptor::Barrier();
+        move_aside(path, "does not match level " + std::to_string(lev));
         return 0;
     }
 
@@ -340,18 +421,18 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
 
 /**
  * @param lev               level of data to output
- * @param which_subdomain   index of subdomain if lev != 0
  * @param plotMF            cell-centered plot variables at this level
  * @param mf_omega          omega at w points, or nullptr when it is not plotted
  * @param mf_wvel           w at w points, or nullptr when it is not plotted
  * @param write_header      whether to write a header
+ * @param write_grid        whether to write the fixed grid variables
  * @param ncf               netcdf file object
  * @param is_history        whether the file being written is a history file
  * @param history_record    record of the history file to write to
  */
-void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const* plotMF,
+void REMORA::WriteNCPlotFile_which(int lev, MultiFab const* plotMF,
                                    MultiFab const* mf_omega, MultiFab const* mf_wvel,
-                                   bool write_header, ncutils::NCFile &ncf,
+                                   bool write_header, bool write_grid, ncutils::NCFile &ncf,
                                    bool is_history, long long history_record)
 {
     // Number of cells in this "domain" at this level
@@ -360,7 +441,23 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     // One level per file, so the geometry records below describe just this level.
     int flev = lev + 1;
 
-    const Box subdomain = netcdf_subdomain(lev, which_subdomain);
+    const Box subdomain = netcdf_subdomain(lev);
+
+    // A refined level's file covers the whole domain at its resolution, and the cells its
+    // grids don't cover are never written, so every variable there, the masks included,
+    // holds the fill value. Every refined-level variable gets a _FillValue, since a level
+    // may cover the domain at the header and shrink later. PnetCDF fills fixed-size
+    // variables when the header is written, and records only on request, below. Level 0
+    // has no gaps, so its grid variables and masks keep no _FillValue.
+    const bool has_gaps = netcdf_subdomain_has_gaps(lev);
+    auto def_grid_var = [&] (const std::string& name, nc_type dtype,
+                             const std::vector<std::string>& dims) {
+        if (lev > 0) {
+            ncf.def_var_fill(name, dtype, dims, &netcdf_fill_value);
+        } else {
+            ncf.def_var(name, dtype, dims);
+        }
+    };
 
     int nx = subdomain.length(0);
     int ny = subdomain.length(1);
@@ -370,7 +467,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     n_cells.push_back(ny);
     n_cells.push_back(nz);
 
-    const std::string nt_name = "ocean_time";
+    const std::string nt_name = "ocean_time";  // also named in def_grid_var above
     const std::string ndim_name = "num_geo_dimensions";
 
     const std::string flev_name = "FINEST_LEVEL";
@@ -468,7 +565,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("s_w").put_attr("long_name","S-coordinate at W-points");
         ncf.var("s_w").put_attr("field","s_w, scalar");
 
-        ncf.def_var("pm",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        def_grid_var("pm",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
         ncf.var("pm").put_attr("long_name","curvilinear coordinate metric in XI");
         ncf.var("pm").put_attr("units","meter-1");
         ncf.var("pm").put_attr("grid","grid");
@@ -476,7 +573,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("pm").put_attr("coordinates","x_rho y_rho");
         ncf.var("pm").put_attr("field","pm, scalar");
 
-        ncf.def_var("pn",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        def_grid_var("pn",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
         ncf.var("pn").put_attr("long_name","curvilinear coordinate metric in ETA");
         ncf.var("pn").put_attr("units","meter-1");
         ncf.var("pn").put_attr("grid","grid");
@@ -484,7 +581,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("pn").put_attr("coordinates","x_rho y_rho");
         ncf.var("pn").put_attr("field","pn, scalar");
 
-        ncf.def_var("f",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        def_grid_var("f",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
         ncf.var("f").put_attr("long_name","Coriolis parameter at RHO-points");
         ncf.var("f").put_attr("units","second-1");
         ncf.var("f").put_attr("grid","grid");
@@ -492,12 +589,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("f").put_attr("coordinates","x_rho y_rho");
         ncf.var("f").put_attr("field","coriolis, scalar");
 
-        ncf.def_var("x_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        def_grid_var("x_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
         ncf.var("x_rho").put_attr("long_name","x-locations of RHO-points");
         ncf.var("x_rho").put_attr("units","meter");
         ncf.var("x_rho").put_attr("field","x_rho, scalar");
 
-        ncf.def_var("y_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        def_grid_var("y_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
         ncf.var("y_rho").put_attr("long_name","y-locations of RHO-points");
         ncf.var("y_rho").put_attr("units","meter");
         ncf.var("y_rho").put_attr("field","y_rho, scalar");
@@ -505,50 +602,50 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         // Spherical coordinates and rotation angle, as ROMS writes them, when the grid
         // file carried them
         if (vec_lonr[lev] != nullptr) {
-            ncf.def_var("lon_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            def_grid_var("lon_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
             ncf.var("lon_rho").put_attr("long_name","longitude of RHO-points");
             ncf.var("lon_rho").put_attr("units","degree_east");
             ncf.var("lon_rho").put_attr("field","lon_rho, scalar");
 
-            ncf.def_var("lat_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            def_grid_var("lat_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
             ncf.var("lat_rho").put_attr("long_name","latitude of RHO-points");
             ncf.var("lat_rho").put_attr("units","degree_north");
             ncf.var("lat_rho").put_attr("field","lat_rho, scalar");
         }
         if (vec_angler[lev] != nullptr) {
-            ncf.def_var("angle",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+            def_grid_var("angle",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
             ncf.var("angle").put_attr("long_name","angle between XI-axis and EAST");
             ncf.var("angle").put_attr("units","radians");
             ncf.var("angle").put_attr("coordinates","x_rho y_rho");
             ncf.var("angle").put_attr("field","angle, scalar");
         }
 
-        ncf.def_var("x_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
+        def_grid_var("x_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
         ncf.var("x_u").put_attr("long_name","x-locations of U-points");
         ncf.var("x_u").put_attr("units","meter");
         ncf.var("x_u").put_attr("field","x_u, scalar");
 
-        ncf.def_var("y_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
+        def_grid_var("y_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
         ncf.var("y_u").put_attr("long_name","y-locations of U-points");
         ncf.var("y_u").put_attr("units","meter");
         ncf.var("y_u").put_attr("field","y_u, scalar");
 
-        ncf.def_var("x_v",ncutils::NCDType::Real, {ny_v_name, nx_v_name});
+        def_grid_var("x_v",ncutils::NCDType::Real, {ny_v_name, nx_v_name});
         ncf.var("x_v").put_attr("long_name","x-locations of V-points");
         ncf.var("x_v").put_attr("units","meter");
         ncf.var("x_v").put_attr("field","x_v, scalar");
 
-        ncf.def_var("y_v",ncutils::NCDType::Real, {ny_v_name, nx_v_name});
+        def_grid_var("y_v",ncutils::NCDType::Real, {ny_v_name, nx_v_name});
         ncf.var("y_v").put_attr("long_name","y-locations of V-points");
         ncf.var("y_v").put_attr("units","meter");
         ncf.var("y_v").put_attr("field","y_v, scalar");
 
-        ncf.def_var("x_psi",ncutils::NCDType::Real, {ny_p_name, nx_p_name});
+        def_grid_var("x_psi",ncutils::NCDType::Real, {ny_p_name, nx_p_name});
         ncf.var("x_psi").put_attr("long_name","x-locations of PSI-points");
         ncf.var("x_psi").put_attr("units","meter");
         ncf.var("x_psi").put_attr("field","x_psi, scalar");
 
-        ncf.def_var("y_psi",ncutils::NCDType::Real, {ny_p_name, nx_p_name});
+        def_grid_var("y_psi",ncutils::NCDType::Real, {ny_p_name, nx_p_name});
         ncf.var("y_psi").put_attr("long_name","y-locations of PSI-points");
         ncf.var("y_psi").put_attr("units","meter");
         ncf.var("y_psi").put_attr("field","y_psi, scalar");
@@ -586,7 +683,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("Cs_w").put_attr("valid_max",std::vector({zero}));
         ncf.var("Cs_w").put_attr("field","Cs_w, scalar");
 
-        ncf.def_var("h", ncutils::NCDType::Real, { ny_r_name, nx_r_name });
+        def_grid_var("h", ncutils::NCDType::Real, { ny_r_name, nx_r_name });
         ncf.var("h").put_attr("long_name","bathymetry at RHO-points");
         ncf.var("h").put_attr("units","meter");
         ncf.var("h").put_attr("grid","grid");
@@ -725,7 +822,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("vbar").put_attr("coordinates","x_v y_v ocean_time");
         ncf.var("vbar").put_attr("field","vbar-velocity, scalar, series");
 
-        ncf.def_var("sustr", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
+        def_grid_var("sustr", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
         ncf.var("sustr").put_attr("long_name","surface u-momentum stress");
         ncf.var("sustr").put_attr("units","newton meter-2");
         ncf.var("sustr").put_attr("time","ocean_time");
@@ -734,7 +831,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("sustr").put_attr("coordinates","x_u y_u ocean_time");
         ncf.var("sustr").put_attr("field","surface u-momentum stress, scalar, series");
 
-        ncf.def_var("svstr", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
+        def_grid_var("svstr", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
         ncf.var("svstr").put_attr("long_name","surface v-momentum stress");
         ncf.var("svstr").put_attr("units","newton meter-2");
         ncf.var("svstr").put_attr("time","ocean_time");
@@ -743,19 +840,19 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("svstr").put_attr("coordinates","x_v y_v ocean_time");
         ncf.var("svstr").put_attr("field","surface v-momentum stress, scalar, series");
 
-        ncf.def_var("mask_rho", ncutils::NCDType::Real, { nt_name, ny_r_name, nx_r_name });
+        def_grid_var("mask_rho", ncutils::NCDType::Real, { nt_name, ny_r_name, nx_r_name });
         ncf.var("mask_rho").put_attr("long_name","mask on RHO-points");
         ncf.var("mask_rho").put_attr("time","ocean_time");
         ncf.var("mask_rho").put_attr("flag_values",std::vector({Real(0.0),Real(1.0)}));
         ncf.var("mask_rho").put_attr("flag_meanings","land water");
 
-        ncf.def_var("mask_u", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
+        def_grid_var("mask_u", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
         ncf.var("mask_u").put_attr("long_name","mask on U-points");
         ncf.var("mask_u").put_attr("time","ocean_time");
         ncf.var("mask_u").put_attr("flag_values",std::vector({Real(0.0),Real(1.0)}));
         ncf.var("mask_u").put_attr("flag_meanings","land water");
 
-        ncf.def_var("mask_v", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
+        def_grid_var("mask_v", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
         ncf.var("mask_v").put_attr("long_name","mask on V-points");
         ncf.var("mask_v").put_attr("time","ocean_time");
         ncf.var("mask_v").put_attr("flag_values",std::vector({Real(0.0),Real(1.0)}));
@@ -803,7 +900,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             const bool have_bulk = (vec_Tair[lev] != nullptr);
             if (have_bulk) {
             // Surface air temperature (Celsius)
-            ncf.def_var("Tair", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("Tair", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("Tair").put_attr("long_name","surface air temperature");
             ncf.var("Tair").put_attr("units","Celsius");
             ncf.var("Tair").put_attr("time","ocean_time");
@@ -813,7 +910,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("Tair").put_attr("field","Tair, scalar, series");
 
             // Surface air pressure (Pascal)
-            ncf.def_var("Pair", ncutils::NCDType::Real,{ nt_name, ny_r_name, nx_r_name });
+            def_grid_var("Pair", ncutils::NCDType::Real,{ nt_name, ny_r_name, nx_r_name });
             ncf.var("Pair").put_attr("long_name","surface air pressure");
             ncf.var("Pair").put_attr("units","Pascal");
             ncf.var("Pair").put_attr("time","ocean_time");
@@ -824,7 +921,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             } // have_bulk
 
             // Surface net heat flux (W/m2)
-            ncf.def_var("qnet", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("qnet", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("qnet").put_attr("long_name","surface net heat flux");
             ncf.var("qnet").put_attr("units","watt meter-2");
             ncf.var("qnet").put_attr("time","ocean_time");
@@ -834,7 +931,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("qnet").put_attr("field","surface heat flux, scalar, series");
 
             // Surface net salt flux (kinematic)
-            ncf.def_var("ssflux", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("ssflux", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("ssflux").put_attr("long_name","kinematic surface net salt flux, SALT*(E-P)/rhow");
             ncf.var("ssflux").put_attr("units","meter second-1");
             ncf.var("ssflux").put_attr("time","ocean_time");
@@ -845,7 +942,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 
             if (have_bulk) {
             // Latent heat flux (W/m2)
-            ncf.def_var("latent", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("latent", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("latent").put_attr("long_name","net latent heat flux");
             ncf.var("latent").put_attr("units","watt meter-2");
             ncf.var("latent").put_attr("time","ocean_time");
@@ -855,7 +952,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("latent").put_attr("field","latent heat flux, scalar, series");
 
             // Sensible heat flux (W/m2)
-            ncf.def_var("sensible", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("sensible", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("sensible").put_attr("long_name","net sensible heat flux");
             ncf.var("sensible").put_attr("units","watt meter-2");
             ncf.var("sensible").put_attr("time","ocean_time");
@@ -865,7 +962,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("sensible").put_attr("field","sensible heat flux, scalar, series");
 
             // Longwave radiation (W/m2)
-            ncf.def_var("lwrad", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("lwrad", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("lwrad").put_attr("long_name","net longwave radiation flux");
             ncf.var("lwrad").put_attr("units","watt meter-2");
             ncf.var("lwrad").put_attr("time","ocean_time");
@@ -875,7 +972,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("lwrad").put_attr("field","longwave radiation, scalar, series");
 
             // Shortwave radiation (W/m2)
-            ncf.def_var("swrad", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("swrad", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("swrad").put_attr("long_name","solar shortwave radiation flux");
             ncf.var("swrad").put_attr("units","watt meter-2");
             ncf.var("swrad").put_attr("time","ocean_time");
@@ -885,7 +982,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("swrad").put_attr("field","shortwave radiation, scalar, series");
 
             // Evaporation rate (kg m-2 s-1)
-            ncf.def_var("evaporation", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("evaporation", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("evaporation").put_attr("long_name","evaporation rate");
             ncf.var("evaporation").put_attr("units","kilogram meter-2 second-1");
             ncf.var("evaporation").put_attr("time","ocean_time");
@@ -895,7 +992,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("evaporation").put_attr("field","evaporation, scalar, series");
 
             // Rain rate (kg m-2 s-1)
-            ncf.def_var("rain", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            def_grid_var("rain", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
             ncf.var("rain").put_attr("long_name","rain fall rate");
             ncf.var("rain").put_attr("units","kilogram meter-2 second-1");
             ncf.var("rain").put_attr("time","ocean_time");
@@ -910,6 +1007,25 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 //        ncf.put_attr("current_time", std::vector<double> { time });
         ncf.put_attr("CurrentLevel", std::vector<int> { flev });
         ncf.put_attr("DefaultGeometry", std::vector<int> { amrex::DefaultGeometry().Coord() });
+
+        // With level-0 boxes dropped (remora.drop_dry_boxes) the boxes no longer cover the
+        // domain, so no rank writes the dropped cells. Give every gridded variable a fill
+        // value -- zero (land) for the masks -- so they read as missing, not as whatever the
+        // file held. Fixed-size variables are filled at enddef; record variables per record,
+        // below.
+        if (lev == 0 && level0_has_holes()) {
+            for (int varid = 0; varid < ncf.num_variables(); ++varid) {
+                if (!nc_var_is_gridded(ncf.ncid, varid)) { continue; }
+                int no_fill = 0;
+                nc_check(ncmpi_inq_var_fill(ncf.ncid, varid, &no_fill, nullptr));
+                if (!no_fill) { continue; }
+                char vname[NC_MAX_NAME+1];
+                nc_check(ncmpi_inq_varname(ncf.ncid, varid, vname));
+                const std::string nm(vname);
+                const amrex::Real fill = (nm.rfind("mask_", 0) == 0) ? zero : netcdf_fill_value;
+                nc_check(ncmpi_def_var_fill(ncf.ncid, varid, NC_FILL, &fill));
+            }
+        }
 
         ncf.exit_def_mode();
 
@@ -1004,6 +1120,11 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     long long local_start_nt = is_history ? history_record : 0;
     long long local_nt = 1; // We write data for only one time
 
+    // Fill the record first, so everything written below lands on top of it
+    if (has_gaps) {
+        ncf.fill_record(local_start_nt);
+    }
+
     // ocean_time is on the model clock, in double. Written here rather than staged,
     // since the collector holds Real; collective, with only the IO rank contributing.
     {
@@ -1090,9 +1211,10 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1] + 1);
             long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2] - subdomain.smallEnd()[2]);
 
-            if (write_header) {
-                // Only write out s_rho and s_w at x=0,y=0 to avoid NaNs
-                if (bx.contains(subdomain.smallEnd()))
+            if (write_grid) {
+                // The vertical coordinates are written once, by the rank owning the
+                // first grid: no grid need hold the file's corner when the level has gaps
+                if (mfi.index() == 0)
                 {
                     {
                         amrex::Vector<amrex::Real> tmp_srho(local_nz);
@@ -1511,7 +1633,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             // Horizontal mixing coefficients (scaled_to_grid):
             // vertically homogeneous and time-invariant -> write static 2D fields once.
             // **************************************************************************
-            if ((solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) && write_header) {
+            if ((solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) && write_grid) {
                 { // visc2
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
@@ -1551,12 +1673,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //
-            Box tmp_bx(bx);
-            tmp_bx.surroundingNodes(0);
-            if (tmp_bx.smallEnd()[1] == subdomain.smallEnd()[1])
-                tmp_bx.growLo(1, 1);
-            if (tmp_bx.bigEnd()[1] == subdomain.bigEnd()[1])
-                tmp_bx.growHi(1, 1);
+            // Each u point once, by the lowest-numbered grid that holds it
+            for (const Box& tmp_bx : owned_write_boxes(plotMF->boxArray(), mfi.index(), subdomain,
+                                                       IntVect(1,0,0), IntVect(0,1,0))) {
             Box tmp_bx_2d(tmp_bx);
             tmp_bx_2d.makeSlab(2, 0);
 
@@ -1572,7 +1691,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1] + 1);
             long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2] - subdomain.smallEnd()[2]);
 
-            if (write_header) {
+            if (write_grid) {
                 {
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
@@ -1633,6 +1752,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 auto nc_plot_var = collector.var(ncf, "mask_u");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
+            } // owned_write_boxes
         } // in subdomain
     } // mfi
 
@@ -1646,12 +1766,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //
-            Box tmp_bx(bx);
-            tmp_bx.surroundingNodes(1);
-            if (tmp_bx.smallEnd()[0] == subdomain.smallEnd()[0])
-                tmp_bx.growLo(0, 1);
-            if (tmp_bx.bigEnd()[0] == subdomain.bigEnd()[0])
-                tmp_bx.growHi(0, 1);
+            // Each v point once, by the lowest-numbered grid that holds it
+            for (const Box& tmp_bx : owned_write_boxes(plotMF->boxArray(), mfi.index(), subdomain,
+                                                       IntVect(0,1,0), IntVect(1,0,0))) {
             // amrex::Print() << "    BX " << bx << std::endl;
             // amrex::Print() << "TMP_BX " << tmp_bx << std::endl;
 
@@ -1670,7 +1787,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1]);
             long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2] - subdomain.smallEnd()[2]);
 
-            if (write_header) {
+            if (write_grid) {
                 {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
@@ -1733,6 +1850,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
 
+            } // owned_write_boxes
         } // in subdomain
     } // mfi
 
@@ -1745,9 +1863,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //
-            Box tmp_bx(bx);
-            tmp_bx.surroundingNodes(0);
-            tmp_bx.surroundingNodes(1);
+            // Each psi point once, by the lowest-numbered grid that holds it
+            for (const Box& tmp_bx : owned_write_boxes(plotMF->boxArray(), mfi.index(), subdomain,
+                                                       IntVect(1,1,0), IntVect(0,0,0))) {
 
             Box tmp_bx_2d(tmp_bx);
             tmp_bx_2d.makeSlab(2, 0);
@@ -1762,7 +1880,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0] - subdomain.smallEnd()[0]);
             long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1]);
 
-            if (write_header) {
+            if (write_grid) {
             {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
@@ -1785,6 +1903,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             }
 
             } // header
+            } // owned_write_boxes
         } // in subdomain
     } // mfi
 

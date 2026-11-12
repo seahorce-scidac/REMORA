@@ -25,6 +25,7 @@ REMORA::timeStep (int lev, Real time, int iteration)
             {
                 // regrid interpolates this level's data to build lev+1, so its ghost cells
                 // must be current. The swap has not happened, so "new" is what regrid reads.
+                update_wvel();
                 FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t,0,true,true);
                 FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u,0,true,true);
                 FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v,0,true,true);
@@ -58,8 +59,6 @@ REMORA::timeStep (int lev, Real time, int iteration)
         }
     }
 
-    scale_rhs_vars(lev);
-
     // Update what we call "old" and "new" time
     t_old[lev] = t_new[lev];
     // A child's last substep lands exactly on its parent's new time. Summing dt[lev] would
@@ -92,13 +91,13 @@ REMORA::timeStep (int lev, Real time, int iteration)
     std::swap(xvel_old[lev], xvel_new[lev]);
     std::swap(yvel_old[lev], yvel_new[lev]);
     std::swap(zvel_old[lev], zvel_new[lev]);
+    wvel_old_current[lev] = wvel_current[lev];
+    wvel_current[lev] = 0;
 
     // Advance a single level for a single time step
     Advance(lev, time, dt[lev], iteration, nsubsteps[lev]);
 
     ++istep[lev];
-
-    scale_rhs_vars_inv(lev);
 
     if (Verbose())
     {
@@ -108,11 +107,14 @@ REMORA::timeStep (int lev, Real time, int iteration)
 
     if (lev < finest_level)
     {
-        // recursive call for next-finer level
+        // recursive call for next-finer level. This level does not change until the substeps
+        // are done, so the coarse data their fills interpolate from is prepared only once.
+        freeze_coarse_level(lev, true);
         for (int i = 1; i <= nsubsteps[lev+1]; ++i)
         {
             timeStep(lev+1, time+(i-1)*dt[lev+1], i);
         }
+        freeze_coarse_level(lev, false);
 
         // Before the average-down: refluxing writes coarse cells under the fine grid on the
         // assumption they are about to be overwritten from it.
@@ -122,4 +124,8 @@ REMORA::timeStep (int lev, Real time, int iteration)
             AverageDownTo(lev); // average lev+1 down to lev
         }
     }
+
+    // Each level was averaged down after its last change, so once level 0's step is over the
+    // whole hierarchy is (see post_timestep)
+    levels_averaged_down = (lev == 0);
 }

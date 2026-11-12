@@ -9,6 +9,30 @@
 using namespace amrex;
 
 /**
+ * \brief Tiling for the loops of this file: boxes are split only in j (and k), so every
+ *        tile spans the full i extent of its box.
+ *
+ * A compiler that contracts multiply-adds (GCC with -march=native, the Cray wrappers on
+ * Perlmutter) may round the same expression differently in the vectorized body of the
+ * i loop and in its remainder. With tiles that split i, which cells fall in the
+ * remainder depends on the tile size, and z_w, z_r and Hz then changed in their last
+ * bits with remora.omp_tile_size (8x8 tiles differed from 16-row strips and from no
+ * tiling; the differences grew to 1e-8 in the velocities within five steps). With
+ * full-row tiles every cell has the same position in the i loop whatever the tiling.
+ * Untiled (GPU) iteration is unchanged.
+ */
+inline MFItInfo RowTilingIfNotGPU ()
+{
+    MFItInfo info;
+    if (TilingIfNotGPU()) {
+        IntVect ts = FabArrayBase::mfiter_tile_size;
+        ts[0] = 1024000;
+        info.EnableTiling(ts);
+    }
+    return info;
+}
+
+/**
  * \brief Depth at stretched coordinate sc (stretching value Cs) in a column of depth hwater
  *        under free surface zeta, ROMS Vtransform 2. Shared by stretch_transform and
  *        stretch_transform_full_domain.
@@ -104,18 +128,21 @@ REMORA::stretch_transform (int lev)
     [[maybe_unused]] auto s_r_dat = s_r.data();
     auto Cs_r_dat = Cs_r.data();
 
-    for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    for ( MFIter mfi(*cons_new[lev], RowTilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& z_w = (mf_z_w)->array(mfi);
         Array4<Real> const& z_r = (mf_z_r)->array(mfi);
         Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
         Array4<Real> const& h  = (mf_h)->array(mfi);
         Array4<Real> const& Zt_avg1  = (mf_Zt_avg1)->array(mfi);
-        Box bx = mfi.tilebox();
-        Box gbx2 = bx;
-        gbx2.grow(IntVect(NGROW,NGROW,0));
-        Box gbx3 = bx;
-        gbx3.grow(IntVect(NGROW+1,NGROW+1,0));
+        // Grown only where the tile meets the box boundary, so no two tiles of one box
+        // write the same cell: a neighbouring tile forming Hz could otherwise read z_w
+        // while it is being written.
+        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+        Box gbx3 = mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0));
         Box gbx2D = gbx2;
         gbx2D.makeSlab(2,0);
         Box gbx3D = gbx3;
@@ -134,14 +161,7 @@ REMORA::stretch_transform (int lev)
 
         Real ds = one / Real(N);
 
-        amrex::ParallelFor(wgbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            z_w(i,j,k) = h(i,j,0);
-        });
-
-        // ROMS Transform 2
-        Gpu::streamSynchronize();
-
+        // ROMS Transform 2. Every z_w on wgbx3 is written here, k = N included.
         amrex::ParallelFor(wgbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             if (k < N) {
@@ -173,12 +193,15 @@ REMORA::stretch_transform (int lev)
 
     } // mfi
 
-    vec_z_w[lev]->FillBoundary(geom[lev].periodicity());
-    vec_z_r[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
+    // One exchange for all three, with their messages in flight together
+    amrex::FillBoundary(Vector<MultiFab*>{vec_z_w[lev].get(), vec_z_r[lev].get(),
+                                          vec_Hz[lev].get()}, geom[lev].periodicity());
 
     // Define nodal z as average of z on w-faces
-    for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    for ( MFIter mfi(*cons_new[lev], RowTilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& z_w = (mf_z_w)->array(mfi);
         Array4<Real> const& z_phys_nd  = (mf_z_phys_nd)->array(mfi);
@@ -243,7 +266,10 @@ REMORA::stretch_transform_full_domain (int lev, const MultiFab& mf_h, const Mult
     const Real hc = -min(geomdata.ProbHi(2),-solverChoice.tcline);
     const Real ds = one / Real(N);
 
-    for (MFIter mfi(mf_z_w, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(mf_z_w, RowTilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& wbx = mfi.growntilebox();
         Array4<const Real> const& h    = mf_h.const_array(mfi);

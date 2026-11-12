@@ -120,6 +120,11 @@ will define a problem that is periodic on the Western and Eastern sides. Tempera
 :ref:`remora.nc_bdry_file<icbc-parameters>`. The 2D momentum and zeta BCs are calculated from the
 Chapman/Flather conditions, with nudging towards values given in the boundary NetCDF file.
 
+Each velocity entry sets that component's own condition. On the West and East sides, ``u`` and
+``ubar`` are the normal components and ``v`` and ``vbar`` the tangential ones; on the South and North
+sides it is the reverse. So ``slipwall``, ``symmetry`` or ``flather`` takes its normal-velocity form
+on a side only where the normal component's entry names it.
+
 .. _sec:bc-per-tracer:
 
 Boundary conditions for individual tracers
@@ -135,9 +140,10 @@ own name rather than by the shared ``scalar`` keyword:
     remora.bc.NO3.type          =  periodic  clamped  periodic  clamped
     remora.bc.oxygen.type       =  periodic  outflow  periodic  outflow
 
-The tracer names are the same ones used for plotfile output: ``temp`` and ``salt``, then either
-the biology tracer names when :ref:`remora.biology_model<sec:Fennel>` is active
-(``NO3``, ``NH4``, ``chlorophyll``, ...) or ``tracer``, ``tracer_1``, ... otherwise.
+The tracer names are the same ones used for plotfile output: ``temp`` and ``salt``, then the
+dye tracers ``tracer``, ``tracer_1``, ... when ``remora.nscalar`` is positive, then the biology
+tracer names (``NO3``, ``NH4``, ``chlorophyll``, ...) when :ref:`remora.biology_model<sec:Biology>`
+selects a model.
 
 ``remora.bc.scalar.type`` still works and still applies to every tracer beyond salt. A per-tracer
 entry takes precedence where one is given, so the two can be mixed: set ``scalar`` for the common
@@ -224,6 +230,10 @@ Scroll table to the right if not all visible. Rightmost column is sea surface he
 +--------------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
 
 The asterisks (*) indicate conditions that require the specification of a :ref:`boundary file <icbc-parameters>`.
+
+Flather relaxes the normal barotropic velocity toward the boundary file's elevation on that side, so a
+side whose normal ``ubar`` or ``vbar`` is ``flather`` must also give ``zeta`` a condition that reads the
+file there (``clamped``, ``chapman`` or ``orlanski_rad_nudg``). The run stops at setup otherwise.
 
 Here ``ext_dir``, ``foextrap``, and ``reflect_even`` refer to AMReX keywords.   The ``ext_dir`` type
 refers to an "external Dirichlet" boundary, which means the values must be specified by the user, unless

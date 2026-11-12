@@ -19,10 +19,17 @@ the sea surface height. We instead output the transformation from the logical z-
 These will be included in a later release. If you need these, we encourage you to use
 the NetCDF output.
 
+For runs with mesh refinement, we recommend AMReX plotfiles over NetCDF: they are
+faster to write and much smaller, since NetCDF writes each refined level over the
+whole domain (see :ref:`sec:Plotfiles`). `xamrex`_, below, reads them into Python
+for analysis and plotting.
+
+.. _sec:xamrex:
+
 xamrex
 ------
 
-`xamrex_` is a Python xarray backend for reading AMReX plotfiles with native support for time series concatenation and multi-level AMR data.
+`xamrex`_ is a Python xarray backend for reading AMReX plotfiles with native support for time series concatenation and multi-level AMR data.
 
 .. _`xamrex`: https://github.com/hetland/xamrex
 

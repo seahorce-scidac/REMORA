@@ -1,10 +1,12 @@
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi((mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& Akv = (mf_Akv).array(mfi);
         Array4<Real> const& Akt = (mf_Akt).array(mfi);
         Array4<const Real> const& z_w = remora.vec_z_w[lev]->array(mfi);
-        Box bx = mfi.tilebox();
-        bx.grow(IntVect(NGROW,NGROW,0));
+        Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         Gpu::streamSynchronize();
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {

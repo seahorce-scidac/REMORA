@@ -92,7 +92,7 @@ function(build_remora_lib remora_lib_name)
   endif()
 
   # Fennel parity tag diagnostics. Deliberately independent of the bridge
-  # flag: REMORA_Biology.cpp carries tag instrumentation inside its device
+  # flag: REMORA_FennelBiology.cpp carries tag instrumentation inside its device
   # lambda whether or not the Fortran oracle is built.
   if(REMORA_ENABLE_BIOLOGY_DIAG)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_BIOLOGY_DIAG)
@@ -130,6 +130,8 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/REMORA_SumIQ.cpp
        ${SRC_DIR}/REMORA_Tagging.cpp
        ${SRC_DIR}/Biology/REMORA_Biology.cpp
+       ${SRC_DIR}/Biology/REMORA_FennelBiology.cpp
+       ${SRC_DIR}/Biology/REMORA_ECBBiology.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_cons.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_xvel.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_yvel.cpp
@@ -141,6 +143,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/Initialization/REMORA_init1d.cpp
        ${SRC_DIR}/Initialization/REMORA_init_bcs.cpp
        ${SRC_DIR}/Initialization/REMORA_make_new_level.cpp
+       ${SRC_DIR}/Initialization/REMORA_land_layout.cpp
        ${SRC_DIR}/IO/REMORA_Checkpoint.cpp
        ${SRC_DIR}/IO/REMORA_Plotfile.cpp
        ${SRC_DIR}/IO/REMORA_SetPlotVars.cpp
@@ -167,8 +170,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/TimeIntegration/REMORA_prestep_diffusion.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_rhs_t_3d.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_rhs_uv_3d.cpp
-       ${SRC_DIR}/TimeIntegration/REMORA_rhs_uv_2d.cpp
-       ${SRC_DIR}/TimeIntegration/REMORA_scale_rhs_vars.cpp
+       ${SRC_DIR}/TimeIntegration/REMORA_scale_rhs_by_area.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_set_2d_cf_bcs.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_vert_visc_3d.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_update_massflux_3d.cpp

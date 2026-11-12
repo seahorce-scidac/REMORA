@@ -393,6 +393,9 @@ public:
     //! Return a list of all variables defined in this group
     std::vector<NCVar> all_vars() const;
 
+    //! Fill one record of every record variable that has a fill value (collective)
+    void fill_record(long long rec) const;
+
     //! Enter definition mode (not needed for NetCDF4 format)
     void enter_def_mode() const;
 
