@@ -1102,7 +1102,17 @@ List of Parameters
 +----------------------------------+-----------------------------+-------------------+-------------+
 | **remora.use_curvilinear_grid**  | Add curvilinear grid terms  | true / false      | false       |
 |                                  |                             |                   |             |
-|                                  | for advection               |                   |             |
+|                                  | for momentum advection.     |                   |             |
+|                                  |                             |                   |             |
+|                                  | Needed where 1/pn varies    |                   |             |
+|                                  |                             |                   |             |
+|                                  | along x or 1/pm along y,    |                   |             |
+|                                  |                             |                   |             |
+|                                  | as on any lat-lon grid;     |                   |             |
+|                                  |                             |                   |             |
+|                                  | REMORA warns when such a    |                   |             |
+|                                  |                             |                   |             |
+|                                  | grid runs without them.     |                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
 
 Physics Parameters
