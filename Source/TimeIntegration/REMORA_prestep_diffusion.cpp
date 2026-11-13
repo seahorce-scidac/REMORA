@@ -18,7 +18,6 @@ using namespace amrex;
  * @param[inout] rvel     velocity or scalar RHS
  * @param[in   ] Hz       vertical cell height
  * @param[in   ] Akv      vertical viscosity coefficient
- * @param        FC       temporary
  * @param[in   ] sstr     surface flux
  * @param[in   ] bstr     bottom flux
  * @param[in   ] z_r      z coordinates at rho points
@@ -42,7 +41,6 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
                           const Array4<Real      >& rvel,
                           const Array4<Real const>& Hz,
                           const Array4<Real const>& Akv,
-                          const Array4<Real      >& FC,
                           const Array4<Real const>& sstr,
                           const Array4<Real const>& bstr,
                           const Array4<Real const>& z_r,
@@ -56,6 +54,7 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
     BoxArray ba_gbxvel = intersect(BoxArray(vel_bx), gbx);
     AMREX_ASSERT((ba_gbxvel.size() == 1));
     Box gbxvel = ba_gbxvel[0];
+    AMREX_ASSERT(gbxvel.smallEnd(2) == 0 && gbxvel.bigEnd(2) == N);
 
     //
     //  Weighting coefficient for the newest (implicit) time step derivatives
@@ -72,52 +71,63 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
         Print() << "vel old " << Box(vel_old) << std::endl;
         Print() << "Akv " << Box(Akv) << std::endl;
     }
-    ParallelFor(grow(surroundingNodes(vel_bx,2),IntVect(0,0,-1)),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-            Real cff = one / ( z_r(i,j,k)+z_r(i-ioff,j-joff,k)
-                              -z_r(i,j,k-1)-z_r(i-ioff,j-joff,k-1));
-            FC(i,j,k) = oml_dt * cff * (vel_old(i,j,k,nstp)-vel_old(i,j,k-1,nstp)) *
-                                           (Akv(i,j,k)     +Akv(i-ioff,j-joff,k));
-    });
-    ParallelFor(makeSlab(vel_bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-        FC(i,j,0) = dt_lev*bstr(i,j,0);
-        FC(i,j, N+1) = dt_lev*sstr(i,j,0);
-    });
 
-    if (iic==ntfirst || (ioff==0 and joff==0)) {
-        ParallelFor(gbxvel,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real cff1=vel_old(i,j,k,nstp)*Real(0.5)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
-            Real cff2=FC(i,j,k+1)-FC(i,j,k);
+    // Where the variable lies: 0 at the cell center (tracers), 1 on the u-face, 2 on the v-face
+    AMREX_ASSERT(ioff + joff <= 1);
+    const int face = (ioff == 1) ? 1 : ((joff == 1) ? 2 : 0);
+    // Which time-stepping update: the first step (and every tracer step), the second, or the
+    // later ones
+    const int scheme = (iic==ntfirst || face == 0) ? 0 : ((iic==ntfirst+1) ? 1 : 2);
+
+    // The vertical flux FC at the w-level below the cell being updated, carried up the column
+    // from one level to the next: FC(k) = dt*bstr at the bottom (k = 0), the diffusive flux
+    // in the interior and dt*sstr at the surface (k = N+1).
+    const Box bx2d = makeSlab(gbxvel,2,0);
+    FArrayBox fab_FC(bx2d,1,The_Async_Arena());
+    auto const& FCb = fab_FC.array();
+
+    AnyCTO(TypeList<CompileTimeOptions<0,1,2>,CompileTimeOptions<0,1,2>>{}, {face, scheme},
+    [&] (auto const& f) { ParallelFor(bx2d, N+1, f); },
+    [=] AMREX_GPU_DEVICE (int i, int j, int, int k, auto face_c, auto scheme_c)
+    {
+        constexpr int io = (face_c.value == 1) ? 1 : 0;
+        constexpr int jo = (face_c.value == 2) ? 1 : 0;
+
+        const Real FC_lo = (k == 0) ? dt_lev*bstr(i,j,0) : FCb(i,j,0);
+        Real FC_hi;
+        if (k == N) {
+            FC_hi = dt_lev*sstr(i,j,0);
+        } else {
+            const int kp = k+1;
+            Real cff = one / ( z_r(i,j,kp)+z_r(i-io,j-jo,kp)
+                              -z_r(i,j,kp-1)-z_r(i-io,j-jo,kp-1));
+            FC_hi = oml_dt * cff * (vel_old(i,j,kp,nstp)-vel_old(i,j,kp-1,nstp)) *
+                                   (Akv(i,j,kp)     +Akv(i-io,j-jo,kp));
+            FCb(i,j,0) = FC_hi;
+        }
+
+        if (scheme_c.value == 0) {
+            Real cff1=vel_old(i,j,k,nstp)*Real(0.5)*(Hz(i,j,k)+Hz(i-io,j-jo,k));
+            Real cff2=FC_hi-FC_lo;
             vel(i,j,k,nnew)=cff1+cff2;
-        });
-    } else if (iic==ntfirst+1) {
-        ParallelFor(gbxvel,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real cff1=vel_old(i,j,k,nstp)*Real(0.5)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
-            Real cff2=FC(i,j,k+1)-FC(i,j,k);
-            Real DC = Real(0.25) * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
-                                  * (pn(i,j,0)+pn(i-ioff,j-joff,0));
+        } else if (scheme_c.value == 1) {
+            Real cff1=vel_old(i,j,k,nstp)*Real(0.5)*(Hz(i,j,k)+Hz(i-io,j-jo,k));
+            Real cff2=FC_hi-FC_lo;
+            Real DC = Real(0.25) * dt_lev * (pm(i,j,0)+pm(i-io,j-jo,0))
+                                  * (pn(i,j,0)+pn(i-io,j-jo,0));
             Real cff3 = DC * Real(0.5);
             int indx=nrhs ? 0 : 1;
             Real r_swap= rvel(i,j,k,indx);
             rvel(i,j,k,indx) = rvel(i,j,k,nrhs);
             rvel(i,j,k,nrhs) = r_swap;
             vel(i,j,k,nnew)=cff1- cff3*rvel(i,j,k,indx)+ cff2;
-        });
-    } else {
-        ParallelFor(gbxvel,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
+        } else {
             Real cff1 =  Real(5.0)/Real(12.0);
             Real cff2 = Real(16.0)/Real(12.0);
-            Real cff3=vel_old(i,j,k,nstp)*Real(0.5)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
-            Real cff4=FC(i,j,k+1)-FC(i,j,k);
-            Real DC = Real(0.25) * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
-                                  * (pn(i,j,0)+pn(i-ioff,j-joff,0));
+            Real cff3=vel_old(i,j,k,nstp)*Real(0.5)*(Hz(i,j,k)+Hz(i-io,j-jo,k));
+            Real cff4=FC_hi-FC_lo;
+            Real DC = Real(0.25) * dt_lev * (pm(i,j,0)+pm(i-io,j-jo,0))
+                                  * (pn(i,j,0)+pn(i-io,j-jo,0));
 
             int indx=nrhs ? 0 : 1;
             Real r_swap= rvel(i,j,k,indx);
@@ -127,6 +137,6 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
             vel(i,j,k,nnew) = cff3 + DC*(cff1*rvel(i,j,k,nrhs)-
                                                 cff2*rvel(i,j,k,indx))+cff4;
             rvel(i,j,k,nrhs) = zero;
-        });
-    }
+        }
+    });
 }

@@ -164,7 +164,7 @@ REMORA::prestep (int lev,
             const Array4<Real const>& btflx = vec_btflx[lev]->const_array(mfi,i_comp);
             const Array4<Real const>& Akt = vec_Akt[lev]->const_array(mfi,akt_comp(i_comp));
             prestep_diffusion(bx,gbx,0,0,S_new.array(mfi,i_comp), S_old.array(mfi,i_comp), ru,
-                              Hz, Akt, FC, stflx, btflx, z_r, pm, pn, iic, iic, nnew, nstp,
+                              Hz, Akt, stflx, btflx, z_r, pm, pn, iic, iic, nnew, nstp,
                               nrhs, N, lambda, dt_lev);
         }
 
@@ -175,10 +175,10 @@ REMORA::prestep (int lev,
         //
         //updates u,v,ru,rv (ru and rv have multiple components)
 
-        prestep_diffusion(tbxp1, gbx, 1, 0, u, uold, ru, Hz, Akv, FC,
+        prestep_diffusion(tbxp1, gbx, 1, 0, u, uold, ru, Hz, Akv,
                           sustr, bustr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
 
-        prestep_diffusion(tbxp1, gbx, 0, 1, v, vold, rv, Hz, Akv, FC,
+        prestep_diffusion(tbxp1, gbx, 0, 1, v, vold, rv, Hz, Akv,
                           svstr, bvstr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
     }
 }

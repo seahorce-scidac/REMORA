@@ -1129,7 +1129,6 @@ public:
                         const amrex::Array4<amrex::Real      >& rvel,
                         const amrex::Array4<amrex::Real const>& Hz,
                         const amrex::Array4<amrex::Real const>& Akv,
-                        const amrex::Array4<amrex::Real      >& FC,
                         const amrex::Array4<amrex::Real const>& sstr,
                         const amrex::Array4<amrex::Real const>& bstr,
                         const amrex::Array4<amrex::Real const>& z_r,
