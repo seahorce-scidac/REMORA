@@ -525,6 +525,8 @@ endfunction(add_test_0)
 
 add_test_r(DoublyPeriodic               "remora_exec" "plt00010")
 add_test_r(Seamount                     "remora_exec" "plt00010")
+compose_test_input(Seamount_zero_beta_plane_abort Seamount)
+add_test_abort(Seamount_zero_beta_plane_abort "remora_exec" "gives f = 0 everywhere")
 add_test_r(Advection                    "remora_exec" "plt00010")
 # The bulk fluxes with the wind taken relative to the surface current. Over a uniform current, a
 # step with the relative wind must match a step with the absolute wind less the subtracted part

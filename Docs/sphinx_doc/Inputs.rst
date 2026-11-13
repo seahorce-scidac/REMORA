@@ -1183,6 +1183,16 @@ List of Parameters
 |                                          | ``prob.cpp``, and ``netcdf`` is        |                        |                |
 |                                          |                                        |                        |                |
 |                                          | read from the netcdf grid file         |                        |                |
+|                                          |                                        |                        |                |
+|                                          | (``f``). Defaults to ``netcdf`` when   |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``remora.ic_type = netcdf`` with       |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``remora.nc_grid_file_0`` set and      |                        |                |
+|                                          |                                        |                        |                |
+|                                          | neither ``coriolis_f0`` nor            |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``coriolis_beta`` set.                 |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.coriolis_f0**                   | f-plane constant for                   | Real number            | 0.0            |
 |                                          |                                        |                        |                |
@@ -1196,7 +1206,13 @@ List of Parameters
 |                                          |                                        |                        |                |
 |                                          | the southern domain boundary,          |                        |                |
 |                                          |                                        |                        |                |
-|                                          | :math:`y_c` is the domain center       |                        |                |
+|                                          | :math:`y_c` is the domain center.      |                        |                |
+|                                          |                                        |                        |                |
+|                                          | A beta-plane with ``coriolis_f0``      |                        |                |
+|                                          |                                        |                        |                |
+|                                          | and ``coriolis_beta`` both 0 stops     |                        |                |
+|                                          |                                        |                        |                |
+|                                          | the run.                               |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.coriolis_beta**                 | beta-plane constant for                | Real number            | 0.0            |
 |                                          |                                        |                        |                |
