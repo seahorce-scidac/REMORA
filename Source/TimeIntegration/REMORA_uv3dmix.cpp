@@ -2,6 +2,45 @@
 
 using namespace amrex;
 
+namespace {
+
+/** Strain term at a rho point, shared by the x-flux of u and the y-flux of v there */
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+Real strain_r (int i, int j, int k,
+               Array4<Real const> const& Hz, Array4<Real const> const& metr,
+               Array4<Real const> const& pm, Array4<Real const> const& pn,
+               Array4<Real const> const& uold, Array4<Real const> const& vold, int nrhs) noexcept
+{
+    return Real(0.5)*Hz(i,j,k) * ( metr(i,j,0,MetricR::pmon_r) *
+                                ( (pn(i  ,j,0) + pn(i+1,j,0)) * uold(i+1,j,k,nrhs)-
+                                  (pn(i-1,j,0) + pn(i  ,j,0)) * uold(i  ,j,k,nrhs) )-
+                                            metr(i,j,0,MetricR::pnom_r) *
+                                ( (pm(i,j  ,0) + pm(i,j+1,0)) * vold(i,j+1,k,nrhs)-
+                                  (pm(i,j-1,0) + pm(i,j  ,0)) * vold(i,j  ,k,nrhs) ) );
+}
+
+/** Strain term at a psi point, shared by the y-flux of u and the x-flux of v there */
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+Real strain_p (int i, int j, int k,
+               Array4<Real const> const& Hz, Array4<Real const> const& metp,
+               Array4<Real const> const& mskp,
+               Array4<Real const> const& pm, Array4<Real const> const& pn,
+               Array4<Real const> const& uold, Array4<Real const> const& vold, int nrhs) noexcept
+{
+    const Real pmon_p = metp(i,j,0,MetricP::pmon_p);
+    const Real pnom_p = metp(i,j,0,MetricP::pnom_p);
+    return mskp(i,j,0) * Real(0.125) *
+                (Hz(i-1,j  ,k) + Hz(i,j ,k)+ Hz(i-1,j-1,k) + Hz(i,j-1,k))*
+                (pmon_p*
+                 ((pn(i  ,j-1,0)+pn(i  ,j,0))*vold(i  ,j,k,nrhs)-
+                  (pn(i-1,j-1,0)+pn(i-1,j,0))*vold(i-1,j,k,nrhs))+
+                 pnom_p*
+                 ((pm(i-1,j  ,0)+pm(i,j  ,0))*uold(i,j  ,k,nrhs)-
+                  (pm(i-1,j-1,0)+pm(i,j-1,0))*uold(i,j-1,k,nrhs)));
+}
+
+}
+
 /**
  * @param[in   ] xbx       x-nodal tile box
  * @param[in   ] ybx       y-nodal tile box
@@ -73,101 +112,88 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
     //   to do so requires                        UFe on    [ 0:nx  , 0:ny  ] (1,1,0) xy-nodes
     //      which requires                        uold on   [ 0:nx  ,-1:ny  ] (1,0,0) x-faces
     //       and  requires                        vold on   [ -1:nx , 0:ny  ] (0,1,0) y-faces
-
-    ParallelFor(growLo(xbx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        const Real cff = Real(0.5)*Hz(i,j,k) * ( metr(i,j,0,MetricR::pmon_r) *
-                                    ( (pn(i  ,j,0) + pn(i+1,j,0)) * uold(i+1,j,k,nrhs)-
-                                      (pn(i-1,j,0) + pn(i  ,j,0)) * uold(i  ,j,k,nrhs) )-
-                                                metr(i,j,0,MetricR::pnom_r) *
-                                    ( (pm(i,j  ,0) + pm(i,j+1,0)) * vold(i,j+1,k,nrhs)-
-                                      (pm(i,j-1,0) + pm(i,j  ,0)) * vold(i,j  ,k,nrhs) ) );
-
-        Real on_r = metr(i,j,0,MetricR::on_r);
-        UFx(i,j,k) = on_r * on_r * visc2_r(i,j,0) * cff;
-    });
-
-    ParallelFor(growHi(xbx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        const Real pmon_p = metp(i,j,0,MetricP::pmon_p);
-        const Real pnom_p = metp(i,j,0,MetricP::pnom_p);
-        const Real cff = mskp(i,j,0) * Real(0.125) *
-                    (Hz(i-1,j  ,k) + Hz(i,j ,k)+ Hz(i-1,j-1,k) + Hz(i,j-1,k))*
-                    (pmon_p*
-                     ((pn(i  ,j-1,0)+pn(i  ,j,0))*vold(i  ,j,k,nrhs)-
-                      (pn(i-1,j-1,0)+pn(i-1,j,0))*vold(i-1,j,k,nrhs))+
-                     pnom_p*
-                     ((pm(i-1,j  ,0)+pm(i,j  ,0))*uold(i,j  ,k,nrhs)-
-                      (pm(i-1,j-1,0)+pm(i,j-1,0))*uold(i,j-1,k,nrhs)));
-
-        const Real om_p = metp(i,j,0,MetricP::om_p);
-        UFe(i,j,k) = om_p*om_p*visc2_p(i,j,0)*cff;
-    });
-
-    ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
-    {
-        for (int k=0; k<=N; k++) {
-            const Real cff=dt_lev*Real(0.25)*(pm(i-1,j,0)+pm(i,j,0))*(pn(i-1,j,0)+pn(i,j,0));
-            const Real cff1=Real(0.5)*(pn(i-1,j,0)+pn(i,j,0))*(UFx(i,j  ,k)-UFx(i-1,j,k));
-            const Real cff2=Real(0.5)*(pm(i-1,j,0)+pm(i,j,0))*(UFe(i,j+1,k)-UFe(i  ,j,k));
-            const Real cff3=cff*(cff1+cff2);
-            u(i,j,k,nnew)=u(i,j,k,nnew)+cff3;
-            rufrc(i,j,0) += cff1+cff2;
-        }
-    });
-
-
-    // Think of the cell-centered box as                              [ 0:nx-1, 0:ny-1] (0,0,0) cc
     //
-    // ybx is the y-face-centered box on which we update v  [ 0:nx-1, 0:ny  ] (1,0,0) x-faces
+    // ybx is the y-face-centered box on which we update v  [ 0:nx-1, 0:ny  ] (0,1,0) y-faces
     //   to do so requires                        VFe on    [ 0:nx-1,-1:ny  ] (0,0,0) cc
-    //      which requires                        uold on   [ 0:nx  ,-1:ny  ] (1,0,0) x-faces
-    //        and requires                        vold on   [ 0:nx-1,-1:ny+1] (0,1,0) y-faces
     //   to do so requires                        VFx on    [ 0:nx  , 0:ny  ] (1,1,0) xy-nodes
-    //      which requires                        uold on   [ 0:nx  ,-1:ny  ] (1,0,0) x-faces
-    //       and  requires                        vold on   [-1:nx  , 0:ny  ] (0,1,0) y-faces
+    //
+    // The x-flux of u and the y-flux of v at a rho point differ only in their metric
+    // factor, as do the y-flux of u and the x-flux of v at a psi point, so each pair is
+    // computed together from one strain term. At rho points the pair is computed on the
+    // box of UFx, which holds the box of VFe except for the rows below and above it; at psi
+    // points on the box of UFe, which holds the box of VFx except for the column to its
+    // right. Those rows and that column get VFe or VFx alone. Where only one flux of a pair
+    // is read, the other is computed but not read.
+    const Box rbx  = growLo(xbx,0,1);
+    const Box rbxv = growLo(ybx,1,1);
+    const Box pbx  = growHi(xbx,1,1);
+    const Box pbxv = growHi(ybx,0,1);
+    AMREX_ASSERT(rbxv.smallEnd(0) >= rbx.smallEnd(0) && rbxv.bigEnd(0) <= rbx.bigEnd(0));
+    AMREX_ASSERT(pbxv.smallEnd(1) >= pbx.smallEnd(1) && pbxv.bigEnd(1) <= pbx.bigEnd(1));
+    AMREX_ASSERT(pbxv.smallEnd(0) == pbx.smallEnd(0));
+    Box rbxv_lo = rbxv; rbxv_lo.setBig  (1, rbx.smallEnd(1)-1);
+    Box rbxv_hi = rbxv; rbxv_hi.setSmall(1, rbx.bigEnd(1)+1);
+    Box pbxv_hi = pbxv; pbxv_hi.setSmall(0, pbx.bigEnd(0)+1);
 
-    ParallelFor(growLo(ybx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(rbx, rbxv_lo, rbxv_hi,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        // cff depends on k, but UFx and VFe will only be affected by the last cell?
-        const Real cff = Real(0.5)*Hz(i,j,k) * (metr(i,j,0,MetricR::pmon_r) *
-                ((pn(i,  j,0) + pn(i+1,j,0)) * uold(i+1,j,k,nrhs)-
-                 (pn(i-1,j,0) + pn(i,  j,0)) * uold(i  ,j,k,nrhs))-
-                metr(i,j,0,MetricR::pnom_r) *
-                ((pm(i,j  ,0)+pm(i,j+1,0))*vold(i,j+1,k,nrhs)-
-                 (pm(i,j-1,0)+pm(i,j  ,0))*vold(i,j  ,k,nrhs)));
-
+        const Real cff = strain_r(i,j,k,Hz,metr,pm,pn,uold,vold,nrhs);
+        Real on_r = metr(i,j,0,MetricR::on_r);
+        Real om_r = metr(i,j,0,MetricR::om_r);
+        UFx(i,j,k) = on_r * on_r * visc2_r(i,j,0) * cff;
+        VFe(i,j,k) = om_r * om_r * visc2_r(i,j,0) * cff;
+    },
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        const Real cff = strain_r(i,j,k,Hz,metr,pm,pn,uold,vold,nrhs);
+        Real om_r = metr(i,j,0,MetricR::om_r);
+        VFe(i,j,k) = om_r * om_r * visc2_r(i,j,0) * cff;
+    },
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        const Real cff = strain_r(i,j,k,Hz,metr,pm,pn,uold,vold,nrhs);
         Real om_r = metr(i,j,0,MetricR::om_r);
         VFe(i,j,k) = om_r * om_r * visc2_r(i,j,0) * cff;
     });
 
-    ParallelFor(growHi(ybx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(pbx, pbxv_hi,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        const Real pmon_p = metp(i,j,0,MetricP::pmon_p);
-        const Real pnom_p = metp(i,j,0,MetricP::pnom_p);
-        const Real cff = mskp(i,j,0) * Real(0.125) * (Hz(i-1,j  ,k)+Hz(i,j ,k)+
-                              Hz(i-1,j-1,k)+Hz(i,j-1,k))*
-                    (pmon_p*
-                     ((pn(i  ,j-1,0)+pn(i  ,j,0))*vold(i  ,j,k,nrhs)-
-                      (pn(i-1,j-1,0)+pn(i-1,j,0))*vold(i-1,j,k,nrhs))+
-                     pnom_p*
-                     ((pm(i-1,j  ,0)+pm(i,j  ,0))*uold(i,j  ,k,nrhs)-
-                      (pm(i-1,j-1,0)+pm(i,j-1,0))*uold(i,j-1,k,nrhs)));
-
+        const Real cff = strain_p(i,j,k,Hz,metp,mskp,pm,pn,uold,vold,nrhs);
+        const Real om_p = metp(i,j,0,MetricP::om_p);
+        const Real on_p = metp(i,j,0,MetricP::on_p);
+        UFe(i,j,k) = om_p*om_p*visc2_p(i,j,0)*cff;
+        VFx(i,j,k) = on_p*on_p*visc2_p(i,j,0)*cff;
+    },
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        const Real cff = strain_p(i,j,k,Hz,metp,mskp,pm,pn,uold,vold,nrhs);
         const Real on_p = metp(i,j,0,MetricP::on_p);
         VFx(i,j,k) = on_p*on_p*visc2_p(i,j,0)*cff;
     });
 
-    ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+    // Update u and v, and add the depth integral of the viscous term to rufrc and rvfrc,
+    // level by level from the bottom up
+    ParallelFor(makeSlab(xbx,2,0), N+1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int, int k)
     {
-        for (int k=0; k<=N; k++) {
-            const Real cff=dt_lev*Real(0.25)*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
-            const Real cff1=Real(0.5)*(pn(i,j-1,0)+pn(i,j,0))*(VFx(i+1,j,k)-VFx(i,j  ,k));
-            const Real cff2=Real(0.5)*(pm(i,j-1,0)+pm(i,j,0))*(VFe(i  ,j,k)-VFe(i,j-1,k));
-            const Real cff3=cff*(cff1-cff2);
+        const Real cff=dt_lev*Real(0.25)*(pm(i-1,j,0)+pm(i,j,0))*(pn(i-1,j,0)+pn(i,j,0));
+        const Real cff1=Real(0.5)*(pn(i-1,j,0)+pn(i,j,0))*(UFx(i,j  ,k)-UFx(i-1,j,k));
+        const Real cff2=Real(0.5)*(pm(i-1,j,0)+pm(i,j,0))*(UFe(i,j+1,k)-UFe(i  ,j,k));
+        const Real cff3=cff*(cff1+cff2);
+        u(i,j,k,nnew)=u(i,j,k,nnew)+cff3;
+        rufrc(i,j,0) += cff1+cff2;
+    },
+    makeSlab(ybx,2,0), N+1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int, int k)
+    {
+        const Real cff=dt_lev*Real(0.25)*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
+        const Real cff1=Real(0.5)*(pn(i,j-1,0)+pn(i,j,0))*(VFx(i+1,j,k)-VFx(i,j  ,k));
+        const Real cff2=Real(0.5)*(pm(i,j-1,0)+pm(i,j,0))*(VFe(i  ,j,k)-VFe(i,j-1,k));
+        const Real cff3=cff*(cff1-cff2);
 
-            v(i,j,k,nnew)=v(i,j,k,nnew)+cff3;
-            rvfrc(i,j,0) += cff1-cff2;
-        }
+        v(i,j,k,nnew)=v(i,j,k,nnew)+cff3;
+        rvfrc(i,j,0) += cff1-cff2;
     });
 }
