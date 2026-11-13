@@ -51,6 +51,14 @@ class NCTimeSeries
                                            const std::string& field_name, const amrex::Box& domain,
                                            amrex::IndexType ixtype, bool is2d);
 
+        /** Whether the first file supplies an optional forcing field. Collective.
+         * Files in the series must contain the same variables.
+         * @param[in   ] file_names input files in time order
+         * @param[in   ] field_name optional field name
+         */
+        static bool has_field (const amrex::Vector<std::string>& file_names,
+                               const std::string& field_name);
+
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
 

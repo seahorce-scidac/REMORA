@@ -78,3 +78,13 @@ if (REMORA_ENABLE_CUDA)
 endif ()
 add_test(NAME BiologyInterface COMMAND remora_biology_tests)
 set_tests_properties(BiologyInterface PROPERTIES TIMEOUT 60 LABELS "unit")
+
+add_executable(remora_bottom_exchange_math REMORA_BottomExchange_test.cpp)
+target_include_directories(remora_bottom_exchange_math PRIVATE
+  ${PROJECT_SOURCE_DIR}/Source/TimeIntegration)
+target_link_libraries(remora_bottom_exchange_math PRIVATE ${REMORA_AMREX_TARGET})
+if(REMORA_ENABLE_CUDA)
+  setup_target_for_cuda_compilation(remora_bottom_exchange_math)
+endif()
+add_test(NAME BottomExchangeMath COMMAND remora_bottom_exchange_math)
+set_tests_properties(BottomExchangeMath PROPERTIES TIMEOUT 60 LABELS "unit;bottom_exchange")

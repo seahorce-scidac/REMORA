@@ -184,6 +184,25 @@ NCTimeSeries::spatially_uniform () const
                        [] (int u) { return u != 0; });
 }
 
+/** Query optional field availability without duplicating the forcing reader in callers.
+ * @param[in   ] a_file_names input files in time order
+ * @param[in   ] a_field_name optional field name
+ */
+bool
+NCTimeSeries::has_field (const amrex::Vector<std::string>& a_file_names,
+                         const std::string& a_field_name)
+{
+    auto file = ncutils::NCFile::open(a_file_names.front(), NC_NOCLOBBER);
+    int present = 0;
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        present = file.has_var(a_field_name) ? 1 : 0;
+    }
+    file.close();
+    amrex::ParallelDescriptor::Bcast(&present, 1,
+                                    amrex::ParallelDescriptor::IOProcessorNumber());
+    return present != 0;
+}
+
 void NCTimeSeries::Initialize() {
     // open file
     amrex::Print() << "Loading " << field_name << " from NetCDF file(s)" << std::endl;

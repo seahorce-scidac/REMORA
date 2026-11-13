@@ -58,6 +58,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                    const int N, Real dt_lev)
 {
     BL_PROFILE("REMORA::advance_3d()");
+    const MultiFab* bottom_transport = GetBottomExchangeTransport(lev);
     const int nrhs  = 0;
     int nnew  = 0;
 
@@ -307,7 +308,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
 
-        compute_W(gbx1D, W, Huon, Hvom, z_w, h, N);
+        compute_W(gbx1D, W, Huon, Hvom, z_w, h, N,
+                  bottom_transport ? bottom_transport->const_array(mfi) : Array4<Real const>());
     }
 
 #ifdef REMORA_USE_PARTICLES
@@ -426,7 +428,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 #endif
             Array4<Real> const& sstore = mf_sstore->array(mfi, i_comp);
             rhs_t_3d(lev,bx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
-                     Hz, pn, pm, W, FC, mskr, msku, mskv, river_pos, river_source, nrhs, nnew, N,dt_lev,
+                     Hz, pn, pm, W, FC, mskr, msku, mskv, river_pos, river_source,
+                     bottom_transport ? bottom_transport->const_array(mfi,i_comp+1) : Array4<Real const>(),
+                     nrhs, nnew, N,dt_lev,
                      refluxing ? fab_fx_reg.array(i_comp) : Array4<Real>(),
                      refluxing ? fab_fy_reg.array(i_comp) : Array4<Real>());
         }

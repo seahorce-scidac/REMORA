@@ -1272,6 +1272,30 @@ List of Parameters
 |                                          |                                        |                        |                |
 |                                          | domain).                               |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.bottom_exchange_type**          | Bottom water and tracer exchange       | none, constant,        | none           |
+|                                          | provider. See                          | analytic, netcdf,      |                |
+|                                          | :ref:`sec:bottom-exchange`.            | coupler                |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.bottom_q**                      | Constant water flux per horizontal     | Real number            | 0              |
+|                                          | area (m/s), positive into the ocean.   |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.bottom_<name>**                 | Incoming concentration for each tracer | Real number            | Unset          |
+|                                          | registry name; required on inflow      |                        |                |
+|                                          | unless supplied by the provider.       |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.bottom_exchange_file**          | NetCDF forcing files on the level-0    | File name(s)           | Required for   |
+|                                          | rho grid, including its boundary ring. |                        | netcdf         |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.bottom_time_name**              | NetCDF time coordinate, in days on the | String                 | bottom_time    |
+|                                          | model clock.                           |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.bottom_exchange_diagnostics**   | Report source Courant and GLS          | true / false           | false          |
+|                                          | weak-seepage measures each slow step.  |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.bottom_exchange_max_courant**   | Maximum abs(q)*dt/Hz in the bottom     | Real in (0,1]          | 0.5            |
+|                                          | cell; checked at the slow-step         |                        |                |
+|                                          | midpoint.                              |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.nscalar**                       | Number of passive (dye) scalars        | Integer >= 0           | 0              |
 |                                          |                                        |                        |                |
 |                                          | in addition to temperature and         |                        |                |

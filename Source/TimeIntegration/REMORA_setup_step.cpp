@@ -25,6 +25,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     [[maybe_unused]] int nvars = S_old.nComp();
 
+    prepare_bottom_exchange(lev, time, dt_lev);
+
     // Fill ghost cells/faces at old time
     FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t,0,true,true, cons_old, cons_new);
     FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u,0,true,true, xvel_old, xvel_new);
@@ -340,6 +342,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         // Update Akv if using analytic mixing
         set_analytic_vmix(lev);
     }
+
+    check_bottom_exchange(lev, dt_lev);
 
     set_zeta_to_Ztavg(lev);
 

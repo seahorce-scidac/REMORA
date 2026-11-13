@@ -1,6 +1,9 @@
 #include "REMORA_Prob.H"
 #include "REMORA_DepthStretchTransform.H"
 
+#include <cmath>
+#include <limits>
+
 using namespace amrex;
 
 #ifdef ERF_REMORA_FORCE_PROBINIT_LINK
@@ -422,5 +425,26 @@ void Problem::init_analytic_biology (
                      " condition. Add one to Source/Prob/ and a branch for it in"
                      " Problem::init_analytic_biology, or set remora.biology_ic_type to"
                      " constant or netcdf.");
+    }
+}
+
+/** Prescribe an analytic bed flux for the Advection problem.
+ * @param[in   ] lev provider level
+ * @param[in   ] time slow-step midpoint in elapsed model seconds
+ * @param[in   ] geom provider geometry
+ * @param[in   ] remora ocean model and tracer registry
+ * @param[out  ] q_and_concentrations water flux (m/s), then incoming concentrations
+ */
+void
+Problem::bottom_exchange (int lev, Real time, const Geometry& geom,
+                          const REMORA& remora, MultiFab& q_and_concentrations)
+{
+    ParmParse pp("remora");
+    std::string prob_name;
+    pp.get("prob_name", prob_name);
+    if (amrex::toLower(prob_name) == "advection") {
+#include "Prob/REMORA_InitAnalyticBottomExchange_Advection.H"
+    } else {
+        ProblemBase::bottom_exchange(lev, time, geom, remora, q_and_concentrations);
     }
 }

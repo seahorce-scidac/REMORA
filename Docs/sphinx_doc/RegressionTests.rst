@@ -4,7 +4,7 @@
 Regression Tests
 ================
 
-There are currently 68 regression tests which are run as part of every PR on a range of architectures:
+The regression suite runs as part of every PR on a range of architectures. It includes:
 
 * 22 that compare a plotfile against a stored reference;
 * 6 that compare two runs of the model against each other, or a run against its own initial state, and
@@ -15,7 +15,9 @@ There are currently 68 regression tests which are run as part of every PR on a r
 * 8 that assert a run reaches a behavior it reports in its log;
 * 11 that assert a misconfigured input fails for the stated reason.
 
-There are also four unit tests, ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp`` and ``BiologyInterface``. The CI tests use cmake and are based on the version
+The unit tests are ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp``, and ``BiologyInterface``. The bottom
+exchange column tests add self-checking water, tracer and momentum budgets.
+The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
 instructions in :ref:`Testing<Testing>`, which also describes the different kinds of assertion and what
 each is for. All of them run under MPI on two ranks, and are checked to be rank-invariant.
@@ -597,6 +599,45 @@ value of their own, so the barotropic normal velocity at the face stays zero and
 holds the net flux near zero regardless of the 3D ``velocity`` entry: raising it tenfold moves the dye by
 about 7%. Advective inflow is therefore not covered by either lane.
 
+Bottom exchange tests
+---------------------
+
+The ``bottom_exchange`` tests use the Advection problem on an 8 x 8 x 8 domain.
+Checkpoint assertions check the prescribed changes in water, temperature, salt,
+passive tracer and horizontal momentum. No gold files are required.
+
+.. list-table:: Bottom exchange assertions
+   :header-rows: 1
+
+   * - Test
+     - Assertion
+   * - BottomBudgets
+     - Inflow, matching salinity, extraction and impermeable budgets.
+   * - BottomAdaptive
+     - Linear time-ramp integral and actual slow-step midpoint velocity.
+   * - BottomGLS
+     - Freshwater budgets, unstable salinity profile and finite positive TKE.
+   * - BottomAMR
+     - Composite budgets with subcycling, lockstep stepping and regridding.
+   * - BottomSpatial
+     - Integrated correlated velocity and dye forcing, on one and two levels.
+   * - BottomCoupler
+     - Snapshot ownership, exported state and budgets, including flow reversal.
+   * - BottomAMRWall
+     - Complete transport halos and budgets at a refined physical boundary.
+   * - BottomRestart
+     - Bitwise equality of restarted and continuous plotfiles.
+   * - BottomTiled
+     - Bitwise equality of tiled and untiled checkpoints and plotfiles.
+   * - BottomMissingTracer, BottomExpired, BottomCourant
+     - The requested rejection diagnostic.
+   * - BottomNetCDF, BottomNetCDFMulti, BottomNetCDFRing
+     - Timed forcing budgets, multi-file interpolation and supplied rho ring.
+   * - BottomExchangeMath
+     - Donor flux identities and neutral-log-layer GLS ratios.
+
+The three NetCDF tests require PNetCDF. MPI builds run the integration cases on
+two ranks. See :ref:`Testing` for the inventory formulas and tolerances.
 .. _sec:ci-relative-wind-tests:
 
 Relative wind tests

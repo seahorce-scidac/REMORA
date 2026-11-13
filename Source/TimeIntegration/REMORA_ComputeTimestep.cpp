@@ -65,6 +65,10 @@ REMORA::ComputeDt ()
 
     for (int lev = 0; lev <= finest_level; ++lev)
     {
+        if ((fixed_dt <= zero || verbose) &&
+            (solverChoice.bottom_exchange_type != BottomExchangeType::coupler || m_bottom_coupled)) {
+            prepare_bottom_exchange(lev, t_new[lev], Real(0));
+        }
         dt_tmp[lev] = estTimeStep(lev);
     }
 
@@ -129,12 +133,16 @@ REMORA::estTimeStep(int level) const
         return fixed_dt;
     }
 
+    const MultiFab* bottom_transport = GetBottomExchangeTransport(level);
+
     // The barotropic mode is substepped ndtfast times per baroclinic step
     // (REMORA_Advance.cpp), so the slow step only has to resolve the external gravity
     // wave to within that ratio. ReadParameters guarantees ndtfast is positive.
 
     // g is a file-scope constexpr; hoist it into a local for the device lambda.
     const Real grav = solverChoice.g;
+
+    const Real bottom_cfl_scale = cfl/solverChoice.bottom_exchange_max_courant;
 
     MultiFab ccvel(grids[level],dmap[level],3,0);
 
@@ -169,6 +177,8 @@ REMORA::estTimeStep(int level) const
         Array4<Real const> const& pn   = vec_pn[level]->const_array(mfi);
         Array4<Real const> const& mskr = vec_mskr[level]->const_array(mfi);
 
+        const auto bottom = bottom_transport ? bottom_transport->const_array(mfi)
+                                                               : Array4<Real const>();
         reduce_op.eval(bx, reduce_data,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
         {
@@ -182,6 +192,12 @@ REMORA::estTimeStep(int level) const
             // uniform dz is the thickness of a sigma level, not of a cell.
             if (Hz(i,j,k) > zero) {
                 inv_adv = amrex::max(inv_adv, amrex::Math::abs(u(i,j,k,2)) / Hz(i,j,k));
+            }
+
+            if (bottom && k == 0 && Hz(i,j,0) > zero) {
+                // Use the imposed flow even at a quiescent start, before diagnostic w exists.
+                const Real rate = std::abs(bottom(i,j,0))*pm(i,j,0)*pn(i,j,0)/Hz(i,j,0);
+                inv_adv = amrex::max(inv_adv, rate*bottom_cfl_scale);
             }
 
             // Component 0 of vec_h is the bathymetry, positive down. Component 1 is not a

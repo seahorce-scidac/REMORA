@@ -4,8 +4,8 @@ using namespace amrex;
 
 /**
  * Vertical volume flux across the w-levels (ROMS omega times the cell area), from the
- * vertical integral of the horizontal mass flux divergence. W is zero at the bed and at
- * the free surface.
+ * vertical integral of the horizontal mass flux divergence. The bed defaults to zero;
+ * an optional bottom transport permits exchange. The moving free surface has zero W.
  *
  * @param[in   ] bx2d   k = 0 slab of the columns to compute
  * @param[  out] W      vertical volume flux
@@ -22,16 +22,17 @@ REMORA::compute_W (const Box& bx2d,
                    const Array4<Real const>& Hvom,
                    const Array4<Real const>& z_w,
                    const Array4<Real const>& h,
-                   const int N)
+                   const int N,
+                   const Array4<Real const>& bottom)
 {
     ParallelFor(bx2d, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
-        W(i,j,0) = zero;
+        W(i,j,0) = bottom ? bottom(i,j,0) : zero;
     });
     ParallelFor(bx2d, N+1,
     [=] AMREX_GPU_DEVICE (int i, int j, int , int kk)
     {
-        //  Starting with zero vertical velocity at the bottom, integrate
+        //  Starting with the imposed transport at the bottom, integrate
         //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
@@ -56,8 +57,8 @@ REMORA::compute_W (const Box& bx2d,
 }
 
 /**
- * W converted from a volume flux to a velocity, as ROMS scale_omega. It is zero at the bed
- * and the free surface.
+ * W converted from a volume flux to a velocity, as ROMS scale_omega. The bed defaults
+ * to impermeable and may exchange water; the moving free surface has zero omega.
  *
  * If both mf_omega and the fluxes have ghost cells, the first ghost column is computed
  * directly from the fluxes there, as advance_3d computes W, so it is right at domain and
@@ -75,6 +76,7 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
                        const MultiFab& mf_Huon, const MultiFab& mf_Hvom)
 {
     const int N = Geom(lev).Domain().size()[2]-1;
+    const MultiFab* bottom_transport = GetBottomExchangeTransport(lev);
 
     // The first ghost column is computed only where both the output and the fluxes have it:
     // the fluxes update_massflux_3d keeps on grown boxes have it (the particles normally take
@@ -102,8 +104,14 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
 
         Box bx2d = makeSlab(grow(mfi.validbox(), ng), 2, 0);
         compute_W(bx2d, W, mf_Huon.const_array(mfi), mf_Hvom.const_array(mfi),
-                  vec_z_w[lev]->const_array(mfi), vec_h[lev]->const_array(mfi), N);
+                  vec_z_w[lev]->const_array(mfi), vec_h[lev]->const_array(mfi), N,
+                  bottom_transport ? bottom_transport->const_array(mfi) : Array4<Real const>());
 
+        if (bottom_transport) {
+            ParallelFor(bx2d, [=] AMREX_GPU_DEVICE (int i,int j,int) {
+                W(i,j,0) *= pm(i,j,0)*pn(i,j,0);
+            });
+        }
         ParallelFor(bx2d, N, [=] AMREX_GPU_DEVICE (int i, int j, int, int kk)
         {
             W(i,j,kk+1) *= pm(i,j,0) * pn(i,j,0);
@@ -163,6 +171,7 @@ void
 REMORA::compute_wvel (int lev, MultiFab& mf_w, const MultiFab& mf_omega)
 {
     const int nz = Geom(lev).Domain().length(2);
+    const MultiFab* bottom_transport = GetBottomExchangeTransport(lev);
     // The cubic stencil reaches three rho-levels in from each end
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(nz >= 3, "compute_wvel needs at least 3 vertical levels");
 
@@ -190,6 +199,8 @@ REMORA::compute_wvel (int lev, MultiFab& mf_w, const MultiFab& mf_omega)
         Array4<Real const> const& DU_avg1 = vec_DU_avg1[lev]->const_array(mfi);
         Array4<Real const> const& DV_avg1 = vec_DV_avg1[lev]->const_array(mfi);
 
+        const auto bottom = bottom_transport ? bottom_transport->const_array(mfi)
+                                                            : Array4<Real const>();
         const Box bx = mfi.validbox().enclosedCells(2);
         FArrayBox fab_vert(bx,1,amrex::The_Async_Arena());
         auto vert = fab_vert.array();
@@ -209,8 +220,9 @@ REMORA::compute_wvel (int lev, MultiFab& mf_w, const MultiFab& mf_omega)
         ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             // Free-surface stretching: d(zeta)/d(t) spread linearly through the column
-            const Real wrk = (DU_avg1(i,j,0)-DU_avg1(i+1,j,0) + DV_avg1(i,j,0)-DV_avg1(i,j+1,0))
+            Real wrk = (DU_avg1(i,j,0)-DU_avg1(i+1,j,0) + DV_avg1(i,j,0)-DV_avg1(i,j+1,0))
                            / (z_w(i,j,nz)-z_w(i,j,0));
+            if (bottom) { wrk += bottom(i,j,0)/(z_w(i,j,nz)-z_w(i,j,0)); }
             const Real pmpn = pm(i,j,0)*pn(i,j,0);
             auto interior = [&] (int k) {
                 return omega(i,j,k) + pmpn*wrk*(z_w(i,j,k)-z_w(i,j,0));
@@ -219,6 +231,7 @@ REMORA::compute_wvel (int lev, MultiFab& mf_w, const MultiFab& mf_omega)
             Real slope = (z_r(i,j,0)-z_w(i,j,0)) / (z_r(i,j,1)-z_r(i,j,0)); // extrapolation slope
             wvel(i,j,0) = cff1*(vert(i,j,0) - slope*(vert(i,j,1)-vert(i,j,0)))
                         + cff2*vert(i,j,0) - cff3*vert(i,j,1);
+            if (bottom) { wvel(i,j,0) += bottom(i,j,0)*pmpn; }
             wvel(i,j,1) = interior(1) + cff1*vert(i,j,0) + cff2*vert(i,j,1) - cff3*vert(i,j,2);
             for (int k = 2; k <= nz-2; ++k) {
                 wvel(i,j,k) = interior(k) + cff4*(vert(i,j,k-1)+vert(i,j,k  ))

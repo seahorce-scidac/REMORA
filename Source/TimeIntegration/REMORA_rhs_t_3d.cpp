@@ -1,3 +1,4 @@
+#include <REMORA_BottomExchange.H>
 #include <REMORA.H>
 
 using namespace amrex;
@@ -40,6 +41,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
                  const Array4<Real const>& mskv,
                  const Array4<int  const>& river_pos,
                  const Array4<Real const>& river_source,
+                 const Array4<Real const>& bottom_incoming,
                  int nrhs, int nnew, int N, Real dt_lev,
                  const Array4<Real>& fx_reg,
                  const Array4<Real>& fy_reg)
@@ -297,7 +299,8 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
             FC(i,j,1)=( cff2*sstore(i  ,j,1)+ cff1*sstore(i,j,0)
                        -cff3*sstore(i  ,j,2) ) * ( W(i  ,j,1));
         } else if (k==0) {
-            FC(i,j,0) = Real(0.0);
+            FC(i,j,0) = bottom_incoming ? BottomExchange::tracer_flux(
+                W(i,j,0), bottom_incoming(i,j,0), sstore(i,j,0)) : Real(0);
         }
     });
 

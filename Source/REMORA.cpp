@@ -15,6 +15,19 @@
 
 using namespace amrex;
 
+/** Look up a transported field in the ocean-state registry.
+ * @param[in   ] name registered field name
+ * @return component in the cell-centered state
+ */
+int
+REMORA::component_index (const std::string& name) const
+{
+    const auto entry = std::find(cons_names.begin(), cons_names.end(), name);
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(entry != cons_names.end(), "Unknown tracer: " + name);
+    return static_cast<int>(entry - cons_names.begin());
+}
+
+
 amrex::Real REMORA::startCPUTime        = zero;
 amrex::Real REMORA::previousCPUTimeUsed = zero;
 
@@ -563,6 +576,12 @@ REMORA::InitData ()
         for (int lev = 1; lev <= finest_level; lev++) {
             define_flux_register(lev);
         }
+    }
+
+    // Make the prescribed bed transport available to initial/restart diagnostics.
+    // A coupled driver supplies its first snapshot after InitData returns.
+    if (solverChoice.bottom_exchange_type != BottomExchangeType::coupler) {
+        for (int lev=0; lev<=finest_level; ++lev) { prepare_bottom_exchange(lev, t_new[lev], Real(0)); }
     }
 
     // Fill ghost cells/faces
