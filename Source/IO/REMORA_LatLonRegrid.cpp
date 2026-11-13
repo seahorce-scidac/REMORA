@@ -92,10 +92,9 @@ find_source_grid (const std::string& file_name, const std::string& field_name,
     SourceGrid g;
     std::string error;
 
-    auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
-    ncmpi_begin_indep_data(ncf.ncid);
     if (ParallelDescriptor::IOProcessor())
     {
+        auto ncf = ncutils::NCFile::open_local(file_name);
         const auto var = ncf.var(field_name);
         const int rank = var.ndim();
 
@@ -174,8 +173,8 @@ find_source_grid (const std::string& file_name, const std::string& field_name,
                 if (!v.empty()) { *has = 1; *val = v[0]; }
             }
         }
+        ncf.close();
     }
-    ncf.close();
 
     bcast_string(error);
     if (!error.empty()) {
@@ -464,7 +463,7 @@ LatLonRegrid::apply (const std::string& file_name, const std::string& field_name
     std::vector<Real> east(static_cast<std::size_t>(ni_east) * nj);
     std::vector<Real> wrap(static_cast<std::size_t>(ni_wrap) * nj);
     {
-        auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
+        auto ncf = ncutils::NCFile::open(file_name, NC_NOWRITE);
         const auto var = ncf.var(field_name);
         const auto shape = var.shape();
         AMREX_ALWAYS_ASSERT_WITH_MESSAGE(shape.size() == 3 && shape[1] == nlat && shape[2] == nlon &&
@@ -606,18 +605,19 @@ bool
 LatLonRegrid::has_latlon_axes (const std::string& file_name, const std::string& field_name)
 {
     int found = 0;
-    auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
-    ncmpi_begin_indep_data(ncf.ncid);
-    if (ParallelDescriptor::IOProcessor() && ncf.has_var(field_name)) {
-        const auto var = ncf.var(field_name);
-        const int rank = var.ndim();
-        if (rank >= 2 && has_dimension_coordinate(ncf, var, rank-1) &&
-                         has_dimension_coordinate(ncf, var, rank-2)) {
-            found = units_say(ncf.var(dim_name(ncf, var, rank-1)), "east") &&
-                    units_say(ncf.var(dim_name(ncf, var, rank-2)), "north");
+    if (ParallelDescriptor::IOProcessor()) {
+        auto ncf = ncutils::NCFile::open_local(file_name);
+        if (ncf.has_var(field_name)) {
+            const auto var = ncf.var(field_name);
+            const int rank = var.ndim();
+            if (rank >= 2 && has_dimension_coordinate(ncf, var, rank-1) &&
+                             has_dimension_coordinate(ncf, var, rank-2)) {
+                found = units_say(ncf.var(dim_name(ncf, var, rank-1)), "east") &&
+                        units_say(ncf.var(dim_name(ncf, var, rank-2)), "north");
+            }
         }
+        ncf.close();
     }
-    ncf.close();
     ParallelDescriptor::Bcast(&found, 1, ParallelDescriptor::IOProcessorNumber());
     return found != 0;
 }

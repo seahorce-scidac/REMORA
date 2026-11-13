@@ -39,6 +39,14 @@ that `inputs/masked_grid_perf.in` runs from `<dir>`; it is not yet wired into th
 Run it with and without the options and compare the outputs with `remora_subset_compare`
 (built with the tests), since the BoxArrays differ.
 
+For NetCDF reading, `make_read_scaling_data.py --dir <dir> --n-cell 1536 1536 32` writes a
+grid, initial and wind-forcing file of any size (add `--format NETCDF4 --suffix _nc4z` for
+compressed NetCDF-4), which `inputs/netcdf_read_perf.in` reads from `<dir>` and stops
+(`remora.max_step = 0`). Build with `REMORA_ENABLE_TINY_PROFILE` for the per-reader times,
+set `remora.v = 1` for the read-region ratio, and run each case in its own job: a job that
+reads files another just read can be served from the file system's cache. It is not wired
+into the script either.
+
 The CPU job also runs the baseline with `remora.omp_tile_size=1024000 16 1024000`
 (`<baseline>_j16`, the 16-row strips that were an earlier default; the current CPU default is
 16x16 columns), so the effect of the tile shape and of the threading can be told

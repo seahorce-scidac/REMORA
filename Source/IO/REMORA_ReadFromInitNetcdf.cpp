@@ -16,14 +16,14 @@ using namespace amrex;
  */
 void
 read_data_from_netcdf (int /*lev*/,
-                       const Box& domain,
+                       const Box& domain, const NCRegion& region,
                        const std::string& fname,
-                       FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
-                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab)
+                       NCLocalFab& NC_temp_fab, NCLocalFab& NC_salt_fab,
+                       NCLocalFab& NC_xvel_fab, NCLocalFab& NC_yvel_fab)
 {
     amrex::Print() << "Loading initial solution data from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
@@ -33,7 +33,7 @@ read_data_from_netcdf (int /*lev*/,
     NC_fabs.push_back(&NC_yvel_fab); NC_names.push_back("v");        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE); // 3
 
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
 /**
@@ -48,15 +48,15 @@ read_data_from_netcdf (int /*lev*/,
  */
 void
 read_data_full_domain_from_netcdf (int /*lev*/,
-                       const Box& domain,
+                       const Box& domain, const NCRegion& region,
                        const std::string& fname,
-                       FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
-                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
+                       NCLocalFab& NC_temp_fab, NCLocalFab& NC_salt_fab,
+                       NCLocalFab& NC_xvel_fab, NCLocalFab& NC_yvel_fab,
                        IntVect ngrow)
 {
     amrex::Print() << "Loading initial solution data from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
@@ -66,7 +66,7 @@ read_data_full_domain_from_netcdf (int /*lev*/,
     NC_fabs.push_back(&NC_yvel_fab); NC_names.push_back("v");        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE); // 3
 
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
 }
 
 /**
@@ -78,10 +78,10 @@ read_data_full_domain_from_netcdf (int /*lev*/,
  */
 void
 read_biology_from_netcdf (int /*lev*/,
-                          const Box& domain,
+                          const Box& domain, const NCRegion& region,
                           const std::string& fname,
                           const Vector<std::string>& biology_names,
-                          Vector<FArrayBox>& NC_biology_fab)
+                          Vector<NCLocalFab>& NC_biology_fab)
 {
     if (biology_names.empty()) {
         return;
@@ -90,7 +90,7 @@ read_biology_from_netcdf (int /*lev*/,
     amrex::Print() << "Loading initial biology data from NetCDF file " << fname << std::endl;
 
     NC_biology_fab.resize(biology_names.size());
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
     for (int ibio = 0; ibio < static_cast<int>(biology_names.size()); ++ibio) {
@@ -98,7 +98,7 @@ read_biology_from_netcdf (int /*lev*/,
         NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
     }
 
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, biology_names, NC_dim_types, NC_fabs);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, biology_names, NC_dim_types, NC_fabs);
 }
 
 /**
@@ -111,10 +111,10 @@ read_biology_from_netcdf (int /*lev*/,
  */
 void
 read_biology_full_domain_from_netcdf (int /*lev*/,
-                                      const Box& domain,
+                                      const Box& domain, const NCRegion& region,
                                       const std::string& fname,
                                       const Vector<std::string>& biology_names,
-                                      Vector<FArrayBox>& NC_biology_fab,
+                                      Vector<NCLocalFab>& NC_biology_fab,
                                       IntVect ngrow)
 {
     if (biology_names.empty()) {
@@ -124,7 +124,7 @@ read_biology_full_domain_from_netcdf (int /*lev*/,
     amrex::Print() << "Loading high resolution biology data from NetCDF file " << fname << std::endl;
 
     NC_biology_fab.resize(biology_names.size());
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
     for (int ibio = 0; ibio < static_cast<int>(biology_names.size()); ++ibio) {
@@ -132,7 +132,7 @@ read_biology_full_domain_from_netcdf (int /*lev*/,
         NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
     }
 
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, biology_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, biology_names, NC_dim_types, NC_fabs, false, 0, ngrow);
 }
 
 /**
@@ -142,10 +142,10 @@ read_biology_full_domain_from_netcdf (int /*lev*/,
  * @param ngrow     grow cells the read asks for, i.e. cum_ref_ratios[hires_*_level]
  *
  * A high-resolution file has to carry the refined domain plus ngrow rings on every side
- * (Docs/sphinx_doc/Inputs.rst). Checking that up front is not a nicety: BuildFABsFromNetCDFFile
- * copies on intersection and fill_fab_from_arrays only asserts that the destination box is big
- * enough for the source, so a file with too FEW grow cells reads cleanly and silently leaves
- * the outer rings of the FAB at whatever they held -- which then gets averaged down into
+ * (Docs/sphinx_doc/Inputs.rst). Checking that up front is not a nicety: the readers
+ * (BuildLocalFABsFromNetCDFFile) read only what the file holds and are copied on intersection,
+ * so a file with too FEW grow cells reads cleanly and silently leaves the outer rings of the
+ * destination at whatever they held -- which then gets averaged down into
  * level 0. Only rho-point variables are checked; that is enough to catch an undersized file,
  * and it avoids re-deriving the staggered offsets here.
  */
@@ -160,10 +160,9 @@ check_hires_dims_from_netcdf (const std::string& fname,
     const long need_x = static_cast<long>(domain.length(0)) + 2L * ngrow[0];
     const long need_y = static_cast<long>(domain.length(1)) + 2L * ngrow[1];
 
-    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
-    ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
+        auto ncf = ncutils::NCFile::open_local(fname);
         if (!ncf.has_var(var_name)) {
             // Say so here. The reader that follows would otherwise fail inside ncmpi_inq_varid,
             // which names neither the file nor the variable it was asked for.
@@ -177,8 +176,8 @@ check_hires_dims_from_netcdf (const std::string& fname,
                 too_small = (found_x < need_x || found_y < need_y) ? 1 : 0;
             }
         }
+        ncf.close();
     }
-    ncf.close();
 
     const int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     amrex::ParallelDescriptor::Bcast(&too_small, 1, ioproc);
@@ -230,10 +229,10 @@ check_hires_dims_from_netcdf (const std::string& fname,
  */
 namespace {
 void
-read_scalars_impl (const Box& domain,
+read_scalars_impl (const Box& domain, const NCRegion& region,
                    const std::string& fname,
                    const Vector<std::string>& scalar_names,
-                   Vector<FArrayBox>& NC_scalar_fab,
+                   Vector<NCLocalFab>& NC_scalar_fab,
                    Vector<int>& scalar_in_file,
                    bool full_domain,
                    IntVect ngrow)
@@ -244,7 +243,7 @@ read_scalars_impl (const Box& domain,
     }
 
     NC_scalar_fab.resize(scalar_names.size());
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
     Vector<std::string> missing;
@@ -275,9 +274,9 @@ read_scalars_impl (const Box& domain,
     // Read the netcdf file and fill these FABs. The per-box read takes the reader's
     // default grow cells, as the temperature and salinity read does.
     if (full_domain) {
-        BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+        BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
     } else {
-        BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+        BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs);
     }
 }
 } // namespace
@@ -292,13 +291,13 @@ read_scalars_impl (const Box& domain,
  */
 void
 read_scalars_from_netcdf (int /*lev*/,
-                          const Box& domain,
+                          const Box& domain, const NCRegion& region,
                           const std::string& fname,
                           const Vector<std::string>& scalar_names,
-                          Vector<FArrayBox>& NC_scalar_fab,
+                          Vector<NCLocalFab>& NC_scalar_fab,
                           Vector<int>& scalar_in_file)
 {
-    read_scalars_impl(domain, fname, scalar_names, NC_scalar_fab, scalar_in_file,
+    read_scalars_impl(domain, region, fname, scalar_names, NC_scalar_fab, scalar_in_file,
                       false, IntVect(0,0,0));
 }
 
@@ -313,14 +312,14 @@ read_scalars_from_netcdf (int /*lev*/,
  */
 void
 read_scalars_full_domain_from_netcdf (int /*lev*/,
-                                      const Box& domain,
+                                      const Box& domain, const NCRegion& region,
                                       const std::string& fname,
                                       const Vector<std::string>& scalar_names,
-                                      Vector<FArrayBox>& NC_scalar_fab,
+                                      Vector<NCLocalFab>& NC_scalar_fab,
                                       Vector<int>& scalar_in_file,
                                       IntVect ngrow)
 {
-    read_scalars_impl(domain, fname, scalar_names, NC_scalar_fab, scalar_in_file,
+    read_scalars_impl(domain, region, fname, scalar_names, NC_scalar_fab, scalar_in_file,
                       true, ngrow);
 }
 
@@ -332,20 +331,20 @@ read_scalars_full_domain_from_netcdf (int /*lev*/,
  */
 void
 read_zeta_from_netcdf (int /*lev*/,
-                      const Box& domain,
+                      const Box& domain, const NCRegion& region,
                       const std::string& fname,
-                      FArrayBox& NC_zeta_fab)
+                      NCLocalFab& NC_zeta_fab)
 {
     amrex::Print() << "Loading initial sea surface height from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
     NC_fabs.push_back(&NC_zeta_fab )   ; NC_names.push_back("zeta")    ; NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 0
 
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
 /**
@@ -357,21 +356,21 @@ read_zeta_from_netcdf (int /*lev*/,
  */
 void
 read_zeta_full_domain_from_netcdf (int /*lev*/,
-                      const Box& domain,
+                      const Box& domain, const NCRegion& region,
                       const std::string& fname,
-                      FArrayBox& NC_zeta_fab,
+                      NCLocalFab& NC_zeta_fab,
                       IntVect ngrow)
 {
     amrex::Print() << "Loading initial sea surface height from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
     NC_fabs.push_back(&NC_zeta_fab )   ; NC_names.push_back("zeta")    ; NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 0
 
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
 }
 
 /**
@@ -382,20 +381,20 @@ read_zeta_full_domain_from_netcdf (int /*lev*/,
  */
 void
 read_bathymetry_from_netcdf (int /*lev*/,
-                             const Box& domain,
+                             const Box& domain, const NCRegion& region,
                              const std::string& fname,
-                             FArrayBox& NC_h_fab)
+                             NCLocalFab& NC_h_fab)
 {
     amrex::Print() << "Loading initial bathymetry from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
     NC_fabs.push_back(&NC_h_fab )   ; NC_names.push_back("h")     ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
 
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
 /**
@@ -415,17 +414,17 @@ read_bathymetry_from_netcdf (int /*lev*/,
  */
 void
 read_grid_vars_from_netcdf (int /*lev*/,
-                             const Box& domain,
+                             const Box& domain, const NCRegion& region,
                              const std::string& fname,
-                             FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab,
-                             FArrayBox& NC_xr_fab, FArrayBox& NC_yr_fab,
-                             FArrayBox& NC_xu_fab, FArrayBox& NC_yu_fab,
-                             FArrayBox& NC_xv_fab, FArrayBox& NC_yv_fab,
-                             FArrayBox& NC_xp_fab, FArrayBox& NC_yp_fab)
+                             NCLocalFab& NC_pm_fab, NCLocalFab& NC_pn_fab,
+                             NCLocalFab& NC_xr_fab, NCLocalFab& NC_yr_fab,
+                             NCLocalFab& NC_xu_fab, NCLocalFab& NC_yu_fab,
+                             NCLocalFab& NC_xv_fab, NCLocalFab& NC_yv_fab,
+                             NCLocalFab& NC_xp_fab, NCLocalFab& NC_yp_fab)
 {
     amrex::Print() << "Loading grid variables from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
@@ -441,7 +440,7 @@ read_grid_vars_from_netcdf (int /*lev*/,
     NC_fabs.push_back(&NC_yp_fab)   ; NC_names.push_back("y_psi") ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 10
 
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
 /**
@@ -464,10 +463,10 @@ read_grid_vars_from_netcdf (int /*lev*/,
  * call stand or fall together: a partial set is reported as absent.
  */
 bool
-read_optional_grid_vars_from_netcdf (const Box& domain,
+read_optional_grid_vars_from_netcdf (const Box& domain, const NCRegion& region,
                                      const std::string& fname,
                                      const Vector<std::string>& names,
-                                     const Vector<FArrayBox*>& fabs,
+                                     const Vector<NCLocalFab*>& fabs,
                                      const std::string& what,
                                      IntVect ngrow)
 {
@@ -486,7 +485,7 @@ read_optional_grid_vars_from_netcdf (const Box& domain,
     amrex::Print() << "Loading " << what << " from NetCDF file " << fname << std::endl;
 
     Vector<enum NC_Data_Dims_Type> NC_dim_types(names.size(), NC_Data_Dims_Type::SN_WE);
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, names, NC_dim_types, fabs,
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, names, NC_dim_types, fabs,
                                             false, 0, ngrow);
     return true;
 }
@@ -498,20 +497,20 @@ read_optional_grid_vars_from_netcdf (const Box& domain,
  * @param ngrow           number of grow cells to read in, if not default
  */
 void
-read_bathymetry_full_domain_from_netcdf (const Box& domain,
+read_bathymetry_full_domain_from_netcdf (const Box& domain, const NCRegion& region,
                                          const std::string& fname,
-                                         FArrayBox& NC_h_fab, IntVect ngrow)
+                                         NCLocalFab& NC_h_fab, IntVect ngrow)
 {
     amrex::Print() << "Loading high resolution bathymetry from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
     NC_fabs.push_back(&NC_h_fab )   ; NC_names.push_back("h")     ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
 
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
 }
 
 /**
@@ -525,20 +524,20 @@ read_bathymetry_full_domain_from_netcdf (const Box& domain,
  * level's staggered masks stay consistent with its rho-mask.
  */
 void
-read_masks_full_domain_from_netcdf (const Box& domain,
+read_masks_full_domain_from_netcdf (const Box& domain, const NCRegion& region,
                                     const std::string& fname,
-                                    FArrayBox& NC_mskr_fab, IntVect ngrow)
+                                    NCLocalFab& NC_mskr_fab, IntVect ngrow)
 {
     amrex::Print() << "Loading high resolution land/sea mask from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
     NC_fabs.push_back(&NC_mskr_fab) ; NC_names.push_back("mask_rho") ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
 
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
 }
 
 /**
@@ -550,21 +549,21 @@ read_masks_full_domain_from_netcdf (const Box& domain,
  * @param ngrow           number of grow cells to read in, if not default
  */
 void
-read_grid_vars_full_domain_from_netcdf (const Box& domain,
+read_grid_vars_full_domain_from_netcdf (const Box& domain, const NCRegion& region,
                              const std::string& fname,
-                             FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab,
+                             NCLocalFab& NC_pm_fab, NCLocalFab& NC_pn_fab,
                              IntVect ngrow)
 {
     amrex::Print() << "Loading high resolution grid variables from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
     NC_fabs.push_back(&NC_pm_fab)   ; NC_names.push_back("pm")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
     NC_fabs.push_back(&NC_pn_fab)   ; NC_names.push_back("pn")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 1
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
 }
 
 /**
@@ -575,20 +574,20 @@ read_grid_vars_full_domain_from_netcdf (const Box& domain,
  */
 void
 read_coriolis_from_netcdf (int /*lev*/,
-                           const Box& domain,
+                           const Box& domain, const NCRegion& region,
                            const std::string& fname,
-                           FArrayBox& NC_fcor_fab)
+                           NCLocalFab& NC_fcor_fab)
 {
     amrex::Print() << "Loading initial coriolis from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
     NC_fabs.push_back(&NC_fcor_fab )   ; NC_names.push_back("f")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
 
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
 /**
@@ -603,20 +602,20 @@ read_coriolis_from_netcdf (int /*lev*/,
  */
 void
 read_masks_from_netcdf (int /*lev*/,
-                        const Box& domain,
+                        const Box& domain, const NCRegion& region,
                         const std::string& fname,
-                        FArrayBox& NC_mskr_fab)
+                        NCLocalFab& NC_mskr_fab)
 {
     amrex::Print() << "Loading masks from NetCDF file " << fname << std::endl;
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
     NC_fabs.push_back(&NC_mskr_fab )   ; NC_names.push_back("mask_rho")  ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
 
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
 /**
@@ -635,22 +634,22 @@ read_masks_from_netcdf (int /*lev*/,
  */
 void
 read_clim_nudg_coeff_from_netcdf (int /*lev*/,
-                        const Box& domain,
+                        const Box& domain, const NCRegion& region,
                         const std::string& fname,
                         bool do_m2_clim_nudg,
                         bool do_m3_clim_nudg,
                         const amrex::Vector<int>& do_cons_clim_nudg,
                         const amrex::Vector<std::string>& cons_names,
-                        FArrayBox& NC_M2NC_fab,
-                        FArrayBox& NC_M3NC_fab,
-                        amrex::Vector<FArrayBox>& NC_ConsNC_fab,
+                        NCLocalFab& NC_M2NC_fab,
+                        NCLocalFab& NC_M3NC_fab,
+                        amrex::Vector<NCLocalFab>& NC_ConsNC_fab,
                         amrex::Vector<int>& cons_coeff_in_file)
 {
     amrex::Print() << "Loading nudging coefficients from NetCDF file " << fname << std::endl;
 
     const int l_ncons = do_cons_clim_nudg.size();
 
-    Vector<FArrayBox*> NC_fabs;
+    Vector<NCLocalFab*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
@@ -684,7 +683,7 @@ read_clim_nudg_coeff_from_netcdf (int /*lev*/,
     }
 
     // Read the netcdf file and fill these FABs
-    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    BuildLocalFABsFromNetCDFFile<FArrayBox,Real>(domain, region, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
 /**

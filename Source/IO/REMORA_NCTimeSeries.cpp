@@ -153,10 +153,9 @@ NCTimeSeries::source_grid (const amrex::Vector<std::string>& a_file_names,
     bool any_latlon = false, all_uniform = true;
     for (const auto& file_name : a_file_names) {
         int kind = 0;
-        {
-            auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
-            ncmpi_begin_indep_data(ncf.ncid);
-            if (amrex::ParallelDescriptor::IOProcessor() && ncf.has_var(a_field_name)) {
+        if (amrex::ParallelDescriptor::IOProcessor()) {
+            auto ncf = ncutils::NCFile::open_local(file_name);
+            if (ncf.has_var(a_field_name)) {
                 const auto var = ncf.var(a_field_name);
                 if (var.ndim() == 1) {
                     kind = 1;
@@ -166,8 +165,8 @@ NCTimeSeries::source_grid (const amrex::Vector<std::string>& a_file_names,
                 }
             }
             ncf.close();
-            amrex::ParallelDescriptor::Bcast(&kind, 1, amrex::ParallelDescriptor::IOProcessorNumber());
         }
+        amrex::ParallelDescriptor::Bcast(&kind, 1, amrex::ParallelDescriptor::IOProcessorNumber());
         if (kind == 0 && LatLonRegrid::has_latlon_axes(file_name, a_field_name)) { kind = 2; }
         any_latlon = any_latlon || kind == 2;
         all_uniform = all_uniform && kind == 1;
@@ -223,15 +222,13 @@ void NCTimeSeries::Initialize() {
         double l_cycle_length = 0.0;
         int l_is_spatially_uniform = 0;
         // Shape check verdict, decided on the IO rank and broadcast so that every rank
-        // leaves the collective file calls below before any of them aborts.
+        // aborts together.
         int l_shape_mismatch = 0;
         std::vector<long long> l_file_shape(4, 0);
 
-        auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
-        ncmpi_begin_indep_data(ncf.ncid);
-
         if (amrex::ParallelDescriptor::IOProcessor())
         {
+            auto ncf = ncutils::NCFile::open_local(file_name);
             auto time_var = ncf.var(time_name);
 
             l_is_cycle = time_var.has_attr("cycle_length");
@@ -274,9 +271,8 @@ void NCTimeSeries::Initialize() {
                 l_shape_mismatch = matches_native_shape(
                         file_shape, native_spatial_shape(domain, mf_var->ixType(), is2d)) ? 0 : 1;
             }
+            ncf.close();
         }
-
-        ncf.close();
 
         const int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
         int is_cycle_int = l_is_cycle ? 1 : 0;
@@ -641,6 +637,7 @@ NCTimeSeries::get_interpolated_mf (int lev) const {
  * @param[in   ] itime     index of time step to read from file
  */
 void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
+    BL_PROFILE("NCTimeSeries::read_in_at_time()");
     const int ifile = file_for_time[itime];
     const std::string& file_name = file_names[ifile];
     const int itime_offset = file_itime_offset[itime];
@@ -678,8 +675,8 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
     }
 
     // This all assumes that we're on level 0 with only one boxes_at_level
-    amrex::FArrayBox NC_fab;
-    amrex::Vector<amrex::FArrayBox*> NC_fabs;
+    NCLocalFab NC_fab;
+    amrex::Vector<NCLocalFab*> NC_fabs;
     amrex::Vector<std::string> NC_names;
     amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
@@ -692,8 +689,27 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
         NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
     }
 
-    BuildFABsFromNetCDFFile<amrex::FArrayBox,amrex::Real>(domain, file_name, NC_names, NC_dim_types,
-                                                          NC_fabs, true, itime_offset);
+    // Each rank reads the part of the field its own FABs of mf cover. The region
+    // depends only on mf's layout, so it is worked out again only when that changes.
+    if (read_region_ba != mf->boxArray() || read_region_dm != mf->DistributionMap()) {
+        read_region = nc_local_region(*mf);
+        read_region_ba = mf->boxArray();
+        read_region_dm = mf->DistributionMap();
+    }
+
+    // The file stays open for the next record; a series moving on to its next file
+    // closes the last one first.
+    if (open_file_index != ifile) {
+        open_file.reset();
+        open_file = NCReadSession::open_file(file_name, amrex::ParallelContext::CommunicatorSub());
+        open_file_index = ifile;
+    }
+
+    BuildLocalFABsFromNetCDFFile<amrex::FArrayBox,amrex::Real>(domain, read_region, file_name,
+                                                               NC_names, NC_dim_types,
+                                                               NC_fabs, true, itime_offset,
+                                                               amrex::IntVect(1,1,0),
+                                                               open_file.get());
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -702,13 +718,9 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
     // Don't tile this since we are operating on full FABs in this routine
     for ( amrex::MFIter mfi(*mf, false); mfi.isValid(); ++mfi )
     {
-        amrex::FArrayBox &fab  = (*mf)[mfi];
-
-        //
-        // FArrayBox to FArrayBox copy does "copy on intersection"
-        // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
-
-        fab.template copy<amrex::RunOn::Device>(NC_fab);
+        // Copy on intersection from the pieces read for this rank, which cover
+        // every FAB of mf it owns.
+        NC_fab.copy_to((*mf)[mfi]);
     } // mf
     } // omp
 }

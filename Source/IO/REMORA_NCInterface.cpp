@@ -59,6 +59,35 @@ int inq_varid_case_insensitive (int ncid, const std::string& name, int* varid) {
 
     return ierr;
 }
+
+/**
+ * Length of a text attribute, aborting with the attribute's name if it is not
+ * NC_CHAR. NetCDF-4 files can carry NC_STRING attributes (xarray and
+ * netCDF4-python write them for non-ASCII text, and on request), and PnetCDF
+ * has no call that reads one.
+ */
+MPI_Offset text_attlen (int ncid, int varid, const std::string& name) {
+    nc_type xtype;
+    MPI_Offset lenp;
+    check_ncmpi_error(ncmpi_inq_att(ncid, varid, name.data(), &xtype, &lenp));
+    if (xtype != NC_CHAR) {
+        char vname[NC_MAX_NAME + 1] = "global";
+        if (varid != NC_GLOBAL) {
+            check_ncmpi_error(ncmpi_inq_varname(ncid, varid, vname));
+        }
+        int pathlen = 0;
+        check_ncmpi_error(ncmpi_inq_path(ncid, &pathlen, nullptr));
+        std::vector<char> path(pathlen + 1, '\0');
+        check_ncmpi_error(ncmpi_inq_path(ncid, nullptr, path.data()));
+        abort_func("Attribute '" + name + "' of " + std::string(vname) + " in " +
+                   std::string(path.data()) + " is not a character array (NetCDF type " +
+                   std::to_string(xtype) + (xtype == NC_STRING ? ", NC_STRING" : "") +
+                   "). PnetCDF reads text attributes only as NC_CHAR; rewrite it as"
+                   " one, for example with 'ncatted -a " + name + "," + std::string(vname) +
+                   ",o,c,\"<value>\" <file>'.");
+    }
+    return lenp;
+}
 } // namespace
 
 std::string NCDim::name() const {
@@ -240,7 +269,7 @@ void NCVar::get(int *dptr, const std::vector<MPI_Offset> &start, const std::vect
 }
 
 void NCVar::get_all(int *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
-    check_ncmpi_error(ncmpi_get_vara_int(ncid, varid, start.data(), count.data(), dptr));
+    check_ncmpi_error(ncmpi_get_vara_int_all(ncid, varid, start.data(), count.data(), dptr));
 }
 
 void NCVar::get(int *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
@@ -286,10 +315,7 @@ void NCVar::put_attr(const std::string &name, const std::vector<int> &value) con
 }
 
 std::string NCVar::get_attr(const std::string &name) const {
-    MPI_Offset lenp;
-    std::vector<char> aval;
-    check_ncmpi_error(ncmpi_inq_attlen(ncid, varid, name.data(), &lenp));
-    aval.resize(lenp);
+    std::vector<char> aval(text_attlen(ncid, varid, name));
     check_ncmpi_error(ncmpi_get_att_text(ncid, varid, name.data(), aval.data()));
     return std::string { aval.begin(), aval.end() };
 }
@@ -418,10 +444,7 @@ void NCFile::put_attr(const std::string &name, const std::vector<int> &value) co
 }
 
 std::string NCFile::get_attr(const std::string &name) const {
-    MPI_Offset lenp;
-    std::vector<char> aval;
-    check_ncmpi_error(ncmpi_inq_attlen(ncid, NC_GLOBAL, name.data(), &lenp));
-    aval.resize(lenp);
+    std::vector<char> aval(text_attlen(ncid, NC_GLOBAL, name));
     check_ncmpi_error(ncmpi_get_att_text(ncid, NC_GLOBAL, name.data(), aval.data()));
     return std::string { aval.begin(), aval.end() };
 }
@@ -511,14 +534,38 @@ void NCFile::exit_def_mode() const {
 
 NCFile NCFile::create(const std::string &name, const int cmode, MPI_Comm comm, MPI_Info info) {
     int ncid;
-    check_ncmpi_error(ncmpi_create(comm, name.data(), cmode, info, &ncid));
+    const int ierr = ncmpi_create(comm, name.data(), cmode, info, &ncid);
+    if (ierr != NC_NOERR) {
+        amrex::Print() << "Could not create NetCDF file " << name << std::endl;
+    }
+    check_ncmpi_error(ierr);
     return NCFile(ncid);
 }
 
 NCFile NCFile::open(const std::string &name, const int cmode, MPI_Comm comm, MPI_Info info) {
     int ncid;
-    check_ncmpi_error(ncmpi_open(comm, name.data(), cmode, info, &ncid));
+    const int ierr = ncmpi_open(comm, name.data(), cmode, info, &ncid);
+    // PnetCDF reads the file signature first and returns NC_ENOTBUILT when the
+    // file is NetCDF-4 (HDF5) and the library has no driver for it.
+    if (ierr == NC_ENOTBUILT) {
+        abort_func(name + " is a NetCDF-4 (HDF5) file, but the PnetCDF library"
+                   " in use was built without NetCDF-4 support (check which"
+                   " libpnetcdf 'ldd remora_exec' finds). Use a PnetCDF"
+                   " configured with --with-netcdf4=<netCDF-C built with"
+                   " parallel HDF5>, or convert the file with"
+                   " 'nccopy -k cdf5'.");
+    }
+    if (ierr != NC_NOERR) {
+        amrex::Print() << "Could not open NetCDF file " << name << std::endl;
+    }
+    check_ncmpi_error(ierr);
     return NCFile(ncid);
+}
+
+bool NCFile::is_netcdf4() const {
+    int format = NC_FORMAT_UNKNOWN;
+    check_ncmpi_error(ncmpi_inq_format(ncid, &format));
+    return (format == NC_FORMAT_NETCDF4 || format == NC_FORMAT_NETCDF4_CLASSIC);
 }
 
 void NCFile::wait_all(int num_requests, int *requests) {
