@@ -81,9 +81,11 @@ if (REMORA_ENABLE_PNETCDF)
     add_test(NAME NCFormats
       COMMAND ${remora_ncformats_test_exe_name} ${remora_ncformats_fixture})
   endif ()
+  # Also labelled regression so the PnetCDF CI, which runs -L regression, runs it:
+  # nothing else there exercises the per-rank collective reads.
   set_tests_properties(NCFormats PROPERTIES
     TIMEOUT 60
-    LABELS "unit"
+    LABELS "regression;unit"
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   )
 endif ()

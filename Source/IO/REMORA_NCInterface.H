@@ -421,6 +421,15 @@ public:
 
     NCFile(const int id) : ncid(id), is_open{true} {}
 
+    //! An NCFile owns its open file and closes it once, so it moves but does not copy
+    NCFile(const NCFile&) = delete;
+    NCFile& operator=(const NCFile&) = delete;
+    NCFile(NCFile&& other) noexcept : ncid(other.ncid), is_open(other.is_open)
+    {
+        other.is_open = false;
+    }
+    NCFile& operator=(NCFile&&) = delete;
+
     const int ncid{-1};
     bool is_open{false};
 };

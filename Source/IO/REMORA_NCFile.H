@@ -1,8 +1,10 @@
 #ifndef _REMORA_NCFILE_H_
 #define _REMORA_NCFILE_H_
 
+#include <algorithm>
+#include <array>
 #include <initializer_list>
-#include <map>
+#include <vector>
 #include <sstream>
 #include <string>
 #include <ctime>
@@ -427,8 +429,10 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
  * Opening a NetCDF-4 file in parallel costs about a second on a thousand ranks,
  * and the initialization routines read the grid file alone half a dozen times.
  * Create one of these, on every rank, around such a run of readers; sessions
- * nest, and the files close, collectively and in name order, when the outermost
- * one is destroyed. Only for files that are read, not written, while it lasts.
+ * nest, and the files close, collectively and in the order they were opened,
+ * when the outermost one is destroyed. A file is kept per communicator, so a
+ * reader over another communicator gets its own handle. Only for files that are
+ * read, not written, while it lasts.
  */
 class NCReadSession
 {
@@ -437,7 +441,7 @@ public:
     ~NCReadSession ()
     {
         if (--state().depth == 0) {
-            for (auto& f : state().files) { f.second->close(); }
+            for (auto& f : state().files) { f.file->close(); }
             state().files.clear();
         }
     }
@@ -451,27 +455,29 @@ public:
     static ncutils::NCFile& file (const std::string& fname, MPI_Comm comm)
     {
         auto& files = state().files;
-        auto it = files.find(fname);
-        if (it == files.end()) {
-            it = files.emplace(fname, open_file(fname, comm)).first;
+        for (auto& f : files) {
+            if (f.name == fname && f.comm == comm) { return *f.file; }
         }
-        return *it->second;
+        files.push_back(Entry{fname, comm, open_file(fname, comm)});
+        return *files.back().file;
     }
 
     //! Open \p fname read-only over \p comm, outside any session
     static std::unique_ptr<ncutils::NCFile> open_file (const std::string& fname, MPI_Comm comm)
     {
         BL_PROFILE("NCReadSession::open_file()");
-        auto f = ncutils::NCFile::open(fname, NC_NOWRITE, comm);
-        auto owned = std::make_unique<ncutils::NCFile>(f.ncid);
-        f.is_open = false;
-        return owned;
+        return std::make_unique<ncutils::NCFile>(ncutils::NCFile::open(fname, NC_NOWRITE, comm));
     }
 
 private:
+    struct Entry {
+        std::string name;
+        MPI_Comm comm;
+        std::unique_ptr<ncutils::NCFile> file;
+    };
     struct State {
         int depth = 0;
-        std::map<std::string, std::unique_ptr<ncutils::NCFile>> files;
+        std::vector<Entry> files;   // in the order they were opened, the same on every rank
     };
     static State& state () { static State s; return s; }
 };
@@ -522,15 +528,26 @@ nc_local_region (const amrex::Vector<const amrex::MultiFab*>& mfs)
             owned_boxes.push_back(b);
         }
     }
+    // The same FAB in several MultiFabs gives the same box: keep one of each first.
+    auto corners = [] (const amrex::Box& b) {
+        return std::array<int,6>{AMREX_D_DECL(b.smallEnd(0), b.smallEnd(1), b.smallEnd(2)),
+                                 AMREX_D_DECL(b.bigEnd(0), b.bigEnd(1), b.bigEnd(2))};
+    };
+    std::sort(boxes.begin(), boxes.end(),
+              [&] (const amrex::Box& a, const amrex::Box& b) { return corners(a) < corners(b); });
+    boxes.erase(std::unique(boxes.begin(), boxes.end()), boxes.end());
+    // Then merge pairs whose bounding box adds no cells, until none is left.
     for (bool merged = true; merged; ) {
         merged = false;
-        for (int i = 0; i < static_cast<int>(boxes.size()) && !merged; ++i) {
-            for (int j = i + 1; j < static_cast<int>(boxes.size()) && !merged; ++j) {
+        for (int i = 0; i < static_cast<int>(boxes.size()); ++i) {
+            for (int j = i + 1; j < static_cast<int>(boxes.size()); ) {
                 const amrex::Box bb = amrex::Box(boxes[i]).minBox(boxes[j]);
                 if (bb.numPts() <= boxes[i].numPts() + boxes[j].numPts()) {
                     boxes[i] = bb;
                     boxes.erase(boxes.begin() + j);
                     merged = true;
+                } else {
+                    ++j;
                 }
             }
         }
@@ -608,6 +625,8 @@ nc_local_region (const amrex::MultiFab& mf)
  * @param one_time     whether to read a single time step
  * @param fill_time    time index to read when \p one_time
  * @param custom_ngrow grow cells, as in BuildFABsFromNetCDFFile
+ * @param open_ncf     \p fname, already open read-only over the communicator, for a
+ *                     caller that keeps it open between calls; opened here if null
  */
 template<class FAB,typename DType>
 void
@@ -618,7 +637,8 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
                               amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types,
                               amrex::Vector<NCLocalFab*> fab_vars,
                               bool one_time=false, int fill_time=0,
-                              amrex::IntVect custom_ngrow=amrex::IntVect(1,1,0))
+                              amrex::IntVect custom_ngrow=amrex::IntVect(1,1,0),
+                              ncutils::NCFile* open_ncf=nullptr)
 {
     BL_PROFILE("BuildLocalFABsFromNetCDFFile()");
     MPI_Comm comm = amrex::ParallelContext::CommunicatorSub();
@@ -628,8 +648,8 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
     // Inside an NCReadSession the file stays open for the next reader.
     BL_PROFILE_VAR("BuildLocalFABsFromNetCDFFile::open", nc_open);
     std::unique_ptr<ncutils::NCFile> own;
-    if (!NCReadSession::active()) { own = NCReadSession::open_file(fname, comm); }
-    ncutils::NCFile& ncf = own ? *own : NCReadSession::file(fname, comm);
+    if (open_ncf == nullptr && !NCReadSession::active()) { own = NCReadSession::open_file(fname, comm); }
+    ncutils::NCFile& ncf = open_ncf ? *open_ncf : (own ? *own : NCReadSession::file(fname, comm));
     BL_PROFILE_VAR_STOP(nc_open);
 
     BL_PROFILE_VAR("BuildLocalFABsFromNetCDFFile::read", nc_read);

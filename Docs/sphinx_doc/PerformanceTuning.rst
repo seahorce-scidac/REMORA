@@ -233,9 +233,10 @@ alone.
 NetCDF input
 ------------
 
-Gridded NetCDF inputs are read in parallel, each rank reading the part its own boxes cover,
-and each input file is opened once while a level is initialized. What is left to choose is
-the file format:
+Gridded NetCDF inputs are read in parallel, each rank reading the part its own boxes cover.
+Each input file is opened once while a level is initialized, and a forcing or climatology
+series keeps its current file open between records. What is left to choose is the file
+format:
 
 * **CDF-5 reads fastest.** On a 1536 x 1536 x 32 grid, reading the grid, initial and forcing
   files at start-up took about 3 s per rank from 128 to 1024 Perlmutter CPU ranks.
@@ -245,7 +246,9 @@ the file format:
   about the size of a box (see :ref:`icbc-parameters`): a rank decompresses every chunk its
   boxes touch, whole.
 
-To see where start-up time goes, build with the profiler on: the
+``Tests/perf/make_read_scaling_data.py`` and ``Tests/perf/inputs/netcdf_read_perf.in`` make
+and run such a test at any size (see ``Tests/perf/README.md``). To see where start-up time
+goes, build with the profiler on: the
 ``BuildLocalFABsFromNetCDFFile::open``, ``::read`` and ``::close`` rows split each read into
 opening, reading and waiting for the other ranks, ``NCReadSession::open_file()`` counts the
 files actually opened, and ``remora.v = 1`` prints how much more than its own boxes any rank

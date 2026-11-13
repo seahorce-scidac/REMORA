@@ -9,6 +9,7 @@
 #include <AMReX_AmrCore.H>
 
 #include "REMORA_LatLonRegrid.H"
+#include "REMORA_NCInterface.H"
 
 /** \brief A class to hold and interpolate time series data read from a NetCDF file
  *
@@ -139,6 +140,16 @@ class NCTimeSeries
          * Filled by update_interpolated_to_time if save_interpolated==false. Otherwise,
          * just used for getting box array, nodality, and distribution mapping */
         amrex::MultiFab* mf_var;
+
+        /// The boxes read_in_at_time reads on this rank, for the layout below
+        amrex::Vector<amrex::Box> read_region;
+        amrex::BoxArray read_region_ba;
+        amrex::DistributionMapping read_region_dm;
+        /** The file read_in_at_time read last, kept open for the records after it:
+         * a parallel NetCDF-4 open costs about a second on a thousand ranks. Closed,
+         * collectively, when the series moves on to another file or is destroyed. */
+        std::unique_ptr<ncutils::NCFile> open_file;
+        int open_file_index = -1;
 };
 
 #endif // REMORA_USE_NETCDF

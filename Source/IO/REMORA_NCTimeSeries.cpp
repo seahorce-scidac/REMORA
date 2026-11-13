@@ -689,10 +689,27 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
         NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
     }
 
-    // Each rank reads the part of the field its own FABs of mf cover.
-    BuildLocalFABsFromNetCDFFile<amrex::FArrayBox,amrex::Real>(domain, nc_local_region(*mf), file_name,
+    // Each rank reads the part of the field its own FABs of mf cover. The region
+    // depends only on mf's layout, so it is worked out again only when that changes.
+    if (read_region_ba != mf->boxArray() || read_region_dm != mf->DistributionMap()) {
+        read_region = nc_local_region(*mf);
+        read_region_ba = mf->boxArray();
+        read_region_dm = mf->DistributionMap();
+    }
+
+    // The file stays open for the next record; a series moving on to its next file
+    // closes the last one first.
+    if (open_file_index != ifile) {
+        open_file.reset();
+        open_file = NCReadSession::open_file(file_name, amrex::ParallelContext::CommunicatorSub());
+        open_file_index = ifile;
+    }
+
+    BuildLocalFABsFromNetCDFFile<amrex::FArrayBox,amrex::Real>(domain, read_region, file_name,
                                                                NC_names, NC_dim_types,
-                                                               NC_fabs, true, itime_offset);
+                                                               NC_fabs, true, itime_offset,
+                                                               amrex::IntVect(1,1,0),
+                                                               open_file.get());
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())

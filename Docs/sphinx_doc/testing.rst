@@ -196,6 +196,15 @@ rather than assumed.
   finding a tracer's state component by name, configuring each model from its ROMS defaults, constant and
   analytic initial values written only to the biology tracers, and an advance that does nothing when no
   model is set or ``BioIter`` is 0.
+- ``REMORA_NCFormats_test.cpp`` (ctest ``NCFormats``, PnetCDF builds only, two ranks) tests the NetCDF
+  readers. It writes a small file in each format the linked PnetCDF can create (CDF-5, and NetCDF-4 and
+  NetCDF-4 classic when PnetCDF has its NetCDF-4 driver) and reads it back through ``ReadNetCDFFile``,
+  the attribute and variable queries and the time-units offset; with the driver it also reads the
+  compressed NetCDF-4 file ``Tests/test_files/NCFormats/nc_format_test_deflate.nc``. It compares the
+  per-rank reader ``BuildLocalFABsFromNetCDFFile`` with ``BuildFABsFromNetCDFFile`` cell for cell, ghost
+  cells included, for a record variable, a static one and a face-centered one, on three layouts: the
+  default distribution, two boxes at opposite corners on one rank, and a single box that leaves every
+  rank but one with nothing to read. It is also labelled ``regression``, so the PnetCDF CI runs it.
 
 The forcing interpolation as a whole needs PnetCDF and data files, so it is not in ctest; the developer
 lane ``Exec/IdealMiniGrid/inputs_frc_latlon`` and ``Tests/tools/make_latlon_forcing_test_data.py``

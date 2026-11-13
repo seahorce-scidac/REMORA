@@ -12,30 +12,20 @@ Fields vary in both horizontal directions and in depth, so a reader that places 
 the wrong cells or ranks changes the answer. Sizes follow ROMS: xi_rho = NX + 2,
 eta_rho = NY + 2, one ring of ghost cells.
 
-Run them with Exec/IdealMiniGrid/inputs_frc, overriding the grid, the walls and the files on
-the command line. For example, 512 x 512 x 32 cells:
+Tests/perf/inputs/netcdf_read_perf.in reads them from the run directory, for 1536 x 1536 x 32
+cells; for another size, match remora.n_cell and remora.prob_hi on the command line:
 
-    python3 Tests/tools/make_read_scaling_data.py --dir scaling --n-cell 512 512 32
-    python3 Tests/tools/make_read_scaling_data.py --dir scaling --n-cell 512 512 32 \\
+    python3 Tests/perf/make_read_scaling_data.py --dir run --n-cell 1536 1536 32
+    python3 Tests/perf/make_read_scaling_data.py --dir run --n-cell 1536 1536 32 \\
             --format NETCDF4 --suffix _nc4z
-
-    remora_exec Exec/IdealMiniGrid/inputs_frc remora.n_cell=512 512 32 \\
-        remora.prob_lo=0 0 -5000 remora.prob_hi=512000 512000 0 \\
-        remora.bc.xlo.type=slipwall remora.bc.xhi.type=slipwall \\
-        remora.bc.ylo.type=slipwall remora.bc.yhi.type=slipwall \\
-        remora.fixed_dt=60 remora.ndtfast=30 \\
-        remora.nc_grid_file_0=scaling/scaling_grd.nc remora.nc_init_file_0=scaling/scaling_ini.nc \\
-        remora.nc_frc_file=scaling/scaling_frc.nc
+    cd run && srun -n 512 remora_exec ../Tests/perf/inputs/netcdf_read_perf.in
 
 prob_hi is n_cell times --dx (1000 m by default) and prob_lo's depth is --depth. Keep the
 barotropic step fixed_dt/ndtfast below about dx / sqrt(9.8 * depth) (4.5 s for the defaults):
-with a larger one the run blows up without stopping, and its plotfiles say nothing. With
-remora.max_step=0 a run reads every file and stops, which isolates the cost of reading.
+with a larger one a run with steps blows up without stopping, and its plotfiles say nothing.
 
 Formats: NETCDF3_64BIT_DATA (CDF-5, the default), NETCDF4 (compressed with zlib level 4
 and shuffle), or NETCDF4_CLASSIC. Needs numpy and netCDF4 (python).
-
-This script is a developer tool: it is not wired into CMake and is not run by CI.
 """
 import argparse
 import os
