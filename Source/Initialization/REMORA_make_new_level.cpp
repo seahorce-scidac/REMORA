@@ -1602,7 +1602,6 @@ REMORA::remap_gls_state (int lev, Real time,
         vec_Lscale[lev].get(), vec_Akv[lev].get(), vec_Akt[lev].get(),
         vec_Akk[lev].get(), vec_Akp[lev].get()};
     const int coarse_latest = istep[lev-1] % 2;
-    const int fine_latest = istep[lev] % 2;
 
     for (int field = 0; field < 7; ++field) {
         auto& dst = *fine[field];
@@ -1621,9 +1620,11 @@ REMORA::remap_gls_state (int lev, Real time,
                                       geom[lev].periodicity());
         }
 
-        const int ncomp = field < 2 ? 2 : dst.nComp();
+        // The predictor step rebuilds only interior w levels. Its surface and bottom
+        // values enter vertical advection, so transfer the predictor component too.
+        const int ncomp = dst.nComp();
         for (int comp = 0; comp < ncomp; ++comp) {
-            const int coarse_comp = field < 2 ? coarse_latest : comp;
+            const int coarse_comp = field < 2 && comp < 2 ? coarse_latest : comp;
             MultiFab crse_alias(*coarse[field], make_alias, coarse_comp, 1);
             MultiFab fine_alias(src_fine, make_alias, comp, 1);
             MultiFab dst_alias(dst, make_alias, comp, 1);
@@ -1661,10 +1662,6 @@ REMORA::remap_gls_state (int lev, Real time,
             if (old_fine[field]) {
                 dst_alias.ParallelCopy(fine_alias, 0, 0, 1, 0, 0, geom[lev].periodicity());
             }
-        }
-        if (field < 2) {
-            // Slot 2 is scratch, overwritten by gls_prestep before its next read.
-            MultiFab::Copy(dst, dst, fine_latest, 2, 1, dst.nGrowVect());
         }
     }
 }

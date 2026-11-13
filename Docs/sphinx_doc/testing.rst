@@ -72,9 +72,12 @@ changing refinement layouts. These two-level cases reuse the channel setup, adva
 one coarse step, then move and enlarge the fine patch. Distinct values in the two
 history slots check that retained cells keep both slots exactly and new cells use the
 coarse latest slot for both. Subcycling gives the levels different history parities.
-The tests also create a level from coarse data, check finite scratch initialized from
-the fine latest slot, preserve retained values below the bounds, and bound interpolated
-values for all seven turbulence fields. The test decks disable invalid-operation traps;
+The predictor component is retained too, including distinct surface and bottom values.
+Vertical advection reads these endpoints; the predictor step leaves them unchanged.
+New cells and newly created levels take that component from the coarse predictor,
+independently of history-slot parity. An identical-layout remake must preserve all three components.
+The tests also preserve retained values below the bounds and bound interpolated values
+for all seven turbulence fields. The test decks disable invalid-operation traps;
 explicit finiteness assertions check the transferred fields.
 
 ``GLS_regrid_restart_lockstep`` and ``GLS_regrid_restart_subcycle`` continue after the

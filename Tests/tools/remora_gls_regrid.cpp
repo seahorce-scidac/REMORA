@@ -42,6 +42,22 @@ std::array<MultiFab*, 7> fields (REMORA& model, int lev)
             model.vec_Akt[lev].get(), model.vec_Akk[lev].get(), model.vec_Akp[lev].get()};
 }
 
+// Predictor endpoints enter vertical advection without being rebuilt by gls_prestep.
+void set_predictor_endpoints (MultiFab& mf, const Geometry& geom,
+                             Real bottom_value, Real surface_value)
+{
+    const int bottom = geom.Domain().smallEnd(2);
+    const int surface = geom.Domain().bigEnd(2) + 1;
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
+        auto values = mf.array(mfi);
+        ParallelFor(mfi.growntilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (k == bottom) { values(i,j,k,2) = bottom_value; }
+            if (k == surface) { values(i,j,k,2) = surface_value; }
+        });
+    }
+}
+
 void check_equal (const MultiFab& actual, const MultiFab& expected, int ncomp)
 {
     AMREX_ALWAYS_ASSERT(!actual.contains_nan(0, actual.nComp(), 0));
@@ -80,9 +96,19 @@ int main (int argc, char* argv[])
                     coarse[f]->setVal(Real(0.02)*(n+1), n, 1, coarse[f]->nGrowVect());
                     fine[f]->setVal(Real(0.003)*(n+1), n, 1, fine[f]->nGrowVect());
                 }
+                if (f < 2) {
+                    set_predictor_endpoints(*coarse[f], model.Geom(0), Real(0.07), Real(0.08));
+                    set_predictor_endpoints(*fine[f], model.Geom(1), Real(0.011), Real(0.013));
+                }
                 saved[f] = std::make_unique<MultiFab>(fine[f]->boxArray(), fine[f]->DistributionMap(),
                                                      fine[f]->nComp(), 0);
                 MultiFab::Copy(*saved[f], *fine[f], 0, 0, fine[f]->nComp(), 0);
+            }
+            // A remake of the same layout must retain all three GLS components.
+            model.RemakeLevel(1, time, model.boxArray(1), model.DistributionMap(1));
+            fine = fields(model, 1);
+            for (int f = 0; f < 7; ++f) {
+                check_equal(*fine[f], *saved[f], fine[f]->nComp());
             }
             // Enlarge and move the patch: retain some cells, remove others, and add new cells.
             Box box = model.Geom(1).Domain();
@@ -99,39 +125,33 @@ int main (int argc, char* argv[])
             model.SetDistributionMap(1, mapping);
             fine = fields(model, 1);
             for (int f = 0; f < 7; ++f) {
-                int count = f < 2 ? 2 : fine[f]->nComp();
+                int count = fine[f]->nComp();
                 MultiFab expected(fine[f]->boxArray(), fine[f]->DistributionMap(), count, 0);
                 for (int n = 0; n < count; ++n) {
-                    expected.setVal(f < 2 ? Real(0.04) : Real(0.02)*(n+1), n, 1, 0);
+                    Real value = f < 2 && n < 2 ? Real(0.04) : Real(0.02)*(n+1);
+                    expected.setVal(value, n, 1, 0);
+                }
+                if (f < 2) {
+                    set_predictor_endpoints(expected, model.Geom(1), Real(0.07), Real(0.08));
                 }
                 expected.ParallelCopy(*saved[f], 0, 0, count, 0, 0, model.Geom(1).periodicity());
                 check_equal(*fine[f], expected, count);
-                if (f < 2) {
-                    int subcycle = 0;
-                    ParmParse("remora").query("do_substep", subcycle);
-                    MultiFab latest(*fine[f], make_alias, subcycle ? 0 : 1, 1);
-                    MultiFab scratch(*fine[f], make_alias, 2, 1);
-                    check_equal(scratch, latest, 1);
-                }
             }
             // Level creation must use the coarse latest slot even when fine parity differs.
             model.ClearLevel(1);
             model.MakeNewLevelFromCoarse(1, time, changed, mapping);
             fine = fields(model, 1);
             for (int f = 0; f < 7; ++f) {
-                int count = f < 2 ? 2 : fine[f]->nComp();
+                int count = fine[f]->nComp();
                 MultiFab expected(fine[f]->boxArray(), fine[f]->DistributionMap(), count, 0);
                 for (int n = 0; n < count; ++n) {
-                    expected.setVal(f < 2 ? Real(0.04) : Real(0.02)*(n+1), n, 1, 0);
+                    Real value = f < 2 && n < 2 ? Real(0.04) : Real(0.02)*(n+1);
+                    expected.setVal(value, n, 1, 0);
+                }
+                if (f < 2) {
+                    set_predictor_endpoints(expected, model.Geom(1), Real(0.07), Real(0.08));
                 }
                 check_equal(*fine[f], expected, count);
-                if (f < 2) {
-                    int subcycle = 0;
-                    ParmParse("remora").query("do_substep", subcycle);
-                    MultiFab latest(*fine[f], make_alias, subcycle ? 0 : 1, 1);
-                    MultiFab scratch(*fine[f], make_alias, 2, 1);
-                    check_equal(scratch, latest, 1);
-                }
             }
             // Coarse interpolation is bounded, while old fine values below the bounds survive.
             const std::array<const char*, 7> keys = {"gls_Kmin", "gls_Pmin", "", "Akv_bak",
