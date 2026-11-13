@@ -1143,13 +1143,7 @@ public:
                        const int ioff, const int joff,
                        const amrex::Array4<amrex::Real      >& phi,
                        const amrex::Array4<amrex::Real const>& Hz,
-                       const amrex::Array4<amrex::Real      >& Hzk,
-                       const amrex::Array4<amrex::Real      >& AK,
                        const amrex::Array4<amrex::Real const>& Akv,
-                       const amrex::Array4<amrex::Real      >& BC,
-                       const amrex::Array4<amrex::Real      >& DC,
-                       const amrex::Array4<amrex::Real      >& FC,
-                       const amrex::Array4<amrex::Real      >& CF,
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
 
