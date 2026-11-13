@@ -516,7 +516,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         rhs_uv_3d(lev, xbx, ybx, uold, vold, ru, rv, rufrc, rvfrc,
                   sustr, svstr, bustr, bvstr, Huon, Hvom,
                   vec_metric_u[lev]->const_array(mfi,MetricU::omn_u),
-                  vec_metric_v[lev]->const_array(mfi,MetricV::omn_v), W, FC, nrhs, N);
+                  vec_metric_v[lev]->const_array(mfi,MetricV::omn_v), W, nrhs, N);
 
         const int nnew = 0;
         uv3dmix(xbx, ybx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, pm, pn, metr, metp, mskp, nrhs, nnew, dt_lev);

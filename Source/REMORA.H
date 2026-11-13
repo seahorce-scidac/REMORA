@@ -1051,7 +1051,6 @@ public:
                     const amrex::Array4<amrex::Real const>& omn_u,
                     const amrex::Array4<amrex::Real const>& omn_v,
                     const amrex::Array4<amrex::Real const>& W,
-                    const amrex::Array4<amrex::Real      >& FC,
                     int nrhs, int N);
 
     /** \brief Wrapper around equation of state calculation */
