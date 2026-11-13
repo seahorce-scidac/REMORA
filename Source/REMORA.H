@@ -975,7 +975,7 @@ public:
                         amrex::MultiFab* mf_rv,
                   amrex::MultiFab& S_old,
                   amrex::MultiFab& S_new,
-                  amrex::MultiFab& mf_W, amrex::MultiFab& mf_DC,
+                  amrex::MultiFab& mf_W,
                   /* MF mf_FC? */
                   const amrex::MultiFab* mf_z_r,
                   const amrex::MultiFab* mf_z_w,
@@ -1000,7 +1000,6 @@ public:
                         const amrex::Array4<amrex::Real      >& Huon,
                         const amrex::Array4<amrex::Real      >& Hvom,
                         const amrex::Array4<amrex::Real const>& W,
-                        const amrex::Array4<amrex::Real      >& DC,
                         const amrex::Array4<amrex::Real      >& FC,
                         const amrex::Array4<amrex::Real      >& sstore,
                         const amrex::Array4<amrex::Real const>& pm,

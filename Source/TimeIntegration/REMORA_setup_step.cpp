@@ -50,7 +50,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     //Only used locally, probably should be rearranged into FArrayBox declaration
 
-    MultiFab mf_DC(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
     MultiFab mf_logdrg_tmp(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
 
@@ -354,7 +353,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         prestep(lev, U_old, V_old, U_new, V_new,
                 mf_ru.get(), mf_rv.get(),
                 S_old, S_new, mf_W,
-                mf_DC, mf_z_r, mf_z_w, mf_h, mf_pm, mf_pn,
+                mf_z_r, mf_z_w, mf_h, mf_pm, mf_pn,
                 mf_sustr.get(), mf_svstr.get(), mf_bustr.get(), mf_bvstr.get(),
                 mf_msku.get(), mf_mskv.get(),
                 iic, ntfirst, nnew, nstp, nrhs, N, dt_lev);

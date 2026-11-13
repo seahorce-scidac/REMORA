@@ -13,7 +13,6 @@ using namespace amrex;
  * @param[in   ] S_old          scalar variables at last time step
  * @param[inout] S_new          scalar variables at current time step
  * @param[in   ] mf_W           vertical velocity
- * @param        mf_DC          temporary variable container
  * @param[in   ] mf_z_r         z coordinates at rho points (cell centers)
  * @param[in   ] mf_z_w         z coordinates at w points
  * @param[in   ] mf_h           bathymetry
@@ -41,7 +40,7 @@ REMORA::prestep (int lev,
                       MultiFab* mf_ru,
                       MultiFab* mf_rv,
                 MultiFab& S_old, MultiFab& S_new,
-                MultiFab& mf_W, MultiFab& mf_DC,
+                MultiFab& mf_W,
                 const MultiFab* mf_z_r,
                 const MultiFab* mf_z_w,
                 const MultiFab* mf_h,
@@ -74,7 +73,6 @@ REMORA::prestep (int lev,
 #endif
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& DC = mf_DC.array(mfi);
         Array4<Real> const& Akv   = vec_Akv[lev]->array(mfi);
         Array4<Real> const& Hz    = vec_Hz[lev]->array(mfi);
         Array4<Real> const& Huon  = vec_Huon[lev]->array(mfi);
@@ -152,7 +150,7 @@ REMORA::prestep (int lev,
             // every component's advection. So it still reads the value S_new came in with.
             prestep_t_advection(lev, bx, S_old.array(mfi,i_comp),
                                 S_new.array(mfi,i_comp), Hz, Huon, Hvom,
-                                W, DC, FC, sstore, pm, pn, msku, mskv, river_pos,
+                                W, FC, sstore, pm, pn, msku, mskv, river_pos,
                                 river_source, iic, ntfirst,
                                 nrhs, N, dt_lev);
         }
