@@ -299,10 +299,27 @@ public:
         MPI_Comm comm = MPI_COMM_WORLD,
         MPI_Info info = MPI_INFO_NULL);
 
+    /** Open an existing file read-only on the calling rank alone, for a reader
+     *  that reads on one rank and broadcasts what it found.
+     *
+     *  The file stays in collective data mode, so read it with the get_all()
+     *  calls, which are collective over this one rank. Independent mode is not
+     *  an option for NetCDF-4: netCDF-C refuses independent access to a
+     *  compressed variable, and HDF5 reads metadata collectively over the ranks
+     *  that opened the file.
+     */
+    static NCFile open_local(const std::string& name)
+    {
+        return open(name, NC_NOWRITE, MPI_COMM_SELF);
+    }
+
     ~NCFile();
 
     //! Close file object
     void close();
+
+    //! Whether the file is NetCDF-4 (HDF5), read through PnetCDF's NetCDF-4 driver
+    bool is_netcdf4() const;
 
     //! Number of dimensions
     int num_dimensions() const;
@@ -403,6 +420,15 @@ public:
     void exit_def_mode() const;
 
     NCFile(const int id) : ncid(id), is_open{true} {}
+
+    //! An NCFile owns its open file and closes it once, so it moves but does not copy
+    NCFile(const NCFile&) = delete;
+    NCFile& operator=(const NCFile&) = delete;
+    NCFile(NCFile&& other) noexcept : ncid(other.ncid), is_open(other.is_open)
+    {
+        other.is_open = false;
+    }
+    NCFile& operator=(NCFile&&) = delete;
 
     const int ncid{-1};
     bool is_open{false};

@@ -364,10 +364,13 @@ Examples of Usage
       \nu_z = z_{\rm phys}(i,j,k) - (\texttt{prob\_lo}_z + k\,dz),
 
    where :math:`x_\psi, y_\psi` are the physical coordinates of the cell corners (:math:`\psi`-points):
-   on level 0, the grid's own ``x_psi`` and ``y_psi`` (read from the NetCDF grid file, or
-   :math:`i/p_m` and :math:`j/p_n` as in ROMS for an analytic grid). Each finer level's corners are
-   interpolated bilinearly from the level below, so a fine node that coincides with a coarse node
-   sits exactly where the coarse node does. On a uniform grid starting at the origin
+   on level 0, the grid's own ``x_psi`` and ``y_psi``: read from the NetCDF grid file,
+   :math:`i/p_m` and :math:`j/p_n` as in ROMS ``ana_grid`` for an analytic grid, or, for a NetCDF
+   grid built from ``remora.nc_grid_file_hires``, the sums of the cell widths :math:`1/p_m` and
+   :math:`1/p_n` from the domain's south-west corner. Each finer level's corners are interpolated
+   bilinearly from the level below. On a NetCDF grid so are the refined level's own coordinates
+   (which the beta-plane Coriolis and the NetCDF history file use), so a fine node that
+   coincides with a coarse node sits exactly where the coarse node does. On a uniform grid starting at the origin
    :math:`\nu_x = \nu_y = 0`. The level's own ``h`` and
    ``zeta`` set :math:`z_{\rm phys}`, so on a refined level the bottom and surface are the refined
    level's; where its bathymetry is finer than the parent's, the two levels' bottoms differ at

@@ -79,19 +79,27 @@ Instructions for how to specify domain boundary conditions, with usage examples 
 Imposing Boundary and Initial Conditions from NetCDF File
 =========================================================
 
-Grid, initial, and time-dependent boundary data can be specified using NetCDF files, as in ROMS. REMORA expects files in the same format as ROMS, in NetCDF classic format (32- or 64-bit). NetCDF4-classic does not work. If the file format is incorrect, REMORA will exit with the error:
+Grid, initial, and time-dependent boundary data can be specified using NetCDF files, as in ROMS. Every input file can be in any classic format (CDF-1, CDF-2 or CDF-5). NetCDF-4 files, including the NetCDF-4 classic model and compressed (deflated) variables, can be read too, when PnetCDF was built with NetCDF-4 support (see :ref:`NetCDF-4 input files <netcdf4>`). Otherwise REMORA exits with an error that names the file and says it is NetCDF-4.
+
+Gridded fields -- the grid, initial, high-resolution, nudging-coefficient, climatology and forcing files, forcing on a longitude-latitude grid included -- are read in parallel: each rank reads only the part of each field that its own boxes, ghost cells included, cover. Boundary and river files are read on one rank and broadcast.
+
+For large inputs, CDF-5 is the faster format. A compressed NetCDF-4 variable is stored in chunks, and a rank decompresses every chunk its part of the domain touches, whole. If chunks are much larger than one rank's part, ranks decompress the same data again and wait for the slowest. Check a file's chunk sizes with ``ncdump -hs <file> | grep _ChunkSizes``. If they are large compared with your boxes, rechunk the file to about the size of a box, for example for 128 x 128 boxes:
 
 .. code:: shell
 
-   NetCDF: Attempt to use feature that was not turned on when netCDF was built.
+    nccopy -c "s_rho/8,eta_rho/128,xi_rho/128,eta_u/128,xi_u/128,eta_v/128,xi_v/128" -d 4 -s in.nc out.nc
 
-Other versions of NetCDF files can be converted to 64-bit NetCDF classic by running the command:
+or convert it to CDF-5 (``nccopy -k cdf5``). In a 1536 x 1536 x 32 test on 128 to 1024 Perlmutter CPU ranks, reading a compressed NetCDF-4 initial state, grid and forcing took 3.5 to 5 times as long as reading the same data as CDF-5.
+
+A NetCDF-4 file is read through the classic data model: variables and attributes in groups other than the root group are not seen, and text attributes must be character arrays (``NC_CHAR``), not ``NC_STRING``. REMORA names the attribute and exits if it finds an ``NC_STRING`` one.
+
+Any NetCDF file can be converted to CDF-5 by running:
 
 .. code:: shell
 
-    ncks -5 old_file.nc converted_file.nc
+    nccopy -k cdf5 old_file.nc converted_file.nc
 
-The utility ``ncks`` is part of the NCO suite.
+or, with the NCO suite, ``ncks -5 old_file.nc converted_file.nc``.
 
 Without the high-resolution options below, ``remora.ic_type = netcdf`` needs both ``remora.nc_init_file_0`` and ``remora.nc_grid_file_0``. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
 
@@ -1094,7 +1102,17 @@ List of Parameters
 +----------------------------------+-----------------------------+-------------------+-------------+
 | **remora.use_curvilinear_grid**  | Add curvilinear grid terms  | true / false      | false       |
 |                                  |                             |                   |             |
-|                                  | for advection               |                   |             |
+|                                  | for momentum advection.     |                   |             |
+|                                  |                             |                   |             |
+|                                  | Needed where 1/pn varies    |                   |             |
+|                                  |                             |                   |             |
+|                                  | along x or 1/pm along y,    |                   |             |
+|                                  |                             |                   |             |
+|                                  | as on any lat-lon grid;     |                   |             |
+|                                  |                             |                   |             |
+|                                  | REMORA warns when such a    |                   |             |
+|                                  |                             |                   |             |
+|                                  | grid runs without them.     |                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
 
 Physics Parameters

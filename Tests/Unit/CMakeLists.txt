@@ -49,6 +49,47 @@ set_tests_properties(LatLonRegrid PROPERTIES
   LABELS "unit"
 )
 
+# The NetCDF readers against every file format the linked PnetCDF can create,
+# NetCDF-4 included when PnetCDF has its NetCDF-4 driver. Two ranks, because the
+# per-rank reader is collective and is tested with a rank that has nothing to read.
+if (REMORA_ENABLE_PNETCDF)
+  set(remora_ncformats_test_exe_name remora_ncformats_tests)
+  add_executable(${remora_ncformats_test_exe_name}
+    ${CMAKE_CURRENT_SOURCE_DIR}/REMORA_NCFormats_test.cpp
+    ${PROJECT_SOURCE_DIR}/Source/IO/REMORA_NCInterface.cpp
+    ${PROJECT_SOURCE_DIR}/Source/IO/REMORA_NCFile.cpp
+  )
+  target_include_directories(${remora_ncformats_test_exe_name} PRIVATE
+    ${PROJECT_SOURCE_DIR}/Source/Utils
+    ${PROJECT_SOURCE_DIR}/Source/IO
+    ${PNETCDF_INCLUDE_DIRS}
+  )
+  target_compile_definitions(${remora_ncformats_test_exe_name} PRIVATE REMORA_USE_NETCDF)
+  target_link_libraries(${remora_ncformats_test_exe_name} PRIVATE
+    ${REMORA_AMREX_TARGET} ${PNETCDF_LINK_LIBRARIES})
+  if (REMORA_ENABLE_CUDA)
+    setup_target_for_cuda_compilation(${remora_ncformats_test_exe_name})
+  endif ()
+
+  set(remora_ncformats_fixture
+      ${PROJECT_SOURCE_DIR}/Tests/test_files/NCFormats/nc_format_test_deflate.nc)
+  if (REMORA_ENABLE_MPI)
+    add_test(NAME NCFormats
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
+              $<TARGET_FILE:${remora_ncformats_test_exe_name}> ${remora_ncformats_fixture})
+  else ()
+    add_test(NAME NCFormats
+      COMMAND ${remora_ncformats_test_exe_name} ${remora_ncformats_fixture})
+  endif ()
+  # Also labelled regression so the PnetCDF CI, which runs -L regression, runs it:
+  # nothing else there exercises the per-rank collective reads.
+  set_tests_properties(NCFormats PROPERTIES
+    TIMEOUT 60
+    LABELS "regression;unit"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  )
+endif ()
+
 add_test(NAME BoundaryInterp COMMAND ${remora_boundary_interp_test_exe_name})
 set_tests_properties(BoundaryInterp PROPERTIES
   TIMEOUT 60

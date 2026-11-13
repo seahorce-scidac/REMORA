@@ -16,10 +16,9 @@ std::string ReadNetCDFVarAttrStr (const std::string& fname,
                                   const std::string& attr_name)
 {
     std::string attr_val;
-    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
-    ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
+        auto ncf = ncutils::NCFile::open_local(fname);
         if (!ncf.has_var(var_name)) {
             amrex::Print() << "Trying to read attribute " << attr_name << " from variable " << var_name << " that does not exist!" << std::endl;
         }
@@ -27,8 +26,8 @@ std::string ReadNetCDFVarAttrStr (const std::string& fname,
             amrex::Print() << "Trying to read attribute " << attr_name << " that does not exist from variable " << var_name << "!" << std::endl;
         }
         attr_val = ncf.var(var_name).get_attr(attr_name);
+        ncf.close();
     }
-    ncf.close();
     return attr_val;
 }
 
@@ -43,16 +42,15 @@ bool QueryNetCDFVarAttrStr (const std::string& fname,
                             const std::string& attr_name)
 {
     int has_var = 0;
-    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
-    ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
+        auto ncf = ncutils::NCFile::open_local(fname);
         if (!ncf.has_var(var_name)) {
             amrex::Print() << "Trying to check for attribute " << attr_name << " from variable " << var_name << " that does not exist!" << std::endl;
         }
         has_var = ncf.var(var_name).has_attr(attr_name) ? 1 : 0;
+        ncf.close();
     }
-    ncf.close();
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     amrex::ParallelDescriptor::Bcast(&has_var, 1, ioproc);
     return (has_var != 0);
@@ -65,10 +63,9 @@ double ReadNetCDFTimeOffsetDays (const std::string& fname,
                                  bool announce)
 {
     double offset_days = 0.0;
-    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
-    ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
+        auto ncf = ncutils::NCFile::open_local(fname);
         if (!ncf.has_var(time_name)) {
             amrex::Abort("Time variable '" + time_name + "' not found in " + fname);
         }
@@ -128,8 +125,8 @@ double ReadNetCDFTimeOffsetDays (const std::string& fname,
                                << " reference date " << ref_date << std::endl;
             }
         }
+        ncf.close();
     }
-    ncf.close();
 
     // Every rank places the times, so every rank needs the same offset.
     const int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
@@ -142,8 +139,8 @@ double ReadNetCDFTimeOffsetDays (const std::string& fname,
  * @param var_names Names of the variables to test for
  * @returns whether every named variable is present in the file
  *
- * Use this before calling BuildFABsFromNetCDFFile() on optional variables:
- * ReadNetCDFFile() calls ncf.var(name) unconditionally, so a missing variable
+ * Use this before reading optional variables: the readers call ncf.var(name)
+ * unconditionally, so a missing variable
  * is a hard failure rather than a recoverable one. The answer is broadcast so
  * every rank agrees before any collective read is attempted.
  */
@@ -151,15 +148,14 @@ bool QueryNetCDFHasVars (const std::string& fname,
                          const amrex::Vector<std::string>& var_names)
 {
     int has_all = 1;
-    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
-    ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
+        auto ncf = ncutils::NCFile::open_local(fname);
         for (const auto& var_name : var_names) {
             if (!ncf.has_var(var_name)) { has_all = 0; break; }
         }
+        ncf.close();
     }
-    ncf.close();
     amrex::ParallelDescriptor::Bcast(&has_all, 1, amrex::ParallelDescriptor::IOProcessorNumber());
     return (has_all != 0);
 }

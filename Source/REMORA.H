@@ -401,6 +401,12 @@ public:
 
     /** \brief Set x/y coords on level lev based on pm and pn */
     void set_grid_coords_from_grid_scale (int lev);
+    /** \brief Set a level's coordinates where they are not read from a file */
+    void set_grid_coords (int lev);
+    /** \brief Level-0 coordinates by summing the cell widths 1/pm and 1/pn */
+    void set_grid_coords_by_summing_widths ();
+    /** \brief Fill a refined level's coordinate array by bilinear interpolation of its parent's */
+    void interp_staggered_coords_from_coarse (int lev, amrex::MultiFab& fine, const amrex::MultiFab& crse);
 
     /** \brief Set curvilinear derivative terms on level lev based on pm and pn */
     void set_curvilinear_terms_from_grid_scale (int lev);
