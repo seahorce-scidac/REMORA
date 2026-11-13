@@ -1197,9 +1197,8 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
  * Physical (x, y) of the psi points (cell corners) on every level, for the horizontal part of
  * the plotfile's nodal displacement and for particle positions. Level 0 takes the grid's own
  * x_psi and y_psi. Each finer level is interpolated bilinearly from the level below, so that
- * a fine node that coincides with a coarse node gets the coarse node's position: a fine
- * level's own x_psi is rebuilt from its pm and pn, which on a stretched grid does not match its
- * parent's, and on a NetCDF grid does not carry the file's origin.
+ * a fine node that coincides with a coarse node gets the coarse node's position: on a stretched
+ * analytic grid a fine level's own x_psi is i/pm on that level, which does not match its parent.
  *
  * @param[out] mf_xy  per level, a 2-component nodal 2D MultiFab: x, then y
  */
