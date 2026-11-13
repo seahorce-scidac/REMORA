@@ -1697,6 +1697,9 @@ public:
     void init_grid_vars_from_netcdf (int lev);
     /** \brief Full domain high-res grid variable initialization from NetCDF file */
     void init_grid_vars_full_domain_from_netcdf ();
+    /** \brief Abort unless pm and pn read from a file are positive; warn if in 1/degree */
+    void check_grid_metrics_from_file (const amrex::MultiFab& pm, const amrex::MultiFab& pn,
+                                       const std::string& fname);
 
     /** \brief Extrapolate grid metrics to edge of MultiFab, copying the outermost
      *         in-domain ghost row outward or, with linear, extending it linearly

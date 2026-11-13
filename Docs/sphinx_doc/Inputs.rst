@@ -101,7 +101,11 @@ Any NetCDF file can be converted to CDF-5 by running:
 
 or, with the NCO suite, ``ncks -5 old_file.nc converted_file.nc``.
 
-Without the high-resolution options below, ``remora.ic_type = netcdf`` needs both ``remora.nc_init_file_0`` and ``remora.nc_grid_file_0``. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
+Without the high-resolution options below, ``remora.ic_type = netcdf`` needs both ``remora.nc_init_file_0`` and ``remora.nc_grid_file_0``.
+
+The level-0 files follow the ROMS layout. With ``remora.n_cell = nx ny nz``, rho-point variables (``h``, ``pm``, ``pn``, ``mask_rho``, ``f``, ``x_rho``, ``temp``, ``zeta``, ...) are ``nx+2`` by ``ny+2``, one ring of cells around the domain; u-point variables (``x_u``, ``u``) are ``nx+1`` by ``ny+2``, v-point variables (``x_v``, ``v``) ``nx+2`` by ``ny+1``, and psi-point variables (``x_psi``, ``lon_psi``) ``nx+1`` by ``ny+1``. ``temp``, ``salt``, ``u`` and ``v`` have ``nz`` vertical levels. As it reads each variable from a level-0 grid, initial-condition or nudging-coefficient file, REMORA checks it against these sizes and stops with a message naming the variable if it differs, or if the file lacks it. ``pm`` and ``pn`` are inverse cell widths in 1/m: REMORA stops if either is not positive, and warns if either exceeds 1 (a cell narrower than 1 m), which usually means the file gives them in 1/degree.
+
+Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
 
 Grid and Initial Data on Refined Levels
 ---------------------------------------

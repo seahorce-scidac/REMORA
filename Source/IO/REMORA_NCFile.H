@@ -130,7 +130,8 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
             std::string vname_to_read  = names[n];
 
             if (!ncf.has_var(vname_to_read)) {
-               amrex::Print() << "Variable name " << vname_to_read << " not found!" << std::endl;
+                amrex::Abort("File " + fname + " has no variable " + vname_to_read
+                             + ", which this run reads.");
             }
 
             // amrex::AllPrint() << "About to read " << vname_to_read
@@ -387,6 +388,7 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
         FAB tmp;
         if (amrex::ParallelDescriptor::IOProcessor()) {
             fill_fab_from_arrays<FAB,DType>(iv, nc_arrays, nc_var_names[iv], NC_dim_types[iv], tmp, custom_ngrow);
+
         }
 
         int ncomp = tmp.nComp();
@@ -627,6 +629,9 @@ nc_local_region (const amrex::MultiFab& mf)
  * @param custom_ngrow grow cells, as in BuildFABsFromNetCDFFile
  * @param open_ncf     \p fname, already open read-only over the communicator, for a
  *                     caller that keeps it open between calls; opened here if null
+ * @param check_size   with the default one-cell ring, abort unless each variable has
+ *                     exactly the ROMS size for \p domain; off for a reader that
+ *                     checks the shape itself
  */
 template<class FAB,typename DType>
 void
@@ -638,7 +643,8 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
                               amrex::Vector<NCLocalFab*> fab_vars,
                               bool one_time=false, int fill_time=0,
                               amrex::IntVect custom_ngrow=amrex::IntVect(1,1,0),
-                              ncutils::NCFile* open_ncf=nullptr)
+                              ncutils::NCFile* open_ncf=nullptr,
+                              bool check_size=true)
 {
     BL_PROFILE("BuildLocalFABsFromNetCDFFile()");
     MPI_Comm comm = amrex::ParallelContext::CommunicatorSub();
@@ -666,6 +672,10 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
         const bool has_z    = (dim_type == NC_Data_Dims_Type::Time_BT_SN_WE ||
                                dim_type == NC_Data_Dims_Type::BT_SN_WE);
 
+        if (!ncf.has_var(nc_var_names[iv])) {
+            amrex::Abort("File " + fname + " has no variable " + nc_var_names[iv]
+                         + ", which this run reads.");
+        }
         const auto var = ncf.var(nc_var_names[iv]);
         const std::vector<MPI_Offset> shape = var.shape();
         AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
@@ -682,6 +692,33 @@ BuildLocalFABsFromNetCDFFile (const amrex::Box& domain,
                             fab_box.smallEnd() + amrex::IntVect(nsx-1, nsy-1, nsz-1),
                             fab_box.ixType());
         AMREX_ALWAYS_ASSERT(fab_box.contains(data_box));
+
+        // data_box is where the file's points land, relative to the domain's lower corner.
+        // With the ROMS one-cell ring it has to be the domain plus the ring at rho points and
+        // none along a staggered direction: the copies that follow are on intersection and
+        // would silently crop a file of the wrong size, or leave cells unset. A wider ring
+        // (a high-resolution file) is checked by check_hires_dims_from_netcdf instead.
+        if (check_size && custom_ngrow == amrex::IntVect(1,1,0)) {
+            const amrex::IntVect len(domain.length(0), domain.length(1), has_z ? domain.length(2) : 1);
+            const amrex::IndexType ixtype = data_box.ixType();
+            amrex::Box need = amrex::convert(amrex::Box(amrex::IntVect(0), len - 1), ixtype);
+            for (int dir = 0; dir < 2; ++dir) {
+                if (ixtype.cellCentered(dir)) { need.grow(dir, 1); }
+            }
+            if (data_box != need) {
+                auto dims = [has_z] (const amrex::Box& b) {
+                    return std::to_string(b.length(0)) + " x " + std::to_string(b.length(1))
+                           + (has_z ? " x " + std::to_string(b.length(2)) : "");
+                };
+                amrex::Abort("File " + fname + ": " + nc_var_names[iv] + " is " + dims(data_box)
+                             + " (xi x eta" + (has_z ? " x s" : "") + ") but remora.n_cell = "
+                             + std::to_string(domain.length(0)) + " " + std::to_string(domain.length(1))
+                             + " " + std::to_string(domain.length(2)) + " needs exactly " + dims(need)
+                             + ": the domain plus one ring of cells at rho points, one fewer along a"
+                             " staggered direction" + (has_z ? ", and nz levels in the vertical" : "")
+                             + ". Set remora.n_cell to match the file.");
+            }
+        }
         data_box.shift(domain.smallEnd());
 
         NCLocalFab& out = *fab_vars[iv];
