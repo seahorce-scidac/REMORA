@@ -444,8 +444,10 @@ struct SolverChoice {
         pp.queryAdd("tcline",tcline);
 
         //coriolis factor
-        pp.queryAdd("coriolis_f0",coriolis_f0);
-        pp.queryAdd("coriolis_beta",coriolis_beta);
+        // Whether the inputs set them, for the coriolis_type default below; queryAdd then adds
+        // the defaults, so the inputs can no longer be asked afterwards
+        const bool coriolis_f0_set   = pp.queryAdd("coriolis_f0",coriolis_f0);
+        const bool coriolis_beta_set = pp.queryAdd("coriolis_beta",coriolis_beta);
 
         pp.queryAdd("Akv_bak",Akv_bak);
         // Minimum/initial vertical diffusivity for both active tracers. Override one of them
@@ -525,6 +527,12 @@ struct SolverChoice {
         // Which type of coriolis forcing
         if (use_coriolis) {
             static std::string coriolis_type_string = "beta_plane";
+            // A NetCDF run takes f from its level-0 grid file unless told otherwise, as the mask
+            // does. Setting coriolis_f0 or coriolis_beta asks for a beta-plane, as before.
+            if (ic_type == IC_Type::netcdf && pp.contains("nc_grid_file_0") &&
+                !coriolis_f0_set && !coriolis_beta_set) {
+                coriolis_type_string = "netcdf";
+            }
             pp.queryAdd("coriolis_type",coriolis_type_string);
             if ( amrex::toLower(coriolis_type_string) == "custom") {
                 if (amrex::ParallelDescriptor::IOProcessor()) {
@@ -545,6 +553,12 @@ struct SolverChoice {
                 coriolis_type = Cor_Type::netcdf;
             } else {
                 amrex::Abort("Don't know this coriolis_type");
+            }
+
+            if (coriolis_type == Cor_Type::beta_plane && coriolis_f0 == zero && coriolis_beta == zero) {
+                amrex::Abort("remora.use_coriolis = true with a beta-plane whose remora.coriolis_f0 and "
+                             "remora.coriolis_beta are both 0 gives f = 0 everywhere. Set one of them, "
+                             "choose another remora.coriolis_type, or set remora.use_coriolis = false");
             }
         }
 

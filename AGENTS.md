@@ -57,8 +57,10 @@ like its neighbours:
 - Read time-dependent NetCDF input (forcing, boundaries, climatology, rivers) through
   `NCTimeSeries` (`Source/IO/REMORA_NCTimeSeries*.H`), which also combines records split
   across files; don't open the files yourself to decide how to read them. Read a static field
-  with `BuildFABsFromNetCDFFile` and copy it into the MultiFab, as
-  `REMORA::init_bathymetry_from_netcdf` does.
+  with `BuildLocalFABsFromNetCDFFile` over `nc_local_region` of the MultiFabs it fills, and
+  copy it in with `NCLocalFab::copy_to`, as `REMORA::init_bathymetry_from_netcdf` does: each
+  rank reads only what its own boxes cover. `BuildFABsFromNetCDFFile` reads on one rank and
+  sends every rank the whole field.
 - Fill ghost cells of a per-level field (a vector over levels on the level layouts, like
   `vec_h`) with `REMORA::FillPatch` and a BC set such as `foextrap_periodic_bc()`. It covers
   periodic, physical-edge and coarse-to-fine ghosts; `FillBoundary` alone fills only periodic

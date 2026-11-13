@@ -46,6 +46,103 @@ See sections below for compiler-specific instructions for how to enable NetCDF s
       **When built with some MPI implementations, PnetCDF will crash when writing files larger than 2GB. Building
       with MPICH v4.2.2 will likely solve this issue.**
 
+.. _netcdf4:
+
+NetCDF-4 input files
+^^^^^^^^^^^^^^^^^^^^
+
+REMORA reads NetCDF-4 (HDF5) input files through PnetCDF's NetCDF-4 driver, which hands them to the netCDF-C library. The driver is off by default. To turn it on:
+
+#. Install HDF5 with parallel support, and a netCDF-C built against it with parallel I/O (``nc-config --has-parallel4`` reports ``yes``). netCDF-C must not itself be built with PnetCDF support. Ubuntu, for example, provides both as ``libhdf5-mpi-dev`` and ``libnetcdf-mpi-dev``.
+#. Configure PnetCDF with ``--with-netcdf4=<netCDF-C install directory>``. If netCDF-C's library has a name other than ``libnetcdf``, as Ubuntu's ``libnetcdf_mpi`` does, pass it with ``LIBS``, so that PnetCDF records it as a dependency, e.g.:
+
+   .. code:: shell
+
+             ./configure --prefix=$PNETCDF_DIR \
+                         --with-netcdf4=/usr/lib/x86_64-linux-gnu/netcdf/mpi \
+                         LIBS=-lnetcdf_mpi
+
+   Without the right ``LIBS``, the build stops linking ``ncmpigen`` with undefined references to ``nc_open_par`` and the other ``nc_*`` functions.
+
+   The configure summary should report ``NetCDF-4 support - enabled``, ``$PNETCDF_DIR/bin/pnetcdf-config --netcdf4`` should print ``enabled``, and ``ldd $PNETCDF_DIR/lib/libpnetcdf.so`` should list the netCDF-C and HDF5 libraries.
+#. Check that ``pkg-config --libs pnetcdf`` works with ``$PNETCDF_DIR/lib/pkgconfig`` on ``PKG_CONFIG_PATH``. PnetCDF's ``pnetcdf.pc`` names ``netcdf`` as a requirement, so it fails with ``Package 'netcdf', required by 'pnetcdf', not found`` when netCDF-C has no ``netcdf.pc`` on the path. Add netCDF-C's ``pkgconfig`` directory to ``PKG_CONFIG_PATH`` if it has one. Otherwise, since ``libpnetcdf.so`` already loads netCDF-C itself (the ``ldd`` check above), delete the requirement:
+
+   .. code:: shell
+
+             sed -i '/^[[:space:]]*Requires/d' $PNETCDF_DIR/lib/pkgconfig/pnetcdf.pc
+
+#. Build REMORA against it as above, starting from an empty CMake cache if an earlier configure failed to find PnetCDF.
+
+At run time, make sure the executable loads this PnetCDF library and not another one: ``LD_LIBRARY_PATH`` takes precedence over the library path recorded at build time, so a different PnetCDF on it is the one used. ``ldd remora_exec`` shows which one is loaded. A REMORA built against a PnetCDF without the driver, or run with one, stops with an error naming the NetCDF-4 file it could not open.
+
+The ``NCFormats`` unit test (``ctest -R NCFormats``) writes and reads a small file in each format the linked PnetCDF supports, and reads a compressed NetCDF-4 file, so it checks that the driver works.
+
+NetCDF-4 on Perlmutter
+""""""""""""""""""""""
+
+Perlmutter's ``cray-parallel-netcdf`` module has no NetCDF-4 driver, so build PnetCDF yourself on top of Cray's parallel HDF5 and netCDF-C. Use the same modules for the PnetCDF build, the REMORA build, and every job. The netCDF-C and HDF5 libraries PnetCDF links are the GNU builds (``libnetcdf_parallel_gnu_*``), so a programming environment other than ``PrgEnv-gnu`` at run time loads different ones:
+
+.. code:: shell
+
+          module load PrgEnv-gnu cray-mpich cray-hdf5-parallel cray-netcdf-hdf5parallel
+          module is-loaded cray-parallel-netcdf && module unload cray-parallel-netcdf
+          nc-config --has-parallel4    # yes
+          nc-config --has-pnetcdf      # no
+
+Build PnetCDF 1.14.0 on a login node. Cray's netCDF-C library is ``libnetcdf_parallel``, so name it in ``LIBS``:
+
+.. code:: shell
+
+          export PNETCDF_DIR=$HOME/pnetcdf-nc4
+          wget https://parallel-netcdf.github.io/Release/pnetcdf-1.14.0.tar.gz
+          tar xzf pnetcdf-1.14.0.tar.gz && cd pnetcdf-1.14.0
+          ./configure --prefix=$PNETCDF_DIR --with-netcdf4=$NETCDF_DIR --disable-fortran \
+                      CC=cc CXX=CC LIBS="-L$NETCDF_DIR/lib -lnetcdf_parallel"
+          make -j 16 install
+          $PNETCDF_DIR/bin/pnetcdf-config --netcdf4           # enabled
+          ldd $PNETCDF_DIR/lib/libpnetcdf.so | grep -E "netcdf|hdf5"
+
+The ``ldd`` line should list ``libnetcdf_parallel_gnu_*`` and ``libhdf5_parallel_gnu_*`` from ``/opt/cray/pe/lib64``. Cray's netCDF-C has no ``netcdf.pc``, so remove the requirement from PnetCDF's (the line is ``Requires: netcdf``):
+
+.. code:: shell
+
+          sed -i '/^[[:space:]]*Requires/d' $PNETCDF_DIR/lib/pkgconfig/pnetcdf.pc
+
+From here on, building and running both need the same environment. Put it in a file, for example ``~/pnetcdf-nc4-env.sh``:
+
+.. code:: shell
+
+          module load PrgEnv-gnu cray-mpich cray-hdf5-parallel cray-netcdf-hdf5parallel
+          module is-loaded cray-parallel-netcdf && module unload cray-parallel-netcdf
+          export PNETCDF_DIR=$HOME/pnetcdf-nc4
+          export PKG_CONFIG_PATH=$PNETCDF_DIR/lib/pkgconfig:$PKG_CONFIG_PATH
+          export LD_LIBRARY_PATH=$PNETCDF_DIR/lib:$LD_LIBRARY_PATH
+          export PATH=$PNETCDF_DIR/bin:$PATH
+
+``PKG_CONFIG_PATH`` is how the build finds this PnetCDF. ``LD_LIBRARY_PATH`` makes every run load it, and not another ``libpnetcdf.so`` earlier on the path. ``PATH`` puts its ``ncmpidump`` and ``ncmpidiff`` first.
+
+Then build REMORA with CMake, which also builds the ``NCFormats`` test:
+
+.. code:: shell
+
+          source ~/pnetcdf-nc4-env.sh
+          pkg-config --libs --cflags pnetcdf
+          cmake -S . -B Build -DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=CC \
+                -DREMORA_ENABLE_MPI=ON -DREMORA_ENABLE_PNETCDF=ON \
+                -DREMORA_ENABLE_TESTS=ON -DREMORA_ENABLE_FCOMPARE=ON
+          cmake --build Build -j 16
+          ldd Build/Exec/remora_exec | grep -E "pnetcdf|netcdf|hdf5"
+
+``libpnetcdf.so.6`` should come from ``$PNETCDF_DIR/lib``, and netCDF-C and HDF5 from ``/opt/cray/pe/lib64`` (``libnetcdf_parallel_gnu_*``, ``libhdf5_parallel_gnu_*``). Check the driver from an interactive CPU allocation:
+
+.. code:: shell
+
+          srun -n 2 Build/Tests/Unit/remora_ncformats_tests Tests/test_files/NCFormats/nc_format_test_deflate.nc
+
+which should end with ``0 failures over all ranks, 3 formats``.
+
+For jobs, start from the job scripts in :ref:`Perlmutter<Perlmutter (NERSC)>`, with two changes: ``source ~/pnetcdf-nc4-env.sh`` in place of ``Build/saul-env.sh``, before ``srun``, and the executable from the CMake build above (``Build/Exec/remora_exec``). ``srun`` passes the environment on to every rank.
+
 
 GNU Make
 ~~~~~~~~

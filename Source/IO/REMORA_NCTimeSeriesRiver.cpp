@@ -83,9 +83,9 @@ void NCTimeSeriesRiver::Initialize() {
     amrex::ParallelDescriptor::Bcast(file_for_time.data(), file_for_time.size(), ioproc);
     amrex::ParallelDescriptor::Bcast(file_itime_offset.data(), file_itime_offset.size(), ioproc);
 
-    auto ncf = ncutils::NCFile::open(file_names[0], NC_NOCLOBBER );
     if (amrex::ParallelDescriptor::IOProcessor())
     {
+        auto ncf = ncutils::NCFile::open_local(file_names[0]);
         std::vector<MPI_Offset> shape = ncf.var(field_name).shape();
         if (shape.size() == 2) {
             has_z = 0;

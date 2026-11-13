@@ -15,7 +15,7 @@ There are currently 68 regression tests which are run as part of every PR on a r
 * 8 that assert a run reaches a behavior it reports in its log;
 * 11 that assert a misconfigured input fails for the stated reason.
 
-There are also four unit tests, ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp`` and ``BiologyInterface``. The CI tests use cmake and are based on the version
+There are also five unit tests, ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp``, ``BiologyInterface`` and, in PnetCDF builds, ``NCFormats``, which is also labelled ``regression``. The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
 instructions in :ref:`Testing<Testing>`, which also describes the different kinds of assertion and what
 each is for. All of them run under MPI on two ranks, and are checked to be rank-invariant.
@@ -641,6 +641,19 @@ the rho points, and the domain is periodic, so the boundary faces are not covere
 A relative wind of exactly zero is not a usable test. The stress is normalized by the wind speed
 without gustiness, as in myROMS, so as the relative wind goes to zero the stress keeps the magnitude
 the gustiness gives it and takes the direction of whatever round-off remains.
+
+Grid input tests
+----------------
+
+These check that grid and Coriolis inputs which would otherwise run with wrong values are rejected.
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Seamount_zero_beta_plane_abort  | 49 48 13 | Coriolis on with a beta-plane whose ``coriolis_f0`` and |
+|                                 |          |                                                         |
+|                                 |          | ``coriolis_beta`` are both 0 is rejected                |
++---------------------------------+----------+---------------------------------------------------------+
 
 Nightly Regression Tests on CPU
 -------------------------------
