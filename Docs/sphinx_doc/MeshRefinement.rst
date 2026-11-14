@@ -148,7 +148,9 @@ file that describes the grid, ``remora.nc_grid_file_0``, or ``remora.nc_grid_fil
 ``remora.hires_grid_level`` is set, whenever ``amr.max_level`` > 0 and the run reads that file
 for its grid or mask (``remora.ic_type = netcdf`` or ``remora.mask_type = netcdf``); no other
 option is needed. In the high-resolution file it has the same grow cells as the other
-variables (see :ref:`Inputs <sec:Inputs>`).
+variables (see :ref:`Inputs <sec:Inputs>`). With ``remora.hires_grid_level`` set, a
+``refinement`` variable in ``remora.nc_grid_file_0``, which may still be read for Coriolis, is
+not used, and the run says so at startup.
 It is applied at every regrid, together with any ``remora.refinement_indicators``. Land cells
 are not tagged, though the grids drawn around the tags can still cover some land. Levels above
 ``amr.max_level`` are never made.
