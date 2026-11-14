@@ -103,7 +103,9 @@ public:
             amrex::Array4<amrex::Real const> const& c = crse.const_array(crse_comp + n);
             amrex::Array4<amrex::Real> const& f = fine.array(fine_comp + n);
 
-            AMREX_HOST_DEVICE_PARALLEL_FOR_3D_FLAG(runon, fine_region, i, j, k,
+            // Written out rather than AMREX_HOST_DEVICE_PARALLEL_FOR_3D_FLAG, whose GPU expansion
+            // names RunOn and Gpu without the amrex:: this header can't assume
+            auto kernel = [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) noexcept
             {
                 // Position in the coarse index space, measured from its first point
                 const amrex::Real tx = (amrex::Real(i) + sx) / amrex::Real(rx) - sx;
@@ -116,7 +118,12 @@ public:
                          + wx * (amrex::Real(1.0) - wy)                      * c(ic+1,jc  ,k)
                          + (amrex::Real(1.0) - wx) * wy                      * c(ic  ,jc+1,k)
                          + wx * wy                                          * c(ic+1,jc+1,k);
-            });
+            };
+            if (runon == amrex::RunOn::Device && amrex::Gpu::inLaunchRegion()) {
+                amrex::ParallelFor(fine_region, kernel);
+            } else {
+                amrex::LoopConcurrentOnCpu(fine_region, kernel);
+            }
         }
     }
 };
