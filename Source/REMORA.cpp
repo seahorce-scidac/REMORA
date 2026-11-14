@@ -2208,6 +2208,11 @@ REMORA::init_only (int lev, Real time)
     }
 
 #ifdef REMORA_USE_NETCDF
+    // After the high-resolution block, which sets the box the high-resolution file covers
+    if (lev == 0 && refine_from_grid_file) {
+        init_refinement_from_netcdf();
+    }
+
     if (solverChoice.ic_type == IC_Type::netcdf) {
         init_clim_nudg_coeff(lev);
 

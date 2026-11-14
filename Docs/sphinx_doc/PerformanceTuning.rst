@@ -182,7 +182,8 @@ the box size, and the dropped runs took about the same time at every box size fr
 128. On GPUs, keep the boxes large: on four A100s the same grid ran fastest in boxes of 256
 or 512 columns, where dropping still saved 8 to 9 %, while boxes of 128 columns or fewer
 were slower whether boxes were dropped or not. Dropping is switched off automatically with
-more than one refined level, with a refinement indicator that tags on a field, under the
+more than one refined level, with a refinement indicator that tags on a field or a grid file
+that carries a ``refinement`` variable, under the
 atmosphere coupling driver and in builds with particles or MOAB. The solution is the same as
 on the full domain, bitwise on every wet cell and wet face, with every forcing and boundary
 option REMORA has; what differs is the layout. Plotfiles and checkpoints hold only the kept

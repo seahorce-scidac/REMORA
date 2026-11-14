@@ -15,6 +15,9 @@ There are currently 68 regression tests which are run as part of every PR on a r
 * 8 that assert a run reaches a behavior it reports in its log;
 * 11 that assert a misconfigured input fails for the stated reason.
 
+PnetCDF builds add two more that assert the structure of the refined grid, read from a NetCDF grid
+file's ``refinement`` variable (see :ref:`sec:ci-tagging-tests`).
+
 There are also five unit tests, ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp``, ``BiologyInterface`` and, in PnetCDF builds, ``NCFormats``, which is also labelled ``regression``. The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
 instructions in :ref:`Testing<Testing>`, which also describes the different kinds of assertion and what
@@ -287,8 +290,9 @@ Refinement tagging tests
 
 Grid structure is the only place a tagging bug shows: a criterion that has stopped tagging, or one that
 has started tagging the coastline, still writes a self-consistent plotfile that a snapshot comparison
-accepts. These lanes assert the grid itself instead -- which levels exist, or how many cells a level
-covers -- using ``adjacent_difference_greater`` criteria and static boxes on the Dogbone case.
+accepts. These tests assert the grid itself instead -- which levels exist, or how many cells a level
+covers -- using ``adjacent_difference_greater`` criteria, static boxes and, in PnetCDF builds, grid
+files on the Dogbone case.
 
 +---------------------------------+----------+---------------------------------------------------------+
 | Test                            | nx ny nz | What it asserts                                         |
@@ -324,6 +328,18 @@ covers -- using ``adjacent_difference_greater`` criteria and static boxes on the
 +---------------------------------+----------+---------------------------------------------------------+
 | DogboneAnalytic_MLcoasttag\_    | 42 15 16 | ``tag_land`` on a field criterion is rejected           |
 | tagland_abort                   |          |                                                         |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_gridref         | 42 15 16 | PnetCDF builds: a level-0 grid file's ``refinement``    |
+|                                 |          |                                                         |
+|                                 |          | asks for level 2 on nine cells, five of them water:     |
+|                                 |          |                                                         |
+|                                 |          | level 2 covers exactly 2880 cells                       |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_gridref_hires   | 42 15 16 | PnetCDF builds: the same given on level 1, starting     |
+|                                 |          |                                                         |
+|                                 |          | partway into level-0 cells, which must be refined       |
+|                                 |          |                                                         |
+|                                 |          | whole where they are water: 12096 level-1 cells         |
 +---------------------------------+----------+---------------------------------------------------------+
 
 ``MLcoastskip`` and ``MLcoasttag`` are a pair: ``MLcoastskip`` catches a guard that has stopped skipping

@@ -794,6 +794,20 @@ add_test_cells(DogboneAnalytic_MLmask_boxland      "remora_exec" "plt00000" 1 34
 compose_test_input(DogboneAnalytic_MLcoasttag_tagland_abort DogboneAnalytic_MLcoasttag)
 add_test_abort(DogboneAnalytic_MLcoasttag_tagland_abort "remora_exec"
                "tag_land applies only to a box region")
+# Refinement from the grid file's refinement variable, which only a PnetCDF build reads. Each
+# grid file carries mask_rho and refinement alone, which is all an analytic run reads from it.
+# In gridref_grd.nc, given at level 0, five of the nine level-0 cells that ask for level 2 are
+# water: level 2 covers 5*(3*2)^2*16 cells, which a finer level than the file's can reach only
+# by looking up the file cell it lies in. (Level 1 is larger than asked: AMReX grows it to
+# contain level 2.) In gridref_hires_grd.nc, given at level 1, the region asking for level 1
+# starts and ends partway into level-0 cells, of which 84 are water: level 1 covers 84*9*16
+# cells only if level 0 takes the largest value under each of its cells.
+if (REMORA_ENABLE_PNETCDF)
+  compose_test_input(DogboneAnalytic_gridref DogboneAnalytic)
+  add_test_cells(DogboneAnalytic_gridref       "remora_exec" "plt00000" 2 2880)
+  compose_test_input(DogboneAnalytic_gridref_hires DogboneAnalytic)
+  add_test_cells(DogboneAnalytic_gridref_hires "remora_exec" "plt00000" 1 12096)
+endif ()
 # A pair: the same gradient criterion keyed on a physical field, which must not see the coast,
 # and on the mask, which must. Either one alone passes for the wrong reason.
 add_test_nlevels(DogboneAnalytic_MLcoastskip "remora_exec" "plt00010" 0)

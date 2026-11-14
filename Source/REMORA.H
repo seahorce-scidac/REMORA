@@ -535,6 +535,14 @@ public:
      * coastline and the bathymetry it goes with come from the same grid. **/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskr_full_domain;
 
+    /** \brief The grid file's refinement variable, the lowest level each cell must be refined
+     * to, on the whole domain. Given at the level the grid file describes (0, or
+     * hires_grid_level) and coarsened to the levels below by taking the largest value.
+     * Empty when the grid file has no refinement variable. **/
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_refine_full_domain;
+    /** \brief Whether the grid file has a refinement variable, so ErrorEst tags from it **/
+    bool refine_from_grid_file = false;
+
     /** \brief Width of cells in the vertical (z-) direction (3D, Hz in ROMS) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Hz;
     /** \brief u-volume flux (3D) */
@@ -1413,6 +1421,10 @@ public:
      * included, by the rule that a coarse cell is land only if all its fine cells are land */
     void coarsen_masks_with_grow_cells (int crse_lev);
 
+    /** \brief Tag the cells of level levc that the grid file's refinement variable asks to
+     * refine past levc */
+    void tag_grid_file_refinement (int levc, amrex::TagBoxArray& tags);
+
     /** \brief Coarsen the full-domain bathymetry from crse_lev+1 onto crse_lev, grow cells
      * included, weighted by the land/sea mask */
     void coarsen_bathymetry_with_grow_cells (int crse_lev);
@@ -1700,6 +1712,8 @@ public:
     void init_bathymetry_from_netcdf (int lev);
     /** \brief Full domain high-res bathymetry data initialization from NetCDF file */
     void init_bathymetry_full_domain_from_netcdf ();
+    /** \brief Read the grid file's refinement variable into vec_refine_full_domain */
+    void init_refinement_from_netcdf ();
 
     /** \brief Grid variable initialization from NetCDF file */
     void init_grid_vars_from_netcdf (int lev);

@@ -28,9 +28,10 @@ that will be refined.
 Tagging criteria based on field variable values or derived quantities are
 evaluated only in unmasked regions. One exception is a criterion keyed on
 ``mask`` itself, which exists to find the coast. A region defined by a box
-(typically used in static mesh refinement) tags only its water cells, though the
-grids drawn around those tags can still cover some land. See `Masked Regions and
-Tagging`_ for what "means something" amounts to per field.
+(typically used in static mesh refinement) and a grid file's ``refinement``
+variable (see `Refinement From the Grid File`_) also tag only water cells, though
+the grids drawn around those tags can still cover some land. See `Masked Regions
+and Tagging`_ for what "means something" amounts to per field.
 
 See the `Gridding`_ section of the AMReX documentation for details of how
 individual grids are created.
@@ -134,6 +135,33 @@ values must be **divisible by the higheset refinement** specified by
             remora.box1.in_box_lo_indices = 12 36
             remora.box1.in_box_hi_indices = 23 59
             remora.box1.max_level = 2
+
+.. _sec:GridFileRefinement:
+
+Refinement From the Grid File
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A NetCDF grid file may carry an optional ``refinement`` variable on the rho points
+(``eta_rho``, ``xi_rho``), giving for each cell the lowest level that cell must be refined
+to: 0 leaves it on level 0, 1 refines it to at least level 1, and so on. It is read from the
+file that describes the grid, ``remora.nc_grid_file_0``, or ``remora.nc_grid_file_hires`` when
+``remora.hires_grid_level`` is set, whenever ``amr.max_level`` > 0 and the run reads that file
+for its grid or mask (``remora.ic_type = netcdf`` or ``remora.mask_type = netcdf``); no other
+option is needed. In the high-resolution file it has the same grow cells as the other
+variables (see :ref:`Inputs <sec:Inputs>`).
+It is applied at every regrid, together with any ``remora.refinement_indicators``. Land cells
+are not tagged, though the grids drawn around the tags can still cover some land. Levels above
+``amr.max_level`` are never made.
+
+A file given at level 0 covers the level-0 cells, so a requested region is refined in whole
+level-0 cells. A file given at ``remora.hires_grid_level`` resolves the region on that level;
+each coarser level takes the largest value under each of its cells, so a coarse cell is
+refined wherever any part of it must be. A level finer than the file's takes the value of the
+file cell it lies in. As for a box, AMReX adds the tag buffer (``amr.n_error_buf``), rounds the
+grids to the blocking factor, and grows each level so it properly contains the next, so the
+refined region can be larger than the one requested but not smaller.
+``Exec/IdealMiniGrid/inputs_synth_hires_refine`` is an example with two levels, whose header
+lists the grids it must produce.
 
 Dynamic Mesh Refinement
 -----------------------
@@ -298,9 +326,9 @@ blocking factor (over the refinement ratio) and by the coarse stencil of the fil
 it; the fine grids are then the ones the full-domain run makes. This margin covers level 1
 only: a level-2 indicator would grow level 1 by its own buffer and proper nesting, and AMReX
 would clear level-1 tags near a hole without a word, so with ``amr.max_level`` > 1 no box is
-dropped. A field-based criterion can refine anywhere, so with one of those no box is dropped
-either. REMORA aborts after a regrid if level 1, or the level-0 cells its fills need, reaches a
-dropped box.
+dropped. A field-based criterion, or a ``refinement`` variable in the grid file, can refine
+anywhere, so with one of those no box is dropped either. REMORA aborts after a regrid if level
+1, or the level-0 cells its fills need, reaches a dropped box.
 
 Coupling Types
 --------------

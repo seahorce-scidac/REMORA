@@ -16,6 +16,12 @@ onto its axes; its header gives the commands that make its two files with
 
 To test climatology nudging, use ``inputs_clim_nudg``.
 
+``inputs_synth_hires`` reads the grid and initial state on level 1 from synthetic files written
+by ``Tests/tools/make_hires_test_data.py``. ``inputs_synth_hires_refine`` places the refined
+grids from the ``refinement`` variable of the high-resolution grid file, on two levels; run
+the generator with ``--with-refinement`` first, and compare the grids the run prints with the
+ones in the file's header.
+
 The netCDF files needed to run these tests can be found in the
 `remora-data <https://github.com/seahorce-scidac/remora-data>`_
 repository under the ``IdealMiniGrid`` directory.
