@@ -1961,7 +1961,10 @@ come from ``remora.nc_grid_file_0`` (or ``remora.nc_grid_file_hires``). The rule
    be east or north too); a model-grid or ``constant`` component paired with a lat-lon one
    is an error. A grid file without ``angle`` gets a warning and no rotation. Set **remora.frc_rotate** to
    ``off`` for a file whose components are already along the grid axes. Winds and
-   stresses on the model grid are never rotated.
+   stresses on the model grid are never rotated. The winds and stress an atmosphere
+   coupling driver sends are east and north at rho points too, and take the same path
+   (the stress again averaged to the faces afterwards); **remora.frc_rotate** applies
+   only to files, so these are always rotated when the grid has an ``angle``.
 
 Each interpolated variable is reported at startup with its source grid. Setting
 **remora.frc_regrid** to ``off`` turns the interpolation off, so that a variable not on
