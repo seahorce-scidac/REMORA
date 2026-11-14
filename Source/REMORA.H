@@ -46,6 +46,7 @@
 #ifdef REMORA_USE_NETCDF
 #include "REMORA_NCInterface.H"
 #include "REMORA_NCTimeSeries.H"
+#include "REMORA_NCVectorTimeSeries.H"
 #include "REMORA_NCTimeSeriesRiver.H"
 #include "REMORA_NCTimeSeriesBoundary.H"
 #endif
@@ -81,6 +82,7 @@ namespace InterpType {
 class ProblemBase;
 #ifdef REMORA_USE_NETCDF
 class NCTimeSeries;
+class NCVectorTimeSeries;
 class NCTimeSeriesRiver;
 class NCTimeSeriesBoundary;
 #endif
@@ -258,7 +260,8 @@ public:
      * @param[in] states  ATM2OCN forcing slab buffer from the driver (Warner et al.
      *                    2010, Block B state-passing contract), indexed by AtmosState.
      *                    Expected units per lane:
-     *                    Uwind/Vwind: 10-m winds [m/s];
+     *                    Uwind/Vwind: eastward and northward 10-m winds [m/s], turned
+     *                    here onto the grid's axes with the grid angle (both or neither);
      *                    Pair: mean sea-level pressure [Pa, converted to mb];
      *                    Qair: near-surface specific humidity [kg/kg];
      *                    Tair: 2-m air temperature [K, converted to degC];
@@ -277,7 +280,10 @@ public:
      * \brief Receives atmospheric flux lanes from the driver and assembles REMORA flux inputs.
      *
      * Expected active-lane order matches the driver FluxPassing contract:
-     * tau_x, tau_y, SHflux, LHflux, SWrad, LWrad, rain, evap.
+     * tau_x, tau_y, SHflux, LHflux, SWrad, LWrad, rain, evap, all on the rho layout
+     * (GetAtmosToOceanRhoLayout). tau_x and tau_y are the eastward and northward stress
+     * [N m^-2], turned here onto the grid's axes with the grid angle and averaged to the
+     * u and v points.
      *
      * This routine copies imported forcing lanes into REMORA's existing flux arrays
      * and assembles vec_stflux directly from those imported values. It intentionally
@@ -582,6 +588,11 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sustr;
     /** \brief Surface stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_svstr;
+    /** \brief Surface stress on rho points, from a lat-lon forcing file or the coupled
+     *  driver, before it is rotated onto the grid and averaged to the u and v faces; one per
+     *  level, made when first needed (ensure_stress_rho_arrays) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sustr_rho;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_svstr_rho;
 
     /** \brief Wind in the u direction, defined at rho-points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_uwind;
@@ -1464,29 +1475,27 @@ public:
     /** \brief Initialize or calculate wind speed and other surface state vars from file or analytic */
     void set_surface_state (int lev);
 
-#ifdef REMORA_USE_NETCDF
     /** \brief Make or remake the rho-point stress arrays of a level */
     void ensure_stress_rho_arrays (int lev);
-#endif
 
     /** \brief Rotate a vector given as east and north components on rho points onto the
-     *         grid's xi and eta axes, in place, over the valid cells and first ghost cell */
+     *         grid's xi and eta axes, in place, over the valid cells and, unless
+     *         valid_only, the first ghost cell */
     void rotate_to_grid_axes (amrex::MultiFab& u_east, amrex::MultiFab& v_north,
-                              const amrex::MultiFab& angle);
+                              const amrex::MultiFab& angle, bool valid_only = false);
 
-#ifdef REMORA_USE_NETCDF
-    /** \brief Whether the winds come from a lat-lon file and are to be rotated; the other
-     *         component then comes from one too, or is uniform (checked at startup) */
-    bool winds_need_rotation () const {
-        return frc_regrid_options.rotate &&
-               ((Uwind_data_from_file && Uwind_data_from_file->regridded()) ||
-                (Vwind_data_from_file && Vwind_data_from_file->regridded()));
-    }
-#endif
+    /** \brief Put a vector on the rho points of a level onto the grid's axes: turn it from
+     *         east and north when earth_frame (and the grid has an angle), then fill its
+     *         ghost cells when fill_ghosts */
+    void rho_vector_to_grid_axes (int lev,
+                                  amrex::Vector<std::unique_ptr<amrex::MultiFab>>& x_rho,
+                                  amrex::Vector<std::unique_ptr<amrex::MultiFab>>& y_rho,
+                                  bool earth_frame, bool fill_ghosts);
 
     /** \brief Average rho-point stress components to the u and v faces */
     void average_stress_to_faces (int lev, const amrex::MultiFab& tau_xi_rho,
-                                  const amrex::MultiFab& tau_eta_rho);
+                                  const amrex::MultiFab& tau_eta_rho,
+                                  const amrex::MultiFab* mskr = nullptr);
 
     /** \brief Initialize horizontal mixing coefficients */
     void set_hmixcoef (int lev);
@@ -1895,20 +1904,13 @@ private:
     /** \brief Whether to output NetCDF files as a single history file with several time steps */
     static bool write_history_file;
 
-    /** \brief Data container for u-component surface momentum flux read from file */
-    std::unique_ptr<NCTimeSeries> sustr_data_from_file;
-    /** \brief Data container for v-component surface momentum flux read from file */
-    std::unique_ptr<NCTimeSeries> svstr_data_from_file;
-    /** \brief Surface stress from a lat-lon file, east and north components on rho points
-     *  before it is rotated onto the grid and averaged to the u and v faces; one per level,
-     *  unallocated when the stress file is on the model grid */
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sustr_rho;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_svstr_rho;
-    /** \brief Whether the surface stress is read on rho points, from a lat-lon grid */
-    bool stress_on_rho = false;
-    /** \brief Data container for u-direction wind read from file */
+    /** \brief Surface momentum flux (sustr, svstr) read from file */
+    std::unique_ptr<NCVectorTimeSeries> smflux_data_from_file;
+    /** \brief Winds (Uwind, Vwind) read from file, when both are */
+    std::unique_ptr<NCVectorTimeSeries> wind_data_from_file;
+    /** \brief The u-direction wind read from file, when the other component is not */
     std::unique_ptr<NCTimeSeries> Uwind_data_from_file;
-    /** \brief Data container for v-direction wind read from file */
+    /** \brief The v-direction wind read from file, when the other component is not */
     std::unique_ptr<NCTimeSeries> Vwind_data_from_file;
     /** \brief Data container for air temperature read from file */
     std::unique_ptr<NCTimeSeries> Tair_data_from_file;

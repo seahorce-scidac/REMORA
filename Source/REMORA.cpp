@@ -1836,27 +1836,22 @@ REMORA::set_smflux(int lev)
         prob->init_analytic_smflux(lev, geom[lev], solverChoice, *this,*vec_sustr[lev], *vec_svstr[lev]);
     } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
 #ifdef REMORA_USE_NETCDF
-        if (stress_on_rho) {
-            // On a lat-lon grid the file gives the stress east and north at rho points: rotate
-            // it there onto the grid's axes, then average to the faces.
+        if (smflux_data_from_file->on_rho()) {
+            // On a lat-lon grid the file gives the stress east and north at rho points: turn
+            // it there onto the grid's axes, then average it to the faces. The face average
+            // reads the first ghost cell. On level 0 the interpolation set it, the boundary
+            // ring included, and a FillPatch would only copy the edge over the ring. A finer
+            // level's ghost cells come from the coarser level (rotated already, so the fill
+            // follows the rotation) and, outside the domain, from the boundary fill.
             ensure_stress_rho_arrays(lev);
-            sustr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_sustr_rho[lev].get(), geom, ref_ratio);
-            svstr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_svstr_rho[lev].get(), geom, ref_ratio);
-            if (frc_regrid_options.rotate && vec_angler[lev] != nullptr) {
-                rotate_to_grid_axes(*vec_sustr_rho[lev], *vec_svstr_rho[lev], *vec_angler[lev]);
-            }
-            // The face average reads the first ghost cell. On level 0 the interpolation set it,
-            // the boundary ring included, and a FillPatch would only copy the edge over the
-            // ring. A finer level's ghost cells come from the coarser level (rotated already,
-            // so this follows the rotation) and, outside the domain, from the boundary fill.
-            if (lev > 0) {
-                FillPatch(lev, t_old[lev], *vec_sustr_rho[lev], GetVecOfPtrs(vec_sustr_rho), foextrap_periodic_bc(), BdyVars::null,0,false,false);
-                FillPatch(lev, t_old[lev], *vec_svstr_rho[lev], GetVecOfPtrs(vec_svstr_rho), foextrap_periodic_bc(), BdyVars::null,0,false,false);
-            }
+            smflux_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev,
+                vec_sustr_rho[lev].get(), vec_svstr_rho[lev].get(), geom, ref_ratio);
+            rho_vector_to_grid_axes(lev, vec_sustr_rho, vec_svstr_rho,
+                                    smflux_data_from_file->earth_frame(), lev > 0);
             average_stress_to_faces(lev, *vec_sustr_rho[lev], *vec_svstr_rho[lev]);
         } else {
-            sustr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_sustr[lev].get(), geom, ref_ratio);
-            svstr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_svstr[lev].get(), geom, ref_ratio);
+            smflux_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev,
+                vec_sustr[lev].get(), vec_svstr[lev].get(), geom, ref_ratio);
         }
         FillPatch(lev, t_old[lev], *vec_sustr[lev], GetVecOfPtrs(vec_sustr), foextrap_periodic_bc(), BdyVars::null,0,false,false);
         FillPatch(lev, t_old[lev], *vec_svstr[lev], GetVecOfPtrs(vec_svstr), foextrap_periodic_bc(), BdyVars::null,0,false,false);
@@ -1864,7 +1859,6 @@ REMORA::set_smflux(int lev)
     }
 }
 
-#ifdef REMORA_USE_NETCDF
 /**
  * The rho-point stress arrays of a level, laid out like its rho points, which a regrid may
  * have changed since they were last made.
@@ -1886,7 +1880,6 @@ REMORA::ensure_stress_rho_arrays (int lev)
         }
     }
 }
-#endif
 
 /**
  * The xi axis is at angle a from east, counterclockwise (ROMS's `angle`), so a vector with
@@ -1895,16 +1888,20 @@ REMORA::ensure_stress_rho_arrays (int lev)
  *     eta = -E sin a + N cos a,
  * as ROMS's set_data rotates interpolated winds and stresses.
  *
- * @param[inout] u_east   east component on input, xi component on output
- * @param[inout] v_north  north component on input, eta component on output
- * @param[in   ] angle    grid angle on rho points, radians
+ * @param[inout] u_east      east component on input, xi component on output
+ * @param[inout] v_north     north component on input, eta component on output
+ * @param[in   ] angle       grid angle on rho points, radians
+ * @param[in   ] valid_only  rotate the valid cells only, for a vector whose ghost cells hold
+ *                           nothing yet
  */
 void
-REMORA::rotate_to_grid_axes (MultiFab& u_east, MultiFab& v_north, const MultiFab& angle)
+REMORA::rotate_to_grid_axes (MultiFab& u_east, MultiFab& v_north, const MultiFab& angle,
+                             bool valid_only)
 {
     // The valid cells and the first ghost cell: what the forcing read fills on level 0 (the
     // ghost fill that follows sets the rest), and what the face average reads.
-    const IntVect ng = amrex::min(amrex::min(u_east.nGrowVect(), angle.nGrowVect()), IntVect(1,1,0));
+    const IntVect ng = valid_only ? IntVect(0)
+        : amrex::min(amrex::min(u_east.nGrowVect(), angle.nGrowVect()), IntVect(1,1,0));
     for (MFIter mfi(u_east, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         const Box bx = mfi.growntilebox(ng);
         auto const& u = u_east.array(mfi);
@@ -1919,15 +1916,48 @@ REMORA::rotate_to_grid_axes (MultiFab& u_east, MultiFab& v_north, const MultiFab
 }
 
 /**
+ * Rotation comes between the read and the ghost fill: rotating after the fill would rotate
+ * a second time the ghost cells a finer level takes from the coarser one, rotated there
+ * already. Shared by the winds and stress from a lat-lon forcing file and by the winds
+ * and stress the coupled driver sends, all of which arrive east and north.
+ *
+ * @param[in   ] lev          level
+ * @param[inout] x_rho        east component on input, xi component on output
+ * @param[inout] y_rho        north component on input, eta component on output
+ * @param[in   ] earth_frame  whether the components are east and north, to be rotated
+ * @param[in   ] fill_ghosts  whether to fill the ghost cells afterwards
+ */
+void
+REMORA::rho_vector_to_grid_axes (int lev, Vector<std::unique_ptr<MultiFab>>& x_rho,
+                                 Vector<std::unique_ptr<MultiFab>>& y_rho,
+                                 bool earth_frame, bool fill_ghosts)
+{
+    if (earth_frame && vec_angler[lev] != nullptr) {
+        rotate_to_grid_axes(*x_rho[lev], *y_rho[lev], *vec_angler[lev]);
+    }
+    if (fill_ghosts) {
+        FillPatch(lev, t_old[lev], *x_rho[lev], GetVecOfPtrs(x_rho), foextrap_periodic_bc(),
+                  BdyVars::null, 0, false, false);
+        FillPatch(lev, t_old[lev], *y_rho[lev], GetVecOfPtrs(y_rho), foextrap_periodic_bc(),
+                  BdyVars::null, 0, false, false);
+    }
+}
+
+/**
  * Each u face takes the mean of the rho points either side of it in x, each v face the
  * mean of those either side in y. The faces on the domain edge use the boundary ring.
+ * With a wet mask the mean is over the wet points only, so that a face between water and
+ * land takes the water's stress rather than half of it, when the land points hold none.
  *
  * @param[in   ] lev          level
  * @param[in   ] tau_xi_rho   xi stress on rho points, with at least one ghost cell filled
  * @param[in   ] tau_eta_rho  eta stress on rho points, likewise
+ * @param[in   ] mskr         wet mask on rho points (1 wet), with a ghost cell, or null to
+ *                            average every point
  */
 void
-REMORA::average_stress_to_faces (int lev, const MultiFab& tau_xi_rho, const MultiFab& tau_eta_rho)
+REMORA::average_stress_to_faces (int lev, const MultiFab& tau_xi_rho, const MultiFab& tau_eta_rho,
+                                 const MultiFab* mskr)
 {
     // Over the rho layout, which shares its box indices and distribution with the faces',
     // so that nodaltilebox gives each face box
@@ -1938,14 +1968,30 @@ REMORA::average_stress_to_faces (int lev, const MultiFab& tau_xi_rho, const Mult
         auto const& sv = vec_svstr[lev]->array(mfi);
         auto const& tx = tau_xi_rho.const_array(mfi);
         auto const& ty = tau_eta_rho.const_array(mfi);
-        ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            su(i,j,k) = Real(0.5) * (tx(i-1,j,k) + tx(i,j,k));
-        });
-        ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            sv(i,j,k) = Real(0.5) * (ty(i,j-1,k) + ty(i,j,k));
-        });
+        if (mskr != nullptr) {
+            auto const& m = mskr->const_array(mfi);
+            ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                const Real w = m(i-1,j,0) + m(i,j,0);
+                su(i,j,k) = (w > Real(0.0))
+                    ? (m(i-1,j,0) * tx(i-1,j,k) + m(i,j,0) * tx(i,j,k)) / w : Real(0.0);
+            });
+            ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                const Real w = m(i,j-1,0) + m(i,j,0);
+                sv(i,j,k) = (w > Real(0.0))
+                    ? (m(i,j-1,0) * ty(i,j-1,k) + m(i,j,0) * ty(i,j,k)) / w : Real(0.0);
+            });
+        } else {
+            ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                su(i,j,k) = Real(0.5) * (tx(i-1,j,k) + tx(i,j,k));
+            });
+            ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                sv(i,j,k) = Real(0.5) * (ty(i,j-1,k) + ty(i,j,k));
+            });
+        }
     }
 }
 
@@ -1981,26 +2027,28 @@ REMORA::set_surface_state (int lev)
     };
 
     // Winds from a lat-lon file are east and north and are rotated onto the grid's axes,
-    // between the read and the ghost fill: rotating after the fill would rotate a second
-    // time the ghost cells it takes from the coarser level, already rotated there.
-    const bool rotate_winds = winds_need_rotation() && vec_angler[lev] != nullptr;
-    if (rotate_winds && driver_atmos_state_from_driver[AtmosState::Uwind] !=
-                        driver_atmos_state_from_driver[AtmosState::Vwind]) {
-        amrex::Abort("The coupled driver supplies one wind component and the lat-lon forcing "
-                     "file the other, so the file's component cannot be rotated onto the grid. "
-                     "Take both winds from the driver or both from the file.");
-    }
-    if (rotate_winds && !driver_atmos_state_from_driver[AtmosState::Uwind]) {
-        read_from_netcdf(Uwind_data_from_file, vec_uwind);
-        read_from_netcdf(Vwind_data_from_file, vec_vwind);
-        rotate_to_grid_axes(*vec_uwind[lev], *vec_vwind[lev], *vec_angler[lev]);
-        fill_ghosts(vec_uwind);
-        fill_ghosts(vec_vwind);
-    } else {
-        if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Uwind]) {
+    // between the read and the ghost fill (rho_vector_to_grid_axes).
+    const bool u_from_driver = driver_atmos_state_from_driver[AtmosState::Uwind];
+    const bool v_from_driver = driver_atmos_state_from_driver[AtmosState::Vwind];
+    if (wind_data_from_file && !u_from_driver && !v_from_driver) {
+        wind_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev,
+            vec_uwind[lev].get(), vec_vwind[lev].get(), geom, ref_ratio);
+        rho_vector_to_grid_axes(lev, vec_uwind, vec_vwind, wind_data_from_file->earth_frame(), true);
+    } else if (wind_data_from_file && u_from_driver != v_from_driver) {
+        if (wind_data_from_file->earth_frame() && vec_angler[lev] != nullptr) {
+            amrex::Abort("The coupled driver supplies one wind component and the lat-lon forcing "
+                         "file the other, so the file's component cannot be rotated onto the grid. "
+                         "Take both winds from the driver or both from the file.");
+        }
+        auto& mf_vec = u_from_driver ? vec_vwind : vec_uwind;
+        wind_data_from_file->component(u_from_driver ? 1 : 0)
+            .update_interpolated_to_time(model_time(t_old[lev]), lev, mf_vec[lev].get(), geom, ref_ratio);
+        fill_ghosts(mf_vec);
+    } else if (!wind_data_from_file) {
+        if (Uwind_data_from_file && !u_from_driver) {
             update_from_netcdf(Uwind_data_from_file, vec_uwind);
         }
-        if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Vwind]) {
+        if (Vwind_data_from_file && !v_from_driver) {
             update_from_netcdf(Vwind_data_from_file, vec_vwind);
         }
     }
@@ -2284,46 +2332,14 @@ REMORA::init_only (int lev, Real time)
             // On the model grid the stress lives on the u and v faces. On a lat-lon grid it is
             // east and north at rho points, read into rho arrays and turned into face values
             // in set_smflux. A component given as one value per time can go either way.
-            using Kind = NCTimeSeries::SourceGridKind;
-            const Kind u_kind = NCTimeSeries::source_grid(nc_frc_file, "sustr", geom[lev].Domain(),
-                                                          vec_sustr[lev]->ixType(), true);
-            const Kind v_kind = NCTimeSeries::source_grid(nc_frc_file, "svstr", geom[lev].Domain(),
-                                                          vec_svstr[lev]->ixType(), true);
-            stress_on_rho = frc_regrid_options.enabled && (u_kind == Kind::latlon || v_kind == Kind::latlon);
-            if (stress_on_rho && (u_kind == Kind::model || v_kind == Kind::model)) {
-                amrex::Abort("One of sustr and svstr in the forcing files is on the model grid's u or v "
-                             "points and the other on a lat-lon grid; give both on one kind of grid.");
-            }
-            MultiFab* sustr_target = vec_sustr[lev].get();
-            MultiFab* svstr_target = vec_svstr[lev].get();
-            if (stress_on_rho) {
-                ensure_stress_rho_arrays(lev);
-                sustr_target = vec_sustr_rho[lev].get();
-                svstr_target = vec_svstr_rho[lev].get();
-            }
-            sustr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),sustr_target, true, false, solverChoice.time_ref,
-                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
-            svstr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),svstr_target, true, false, solverChoice.time_ref,
-                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
-            sustr_data_from_file->Initialize();
-            svstr_data_from_file->Initialize();
-            // A component read on rho points must have come from a lat-lon grid (or be uniform).
-            // One that matched the rho shape instead is a model-grid file with the stress on
-            // the wrong points.
-            if (stress_on_rho) {
-                for (const auto* series : {sustr_data_from_file.get(), svstr_data_from_file.get()}) {
-                    if (!series->regridded() && !series->spatially_uniform()) {
-                        const Box& d = geom[lev].Domain();
-                        amrex::Abort("Surface stress in the forcing files has the shape of the model grid's "
-                                     "rho points. On the model grid, sustr is on u points, (eta_rho, xi_u) = (" +
-                                     std::to_string(d.length(1)+2) + ", " + std::to_string(d.length(0)+1) +
-                                     "), and svstr on v points, (eta_v, xi_rho) = (" + std::to_string(d.length(1)+1) +
-                                     ", " + std::to_string(d.length(0)+2) + "); a lat-lon stress file needs "
-                                     "longitude and latitude axes.");
-                    }
-                }
-            }
-            if (stress_on_rho && frc_regrid_options.rotate && vec_angler[0] == nullptr) {
+            ensure_stress_rho_arrays(lev);
+            smflux_data_from_file = std::make_unique<NCVectorTimeSeries>(
+                nc_frc_file, "sustr", "svstr", frc_time_varname, geom[lev].Domain(),
+                vec_sustr[lev].get(), vec_svstr[lev].get(),
+                vec_sustr_rho[lev].get(), vec_svstr_rho[lev].get(), solverChoice.time_ref,
+                frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get());
+            smflux_data_from_file->Initialize();
+            if (smflux_data_from_file->earth_frame() && vec_angler[0] == nullptr) {
                 amrex::Print() << "WARNING: sustr and svstr come from a lat-lon grid, but the grid file has "
                                << "no angle, so they are applied unrotated, as if the grid were not rotated."
                                << std::endl;
@@ -2345,33 +2361,35 @@ REMORA::init_only (int lev, Real time)
     }
 
     if (lev==0) {
-        if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf) {
-            Uwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false, solverChoice.time_ref,
-                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
-            Uwind_data_from_file->Initialize();
-        }
-        if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf) {
-            Vwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false, solverChoice.time_ref,
-                                    &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
-            Vwind_data_from_file->Initialize();
-        }
-        // A wind from a lat-lon grid is east/north and is rotated onto the grid's axes, which
-        // takes both components from the same kind of file.
-        // A component given as one value per time pairs with either kind.
-        const bool u_ll = Uwind_data_from_file && Uwind_data_from_file->regridded();
-        const bool v_ll = Vwind_data_from_file && Vwind_data_from_file->regridded();
-        const bool u_ok = u_ll || (Uwind_data_from_file && Uwind_data_from_file->spatially_uniform());
-        const bool v_ok = v_ll || (Vwind_data_from_file && Vwind_data_from_file->spatially_uniform());
-        if ((u_ll || v_ll) && !(u_ok && v_ok) && frc_regrid_options.rotate) {
-            amrex::Abort("One wind component comes from a lat-lon forcing grid and the other from "
-                         "the model grid or from the inputs, so the winds cannot be rotated onto the "
-                         "model grid. Give Uwind and Vwind the same source, or set "
-                         "remora.frc_rotate = off if the file's winds are already along the grid axes.");
-        }
-        if ((u_ll || v_ll) && frc_regrid_options.rotate && vec_angler[0] == nullptr) {
-            amrex::Print() << "WARNING: Uwind and Vwind come from a lat-lon grid, but the grid file has "
-                           << "no angle, so they are applied unrotated, as if the grid were not rotated."
-                           << std::endl;
+        // Both wind components from the files are read as a pair, east and north when they
+        // come from a lat-lon grid; one alone cannot be rotated onto the grid.
+        const bool u_netcdf = bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf;
+        const bool v_netcdf = bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf;
+        if (u_netcdf && v_netcdf) {
+            wind_data_from_file = std::make_unique<NCVectorTimeSeries>(
+                nc_frc_file, "Uwind", "Vwind", frc_time_varname, geom[lev].Domain(),
+                vec_uwind[lev].get(), vec_vwind[lev].get(),
+                vec_uwind[lev].get(), vec_vwind[lev].get(), solverChoice.time_ref,
+                frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get());
+            wind_data_from_file->Initialize();
+            if (wind_data_from_file->earth_frame() && vec_angler[0] == nullptr) {
+                amrex::Print() << "WARNING: Uwind and Vwind come from a lat-lon grid, but the grid file has "
+                               << "no angle, so they are applied unrotated, as if the grid were not rotated."
+                               << std::endl;
+            }
+        } else if (u_netcdf || v_netcdf) {
+            auto& series = u_netcdf ? Uwind_data_from_file : Vwind_data_from_file;
+            series.reset(new NCTimeSeries(nc_frc_file, u_netcdf ? "Uwind" : "Vwind", frc_time_varname,
+                                          geom[lev].Domain(), (u_netcdf ? vec_uwind : vec_vwind)[lev].get(),
+                                          true, false, solverChoice.time_ref,
+                                          &frc_regrid_options, vec_lonr[0].get(), vec_latr[0].get()));
+            series->Initialize();
+            if (series->regridded() && frc_regrid_options.rotate) {
+                amrex::Abort("One wind component comes from a lat-lon forcing grid and the other from "
+                             "the inputs, so the winds cannot be rotated onto the model grid. Give "
+                             "Uwind and Vwind the same source, or set remora.frc_rotate = off if the "
+                             "file's winds are already along the grid axes.");
+            }
         }
         if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf) {
             Tair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Tair", frc_time_varname, geom[lev].Domain(),vec_Tair[lev].get(), true, false, solverChoice.time_ref,

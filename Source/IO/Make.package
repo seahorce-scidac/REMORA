@@ -17,6 +17,8 @@ ifeq ($(USE_PNETCDF), TRUE)
   CEXE_headers += REMORA_NCPlotFile.H
   CEXE_headers += REMORA_NCFile.H
   CEXE_sources += REMORA_NCTimeSeries.cpp
+  CEXE_sources += REMORA_NCVectorTimeSeries.cpp
+  CEXE_headers += REMORA_NCVectorTimeSeries.H
   CEXE_sources += REMORA_LatLonRegrid.cpp
   CEXE_headers += REMORA_LatLonRegrid.H
   CEXE_sources += REMORA_NCTimeSeriesRiver.cpp

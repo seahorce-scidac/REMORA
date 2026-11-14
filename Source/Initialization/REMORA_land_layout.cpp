@@ -500,11 +500,9 @@ REMORA::level0_fields (bool all)
                     &vec_Lscale, &vec_Akk, &vec_Akp}) {
         if (lev < v->size()) { add_if(f, (*v)[lev]); }
     }
-#ifdef REMORA_USE_NETCDF
     for (auto* v : {&vec_sustr_rho, &vec_svstr_rho}) {
         if (lev < v->size()) { add_if(f, (*v)[lev]); }
     }
-#endif
     if (all) {
         for (auto* v : {&vec_h, &vec_Hz, &vec_z_w, &vec_z_r, &vec_z_phys_nd, &vec_visc2_p,
                         &vec_visc2_r, &vec_diff2, &vec_stflux, &vec_btflux, &vec_pm, &vec_pn,

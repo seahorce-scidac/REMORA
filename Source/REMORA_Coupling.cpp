@@ -688,21 +688,31 @@ REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
     driver_atmos_state_from_driver.fill(false);
     if (finest_level < 0) { return; }
 
-    // Wind (m/s) — no unit conversion
-    if (vec_uwind[0] != nullptr) {
-        if (states.size() > AtmosState::Uwind && states[AtmosState::Uwind] != nullptr) {
-            vec_uwind[0]->ParallelCopy(*states[AtmosState::Uwind], 0, 0, 1);
-            vec_uwind[0]->FillBoundary(geom[0].periodicity());
-            driver_atmos_state_from_driver[AtmosState::Uwind] = true;
-        }
+    // Wind (m/s), eastward and northward at rho points: turned here onto the grid's axes,
+    // which takes both components
+    const bool has_uwind = vec_uwind[0] != nullptr && states.size() > AtmosState::Uwind &&
+                           states[AtmosState::Uwind] != nullptr;
+    const bool has_vwind = vec_vwind[0] != nullptr && states.size() > AtmosState::Vwind &&
+                           states[AtmosState::Vwind] != nullptr;
+    const bool has_angle = !vec_angler.empty() && vec_angler[0] != nullptr;
+    if (has_uwind != has_vwind && has_angle) {
+        amrex::Abort("The coupled driver supplied only one of Uwind and Vwind. They come east and "
+                     "north and are rotated onto the grid together, so it must supply both.");
     }
-    if (vec_vwind[0] != nullptr) {
-        if (states.size() > AtmosState::Vwind && states[AtmosState::Vwind] != nullptr) {
-            vec_vwind[0]->ParallelCopy(*states[AtmosState::Vwind], 0, 0, 1);
-            vec_vwind[0]->FillBoundary(geom[0].periodicity());
-            driver_atmos_state_from_driver[AtmosState::Vwind] = true;
-        }
+    if (has_uwind) {
+        vec_uwind[0]->ParallelCopy(*states[AtmosState::Uwind], 0, 0, 1);
+        driver_atmos_state_from_driver[AtmosState::Uwind] = true;
     }
+    if (has_vwind) {
+        vec_vwind[0]->ParallelCopy(*states[AtmosState::Vwind], 0, 0, 1);
+        driver_atmos_state_from_driver[AtmosState::Vwind] = true;
+    }
+    // Only the valid cells hold the driver's values until the ghost cells are filled
+    if (has_uwind && has_vwind && has_angle) {
+        rotate_to_grid_axes(*vec_uwind[0], *vec_vwind[0], *vec_angler[0], true);
+    }
+    if (has_uwind) { vec_uwind[0]->FillBoundary(geom[0].periodicity()); }
+    if (has_vwind) { vec_vwind[0]->FillBoundary(geom[0].periodicity()); }
 
     // Atmospheric pressure: Pa → mb (REMORA bulk flux expects mb)
     if (vec_Pair[0] != nullptr) {
@@ -794,10 +804,6 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     const Real Hscale2 = one / (solverChoice.rho0 * Cp);
     const Real rho0 = solverChoice.rho0;
 
-    MultiFab tau_x_tmp(vec_sustr[0]->boxArray(), vec_sustr[0]->DistributionMap(), 1,
-                       vec_sustr[0]->nGrowVect());
-    MultiFab tau_y_tmp(vec_svstr[0]->boxArray(), vec_svstr[0]->DistributionMap(), 1,
-                       vec_svstr[0]->nGrowVect());
     MultiFab shflux_tmp(vec_shflx[0]->boxArray(), vec_shflx[0]->DistributionMap(), 1,
                         vec_shflx[0]->nGrowVect());
     MultiFab lhflux_tmp(vec_lhflx[0]->boxArray(), vec_lhflx[0]->DistributionMap(), 1,
@@ -805,13 +811,23 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     MultiFab lwflux_tmp(vec_lrflx[0]->boxArray(), vec_lrflx[0]->DistributionMap(), 1,
                         vec_lrflx[0]->nGrowVect());
 
-    tau_x_tmp.setVal(zero);
-    tau_x_tmp.ParallelCopy(*states[AtmosFluxes::TauX], 0, 0, 1);
-    tau_x_tmp.FillBoundary(geom[0].periodicity());
-
-    tau_y_tmp.setVal(zero);
-    tau_y_tmp.ParallelCopy(*states[AtmosFluxes::TauY], 0, 0, 1);
-    tau_y_tmp.FillBoundary(geom[0].periodicity());
+    // The stress (N m-2), eastward and northward at rho points: made kinematic and turned
+    // onto the grid's axes there, then averaged to the u and v points, as set_smflux does
+    // with the stress from a lat-lon forcing file. The sign turns the atmosphere's flux
+    // of momentum into the ocean's surface stress. The driver sends none over land, so a
+    // coastal face takes the stress of its wet side alone.
+    ensure_stress_rho_arrays(0);
+    for (auto* tau : {vec_sustr_rho[0].get(), vec_svstr_rho[0].get()}) { tau->setVal(zero); }
+    vec_sustr_rho[0]->ParallelCopy(*states[AtmosFluxes::TauX], 0, 0, 1);
+    vec_svstr_rho[0]->ParallelCopy(*states[AtmosFluxes::TauY], 0, 0, 1);
+    vec_sustr_rho[0]->mult(-one / rho0);
+    vec_svstr_rho[0]->mult(-one / rho0);
+    rho_vector_to_grid_axes(0, vec_sustr_rho, vec_svstr_rho, true, true);
+    average_stress_to_faces(0, *vec_sustr_rho[0], *vec_svstr_rho[0], vec_mskr[0].get());
+    FillPatch(0, t_old[0], *vec_sustr[0], GetVecOfPtrs(vec_sustr), foextrap_periodic_bc(),
+              BdyVars::null, 0, false, false);
+    FillPatch(0, t_old[0], *vec_svstr[0], GetVecOfPtrs(vec_svstr), foextrap_periodic_bc(),
+              BdyVars::null, 0, false, false);
 
     shflux_tmp.setVal(zero);
     shflux_tmp.ParallelCopy(*states[AtmosFluxes::SHflux], 0, 0, 1);
@@ -845,25 +861,23 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     for (MFIter mfi(*vec_sustr[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& sustr = vec_sustr[0]->array(mfi);
         Array4<const Real> const& msku = vec_msku[0]->const_array(mfi);
-        Array4<const Real> const& tau_x = tau_x_tmp.const_array(mfi);
         Box ubx = mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0));
         Box ubxD = ubx;
         ubxD.makeSlab(2,0);
         ParallelFor(ubxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            sustr(i,j,0) = -tau_x(i,j,0) / rho0 * msku(i,j,0);
+            sustr(i,j,0) *= msku(i,j,0);
         });
     }
 
     for (MFIter mfi(*vec_svstr[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& svstr = vec_svstr[0]->array(mfi);
         Array4<const Real> const& mskv = vec_mskv[0]->const_array(mfi);
-        Array4<const Real> const& tau_y = tau_y_tmp.const_array(mfi);
         Box vbx = mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0));
         Box vbxD = vbx;
         vbxD.makeSlab(2,0);
 
         ParallelFor(vbxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            svstr(i,j,0) = -tau_y(i,j,0) / rho0 * mskv(i,j,0);
+            svstr(i,j,0) *= mskv(i,j,0);
         });
     }
 
