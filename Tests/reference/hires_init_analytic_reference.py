@@ -89,7 +89,7 @@ def seamount_temp(nx, ny, N, prob_lo, prob_hi, args, h_ratio=1):
     h_ratio times finer and block-averaged onto the grid."""
     h = seamount_h(nx * h_ratio, ny * h_ratio, prob_lo, prob_hi)
     h = h.reshape(ny, h_ratio, nx, h_ratio).mean(axis=(1, 3))
-    hc = -min(prob_hi[2], -args.tcline)
+    hc = args.tcline
     s_r, cs_r = stretching(N, args.theta_s, args.theta_b)
     zeta = 0.0
     z_r = zeta + (zeta + h[None]) * (hc * s_r[:, None, None] + cs_r[:, None, None] * h[None]) \

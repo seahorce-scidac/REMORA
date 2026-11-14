@@ -28,7 +28,7 @@ The problem geometry can be specified either by a NetCDF grid file or in the inp
 Instructions for setting grid, initial, and Dirichelet boundary conditions from NetCDF file can be found
 :ref:`here<icbc-parameters>`. If one of these quantities is specified from a NetCDF file, they all must be. Even if the grid is specified in the NetCDF file, the geometry and boundary parameters below must still be set. ``remora.prob_lo`` and ``remora.prob_hi`` do not need to agree with the file in this case.
 
-The z-component of ``remora.prob_lo`` should be more negative than the deepest bathymetry, and the z-compoonent of ``remora.prob_hi`` should be 0.
+The z-component of ``remora.prob_hi`` must be 0, the free surface at rest; REMORA stops otherwise. The z-component of ``remora.prob_lo`` should be more negative than the deepest bathymetry. The time step does not use it, but it sets the vertical range of plotfiles, particle seeding and refinement boxes, so REMORA warns when the bathymetry on any level is deeper.
 
 List of Parameters
 ------------------
@@ -101,7 +101,11 @@ Any NetCDF file can be converted to CDF-5 by running:
 
 or, with the NCO suite, ``ncks -5 old_file.nc converted_file.nc``.
 
-Without the high-resolution options below, ``remora.ic_type = netcdf`` needs both ``remora.nc_init_file_0`` and ``remora.nc_grid_file_0``. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
+Without the high-resolution options below, ``remora.ic_type = netcdf`` needs both ``remora.nc_init_file_0`` and ``remora.nc_grid_file_0``.
+
+The level-0 files follow the ROMS layout. With ``remora.n_cell = nx ny nz``, rho-point variables (``h``, ``pm``, ``pn``, ``mask_rho``, ``f``, ``x_rho``, ``temp``, ``zeta``, ...) are ``nx+2`` by ``ny+2``, one ring of cells around the domain; u-point variables (``x_u``, ``u``) are ``nx+1`` by ``ny+2``, v-point variables (``x_v``, ``v``) ``nx+2`` by ``ny+1``, and psi-point variables (``x_psi``, ``lon_psi``) ``nx+1`` by ``ny+1``. ``temp``, ``salt``, ``u`` and ``v`` have ``nz`` vertical levels. As it reads each variable from a level-0 grid, initial-condition or nudging-coefficient file, REMORA checks it against these sizes and stops with a message naming the variable if it differs, or if the file lacks it. ``pm`` and ``pn`` are inverse cell widths in 1/m: REMORA stops if either is not positive, and warns if either exceeds 1 (a cell narrower than 1 m), which usually means the file gives them in 1/degree.
+
+Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
 
 Grid and Initial Data on Refined Levels
 ---------------------------------------
@@ -1102,7 +1106,17 @@ List of Parameters
 +----------------------------------+-----------------------------+-------------------+-------------+
 | **remora.use_curvilinear_grid**  | Add curvilinear grid terms  | true / false      | false       |
 |                                  |                             |                   |             |
-|                                  | for advection               |                   |             |
+|                                  | for momentum advection.     |                   |             |
+|                                  |                             |                   |             |
+|                                  | Needed where 1/pn varies    |                   |             |
+|                                  |                             |                   |             |
+|                                  | along x or 1/pm along y,    |                   |             |
+|                                  |                             |                   |             |
+|                                  | as on any lat-lon grid;     |                   |             |
+|                                  |                             |                   |             |
+|                                  | REMORA warns when such a    |                   |             |
+|                                  |                             |                   |             |
+|                                  | grid runs without them.     |                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
 
 Physics Parameters

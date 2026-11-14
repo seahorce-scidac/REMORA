@@ -709,7 +709,7 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
                                                                NC_names, NC_dim_types,
                                                                NC_fabs, true, itime_offset,
                                                                amrex::IntVect(1,1,0),
-                                                               open_file.get());
+                                                               open_file.get(), false);
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())

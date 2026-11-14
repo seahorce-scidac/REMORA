@@ -407,6 +407,12 @@ public:
 
     /** \brief Set x/y coords on level lev based on pm and pn */
     void set_grid_coords_from_grid_scale (int lev);
+    /** \brief Set a level's coordinates where they are not read from a file */
+    void set_grid_coords (int lev);
+    /** \brief Level-0 coordinates by summing the cell widths 1/pm and 1/pn */
+    void set_grid_coords_by_summing_widths ();
+    /** \brief Fill a refined level's coordinate array by bilinear interpolation of its parent's */
+    void interp_staggered_coords_from_coarse (int lev, amrex::MultiFab& fine, const amrex::MultiFab& crse);
 
     /** \brief Set curvilinear derivative terms on level lev based on pm and pn */
     void set_curvilinear_terms_from_grid_scale (int lev);
@@ -1699,6 +1705,9 @@ public:
     void init_grid_vars_from_netcdf (int lev);
     /** \brief Full domain high-res grid variable initialization from NetCDF file */
     void init_grid_vars_full_domain_from_netcdf ();
+    /** \brief Abort unless pm and pn read from a file are positive; warn if in 1/degree */
+    void check_grid_metrics_from_file (const amrex::MultiFab& pm, const amrex::MultiFab& pn,
+                                       const std::string& fname);
 
     /** \brief Extrapolate grid metrics to edge of MultiFab, copying the outermost
      *         in-domain ghost row outward or, with linear, extending it linearly

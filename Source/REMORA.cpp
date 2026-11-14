@@ -851,6 +851,18 @@ REMORA::set_bathymetry (int lev)
             vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
         }
     }
+
+    // prob_lo in z sets the vertical range of plotfiles, particles and refinement boxes; the
+    // time step does not use it, so deeper water still runs
+    const Real h_max = vec_h[lev]->max(0, 0);
+    if (h_max > -geom[lev].ProbLo(2) && ParallelDescriptor::IOProcessor()) {
+        amrex::Warning("Level " + std::to_string(lev) + " bathymetry reaches " + std::to_string(h_max)
+                       + " m, deeper than the z-component of remora.prob_lo ("
+                       + std::to_string(geom[lev].ProbLo(2)) + "). Plotfiles, particle seeding and "
+                       "refinement boxes cover only z above prob_lo; lower prob_lo to below -"
+                       + std::to_string(h_max));
+    }
+
     set_grid_scale(lev);
 }
 
@@ -3049,6 +3061,13 @@ REMORA::ReadParameters ()
         solverChoice.grid_scale_type != GridScaleType::constant) {
         amrex::Abort("High-resolution initialization with analytic initial conditions requires "
                      "remora.grid_scale_type = constant");
+    }
+
+    // The vertical coordinate takes z = 0 as the free surface at rest; prob_hi in z frames the
+    // plotfiles, particle seeding and refinement boxes, so it has to say the same
+    if (geom[0].ProbHi(2) != zero) {
+        amrex::Abort("The z-component of remora.prob_hi is " + std::to_string(geom[0].ProbHi(2))
+                     + " but must be 0, the free surface at rest");
     }
 
 }
