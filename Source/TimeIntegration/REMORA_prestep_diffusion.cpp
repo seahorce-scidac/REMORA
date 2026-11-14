@@ -81,29 +81,39 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
 
     // The vertical flux FC at the w-level below the cell being updated, carried up the column
     // from one level to the next: FC(k) = dt*bstr at the bottom (k = 0), the diffusive flux
-    // in the interior and dt*sstr at the surface (k = N+1).
+    // in the interior and dt*sstr at the surface (k = N+1). The interior flux is the
+    // explicit part of the diffusion, weighted by 1-lambda, so with the backward implicit
+    // scheme (lambda = 1) it is zero and is not formed.
+    const int explicit_part = (lambda == one) ? 0 : 1;
     const Box bx2d = makeSlab(gbxvel,2,0);
-    FArrayBox fab_FC(bx2d,1,The_Async_Arena());
+    FArrayBox fab_FC;
+    if (explicit_part) { fab_FC.resize(bx2d,1,The_Async_Arena()); }
     auto const& FCb = fab_FC.array();
 
-    AnyCTO(TypeList<CompileTimeOptions<0,1,2>,CompileTimeOptions<0,1,2>>{}, {face, scheme},
+    AnyCTO(TypeList<CompileTimeOptions<0,1,2>,CompileTimeOptions<0,1,2>,CompileTimeOptions<0,1>>{},
+           {face, scheme, explicit_part},
     [&] (auto const& f) { ParallelFor(bx2d, N+1, f); },
-    [=] AMREX_GPU_DEVICE (int i, int j, int, int k, auto face_c, auto scheme_c)
+    [=] AMREX_GPU_DEVICE (int i, int j, int, int k, auto face_c, auto scheme_c, auto expl_c)
     {
         constexpr int io = (face_c.value == 1) ? 1 : 0;
         constexpr int jo = (face_c.value == 2) ? 1 : 0;
 
-        const Real FC_lo = (k == 0) ? dt_lev*bstr(i,j,0) : FCb(i,j,0);
-        Real FC_hi;
-        if (k == N) {
-            FC_hi = dt_lev*sstr(i,j,0);
+        Real FC_lo, FC_hi;
+        if (expl_c.value == 0) {
+            FC_lo = (k == 0) ? dt_lev*bstr(i,j,0) : zero;
+            FC_hi = (k == N) ? dt_lev*sstr(i,j,0) : zero;
         } else {
-            const int kp = k+1;
-            Real cff = one / ( z_r(i,j,kp)+z_r(i-io,j-jo,kp)
-                              -z_r(i,j,kp-1)-z_r(i-io,j-jo,kp-1));
-            FC_hi = oml_dt * cff * (vel_old(i,j,kp,nstp)-vel_old(i,j,kp-1,nstp)) *
-                                   (Akv(i,j,kp)     +Akv(i-io,j-jo,kp));
-            FCb(i,j,0) = FC_hi;
+            FC_lo = (k == 0) ? dt_lev*bstr(i,j,0) : FCb(i,j,0);
+            if (k == N) {
+                FC_hi = dt_lev*sstr(i,j,0);
+            } else {
+                const int kp = k+1;
+                Real cff = one / ( z_r(i,j,kp)+z_r(i-io,j-jo,kp)
+                                  -z_r(i,j,kp-1)-z_r(i-io,j-jo,kp-1));
+                FC_hi = oml_dt * cff * (vel_old(i,j,kp,nstp)-vel_old(i,j,kp-1,nstp)) *
+                                       (Akv(i,j,kp)     +Akv(i-io,j-jo,kp));
+                FCb(i,j,0) = FC_hi;
+            }
         }
 
         if (scheme_c.value == 0) {
