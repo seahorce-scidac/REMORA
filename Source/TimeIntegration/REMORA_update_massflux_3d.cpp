@@ -15,7 +15,6 @@ using namespace amrex;
  * @param[in   ] Dphi_avg1      DU_avg1 or DV_avg1
  * @param[in   ] Dphi_avg2      DU_avg2 or DV_avg2
  * @param        DC             temporary
- * @param        FC             temporary
  * @param[in   ] msk            land-sea mask
  * @param[in   ] nnew           component of velocity
  */
@@ -30,7 +29,6 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
                            const Array4<Real const>& Dphi_avg1,
                            const Array4<Real const>& Dphi_avg2,
                            const Array4<Real      >& DC,
-                           const Array4<Real      >& FC,
                            const Array4<Real const>& msk,
                            const int nnew)
 {
@@ -43,24 +41,22 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
-    int ncomp = 1;
-    Vector<BCRec> bcrs_x(ncomp);
-    Vector<BCRec> bcrs_y(ncomp);
-    amrex::setBC(bx,domain,xvel_bc(),0,1,domain_bcs_type,bcrs_x);
-    amrex::setBC(bx,domain,yvel_bc(),0,1,domain_bcs_type,bcrs_y);
-
     auto N = Geom(0).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
+    AMREX_ASSERT(bx.smallEnd(2) == 0 && bx.bigEnd(2) == N);
 
     auto bxD=bx;
-    auto bx_g1z=bx;
     bxD.makeSlab(2,0);
-    bx_g1z.grow(IntVect(0,0,1));
 
-    FArrayBox fab_CF(bxD,1,amrex::The_Async_Arena()); fab_CF.template setVal<RunOn::Device>(zero);
-    auto CF=fab_CF.array();
+    // Tile-private column sums, each built up level by level from the bottom: the depth of
+    // the face column (then its inverse), the depth integral of phi (then its correction),
+    // and the depth integral of Hphi (then its correction)
+    FArrayBox fab_sum(bxD,3,amrex::The_Async_Arena());
+    auto Dsum = fab_sum.array(0);
+    auto CF   = fab_sum.array(1);
+    auto FC   = fab_sum.array(2);
 
     //Copied depth of water column calculation from DepthStretchTransform
-    //Compute thicknesses of U-boxes DC(i,j,0:N-1), total depth of the water column DC(i,j,-1)
+    //Compute thicknesses of U-boxes DC(i,j,0:N-1), total depth of the water column
 
     //This takes advantage of Hz being an extra grow cell size
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -68,49 +64,43 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
         DC(i,j,k) = Real(0.5) * om_v_or_on_u(i,j,0) * (Hz(i,j,k)+Hz(i-ioff,j-joff,k));
     });
 
-    ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
+    ParallelFor(bxD, N+1, [=] AMREX_GPU_DEVICE (int i, int j, int, int k)
     {
-        for (int k=0; k<=N; k++) {
-            DC(i,j,-1) += DC(i,j,k);
-            CF(i,j,0) += DC(i,j,k) * phi(i,j,k,nnew);
+        Dsum(i,j,0) = ((k == 0) ? zero : Dsum(i,j,0)) + DC(i,j,k);
+        CF(i,j,0)   = ((k == 0) ? zero : CF(i,j,0)) + DC(i,j,k) * phi(i,j,k,nnew);
+
+        if (k == N) {
+            Dsum(i,j,0) = one / Dsum(i,j,0);
+            CF(i,j,0)  = Dsum(i,j,0) * (CF(i,j,0) - Dphi_avg1(i,j,0));
+
+            phibar(i,j,0,0) = Dsum(i,j,0) * Dphi_avg1(i,j,0);
+            phibar(i,j,0,1) = phibar(i,j,0,0);
+        }
+    });
+
+    // Correct phi on the non-periodic domain edges, then average the volume flux with the
+    // one from phi and sum it over the column
+    ParallelFor(bxD, N+1, [=] AMREX_GPU_DEVICE (int i, int j, int, int k)
+    {
+        const bool edge = (i == dlo.x-joff && !is_periodic_in_x) ||
+                          (i == dhi.x+1    && !is_periodic_in_x) ||
+                          (j == dlo.y-ioff && !is_periodic_in_y) ||
+                          (j == dhi.y+1    && !is_periodic_in_y);
+        if (edge) {
+            phi(i,j,k,nnew) -= CF(i,j,0);
+            phi(i,j,k,nnew) *= msk(i,j,0);
         }
 
-        DC(i,j,-1) = one / DC(i,j,-1);
-        CF(i,j,0)  = DC(i,j,-1) * (CF(i,j,0) - Dphi_avg1(i,j,0));
+        Hphi(i,j,k) = Real(0.5) * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
+        FC(i,j,0) = ((k == 0) ? zero : FC(i,j,0)) + Hphi(i,j,k);
 
-        for (int k=0; k<=N; k++) {
-            if (i == dlo.x-joff && !is_periodic_in_x) {
-                phi(i,j,k,nnew) -= CF(i,j,0);
-                phi(i,j,k,nnew) *= msk(i,j,0);
-            } else if (i == dhi.x+1 && !is_periodic_in_x) {
-                phi(i,j,k,nnew) -= CF(i,j,0);
-                phi(i,j,k,nnew) *= msk(i,j,0);
-            } else if (j == dlo.y-ioff && !is_periodic_in_y) {
-                phi(i,j,k,nnew) -= CF(i,j,0);
-                phi(i,j,k,nnew) *= msk(i,j,0);
-            } else if (j == dhi.y+1 && !is_periodic_in_y) {
-                phi(i,j,k,nnew) -= CF(i,j,0);
-                phi(i,j,k,nnew) *= msk(i,j,0);
-            }
+        if (k == N) {
+            FC(i,j,0) = Dsum(i,j,0)*(FC(i,j,0)-Dphi_avg2(i,j,0));
         }
-
-        for (int k=0; k<=N; k++) {
-            Hphi(i,j,k) = Real(0.5) * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
-            FC(i,j,0)  += Hphi(i,j,k);
-        } // k
-
-        FC(i,j,0) = DC(i,j,-1)*(FC(i,j,0)-Dphi_avg2(i,j,0));
     });
 
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Hphi(i,j,k) -= DC(i,j,k)*FC(i,j,0);
     });
-
-    ParallelFor(bxD, [=] AMREX_GPU_DEVICE(int i, int j, int )
-    {
-        phibar(i,j,0,0) = DC(i,j,-1) * Dphi_avg1(i,j,0);
-        phibar(i,j,0,1) = phibar(i,j,0,0);
-    });
-
 }

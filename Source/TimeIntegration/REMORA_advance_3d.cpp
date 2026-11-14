@@ -195,9 +195,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
-        auto FC = fab_FC.array();
-
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_rivers) {
             Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
@@ -222,15 +219,10 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 #endif
 
 
-        // Reset to zero on the box on which they'll be used
-        fab_FC.template setVal<RunOn::Device>(zero,gbx2);
-        mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(lev,gbx2,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,msku,nnew);
-
-        // Reset to zero on the box on which they'll be used
-        fab_FC.template     setVal<RunOn::Device>(zero,gbx2);
-        mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(lev,gbx2,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,mskv,nnew);
+        // update_massflux_3d writes the face thicknesses in DC before reading them and keeps
+        // its column sums in scratch of its own, so nothing needs clearing first
+        update_massflux_3d(lev,gbx2,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,msku,nnew);
+        update_massflux_3d(lev,gbx2,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,mskv,nnew);
 
     }
 

@@ -1218,7 +1218,6 @@ public:
                              const amrex::Array4<amrex::Real const>& Dphi1,
                              const amrex::Array4<amrex::Real const>& Dphi2,
                              const amrex::Array4<amrex::Real      >& DC,
-                             const amrex::Array4<amrex::Real      >& FC,
                              const amrex::Array4<amrex::Real const>& msk,
                              const int nnew);
 
