@@ -6,6 +6,7 @@
 #include <REMORA_prob_common.H>
 #include <AMReX_FillPatchUtil.H>
 #include <AMReX_Interpolater.H>
+#include <REMORA_StaggeredBilinear.H>
 
 #include <AMReX_buildInfo.H>
 #include <AMReX_OpenMP.H>
@@ -1231,9 +1232,7 @@ REMORA::interp_grid_coords_from_coarse (int lev, MultiFab& fine, const MultiFab&
         interior_bcs[0].setHi(dir, BCType::int_dir);
     }
     const IntVect ng = fine.nGrowVect();
-    const Geometry& cg = geom[lev-1];
-    const Geometry crse_geom_nonperiodic(cg.Domain(), cg.ProbDomain(), cg.Coord(),
-                                         Array<int,AMREX_SPACEDIM>{AMREX_D_DECL(0,0,0)});
+    const Geometry crse_geom_nonperiodic = nonperiodic_geometry(geom[lev-1]);
     amrex::InterpFromCoarseLevel(fine, ng, ng, crse, 0, 0, 1, crse_geom_nonperiodic, geom[lev],
                                  ref_ratio[lev-1], &cell_cons_interp, interior_bcs, 0);
     fine.FillBoundary(geom[lev].periodicity());
@@ -1389,10 +1388,10 @@ REMORA::set_grid_coords_by_summing_widths ()
 
 /**
  * Fill a refined level's coordinate array, ghost cells included, by bilinear interpolation of
- * the parent's array at the same staggering. The parent is read only on the domain plus the
- * one-cell ring a grid file supplies (no ring along a nodal or periodic direction); points
- * beyond that extrapolate linearly from the two nearest values. A coordinate linear in the
- * index is reproduced exactly, so a uniform grid keeps (i+1/2)/pm.
+ * the parent's array at the same staggering (StaggeredBilinear). The parent is read only on the
+ * domain plus the one-cell ring a grid file supplies, and points beyond extrapolate linearly, so
+ * a uniform grid keeps (i+1/2)/pm. The parent is copied without periodic wrap: coordinates are
+ * not periodic, and a ghost cell beyond a wall would otherwise also take its periodic image.
  *
  * @param[in   ] lev    the refined level
  * @param[inout] fine   its coordinate array
@@ -1402,45 +1401,19 @@ void
 REMORA::interp_staggered_coords_from_coarse (int lev, MultiFab& fine, const MultiFab& crse)
 {
     AMREX_ASSERT(lev > 0);
-    const IntVect stag = fine.ixType().toIntVect();
+    // Tells the interpolater where the grid file's ring is: ext_dir at a physical edge,
+    // int_dir across a periodic one
+    Vector<BCRec> bcs(1);
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        const int type = geom[lev-1].isPeriodic(dir) ? BCType::int_dir : BCType::ext_dir;
+        bcs[0].setLo(dir, type);
+        bcs[0].setHi(dir, type);
+    }
+    const Geometry crse_geom_nonperiodic = nonperiodic_geometry(geom[lev-1]);
+    const IntVect ng = fine.nGrowVect();
     const IntVect rr(ref_ratio[lev-1][0], ref_ratio[lev-1][1], 1);
-
-    Box filled = amrex::convert(makeSlab(geom[lev-1].Domain(), 2, 0), stag);
-    for (int dir = 0; dir < 2; ++dir) {
-        if (stag[dir] == 0 && !geom[lev-1].isPeriodic(dir)) { filled.grow(dir, 1); }
-    }
-
-    // The parent on the refined layout, wide enough for the stencils of the fine ghost cells
-    const IntVect ng_c(fine.nGrow(0) / rr[0] + 2, fine.nGrow(1) / rr[1] + 2, 0);
-    MultiFab crse_on_fine(amrex::coarsen(fine.boxArray(), rr), fine.DistributionMap(), 1, ng_c);
-    crse_on_fine.setVal(zero);
-    crse_on_fine.ParallelCopy(crse, 0, 0, 1, crse.nGrowVect(), ng_c);
-
-    const Real sx = Real(0.5) * Real(1 - stag[0]);
-    const Real sy = Real(0.5) * Real(1 - stag[1]);
-    const int rx = rr[0], ry = rr[1];
-
-    for (MFIter mfi(fine); mfi.isValid(); ++mfi) {
-        const Box use = crse_on_fine[mfi].box() & filled;
-        AMREX_ALWAYS_ASSERT(use.length(0) >= 2 && use.length(1) >= 2);
-        const int ilo = use.smallEnd(0), ihi = use.bigEnd(0) - 1;
-        const int jlo = use.smallEnd(1), jhi = use.bigEnd(1) - 1;
-        Array4<Real> const& f = fine.array(mfi);
-        Array4<Real const> const& c = crse_on_fine.const_array(mfi);
-
-        ParallelFor(mfi.fabbox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            // Position in the parent's index space, measured from its first point
-            const Real tx = (Real(i) + sx) / Real(rx) - sx;
-            const Real ty = (Real(j) + sy) / Real(ry) - sy;
-            const int ic = amrex::min(amrex::max(static_cast<int>(std::floor(tx)), ilo), ihi);
-            const int jc = amrex::min(amrex::max(static_cast<int>(std::floor(ty)), jlo), jhi);
-            const Real wx = tx - Real(ic);
-            const Real wy = ty - Real(jc);
-            f(i,j,k) = (one - wx) * (one - wy) * c(ic  ,jc  ,k) + wx * (one - wy) * c(ic+1,jc  ,k)
-                     + (one - wx) * wy         * c(ic  ,jc+1,k) + wx * wy         * c(ic+1,jc+1,k);
-        });
-    }
+    amrex::InterpFromCoarseLevel(fine, ng, ng, crse, 0, 0, 1, crse_geom_nonperiodic, geom[lev],
+                                 rr, &staggered_bilinear_interp, bcs, 0);
 }
 
 /**

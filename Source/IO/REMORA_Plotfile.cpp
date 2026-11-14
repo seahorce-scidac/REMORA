@@ -1,4 +1,5 @@
 #include <REMORA.H>
+#include <REMORA_StaggeredBilinear.H>
 #include "AMReX_Interp_3D_C.H"
 #include "AMReX_PlotFileUtil.H"
 
@@ -1226,9 +1227,7 @@ REMORA::plot_node_coords (Vector<MultiFab>& mf_xy)
     // does (#775).
     for (int lev = 1; lev <= finest_level; ++lev) {
         const IntVect rr(ref_ratio[lev-1][0], ref_ratio[lev-1][1], 1);
-        const Geometry& cg = geom[lev-1];
-        const Geometry crse_geom_nonperiodic(cg.Domain(), cg.ProbDomain(), cg.Coord(),
-                                             Array<int,AMREX_SPACEDIM>{AMREX_D_DECL(0,0,0)});
+        const Geometry crse_geom_nonperiodic = nonperiodic_geometry(geom[lev-1]);
         InterpFromCoarseLevel(mf_xy[lev], t_new[lev], mf_xy[lev-1], 0, 0, 2,
                               crse_geom_nonperiodic, geom[lev],
                               null_bc_for_fill, 0, null_bc_for_fill, 0,
