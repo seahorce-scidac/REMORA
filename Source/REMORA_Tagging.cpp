@@ -122,17 +122,25 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
                                      "REMORAErrorTag: RELGRAD and VORT have no mask guard; "
                                      "give them one before building them from inputs");
 
-    if (mskr3d == nullptr || !masked_test) {
+    // A field test given a region tags only inside it, as in ERF. AMReX's own field tests ignore
+    // the region, so these come here even without a mask.
+    const bool in_region_only = (m_test == GRAD || m_test == LESS || m_test == GREATER) &&
+                                m_info.m_realbox.ok();
+
+    if (!masked_test || (mskr3d == nullptr && !in_region_only)) {
         amrex::AMRErrorTag::operator()(tba, mf, clearval, tagval, time, level, geom);
         return;
     }
 
     AMREX_ALWAYS_ASSERT(mf != nullptr);
 
+    // Without a mask every value is clean; the loop below then reads no mask
+    const bool has_mask = (mskr3d != nullptr);
+
     // One box index runs the tags, the field and the mask below, so all three have to be
     // distributed the same way over the same boxes.
-    AMREX_ALWAYS_ASSERT(mskr3d->boxArray()        == mf->boxArray() &&
-                        mskr3d->DistributionMap() == mf->DistributionMap());
+    AMREX_ALWAYS_ASSERT(!has_mask || (mskr3d->boxArray()        == mf->boxArray() &&
+                                      mskr3d->DistributionMap() == mf->DistributionMap()));
 
     AMREX_ALWAYS_ASSERT(mask_lo[0] <= 0 && mask_lo[1] <= 0 &&
                         mask_hi[0] >= 0 && mask_hi[1] >= 0);
@@ -145,7 +153,7 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
     // Furthest the loop below reaches laterally: the field's own dependence on mskr, plus one
     // for GRAD, which asks the same of the neighbor it differences against.
     const int grad_reach = (m_test == GRAD) ? 1 : 0;
-    for (int d = 0; d < 2; ++d) {
+    for (int d = 0; d < 2 && has_mask; ++d) {
         AMREX_ALWAYS_ASSERT(mskr3d->nGrowVect()[d] >=
                             amrex::max(-mask_lo[d], mask_hi[d]) + grad_reach);
     }
@@ -157,7 +165,7 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
 
     auto const& tagma = tba.arrays();
     auto const& datma = mf->const_arrays();
-    auto const& mskma = mskr3d->const_arrays();
+    auto const& mskma = has_mask ? mskr3d->const_arrays() : mf->const_arrays();
 
     // A box has no threshold
     auto const nvalues = std::ssize(m_value);
@@ -182,6 +190,7 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
         // asks about every rho-cell the value depends on, not just its own.
         auto value_is_clean = [=] (int ii, int jj) noexcept
         {
+            if (!has_mask) { return true; }
             for     (int jo = mlo[1]; jo <= mhi[1]; ++jo) {
                 for (int io = mlo[0]; io <= mhi[0]; ++io) {
                     if (msk(ii+io,jj+jo,k) <= Real(0.5)) { return false; }
@@ -192,16 +201,18 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
 
         if (!value_is_clean(i,j)) { return; }
 
+        // As amrex::AMRErrorTag tests a box: on the cell center
+        const Real pt[AMREX_SPACEDIM] = {
+            AMREX_D_DECL(geomdata.ProbLo(0) + (Real(i)+Real(0.5))*geomdata.CellSize(0),
+                         geomdata.ProbLo(1) + (Real(j)+Real(0.5))*geomdata.CellSize(1),
+                         geomdata.ProbLo(2) + (Real(k)+Real(0.5))*geomdata.CellSize(2))};
+        if (in_region_only && !tag_rb.contains(pt)) { return; }
+
         auto const& dat = datma[bi];
         bool tag_it = false;
 
         if (test == BOX)
         {
-            // As amrex::AMRErrorTag tests a box: on the cell center
-            const Real pt[AMREX_SPACEDIM] = {
-                AMREX_D_DECL(geomdata.ProbLo(0) + (Real(i)+Real(0.5))*geomdata.CellSize(0),
-                             geomdata.ProbLo(1) + (Real(j)+Real(0.5))*geomdata.CellSize(1),
-                             geomdata.ProbLo(2) + (Real(k)+Real(0.5))*geomdata.CellSize(2))};
             tag_it = tag_rb.contains(pt);
         }
         else if (test == GRAD)
@@ -871,15 +882,12 @@ REMORA::refinement_criteria_setup ()
             }
             ref_tags.back().SetTimeWindow(min_elapsed, max_elapsed,
                                           min_total, max_total);
-            // Where a finer level can go, for remora.drop_dry_boxes. A field criterion tags
-            // wherever the field qualifies -- REMORAErrorTag does not read the box -- so only a
-            // box-only indicator bounds it.
-            const bool field_criterion = ppr.countval("value_greater") || ppr.countval("value_less")
-                                         || ppr.countval("adjacent_difference_greater");
-            if (field_criterion) {
-                refine_region_unbounded = true;
-            } else {
+            // Where a finer level can go, for remora.drop_dry_boxes: the indicator's region, or,
+            // for a field criterion given none, anywhere the field qualifies.
+            if (realbox.ok()) {
                 refine_regions.push_back(realbox);
+            } else {
+                refine_region_unbounded = true;
             }
             static_only = static_only && realbox.ok()
                           && !ppr.countval("value_greater") && !ppr.countval("value_less")

@@ -184,9 +184,10 @@ The example below adds three user-named criteria:
 - ``tempdiff``: cells having a difference in temperature of 0.01 or more from
   that of any immediate neighbor. Triggers up to level 2, and only when the
   problem time is between 100 and 300 seconds;
-- ``lo_vort``: cells with relative vorticity less than 0, and separately the
-  region
-  :math:`[0.25,0.25,\texttt{prob_lo_z}]\times[0.75,0.75,\texttt{prob_hi_z}]`.
+- ``lo_vort``: cells with relative vorticity less than 0, inside the region
+  :math:`[25000, 50000] \times [60000, 80000]` (m, in x and y). Triggers only
+  on level 0. A field test given a box tags only inside it, as in ERF; without
+  one it tags wherever the field qualifies.
 
 ::
 
@@ -208,8 +209,8 @@ The example below adds three user-named criteria:
             remora.lo_vort.max_level = 1
             remora.lo_vort.value_less = 0
             remora.lo_vort.field_name = vorticity
-            remora.lo_vort.in_box_lo = 25000 60000          # This is not a limit on the refinement region, rather, it specifies
-            remora.lo_vort.in_box_hi = 50000 80000          # to refine the box AND apply the field test over the whole domain
+            remora.lo_vort.in_box_lo = 25000 60000          # The field test tags only inside this region
+            remora.lo_vort.in_box_hi = 50000 80000
 
 The ``start_time`` and ``end_time`` of an indicator are in seconds since the
 start of the run, that is, since ``remora.start_time``, as in ERF. To give a
@@ -326,9 +327,10 @@ blocking factor (over the refinement ratio) and by the coarse stencil of the fil
 it; the fine grids are then the ones the full-domain run makes. This margin covers level 1
 only: a level-2 indicator would grow level 1 by its own buffer and proper nesting, and AMReX
 would clear level-1 tags near a hole without a word, so with ``amr.max_level`` > 1 no box is
-dropped. A field-based criterion, or a ``refinement`` variable in the grid file, can refine
-anywhere, so with one of those no box is dropped either. REMORA aborts after a regrid if level
-1, or the level-0 cells its fills need, reaches a dropped box.
+dropped. A field-based criterion given no box, or a ``refinement`` variable in the grid file,
+can refine anywhere, so with one of those no box is dropped either; a field-based criterion
+given a box is bounded by it, like a box. REMORA aborts after a regrid if level 1, or the
+level-0 cells its fills need, reaches a dropped box.
 
 Coupling Types
 --------------

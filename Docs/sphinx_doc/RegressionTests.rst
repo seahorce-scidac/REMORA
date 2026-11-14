@@ -4,13 +4,13 @@
 Regression Tests
 ================
 
-There are currently 68 regression tests which are run as part of every PR on a range of architectures:
+There are currently 70 regression tests which are run as part of every PR on a range of architectures:
 
 * 22 that compare a plotfile against a stored reference;
 * 6 that compare two runs of the model against each other, or a run against its own initial state, and
   need no reference;
 * 5 that assert values against an external reference;
-* 8 that assert the structure of the refined grid;
+* 10 that assert the structure of the refined grid;
 * 8 that assert how far an integrated quantity drifts over a run;
 * 8 that assert a run reaches a behavior it reports in its log;
 * 11 that assert a misconfigured input fails for the stated reason.
@@ -321,6 +321,14 @@ files on the Dogbone case.
 +---------------------------------+----------+---------------------------------------------------------+
 | DogboneAnalytic_MLmask_rr2\_    | 42 15 16 | the same at ratio 2: 6400 cells                         |
 | boxwater                        |          |                                                         |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmask\_        | 42 15 16 | a field test that every cell passes, given the same box,|
+| fieldbox                        |          |                                                         |
+|                                 |          | tags only inside it: the same 14400 cells               |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmask\_        | 42 15 16 | the same without a land mask: the whole box, 34560      |
+| fieldbox_nomask                 |          |                                                         |
+|                                 |          | cells                                                   |
 +---------------------------------+----------+---------------------------------------------------------+
 | DogboneAnalytic_MLmask_boxland  | 42 15 16 | with ``tag_land`` the same box is refined in full,      |
 |                                 |          |                                                         |
