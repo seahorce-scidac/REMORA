@@ -454,11 +454,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             });
         }
 
-        ParallelFor(gbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FC(i,j,k)=zero;
-        });
-
+        // FC is scratch for prsgrd, which writes every value of it that it reads
         prsgrd(tbxp1,gbx1,utbx,vtbx,ru,rv,on_u,om_v,rho,FC,Hz,z_r,z_w,msku,mskv,nrhs,N);
 
         // Apply mixing to temperature and, if use_salt, salt
