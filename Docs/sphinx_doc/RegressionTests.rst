@@ -645,7 +645,9 @@ the gustiness gives it and takes the direction of whatever round-off remains.
 Grid input tests
 ----------------
 
-These check that grid and Coriolis inputs which would otherwise run with wrong values are rejected.
+These check that grid, Coriolis and domain inputs which would otherwise run with wrong or
+misleading values are rejected or reported.
+
 
 +---------------------------------+----------+---------------------------------------------------------+
 | Test                            | nx ny nz | What it asserts                                         |
@@ -653,6 +655,12 @@ These check that grid and Coriolis inputs which would otherwise run with wrong v
 | Seamount_zero_beta_plane_abort  | 49 48 13 | Coriolis on with a beta-plane whose ``coriolis_f0`` and |
 |                                 |          |                                                         |
 |                                 |          | ``coriolis_beta`` are both 0 is rejected                |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_prob_hi_z_abort       | 49 48 13 | a ``prob_hi`` z other than 0 is rejected                |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_deep_bathymetry        | 49 48 13 | bathymetry deeper than ``prob_lo`` z (5000 m against    |
+|                                 |          |                                                         |
+|                                 |          | 4000 m) runs and is reported                            |
 +---------------------------------+----------+---------------------------------------------------------+
 
 Nightly Regression Tests on CPU

@@ -28,7 +28,7 @@ The problem geometry can be specified either by a NetCDF grid file or in the inp
 Instructions for setting grid, initial, and Dirichelet boundary conditions from NetCDF file can be found
 :ref:`here<icbc-parameters>`. If one of these quantities is specified from a NetCDF file, they all must be. Even if the grid is specified in the NetCDF file, the geometry and boundary parameters below must still be set. ``remora.prob_lo`` and ``remora.prob_hi`` do not need to agree with the file in this case.
 
-The z-component of ``remora.prob_lo`` should be more negative than the deepest bathymetry, and the z-compoonent of ``remora.prob_hi`` should be 0.
+The z-component of ``remora.prob_hi`` must be 0, the free surface at rest; REMORA stops otherwise. The z-component of ``remora.prob_lo`` should be more negative than the deepest bathymetry. The time step does not use it, but it sets the vertical range of plotfiles, particle seeding and refinement boxes, so REMORA warns when the bathymetry on any level is deeper.
 
 List of Parameters
 ------------------
