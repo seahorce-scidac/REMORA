@@ -18,7 +18,7 @@
  * model targets: rho points for the winds, u and v points for the stress. On a lat-lon grid it
  * gives them east and north. Both are then interpolated to rho points, into the rho targets,
  * and the caller turns them onto the grid's axes there and, for the stress, averages them to
- * the faces (REMORA::surface_vector_to_grid). A component given as one value per time pairs
+ * the faces (REMORA::rho_vector_to_grid_axes). A component given as one value per time pairs
  * with either kind of grid.
  *
  * Collective: construct, initialize and update on every rank.

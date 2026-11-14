@@ -814,8 +814,8 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     // The stress (N m-2), eastward and northward at rho points: made kinematic and turned
     // onto the grid's axes there, then averaged to the u and v points, as set_smflux does
     // with the stress from a lat-lon forcing file. The sign turns the atmosphere's flux
-    // of momentum into the ocean's surface stress. The driver sends none over land, so a
-    // coastal face takes the stress of its wet side alone.
+    // of momentum into the ocean's surface stress. msku and mskv then zero every face with
+    // land on either side, as before.
     ensure_stress_rho_arrays(0);
     for (auto* tau : {vec_sustr_rho[0].get(), vec_svstr_rho[0].get()}) { tau->setVal(zero); }
     vec_sustr_rho[0]->ParallelCopy(*states[AtmosFluxes::TauX], 0, 0, 1);
@@ -823,7 +823,7 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     vec_sustr_rho[0]->mult(-one / rho0);
     vec_svstr_rho[0]->mult(-one / rho0);
     rho_vector_to_grid_axes(0, vec_sustr_rho, vec_svstr_rho, true, true);
-    average_stress_to_faces(0, *vec_sustr_rho[0], *vec_svstr_rho[0], vec_mskr[0].get());
+    average_stress_to_faces(0, *vec_sustr_rho[0], *vec_svstr_rho[0]);
     FillPatch(0, t_old[0], *vec_sustr[0], GetVecOfPtrs(vec_sustr), foextrap_periodic_bc(),
               BdyVars::null, 0, false, false);
     FillPatch(0, t_old[0], *vec_svstr[0], GetVecOfPtrs(vec_svstr), foextrap_periodic_bc(),

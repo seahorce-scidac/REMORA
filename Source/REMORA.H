@@ -1494,8 +1494,7 @@ public:
 
     /** \brief Average rho-point stress components to the u and v faces */
     void average_stress_to_faces (int lev, const amrex::MultiFab& tau_xi_rho,
-                                  const amrex::MultiFab& tau_eta_rho,
-                                  const amrex::MultiFab* mskr = nullptr);
+                                  const amrex::MultiFab& tau_eta_rho);
 
     /** \brief Initialize horizontal mixing coefficients */
     void set_hmixcoef (int lev);

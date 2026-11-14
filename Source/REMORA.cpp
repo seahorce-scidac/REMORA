@@ -1946,18 +1946,13 @@ REMORA::rho_vector_to_grid_axes (int lev, Vector<std::unique_ptr<MultiFab>>& x_r
 /**
  * Each u face takes the mean of the rho points either side of it in x, each v face the
  * mean of those either side in y. The faces on the domain edge use the boundary ring.
- * With a wet mask the mean is over the wet points only, so that a face between water and
- * land takes the water's stress rather than half of it, when the land points hold none.
  *
  * @param[in   ] lev          level
  * @param[in   ] tau_xi_rho   xi stress on rho points, with at least one ghost cell filled
  * @param[in   ] tau_eta_rho  eta stress on rho points, likewise
- * @param[in   ] mskr         wet mask on rho points (1 wet), with a ghost cell, or null to
- *                            average every point
  */
 void
-REMORA::average_stress_to_faces (int lev, const MultiFab& tau_xi_rho, const MultiFab& tau_eta_rho,
-                                 const MultiFab* mskr)
+REMORA::average_stress_to_faces (int lev, const MultiFab& tau_xi_rho, const MultiFab& tau_eta_rho)
 {
     // Over the rho layout, which shares its box indices and distribution with the faces',
     // so that nodaltilebox gives each face box
@@ -1968,30 +1963,14 @@ REMORA::average_stress_to_faces (int lev, const MultiFab& tau_xi_rho, const Mult
         auto const& sv = vec_svstr[lev]->array(mfi);
         auto const& tx = tau_xi_rho.const_array(mfi);
         auto const& ty = tau_eta_rho.const_array(mfi);
-        if (mskr != nullptr) {
-            auto const& m = mskr->const_array(mfi);
-            ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                const Real w = m(i-1,j,0) + m(i,j,0);
-                su(i,j,k) = (w > Real(0.0))
-                    ? (m(i-1,j,0) * tx(i-1,j,k) + m(i,j,0) * tx(i,j,k)) / w : Real(0.0);
-            });
-            ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                const Real w = m(i,j-1,0) + m(i,j,0);
-                sv(i,j,k) = (w > Real(0.0))
-                    ? (m(i,j-1,0) * ty(i,j-1,k) + m(i,j,0) * ty(i,j,k)) / w : Real(0.0);
-            });
-        } else {
-            ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                su(i,j,k) = Real(0.5) * (tx(i-1,j,k) + tx(i,j,k));
-            });
-            ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                sv(i,j,k) = Real(0.5) * (ty(i,j-1,k) + ty(i,j,k));
-            });
-        }
+        ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            su(i,j,k) = Real(0.5) * (tx(i-1,j,k) + tx(i,j,k));
+        });
+        ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            sv(i,j,k) = Real(0.5) * (ty(i,j-1,k) + ty(i,j,k));
+        });
     }
 }
 
