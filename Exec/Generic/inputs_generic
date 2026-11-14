@@ -290,13 +290,13 @@ remora.cloud = 0.5
 # type=Real; method=queryAdd
 remora.coriolis_beta = 0.0
 
-# coriolis factor
+# coriolis factor Whether the inputs set them, for the coriolis_type default below; queryAdd then adds the defaults, so the inputs can no longer be asked afterwards
 # type=Real; method=queryAdd
 remora.coriolis_f0 = 1.0e-4
 
-# Type of Coriolis forcing. ``beta_plane`` uses a linear approximation. ``analytic`` is calculated from a function in ``prob.cpp``, and ``netcdf`` is read from the netcdf grid file
+# Type of Coriolis forcing. ``beta_plane`` uses a linear approximation. ``analytic`` is calculated from a function in ``prob.cpp``, and ``netcdf`` is read from the netcdf grid file (``f``). Defaults to ``netcdf`` when ``remora.ic_type = netcdf`` with ``remora.nc_grid_file_0`` set and neither ``coriolis_f0`` nor ``coriolis_beta`` set.
 # type=string; method=queryAdd
-remora.coriolis_type = beta_plane
+remora.coriolis_type = netcdf
 
 # Which type of refinement
 # type=string; method=queryAdd
@@ -1302,7 +1302,7 @@ remora.use_biology_cpp_answer = 1
 # type=bool; method=queryAdd
 remora.use_coriolis = true
 
-# Add curvilinear grid terms for advection
+# Add curvilinear grid terms for momentum advection. Needed where 1/pn varies along x or 1/pm along y, as on any lat-lon grid; REMORA warns when such a grid runs without them.
 # type=bool; method=queryAdd
 remora.use_curvilinear_grid = <UNKNOWN_DEFAULT>
 
