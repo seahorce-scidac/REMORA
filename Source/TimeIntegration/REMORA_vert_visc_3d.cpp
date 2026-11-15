@@ -5,8 +5,8 @@ using namespace amrex;
 namespace {
 
 /** Average of a cell-centered field onto the u-face (IOFF = 1), the v-face (JOFF = 1), or
- *  its value at the cell center for tracers (both 0), where the average of a value with
- *  itself would return it unchanged. */
+ *  its value at the cell center for tracers (both 0), which equals 0.5*(a+a) exactly
+ *  unless a+a overflows. */
 template <int IOFF, int JOFF>
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE
 Real face_avg (Array4<Real const> const& a, int i, int j, int k) noexcept
@@ -60,7 +60,7 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
     AMREX_ASSERT(ioff + joff <= 1);
     const int face = (ioff == 1) ? 1 : ((joff == 1) ? 2 : 0);
 
-    // The face values of Hz and Akv are formed where they are used rather than stored.
+    // The face values of Hz and Akv are formed where they are used.
     // Both kernels walk each column in order: on the GPU one thread per column loops over
     // the levels, on the CPU the level loop is outermost, so the loop over i vectorizes.
 

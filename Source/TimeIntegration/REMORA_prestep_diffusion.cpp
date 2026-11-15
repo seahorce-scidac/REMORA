@@ -79,11 +79,11 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
     // later ones
     const int scheme = (iic==ntfirst || face == 0) ? 0 : ((iic==ntfirst+1) ? 1 : 2);
 
-    // The vertical flux FC at the w-level below the cell being updated, carried up the column
-    // from one level to the next: FC(k) = dt*bstr at the bottom (k = 0), the diffusive flux
-    // in the interior and dt*sstr at the surface (k = N+1). The interior flux is the
-    // explicit part of the diffusion, weighted by 1-lambda, so with the backward implicit
-    // scheme (lambda = 1) it is zero and is not formed.
+    // The vertical flux at w-level k: dt*bstr at k = 0, the explicit diffusive flux in the
+    // interior, dt*sstr at k = N+1; the flux below each level is carried up the column in
+    // FCb. The interior flux is the explicit part of the diffusion, weighted by 1-lambda, so
+    // with the backward implicit scheme (lambda = 1) it is zero and is not formed. prestep,
+    // the only caller, always passes lambda = 1; the explicit branch serves other lambdas.
     const int explicit_part = (lambda == one) ? 0 : 1;
     const Box bx2d = makeSlab(gbxvel,2,0);
     FArrayBox fab_FC;

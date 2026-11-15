@@ -121,8 +121,8 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
     // factor, as do the y-flux of u and the x-flux of v at a psi point, so each pair is
     // computed together from one strain term. At rho points the pair is computed on the
     // box of UFx, which holds the box of VFe except for the rows below and above it; at psi
-    // points on the box of UFe, which holds the box of VFx except for the column to its
-    // right. Those rows and that column get VFe or VFx alone. Where only one flux of a pair
+    // points on the box of UFe, which holds the box of VFx except, on a tile without its
+    // high x-face, the column to its right. Those rows and that column get VFe or VFx alone. Where only one flux of a pair
     // is read, the other is computed but not read.
     const Box rbx  = growLo(xbx,0,1);
     const Box rbxv = growLo(ybx,1,1);

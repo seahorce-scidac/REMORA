@@ -171,7 +171,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
     }
 
     // Hand the same fluxes to the flux register, scaled so its internal dt/dx reproduces
-    // the dt*pm*pn above. REMORA's divergence uses the receiving cell's metric, not a face
+    // the dt*pm*pn of the update below. REMORA's divergence uses the receiving cell's metric, not a face
     // one, so the face weight is an average: exact where pm and pn are uniform.
     if (fx_reg) {
         const Real dx0 = geom[lev].CellSize(0);

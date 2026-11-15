@@ -47,16 +47,16 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
     auto bxD=bx;
     bxD.makeSlab(2,0);
 
-    // Tile-private column sums, each built up level by level from the bottom: the depth of
-    // the face column (then its inverse), the depth integral of phi (then its correction),
-    // and the depth integral of Hphi (then its correction)
+    // Tile-private column sums, each built up level by level from the bottom: the column's
+    // face area (then its inverse), the transport sum of DC*phi (then its correction), and
+    // the sum of Hphi (then its correction)
     FArrayBox fab_sum(bxD,3,amrex::The_Async_Arena());
     auto Dsum = fab_sum.array(0);
     auto CF   = fab_sum.array(1);
     auto FC   = fab_sum.array(2);
 
     //Copied depth of water column calculation from DepthStretchTransform
-    //Compute thicknesses of U-boxes DC(i,j,0:N-1), total depth of the water column
+    // Face areas of the u- or v-cells, DC(i,j,0:N) = on_u (or om_v) times the face thickness
 
     //This takes advantage of Hz being an extra grow cell size
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)

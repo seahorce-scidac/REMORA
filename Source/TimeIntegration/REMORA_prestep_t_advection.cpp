@@ -169,18 +169,18 @@ REMORA::prestep_t_advection (int lev, const Box& tbx,
     //
     ParallelFor(surroundingNodes(tbx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        if (k >= 2 && k <= N-1) {
+        if (k == 0 || k == N+1) {
+            FC(i,j,k) = Real(0.0);
+        } else if (k >= 2 && k <= N-1) {
             FC(i,j,k)=( c2*(tempold(i  ,j,k-1,nrhs)+ tempold(i,j,k  ,nrhs))
                              -c3*(tempold(i  ,j,k-2 ,nrhs)+ tempold(i,j,k+1,nrhs)) )*
                                 ( W(i,j,k));
         } else if (k == 1) {
             FC(i,j,  1) = ( c2*tempold(i,j,  1,nrhs)+ c1*tempold(i,j,0,nrhs)-c3*tempold(i,j,2,nrhs) )
                         * W(i,j,1);
-        } else if (k == N) {
+        } else {
             FC(i,j,N) = ( c2*tempold(i,j,N-1,nrhs)+ c1*tempold(i,j,N,nrhs)-c3*tempold(i,j,N-2,nrhs) )
                       * W(i,j,N);
-        } else {
-            FC(i,j,k) = Real(0.0);
         }
     });
 
