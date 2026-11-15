@@ -1401,19 +1401,12 @@ void
 REMORA::interp_staggered_coords_from_coarse (int lev, MultiFab& fine, const MultiFab& crse)
 {
     AMREX_ASSERT(lev > 0);
-    // Tells the interpolater where the grid file's ring is: ext_dir at a physical edge,
-    // int_dir across a periodic one
-    Vector<BCRec> bcs(1);
-    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-        const int type = geom[lev-1].isPeriodic(dir) ? BCType::int_dir : BCType::ext_dir;
-        bcs[0].setLo(dir, type);
-        bcs[0].setHi(dir, type);
-    }
     const Geometry crse_geom_nonperiodic = nonperiodic_geometry(geom[lev-1]);
     const IntVect ng = fine.nGrowVect();
     const IntVect rr(ref_ratio[lev-1][0], ref_ratio[lev-1][1], 1);
     amrex::InterpFromCoarseLevel(fine, ng, ng, crse, 0, 0, 1, crse_geom_nonperiodic, geom[lev],
-                                 rr, &staggered_bilinear_interp, bcs, 0);
+                                 rr, &staggered_bilinear_interp,
+                                 staggered_bilinear_bcrec(geom[lev-1]), 0);
 }
 
 /**

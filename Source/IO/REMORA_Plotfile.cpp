@@ -1,5 +1,5 @@
 #include <REMORA.H>
-#include <REMORA_StaggeredBilinear.H>
+#include <REMORA_NonperiodicGeometry.H>
 #include "AMReX_Interp_3D_C.H"
 #include "AMReX_PlotFileUtil.H"
 

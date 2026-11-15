@@ -1,8 +1,8 @@
 #ifndef REMORA_STAGGERED_BILINEAR_H_
 #define REMORA_STAGGERED_BILINEAR_H_
 
-#include <AMReX_Geometry.H>
 #include <AMReX_Interpolater.H>
+#include <REMORA_NonperiodicGeometry.H>
 
 #include <cmath>
 
@@ -20,8 +20,10 @@
  *
  * Used through InterpFromCoarseLevel with a non-periodic coarse Geometry (coordinates do not
  * wrap; see nonperiodic_geometry) and one BCRec per component saying where the ring is: ext_dir
- * at a physical edge, int_dir across a periodic one. InterpFromCoarseLevel copies the parent's
- * ghost cells into the coarse patch, so the parent needs ceil(fine ghosts / ratio) + 1 of them.
+ * at a physical edge, int_dir across a periodic one (see staggered_bilinear_bcrec). Across a
+ * periodic edge it reads no coarse ghost cell at all, since those hold the wrapped values from
+ * the other side. InterpFromCoarseLevel copies the parent's ghost cells into the coarse patch,
+ * so the parent needs ceil(fine ghosts / ratio) + 1 of them.
  */
 class StaggeredBilinear
     : public amrex::Interpolater
@@ -92,8 +94,9 @@ public:
                                                      side == amrex::BCType::int_dir,
                         "StaggeredBilinear takes ext_dir or int_dir boundary records only");
                 }
-                if (stag[dir] == 0 && bcr[n].lo(dir) == amrex::BCType::ext_dir) { filled.growLo(dir, 1); }
-                if (stag[dir] == 0 && bcr[n].hi(dir) == amrex::BCType::ext_dir) { filled.growHi(dir, 1); }
+                if (stag[dir] != 0) { continue; }
+                if (bcr[n].lo(dir) == amrex::BCType::ext_dir) { filled.growLo(dir, 1); }
+                if (bcr[n].hi(dir) == amrex::BCType::ext_dir) { filled.growHi(dir, 1); }
             }
             filled &= crse.box();
             AMREX_ALWAYS_ASSERT(filled.length(0) >= 2 && filled.length(1) >= 2);
@@ -132,18 +135,28 @@ public:
 inline StaggeredBilinear staggered_bilinear_interp;
 
 /**
- * A copy of geom with no periodic direction, for interpolating coordinates from a coarser
- * level. Coordinates do not wrap: across a periodic edge the coarse ghost cells already hold
- * the continued values, and a periodic copy would give a ghost cell that also lies beyond a
- * wall a second source, its periodic image, with the winner undefined.
+ * The boundary records StaggeredBilinear expects for a coarse level: ext_dir at a physical
+ * edge, where a grid file supplies a ring, and int_dir across a periodic one. Build them with
+ * this rather than by hand: InterpFromCoarseLevel turns every side of a patch that doesn't reach
+ * the domain edge into int_dir before the interpolater sees it, so the interpolater's own check
+ * catches a wrong record only on patches at the edge.
  *
- * @param[in   ] geom   the coarse Geometry
+ * @param[in   ] crse_geom  the coarse level's Geometry, with its real periodicity
+ * @param[in   ] ncomp      number of components
  */
-inline amrex::Geometry
-nonperiodic_geometry (const amrex::Geometry& geom)
+inline amrex::Vector<amrex::BCRec>
+staggered_bilinear_bcrec (const amrex::Geometry& crse_geom, int ncomp = 1)
 {
-    return amrex::Geometry(geom.Domain(), geom.ProbDomain(), geom.Coord(),
-                           amrex::Array<int,AMREX_SPACEDIM>{AMREX_D_DECL(0,0,0)});
+    amrex::Vector<amrex::BCRec> bcs(ncomp);
+    for (auto& bc : bcs) {
+        for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+            const int type = crse_geom.isPeriodic(dir) ? amrex::BCType::int_dir
+                                                       : amrex::BCType::ext_dir;
+            bc.setLo(dir, type);
+            bc.setHi(dir, type);
+        }
+    }
+    return bcs;
 }
 
 #endif
