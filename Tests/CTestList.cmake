@@ -787,6 +787,14 @@ compose_test_input(DogboneAnalytic_MLmask_boxwater DogboneAnalytic_MLmask)
 add_test_cells(DogboneAnalytic_MLmask_boxwater     "remora_exec" "plt00000" 1 14400)
 compose_test_input(DogboneAnalytic_MLmask_rr2_boxwater DogboneAnalytic_MLmask_rr2)
 add_test_cells(DogboneAnalytic_MLmask_rr2_boxwater "remora_exec" "plt00000" 1 6400)
+# A field test given a box tags only inside it. Every cell passes temp > -1, so the test with
+# the box must refine what the box alone does: its 100 wet level-0 cells (14400 level-1
+# cells), or, without a mask, all 240 (34560). Without the box both would refine the whole
+# domain's water. The second goes through the path a run without a mask takes.
+compose_test_input(DogboneAnalytic_MLmask_fieldbox DogboneAnalytic_MLmask)
+add_test_cells(DogboneAnalytic_MLmask_fieldbox        "remora_exec" "plt00000" 1 14400)
+compose_test_input(DogboneAnalytic_MLmask_fieldbox_nomask DogboneAnalytic_MLmask)
+add_test_cells(DogboneAnalytic_MLmask_fieldbox_nomask "remora_exec" "plt00000" 1 34560)
 # With tag_land, kept for direct comparison with a ROMS nest, the box is refined in full:
 # 240 level-0 cells, 240*9*16 level-1 cells.
 compose_test_input(DogboneAnalytic_MLmask_boxland DogboneAnalytic_MLmask)
