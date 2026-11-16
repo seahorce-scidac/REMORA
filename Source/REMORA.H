@@ -5,6 +5,7 @@
 #include <limits>
 #include <array>
 #include <memory>
+#include <functional>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -1546,10 +1547,17 @@ public:
                           bool fill_set) const;
 
     /** \brief advance_2d's three fine-level barotropic fills with one exchange, when all
-     *  three are cache hits; returns false, having changed nothing, otherwise */
+     *  three are cache hits; returns false, having changed nothing, otherwise. A given
+     *  before_exchange runs just before that exchange. */
     bool replay_cf_2d_fills (int lev, amrex::Real time, int knew, int know, amrex::Real dt2d,
                              const amrex::MultiFab& ubar_know, const amrex::MultiFab& vbar_know,
-                             const amrex::MultiFab& zeta_know);
+                             const amrex::MultiFab& zeta_know,
+                             const std::function<void()>& before_exchange = {});
+
+    /** \brief Whether every box of a fine level, grown by the ghost cells of ubar, vbar and
+     *  zeta and one cell more, lies inside the domain: the physical boundary conditions and
+     *  periodic images then leave those fields alone */
+    bool cf_2d_interior (int lev) const;
 
     /** \brief advance_2d's three fine-level barotropic fills, one FillPatch each */
     void fill_2d_from_parent (int lev, amrex::Real time, int knew, int know, amrex::Real dt2d,
