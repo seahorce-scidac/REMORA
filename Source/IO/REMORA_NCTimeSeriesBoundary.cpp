@@ -148,6 +148,14 @@ void NCTimeSeriesBoundary::Initialize()
     ylo_dat_interp = amrex::FArrayBox(ylo_bx, 1, Arena_Used);
     yhi_dat_interp = amrex::FArrayBox(yhi_bx, 1, Arena_Used);
 
+    // A side that takes no boundary data is never read or interpolated, so give its strips a
+    // defined value. The arena is host-accessible (pinned on GPU builds).
+    for (amrex::FArrayBox* fab : {&xlo_dat_before, &xhi_dat_before, &ylo_dat_before, &yhi_dat_before,
+                                  &xlo_dat_after, &xhi_dat_after, &ylo_dat_after, &yhi_dat_after,
+                                  &xlo_dat_interp, &xhi_dat_interp, &ylo_dat_interp, &yhi_dat_interp}) {
+        fab->setVal<amrex::RunOn::Host>(amrex::Real(0.0));
+    }
+
     // dummy initialization
     i_time_before = -100;
 
@@ -265,6 +273,22 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (double time)
         crse_yhi_dat = amrex::FArrayBox(crse_yhi_bx, 1, Arena_Used);
     }
 
+    // Interpolate the coarse strips read_in_at_time just filled onto this level's, for the sides
+    // that take boundary data. read_in_at_time reads no variable for the other sides (whatever
+    // the file holds), so their coarse strips are never filled, and nothing reads their fine ones.
+    auto interp_strips = [&] (amrex::FArrayBox& fine_xlo, amrex::FArrayBox& fine_xhi,
+                              amrex::FArrayBox& fine_ylo, amrex::FArrayBox& fine_yhi)
+    {
+        using amrex::Orientation;
+        using amrex::Direction;
+        const Orientation xlo(Direction::x, Orientation::low), xhi(Direction::x, Orientation::high);
+        const Orientation ylo(Direction::y, Orientation::low), yhi(Direction::y, Orientation::high);
+        if (var_need_data[xlo]) { interp_fab(crse_xlo_dat, fine_xlo); }
+        if (var_need_data[xhi]) { interp_fab(crse_xhi_dat, fine_xhi); }
+        if (var_need_data[ylo]) { interp_fab(crse_ylo_dat, fine_ylo); }
+        if (var_need_data[yhi]) { interp_fab(crse_yhi_dat, fine_yhi); }
+    };
+
     if (i_time_before_old + 1 == i_time_before) {
         // swap multifabs so we only have to read in one MultiFab
         std::swap(xlo_dat_before, xlo_dat_after);
@@ -280,10 +304,7 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (double time)
 
             read_in_at_time(crse_xlo_dat, crse_xhi_dat, crse_ylo_dat, crse_yhi_dat, i_time_after);
 
-            interp_fab(crse_xlo_dat, xlo_dat_after);
-            interp_fab(crse_xhi_dat, xhi_dat_after);
-            interp_fab(crse_ylo_dat, ylo_dat_after);
-            interp_fab(crse_yhi_dat, yhi_dat_after);
+            interp_strips(xlo_dat_after, xhi_dat_after, ylo_dat_after, yhi_dat_after);
 
             // The_Pinned_Arena is not stream-ordered, so wait for interp_fab's
             // kernels before these fabs are freed at return
@@ -305,19 +326,13 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (double time)
 
             read_in_at_time(crse_xlo_dat, crse_xhi_dat, crse_ylo_dat,crse_yhi_dat, i_time_before);
 
-            interp_fab(crse_xlo_dat, xlo_dat_before);
-            interp_fab(crse_xhi_dat, xhi_dat_before);
-            interp_fab(crse_ylo_dat, ylo_dat_before);
-            interp_fab(crse_yhi_dat, yhi_dat_before);
+            interp_strips(xlo_dat_before, xhi_dat_before, ylo_dat_before, yhi_dat_before);
 
             amrex::Print() << "Reading in " << field_name << " at time " << i_time_after << std::endl;
 
             read_in_at_time(crse_xlo_dat, crse_xhi_dat, crse_ylo_dat, crse_yhi_dat, i_time_after);
 
-            interp_fab(crse_xlo_dat, xlo_dat_after);
-            interp_fab(crse_xhi_dat, xhi_dat_after);
-            interp_fab(crse_ylo_dat, ylo_dat_after);
-            interp_fab(crse_yhi_dat, yhi_dat_after);
+            interp_strips(xlo_dat_after, xhi_dat_after, ylo_dat_after, yhi_dat_after);
 
             // The_Pinned_Arena is not stream-ordered, so wait for interp_fab's
             // kernels before these fabs are freed at return
