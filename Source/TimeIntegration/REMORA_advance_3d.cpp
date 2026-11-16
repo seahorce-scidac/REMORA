@@ -448,8 +448,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         }
     }
 
-    FillPatch(lev, t_old[lev], mf_cons, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);
-
+    // The vertical diffusion reads and writes only the valid cells of each column, so the
+    // tracers' ghost cells are filled once, after it.
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
