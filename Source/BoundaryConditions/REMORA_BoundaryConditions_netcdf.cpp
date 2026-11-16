@@ -56,6 +56,12 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
     // An absent mf_calc is passed as a default-constructed MultiFab
     const bool null_mf_calc = !mf_calc.isDefined();
 
+    const Orientation west(Direction::x, Orientation::low);
+    const Orientation east(Direction::x, Orientation::high);
+    const Orientation south(Direction::y, Orientation::low);
+    const Orientation north(Direction::y, Orientation::high);
+    const NCTimeSeriesBoundary& zeta_series = *boundary_series[lev][bdy_zeta()];
+
     for (int icomp = 0; icomp < ncomp; icomp++) // This covers every tracer if doing scalars
     {
         // If we're doing zeta, ubar, or vbar, then calc_arr only has a single component
@@ -68,15 +74,17 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
 
         boundary_series[lev][ivar+icomp]->update_interpolated_to_time(model_time(time));
 
-        const auto& bdatxlo = boundary_series[lev][ivar+icomp]->xlo_dat_interp.const_array();
-        const auto& bdatxhi = boundary_series[lev][ivar+icomp]->xhi_dat_interp.const_array();
-        const auto& bdatylo = boundary_series[lev][ivar+icomp]->ylo_dat_interp.const_array();
-        const auto& bdatyhi = boundary_series[lev][ivar+icomp]->yhi_dat_interp.const_array();
+        const NCTimeSeriesBoundary& series = *boundary_series[lev][ivar+icomp];
 
-        const auto& bx_bdatxlo = boundary_series[lev][ivar+icomp]->xlo_dat_interp.box();
-        const auto& bx_bdatxhi = boundary_series[lev][ivar+icomp]->xhi_dat_interp.box();
-        const auto& bx_bdatylo = boundary_series[lev][ivar+icomp]->ylo_dat_interp.box();
-        const auto& bx_bdatyhi = boundary_series[lev][ivar+icomp]->yhi_dat_interp.box();
+        const auto& bdatxlo = series.dat_interp(west).const_array();
+        const auto& bdatxhi = series.dat_interp(east).const_array();
+        const auto& bdatylo = series.dat_interp(south).const_array();
+        const auto& bdatyhi = series.dat_interp(north).const_array();
+
+        const auto& bx_bdatxlo = series.dat_interp(west).box();
+        const auto& bx_bdatxhi = series.dat_interp(east).box();
+        const auto& bx_bdatylo = series.dat_interp(south).box();
+        const auto& bx_bdatyhi = series.dat_interp(north).box();
 
         if (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather ||
             domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::flather ||
@@ -85,13 +93,13 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
             boundary_series[lev][bdy_zeta()]->update_interpolated_to_time(model_time(time));
         }
         const auto& bdatxlo_zeta = domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather ?
-                                   boundary_series[lev][bdy_zeta()]->xlo_dat_interp.const_array() : Array4<Real>();
+                                   zeta_series.dat_interp(west).const_array() : Array4<Real>();
         const auto& bdatxhi_zeta = domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::flather ?
-                                   boundary_series[lev][bdy_zeta()]->xhi_dat_interp.const_array() : Array4<Real>();
+                                   zeta_series.dat_interp(east).const_array() : Array4<Real>();
         const auto& bdatylo_zeta = domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::flather ?
-                                   boundary_series[lev][bdy_zeta()]->ylo_dat_interp.const_array() : Array4<Real>();
+                                   zeta_series.dat_interp(south).const_array() : Array4<Real>();
         const auto& bdatyhi_zeta = domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::flather ?
-                                   boundary_series[lev][bdy_zeta()]->yhi_dat_interp.const_array() : Array4<Real>();
+                                   zeta_series.dat_interp(north).const_array() : Array4<Real>();
 
         const bool apply_west  = (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::clamped) ||
                                  (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather) ||

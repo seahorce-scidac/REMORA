@@ -3,9 +3,11 @@
 
 #ifdef REMORA_USE_NETCDF
 
+#include <array>
 #include <string>
 
 #include <AMReX_AmrCore.H>
+#include <AMReX_Orientation.H>
 
 #include <REMORA.H>
 
@@ -25,7 +27,7 @@ class NCTimeSeriesBoundary
                               const std::string a_time_name,
                               const amrex::IntVect a_index_type,
                               const amrex::GpuArray<bool, AMREX_SPACEDIM*2>& a_var_need_data,
-                              bool a_is2d, int rx, int ry, double a_time_ref);
+                              bool a_is2d, int rx, int ry, double a_time_ref, int a_verbose);
 
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
@@ -34,39 +36,36 @@ class NCTimeSeriesBoundary
          *         reading in data as necessary */
         void update_interpolated_to_time (double time);
 
-        /// FArrayBox to store data at inteprolated time at xlo boundary */
-        amrex::FArrayBox xlo_dat_interp;
-
-        /// FArrayBox to store data at inteprolated time at ylo boundary */
-        amrex::FArrayBox ylo_dat_interp;
-
-        /// FArrayBox to store data at inteprolated time at xhi boundary */
-        amrex::FArrayBox xhi_dat_interp;
-
-        /// FArrayBox to store data at inteprolated time at yhi boundary */
-        amrex::FArrayBox yhi_dat_interp;
+        /** \brief Data interpolated to the last time given to update_interpolated_to_time, on
+         *         the strip one point thick outside horizontal side ori. A side that takes no
+         *         boundary data holds 0. */
+        const amrex::FArrayBox& dat_interp (amrex::Orientation ori) const
+        {
+            return m_dat_interp[ori];
+        }
 
         /// Refinement ratios relative to level 0
         int m_rx; int m_ry;
 
-        /** \brief spatially interpolate boundary fabs from level 0 data (read in) to current level */
-        void interp_fab (amrex::FArrayBox& dat_crse,
-                         amrex::FArrayBox& dat_fine);
+        /** \brief spatially interpolate the level-0 strip of side ori (read in) to this level's */
+        void interp_fab (const amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine,
+                         amrex::Orientation ori);
 
     private:
         /** \brief Read in data from file at time index itime and fill into mf */
-        void read_in_at_time (amrex::FArrayBox& fab_xlo,
-                              amrex::FArrayBox& fab_xhi,
-                              amrex::FArrayBox& fab_ylo,
-                              amrex::FArrayBox& fab_yhi,
-                              int itime);
+        void read_in_at_time (std::array<amrex::FArrayBox, AMREX_SPACEDIM*2>& fabs, int itime);
+
+        /** \brief The strip one point thick just outside horizontal side ori of dom, at this
+         *         field's index type */
+        amrex::Box strip_box (const amrex::Box& dom, amrex::Orientation ori) const;
+
+        /** \brief The file variables read, one per side in m_sides and in that order */
+        amrex::Vector<std::string> var_names () const;
 
         /// File name to read from
         amrex::Vector<std::string> file_names;
         /// Field name in netcdf file
         std::string field_name;
-        /// Variable names that will be read from file
-        amrex::Vector<std::string> nc_var_names;
         /// Field name for time series in netcdf file
         std::string time_name;
         /// Domain
@@ -101,25 +100,18 @@ class NCTimeSeriesBoundary
         /// Time in ocean_times immediately after the last time interpolated to
         double time_after;
 
-        /// FArrayBox to store data at time_before at xlo boundary
-        amrex::FArrayBox xlo_dat_before;
-        /// FArrayBox to store data at time_after at xlo boundary
-        amrex::FArrayBox xlo_dat_after;
+        /// Data at time_before, at time_after, and interpolated to the current time, on each
+        /// horizontal side's strip, indexed by Orientation; the z entries stay empty
+        std::array<amrex::FArrayBox, AMREX_SPACEDIM*2> m_dat_before;
+        std::array<amrex::FArrayBox, AMREX_SPACEDIM*2> m_dat_after;
+        std::array<amrex::FArrayBox, AMREX_SPACEDIM*2> m_dat_interp;
 
-        /// FArrayBox to store data at time_before at ylo boundary
-        amrex::FArrayBox ylo_dat_before;
-        /// FArrayBox to store data at time_after at ylo boundary
-        amrex::FArrayBox ylo_dat_after;
+        /// The sides that take boundary data. Every read, broadcast and interpolation loops over
+        /// these and only these, and the file variables read are derived from them.
+        amrex::Vector<amrex::Orientation> m_sides;
 
-        /// FArrayBox to store data at time_before at xhi boundary
-        amrex::FArrayBox xhi_dat_before;
-        /// FArrayBox to store data at time_after at xhi boundary
-        amrex::FArrayBox xhi_dat_after;
-
-        /// FArrayBox to store data at time_before at yhi boundary
-        amrex::FArrayBox yhi_dat_before;
-        /// FArrayBox to store data at time_after at yhi boundary
-        amrex::FArrayBox yhi_dat_after;
+        /// REMORA's verbosity: at 1 or more, print a line for each record read
+        int m_verbose = 0;
 
         /// Array over boundaries indicating whether we need physical data for this variable
         amrex::GpuArray<bool, AMREX_SPACEDIM*2> var_need_data;
