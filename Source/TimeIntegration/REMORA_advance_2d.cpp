@@ -34,6 +34,24 @@ void fill_ghost_kcomps (MultiFab& mf, int knew, const iMultiFab& band)
     }
 }
 
+/** \brief Exchange component knew of ubar and vbar and, when zeta is given, fill the periodic
+ *         corners of every component of zeta (EnforcePeriodicity), with all their messages in
+ *         flight at once. The three touch different fields, so the order does not matter.
+ */
+void exchange_uvbar_and_zeta_corners (MultiFab& ubar, MultiFab& vbar, MultiFab* zeta, int knew,
+                                      const Periodicity& per)
+{
+    const bool corners = zeta && per.isAnyPeriodic();
+    if (corners) {
+        zeta->FBEP_nowait(0, zeta->nComp(), zeta->nGrowVect(), per, false, true);
+    }
+    ubar.FillBoundary_nowait(knew, 1, ubar.nGrowVect(), per);
+    vbar.FillBoundary_nowait(knew, 1, vbar.nGrowVect(), per);
+    if (corners) { zeta->FillBoundary_finish(); }
+    ubar.FillBoundary_finish();
+    vbar.FillBoundary_finish();
+}
+
 /** Which time averages of the barotropic fluxes a fast step accumulates */
 enum AvgMode : int { avg_none, avg_first_pred, avg_pred, avg_corr };
 
@@ -939,6 +957,10 @@ REMORA::advance_2d (int lev,
         MultiFab vbar_know(*vec_vbar[lev], make_alias, know, 1);
         MultiFab zeta_know(*vec_zeta[lev], make_alias, know, 1);
 
+        // Whether zeta's periodic corners are still to be filled: at level 0 they wait for the
+        // exchange of ubar and vbar below, so that both are in flight together
+        bool zeta_corners_pending = false;
+
         if (lev == 0) {
             // At level 0 FillPatch is one exchange of component knew followed by the
             // boundary conditions, and those read only `know` components (the field's own,
@@ -958,8 +980,10 @@ REMORA::advance_2d (int lev,
                          knew, 1, 0, know, dt2d, ubar_know);
             FillPatchBCs(lev, t_old[lev], *vec_vbar[lev], vbar_bc(), bdy_vbar(),
                          knew, 1, 0, know, dt2d, vbar_know);
+            // Nothing until that exchange reads zeta's corners or writes zeta
             FillPatchBCs(lev, t_old[lev], *vec_zeta[lev], zeta_bc(), bdy_zeta(),
-                         knew, 1, 0, know, dt2d, zeta_know);
+                         knew, 1, 0, know, dt2d, zeta_know, false);
+            zeta_corners_pending = true;
         } else if (!replay_cf_2d_fills(lev, t_old[lev], knew, know, dt2d,
                                        ubar_know, vbar_know, zeta_know)) {
             fill_2d_from_parent(lev, t_old[lev], knew, know, dt2d,
@@ -991,15 +1015,16 @@ REMORA::advance_2d (int lev,
             // from different neighbours -- the answer then depends on the box layout. On
             // level 0 set_2d_cf_bcs does nothing, but this exchange still follows the boundary
             // conditions, which lets the next flux pass skip exchanging the fluxes.
-            const Periodicity& per = geom[lev].periodicity();
-            amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get()},
-                                Vector<int>{knew, knew}, Vector<int>{1, 1},
-                                Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
-                                                vec_vbar[lev]->nGrowVect()},
-                                Vector<Periodicity>{per, per});
+            exchange_uvbar_and_zeta_corners(*vec_ubar[lev], *vec_vbar[lev],
+                                            zeta_corners_pending ? vec_zeta[lev].get() : nullptr,
+                                            knew, geom[lev].periodicity());
+            zeta_corners_pending = false;
             // The rivers below rewrite knew, but an exchange follows them (FillBoundary at
             // level 0, FillPatchNoBC above it), so the flag still holds
             uvbar_exchanged_after_bcs[lev][knew] = 1;
+        }
+        if (zeta_corners_pending) {
+            vec_zeta[lev]->EnforcePeriodicity(geom[lev].periodicity());
         }
 
 #ifdef REMORA_USE_NETCDF

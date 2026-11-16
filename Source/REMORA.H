@@ -1590,7 +1590,8 @@ public:
 
     /** \brief The boundary-condition half of FillPatch: physical and NetCDF boundary
      *  conditions, periodic corners and the free-slip top, for a MultiFab whose fine-fine
-     *  ghost cells are already filled. Lets several fields share one exchange. */
+     *  ghost cells are already filled. Lets several fields share one exchange. Without
+     *  enforce_periodicity the periodic corners of cell data are left to the caller. */
     void FillPatchBCs (int lev, amrex::Real time,
                        amrex::MultiFab& mf_to_fill,
                        const int bccomp,
@@ -1600,7 +1601,8 @@ public:
                        const int n_not_fill,
                        const int icomp_calc,
                        const amrex::Real dt_lev,
-                       const amrex::MultiFab& mf_calc);
+                       const amrex::MultiFab& mf_calc,
+                       const bool enforce_periodicity = true);
     /** \brief Fill boundary data from netcdf file */
     void fill_from_bdyfiles (int lev,
                              amrex::MultiFab& mf_to_fill,

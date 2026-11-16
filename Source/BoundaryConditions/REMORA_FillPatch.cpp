@@ -714,6 +714,8 @@ REMORA::cf_2d_cache_entry (int lev, int slot, const MultiFab& mf, const MultiFab
  * @param[in   ] icomp_calc     component to use in RHS boundary calculation
  * @param[in   ] dt_lev         time step at this level
  * @param[in   ] mf_calc        data to use in RHS boundary calculation
+ * @param[in   ] enforce_periodicity  whether to fill the periodic corners of cell data here;
+ *                                    without it the caller must, before they are read
  */
 void
 REMORA::FillPatchBCs (int lev, Real time, MultiFab& mf_to_fill,
@@ -724,7 +726,8 @@ REMORA::FillPatchBCs (int lev, Real time, MultiFab& mf_to_fill,
                       const int  n_not_fill,
                       const int  icomp_calc,
                       const Real dt_lev,
-                      const MultiFab& mf_calc)
+                      const MultiFab& mf_calc,
+                      const bool enforce_periodicity)
 {
     Box mf_box(mf_to_fill.boxArray()[0]);
 
@@ -755,7 +758,7 @@ REMORA::FillPatchBCs (int lev, Real time, MultiFab& mf_to_fill,
     amrex::ignore_unused(bdy_var_type, icomp_calc, dt_lev);
 #endif
     // Fill corners of the domain with periodic data
-    if  ( mf_box.ixType() == IndexType(IntVect(0,0,0)) ) {
+    if  ( enforce_periodicity && mf_box.ixType() == IndexType(IntVect(0,0,0)) ) {
         mf_to_fill.EnforcePeriodicity(geom[lev].periodicity());
     }
 
