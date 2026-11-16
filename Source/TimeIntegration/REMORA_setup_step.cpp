@@ -50,7 +50,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     //Only used locally, probably should be rearranged into FArrayBox declaration
 
-    MultiFab mf_DC(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
     MultiFab mf_logdrg_tmp(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
 
@@ -354,7 +353,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         prestep(lev, U_old, V_old, U_new, V_new,
                 mf_ru.get(), mf_rv.get(),
                 S_old, S_new, mf_W,
-                mf_DC, mf_z_r, mf_z_w, mf_h, mf_pm, mf_pn,
+                mf_z_r, mf_z_w, mf_h, mf_pm, mf_pn,
                 mf_sustr.get(), mf_svstr.get(), mf_bustr.get(), mf_bvstr.get(),
                 mf_msku.get(), mf_mskv.get(),
                 iic, ntfirst, nnew, nstp, nrhs, N, dt_lev);
@@ -455,11 +454,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             });
         }
 
-        ParallelFor(gbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FC(i,j,k)=zero;
-        });
-
+        // FC is scratch for prsgrd, which writes every value of it that it reads
         prsgrd(tbxp1,gbx1,utbx,vtbx,ru,rv,on_u,om_v,rho,FC,Hz,z_r,z_w,msku,mskv,nrhs,N);
 
         // Apply mixing to temperature and, if use_salt, salt
@@ -517,7 +512,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         rhs_uv_3d(lev, xbx, ybx, uold, vold, ru, rv, rufrc, rvfrc,
                   sustr, svstr, bustr, bvstr, Huon, Hvom,
                   vec_metric_u[lev]->const_array(mfi,MetricU::omn_u),
-                  vec_metric_v[lev]->const_array(mfi,MetricV::omn_v), W, FC, nrhs, N);
+                  vec_metric_v[lev]->const_array(mfi,MetricV::omn_v), W, nrhs, N);
 
         const int nnew = 0;
         uv3dmix(xbx, ybx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, pm, pn, metr, metp, mskp, nrhs, nnew, dt_lev);

@@ -77,9 +77,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     const DistributionMapping& dm = mf_cons.DistributionMap();
 
     //Only used locally, probably should be rearranged into FArrayBox declaration
-    MultiFab mf_AK (convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0));       //2d missing j coordinate
     MultiFab mf_DC (ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
-    MultiFab mf_Hzk(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -92,11 +90,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real      > const& ru = mf_ru->array(mfi);
         Array4<Real      > const& rv = mf_rv->array(mfi);
 
-        Array4<Real      > const& AK = mf_AK.array(mfi);
         Array4<Real      > const& DC = mf_DC.array(mfi);
 
-        Array4<Real      > const& Hzk = mf_Hzk.array(mfi);
-        Array4<Real      > const& Akv = mf_Akv->array(mfi);
+        Array4<Real const> const& Akv = mf_Akv->const_array(mfi);
 
         Array4<Real const> const& Hz  = mf_Hz->const_array(mfi);
 
@@ -111,30 +107,12 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real const> const& msku  = mf_msku->const_array(mfi);
         Array4<Real const> const& mskv  = mf_mskv->const_array(mfi);
 
-        Box bx = mfi.tilebox();
-        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         Box gbx21 = mfi.growntilebox(IntVect(NGROW,NGROW,NGROW-1));
 
         Box xbx = mfi.nodaltilebox(0);
         Box ybx = mfi.nodaltilebox(1);
 
-        Box gbx2D = gbx2;
-        gbx2D.makeSlab(2,0);
-
-        Box tbxp1 = bx;
-        Box tbxp11 = bx;
-        Box tbxp2 = bx;
-        tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
-        tbxp2.grow(IntVect(NGROW,NGROW,0));
-        tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
-
-        FArrayBox fab_FC(convert(gbx2,IntVect(0,0,1)),1,amrex::The_Async_Arena());
-        FArrayBox fab_BC(convert(gbx2,IntVect(0,0,1)),1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
-        FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
-
-        auto FC = fab_FC.array();
-        auto BC = fab_BC.array();
         auto CF = fab_CF.array();
 
         Real cff;
@@ -158,12 +136,12 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             v(i,j,k) *= two / (Hz(i,j-1,k) + Hz(i,j,k));
         });
 
-        // DC and CF are scratch here. vert_visc_3d writes them at every level of its box
-        // before reading them, and vert_mean_3d writes the k = -1 level it reads, so
-        // neither needs clearing first.
-        vert_visc_3d(xbx,1,0,u,Hz,Hzk,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(xbx,1,0,u,Hz,Akv,nnew,N,dt_lev);
 
-        vert_visc_3d(ybx,0,1,v,Hz,Hzk,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(ybx,0,1,v,Hz,Akv,nnew,N,dt_lev);
+
+        // DC and CF are scratch here: vert_mean_3d writes the k = -1 level it reads, so
+        // neither needs clearing first.
 
         vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,on_u,msku,nnew,N);
 
@@ -217,9 +195,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
-        auto FC = fab_FC.array();
-
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_rivers) {
             Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
@@ -244,15 +219,10 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 #endif
 
 
-        // Reset to zero on the box on which they'll be used
-        fab_FC.template setVal<RunOn::Device>(zero,gbx2);
-        mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(lev,gbx2,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,msku,nnew);
-
-        // Reset to zero on the box on which they'll be used
-        fab_FC.template     setVal<RunOn::Device>(zero,gbx2);
-        mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(lev,gbx2,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,mskv,nnew);
+        // update_massflux_3d writes the face thicknesses in DC before reading them and keeps
+        // its column sums in scratch of its own, so nothing needs clearing first
+        update_massflux_3d(lev,gbx2,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,msku,nnew);
+        update_massflux_3d(lev,gbx2,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,mskv,nnew);
 
     }
 
@@ -485,37 +455,13 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 #endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& AK = mf_AK.array(mfi);
-        Array4<Real> const& DC = mf_DC.array(mfi);
-
-        Array4<Real> const& Hzk = mf_Hzk.array(mfi);
         Array4<Real const> const& Hz  = mf_Hz->const_array(mfi);
 
         Box bx = mfi.tilebox();
 
-        // Copy the tilebox
-        Box tbxp1 = bx;
-        Box tbxp11 = bx;
-        Box tbxp2 = bx;
-        Box tbxp21 = bx;
-        //make only gbx be grown to match multifabs
-        tbxp21.grow(IntVect(NGROW,NGROW,NGROW-1));
-        tbxp2.grow(IntVect(NGROW,NGROW,0));
-        tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
-        tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
-
-        FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena());
-        FArrayBox fab_BC(tbxp2,1,amrex::The_Async_Arena());
-        FArrayBox fab_CF(tbxp21,1,amrex::The_Async_Arena());
-        FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
-
-        auto FC = fab_FC.array();
-        auto BC = fab_BC.array();
-        auto CF = fab_CF.array();
-
         for (int i_comp=0; i_comp < ncons; i_comp++) {
-            vert_visc_3d(bx,0,0,mf_cons.array(mfi,i_comp),Hz,Hzk,
-                    AK,mf_Akt->array(mfi,akt_comp(i_comp)),BC,DC,FC,CF,nnew,N,dt_lev);
+            vert_visc_3d(bx,0,0,mf_cons.array(mfi,i_comp),Hz,
+                         mf_Akt->const_array(mfi,akt_comp(i_comp)),nnew,N,dt_lev);
         }
     } // MFiter
     FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);

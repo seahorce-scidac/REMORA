@@ -1001,7 +1001,7 @@ public:
                         amrex::MultiFab* mf_rv,
                   amrex::MultiFab& S_old,
                   amrex::MultiFab& S_new,
-                  amrex::MultiFab& mf_W, amrex::MultiFab& mf_DC,
+                  amrex::MultiFab& mf_W,
                   /* MF mf_FC? */
                   const amrex::MultiFab* mf_z_r,
                   const amrex::MultiFab* mf_z_w,
@@ -1026,7 +1026,6 @@ public:
                         const amrex::Array4<amrex::Real      >& Huon,
                         const amrex::Array4<amrex::Real      >& Hvom,
                         const amrex::Array4<amrex::Real const>& W,
-                        const amrex::Array4<amrex::Real      >& DC,
                         const amrex::Array4<amrex::Real      >& FC,
                         const amrex::Array4<amrex::Real      >& sstore,
                         const amrex::Array4<amrex::Real const>& pm,
@@ -1078,7 +1077,6 @@ public:
                     const amrex::Array4<amrex::Real const>& omn_u,
                     const amrex::Array4<amrex::Real const>& omn_v,
                     const amrex::Array4<amrex::Real const>& W,
-                    const amrex::Array4<amrex::Real      >& FC,
                     int nrhs, int N);
 
     /** \brief Wrapper around equation of state calculation */
@@ -1155,7 +1153,6 @@ public:
                         const amrex::Array4<amrex::Real      >& rvel,
                         const amrex::Array4<amrex::Real const>& Hz,
                         const amrex::Array4<amrex::Real const>& Akv,
-                        const amrex::Array4<amrex::Real      >& FC,
                         const amrex::Array4<amrex::Real const>& sstr,
                         const amrex::Array4<amrex::Real const>& bstr,
                         const amrex::Array4<amrex::Real const>& z_r,
@@ -1169,13 +1166,7 @@ public:
                        const int ioff, const int joff,
                        const amrex::Array4<amrex::Real      >& phi,
                        const amrex::Array4<amrex::Real const>& Hz,
-                       const amrex::Array4<amrex::Real      >& Hzk,
-                       const amrex::Array4<amrex::Real      >& AK,
                        const amrex::Array4<amrex::Real const>& Akv,
-                       const amrex::Array4<amrex::Real      >& BC,
-                       const amrex::Array4<amrex::Real      >& DC,
-                       const amrex::Array4<amrex::Real      >& FC,
-                       const amrex::Array4<amrex::Real      >& CF,
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
 
@@ -1253,7 +1244,6 @@ public:
                              const amrex::Array4<amrex::Real const>& Dphi1,
                              const amrex::Array4<amrex::Real const>& Dphi2,
                              const amrex::Array4<amrex::Real      >& DC,
-                             const amrex::Array4<amrex::Real      >& FC,
                              const amrex::Array4<amrex::Real const>& msk,
                              const int nnew);
 

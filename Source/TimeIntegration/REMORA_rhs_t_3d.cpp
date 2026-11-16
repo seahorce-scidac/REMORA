@@ -53,160 +53,99 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
-    //copy the tilebox
-    Box tbxp1x = bx;
-    Box tbxp1y = bx;
-    Box tbxp1 = bx;
-    Box tbxp2 = bx;
+    const auto hadv = solverChoice.tracer_Hadv_scheme;
+    if (hadv != AdvectionScheme::upstream3 && hadv != AdvectionScheme::centered4) {
+        Error("Not a valid horizontal advection scheme");
+    }
+    const int upstream3 = (hadv == AdvectionScheme::upstream3) ? 1 : 0;
 
-    tbxp2.grow(IntVect(NGROW,NGROW,0));
-    tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
-    tbxp1x.grow(IntVect(NGROW-1,0,0));
-    tbxp1y.grow(IntVect(0,NGROW-1,0));
-
-    // Because grad, curv, FX, FE, are all local, do surroundinNodes
-    Box utbxp1 = surroundingNodes(tbxp1x, 0);
-    Box vtbxp1 = surroundingNodes(tbxp1y, 1);
+    // The fluxes are needed on the faces of the tile, ubx and vbx; the gradients they
+    // are built from one face further out, on utbxp1 and vtbxp1.
     Box ubx = surroundingNodes(bx, 0);
     Box vbx = surroundingNodes(bx, 1);
-
+    Box utbxp1 = surroundingNodes(grow(bx,0,1), 0);
+    Box vtbxp1 = surroundingNodes(grow(bx,1,1), 1);
 
     //
-    // Scratch space. Every cell of it that is read is written first: FX and curv (or
-    // grad) on utbxp1 and tbxp1x, then FX on ubx, and likewise FE in y.
+    // Tile-private scratch: the gradients FX0 and FE0, and the fluxes FX and FE. Every
+    // cell that is read is written first. The river pass writes on the tile grown by one.
     //
-    FArrayBox fab_grad(tbxp2,1,amrex::The_Async_Arena());
-    FArrayBox fab_curv(tbxp2,1,amrex::The_Async_Arena());
-
-    FArrayBox fab_FX(tbxp2,1,amrex::The_Async_Arena());
-    FArrayBox fab_FE(tbxp2,1,amrex::The_Async_Arena());
-
-    auto curv=fab_curv.array();
-    auto grad=fab_grad.array();
-
-    auto FX=fab_FX.array();
-    auto FE=fab_FE.array();
+    int ncomp = 0;
+    const int FX0_comp = ncomp++;
+    const int FE0_comp = ncomp++;
+    const int FX_comp  = ncomp++;
+    const int FE_comp  = ncomp++;
+    FArrayBox fab(grow(bx,IntVect(NGROW,NGROW,0)),ncomp,amrex::The_Async_Arena());
+    auto FX0 = fab.array(FX0_comp);
+    auto FE0 = fab.array(FE0_comp);
+    auto FX  = fab.array(FX_comp);
+    auto FE  = fab.array(FE_comp);
 
     BL_PROFILE_VAR("REMORA::rhs_t_3d()::hadv",phadv);
-    ParallelFor(utbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    // Gradients across the faces. Outside a non-periodic domain edge the gradient is the
+    // one on the edge face, so the face index is clamped to the domain's faces there.
+    const int ilo = is_periodic_in_x ? std::numeric_limits<int>::lowest() : dlo.x;
+    const int ihi = is_periodic_in_x ? std::numeric_limits<int>::max()    : dhi.x+1;
+    const int jlo = is_periodic_in_y ? std::numeric_limits<int>::lowest() : dlo.y;
+    const int jhi = is_periodic_in_y ? std::numeric_limits<int>::max()    : dhi.y+1;
+    ParallelFor(utbxp1, vtbxp1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        FX(i,j,k)=(sstore(i,j,k,nrhs)-sstore(i-1,j,k,nrhs)) * msku(i,j,0);
+        const int ii = amrex::min(amrex::max(i,ilo),ihi);
+        FX0(i,j,k)=(sstore(ii,j,k,nrhs)-sstore(ii-1,j,k,nrhs)) * msku(ii,j,0);
+    },
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        const int jj = amrex::min(amrex::max(j,jlo),jhi);
+        FE0(i,j,k)=(sstore(i,jj,k,nrhs)-sstore(i,jj-1,k,nrhs)) * mskv(i,jj,0);
     });
 
-    Box utbxp1_slab_lo = makeSlab(utbxp1,0,dlo.x-1) & utbxp1;
-    Box utbxp1_slab_hi = makeSlab(utbxp1,0,dhi.x+1) & utbxp1;
-    if (utbxp1_slab_lo.ok() && !is_periodic_in_x) {
-        ParallelFor(utbxp1_slab_lo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FX(i,j,k) = FX(i+1,j,k);
-        });
-    }
-    if (utbxp1_slab_hi.ok() && !is_periodic_in_x) {
-        ParallelFor(utbxp1_slab_hi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FX(i+1,j,k) = FX(i,j,k);
-        });
-    }
-
+    // Fluxes on the faces of the tile, from the curvature (upstream3) or the averaged
+    // gradient (centered4) at the cells on either side of the face
     Real cffa=one/Real(6.0);
     Real cffb=one/Real(3.0);
+    AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
+    [&] (auto const& fx, auto const& fy) { ParallelFor(ubx, vbx, fx, fy); },
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, auto up3)
+    {
+        if (up3.value) {
+            const Real curv_i   = -FX0(i  ,j,k)+FX0(i+1,j,k);
+            const Real curv_im1 = -FX0(i-1,j,k)+FX0(i  ,j,k);
 
-    if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3) {
-
-        ParallelFor(tbxp1x, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            //Upstream3
-            curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
-        });
-
-        //HACK to avoid using the wrong index of t (using upstream3)
-        ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
             Real max_Huon = std::max(Huon(i,j,k),Real(0.0));
             Real min_Huon = std::min(Huon(i,j,k),Real(0.0));
             FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i-1,j,k))-
-                cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
-        });
-
-    } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
-
-        ParallelFor(tbxp1x, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            //Centered4
-            grad(i,j,k)=Real(0.5)*(FX(i,j,k)+FX(i+1,j,k));
-        });
-
-        ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
+                cffa*(curv_i*min_Huon+ curv_im1*max_Huon);
+        } else {
+            const Real grad_i   = Real(0.5)*(FX0(i  ,j,k)+FX0(i+1,j,k));
+            const Real grad_im1 = Real(0.5)*(FX0(i-1,j,k)+FX0(i  ,j,k));
             FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i-1,j,k)-
-                                       cffb*(grad(i,j,k)- grad(i-1,j,k)));
-        });
-
-    } else {
-        Error("Not a valid horizontal advection scheme");
-    }
-
-    ParallelFor(vtbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                                       cffb*(grad_i- grad_im1));
+        }
+    },
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, auto up3)
     {
-        FE(i,j,k)=(sstore(i,j,k,nrhs)-sstore(i,j-1,k,nrhs)) * mskv(i,j,0);
-    });
+        if (up3.value) {
+            const Real curv_j   = -FE0(i,j  ,k)+FE0(i,j+1,k);
+            const Real curv_jm1 = -FE0(i,j-1,k)+FE0(i,j  ,k);
 
-    Box vtbxp1_slab_lo = makeSlab(vtbxp1,1,dlo.y-1) & vtbxp1;
-    Box vtbxp1_slab_hi = makeSlab(vtbxp1,1,dhi.y+1) & vtbxp1;
-    if (vtbxp1_slab_lo.ok() && !is_periodic_in_y) {
-        ParallelFor(vtbxp1_slab_lo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FE(i,j,k) = FE(i,j+1,k);
-        });
-    }
-    if (vtbxp1_slab_hi.ok() && !is_periodic_in_y) {
-        ParallelFor(vtbxp1_slab_hi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FE(i,j+1,k) = FE(i,j,k);
-        });
-    }
-
-
-    cffa=one/Real(6.0);
-    cffb=one/Real(3.0);
-
-    if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3) {
-        ParallelFor(tbxp1y, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
-        });
-
-
-        ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
             Real max_Hvom = std::max(Hvom(i,j,k),Real(0.0));
             Real min_Hvom = std::min(Hvom(i,j,k),Real(0.0));
 
             FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i,j-1,k))-
-                cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
-        });
-
-    } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
-
-        ParallelFor(tbxp1y, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            grad(i,j,k)=Real(0.5)*(FE(i,j,k)+FE(i,j+1,k));
-        });
-
-        ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
+                cffa*(curv_j*min_Hvom+ curv_jm1*max_Hvom);
+        } else {
+            const Real grad_j   = Real(0.5)*(FE0(i,j  ,k)+FE0(i,j+1,k));
+            const Real grad_jm1 = Real(0.5)*(FE0(i,j-1,k)+FE0(i,j  ,k));
             FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i,j-1,k)-
-                                       cffb*(grad(i,j,k)- grad(i,j-1,k)));
-        });
-
-    } else {
-        Error("Not a valid horizontal advection scheme");
-    }
+                                       cffb*(grad_j- grad_jm1));
+        }
+    });
 
     bool do_rivers_cons = (river_source.size() > 0);
     if (solverChoice.do_rivers) {
         int* river_direction_d = river_direction.data();
-        ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(grow(bx,IntVect(NGROW-1,NGROW-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             int iriver = river_pos(i,j,0);
             if (iriver >= 0) {
@@ -231,22 +170,8 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
         });
     }
 
-    ParallelFor(bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        //
-        //  Add in horizontal advection.
-        //
-        Real cff = dt_lev*pm(i,j,0)*pn(i,j,0);
-        Real cff1=cff*(FX(i+1,j,k)-FX(i,j,k));
-        Real cff2=cff*(FE(i,j+1,k)-FE(i,j,k));
-        Real cff3=cff1+cff2;
-
-        t(i,j,k,nnew) -= cff3;
-    });
-
     // Hand the same fluxes to the flux register, scaled so its internal dt/dx reproduces
-    // the dt*pm*pn above. REMORA's divergence uses the receiving cell's metric, not a face
+    // the dt*pm*pn of the update below. REMORA's divergence uses the receiving cell's metric, not a face
     // one, so the face weight is an average: exact where pm and pn are uniform.
     if (fx_reg) {
         const Real dx0 = geom[lev].CellSize(0);
@@ -301,12 +226,22 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
         }
     });
 
+    // Horizontal and then vertical advection of the tracer, in one pass
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Real cff1=dt_lev*pm(i,j,0)*pn(i,j,0);
+        //
+        //  Add in horizontal advection.
+        //
+        Real cff = dt_lev*pm(i,j,0)*pn(i,j,0);
+        Real cff1=cff*(FX(i+1,j,k)-FX(i,j,k));
+        Real cff2=cff*(FE(i,j+1,k)-FE(i,j,k));
+        Real cff3=cff1+cff2;
+
+        const Real t_h = t(i,j,k,nnew) - cff3;
+
         Real cff4=FC(i,j,k+1)-FC(i,j,k);
 
-        t(i,j,k) = (t(i,j,k)-cff1*cff4) / Hz(i,j,k);
+        t(i,j,k,nnew) = (t_h-cff*cff4) / Hz(i,j,k);
     });
     BL_PROFILE_VAR_STOP(pvadv);
 }

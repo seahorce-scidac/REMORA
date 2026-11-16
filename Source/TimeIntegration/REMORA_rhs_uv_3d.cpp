@@ -21,7 +21,6 @@ using namespace amrex;
  * @param[in   ] omn_u   om_u*on_u at u points
  * @param[in   ] omn_v   om_v*on_v at v points
  * @param[in   ] W       vertical velocity
- * @param        FC      temporary
  * @param[in   ] nrhs    index of component for RHS
  * @param[in   ] N       number of vertical levels
  */
@@ -43,7 +42,6 @@ REMORA::rhs_uv_3d (int lev,
                   const Array4<Real const>& omn_u,
                   const Array4<Real const>& omn_v,
                   const Array4<Real const>& W   ,
-                  const Array4<Real      >& FC,
                   int nrhs, int N)
 {
     BL_PROFILE("REMORA::rhs_uv_3d()");
@@ -158,81 +156,6 @@ REMORA::rhs_uv_3d (int lev,
         });
     }
 
-    //
-    // Define the RHS for u by differencing fluxes
-    //
-    ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        ru(i,j,k,nrhs) -= ( (UFx(i,j,k)-UFx(i-1,j,k)) + (UFe(i,j+1,k)-UFe(i  ,j,k)) );
-    });
-
-    if (uv_hadv_scheme == AdvectionScheme::upstream3) {
-        ParallelFor(surroundingNodes(xbx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            //-----------------------------------------------------------------------
-            //  Add in vertical advection.
-            //-----------------------------------------------------------------------
-            Real cff1=Real(9.0)/Real(16.0);
-            Real cff2=one/Real(16.0);
-
-            if (k>1 && k<=N-1)
-            {
-                FC(i,j,k)=( cff1*(uold(i  ,j,k-1,nrhs)+ uold(i,j,k  ,nrhs))
-                                 -cff2*(uold(i  ,j,k-2,nrhs)+ uold(i,j,k+1,nrhs)) )*
-                                    ( cff1*(   W(i  ,j,k)+ W(i-1,j,k))
-                                     -cff2*(   W(i+1,j,k)+ W(i-2,j,k)) );
-            }
-            else // this needs to be split up so that the following can be concurrent
-            {
-                FC(i,j,N+1)=zero;
-
-                FC(i,j,N)=( cff1*(uold(i  ,j,N-1,nrhs)+ uold(i,j,N  ,nrhs))
-                               -cff2*(uold(i  ,j,N-2,nrhs)+ uold(i,j,N  ,nrhs)) )*
-                                  ( cff1*(   W(i  ,j,N)+ W(i-1,j,N))
-                                   -cff2*(   W(i+1,j,N)+ W(i-2,j,N)) );
-
-                FC(i,j,1)=( cff1*(uold(i  ,j,0,nrhs)+ uold(i,j,1,nrhs))
-                             -cff2*(uold(i  ,j,0,nrhs)+ uold(i,j,2,nrhs)) )*
-                                ( cff1*(   W(i  ,j,1)+ W(i-1,j,1))
-                                 -cff2*(   W(i+1,j,1)+ W(i-2,j,1)) );
-                FC(i,j,0)=zero;
-            }
-        });
-    } else if (uv_hadv_scheme == AdvectionScheme::centered2) {
-        ParallelFor(surroundingNodes(xbx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            if (k>0 && k<=N) {
-                FC(i,j,k) = Real(0.25) * (uold(i,j,k-1,nrhs)+uold(i,j,k,nrhs)) * (W(i,j,k) + W(i-1,j,k));
-            } else {
-                FC(i,j,N+1)=zero;
-                FC(i,j,0)=zero;
-            }
-        });
-    }
-
-    ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        Real cff = FC(i,j,k+1)-FC(i,j,k);
-
-        ru(i,j,k,nrhs) -= cff;
-    });
-
-    AMREX_ASSERT(xbx.smallEnd(2) == 0 && xbx.bigEnd(2) == N);
-    ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
-    {
-       for (int k = 0; k <= N; ++k)
-       {
-          rufrc(i,j,0) += ru(i,j,k,nrhs);
-
-          Real cff  = omn_u(i,j,0);
-
-          Real cff1 = (k == N) ?  sustr(i,j,0)*cff : zero;
-          Real cff2 = (k == 0) ? -bustr(i,j,0)*cff : zero;
-
-          rufrc(i,j,0) += cff1+cff2;
-       }
-    });
-
     if (uv_hadv_scheme == AdvectionScheme::upstream3) {
         // *************************************************************
         // UPDATING V
@@ -308,69 +231,126 @@ REMORA::rhs_uv_3d (int lev,
         });
     }
 
-    ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    //
+    // Update ru and rv level by level from the bottom up: subtract the horizontal advection
+    // (the divergence of the fluxes above) and the vertical advection, and add the result
+    // and the surface and bottom stresses to the depth integrals rufrc and rvfrc. The
+    // vertical flux FC at the top face of a level is computed there and kept in a 2D buffer
+    // as the flux at the bottom face of the next level; it is zero through the bottom and
+    // the surface.
+    //
+    AMREX_ASSERT(xbx.smallEnd(2) == 0 && xbx.bigEnd(2) == N);
+    AMREX_ASSERT(ybx.smallEnd(2) == 0 && ybx.bigEnd(2) == N);
+    const Box xbx2d = makeSlab(xbx,2,0);
+    const Box ybx2d = makeSlab(ybx,2,0);
+    FArrayBox fab_FCu(xbx2d,1,amrex::The_Async_Arena());
+    FArrayBox fab_FCv(ybx2d,1,amrex::The_Async_Arena());
+    auto FCu = fab_FCu.array();
+    auto FCv = fab_FCv.array();
+
+    const int upstream3 = (uv_hadv_scheme == AdvectionScheme::upstream3) ? 1 : 0;
+    AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
+    [&] (auto const& fu, auto const& fv) {
+        ParallelFor(xbx2d, N+1, fu, ybx2d, N+1, fv);
+    },
+    [=] AMREX_GPU_DEVICE (int i, int j, int, int k, auto up3)
     {
-        rv(i,j,k,nrhs) -= ( (VFx(i+1,j,k)-VFx(i,j,k)) + (VFe(i,j,k)-VFe(i,j-1,k)) );
-    });
+        constexpr int UP3 = decltype(up3)::value;
+        const Real cff1=Real(9.0)/Real(16.0);
+        const Real cff2=one/Real(16.0);
 
-    if (uv_hadv_scheme == AdvectionScheme::upstream3) {
-        ParallelFor(surroundingNodes(ybx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        // Vertical flux at w-level kf
+        auto FC = [&] (int kf) -> Real
         {
-              Real cff1=Real(9.0)/Real(16.0);
-              Real cff2=one/Real(16.0);
-
-              if (k>1 && k<=N-1)
-              {
-                  FC(i,j,k)=( cff1*(vold(i,j,k-1,nrhs)+ vold(i,j,k  ,nrhs))
-                             -cff2*(vold(i,j,k-2,nrhs)+ vold(i,j,k+1,nrhs)) )*
-                                ( cff1*(W(i,j  ,k)+ W(i,j-1,k))
-                                 -cff2*(W(i,j+1,k)+ W(i,j-2,k)) );
-              }
-              else // this needs to be split up so that the following can be concurrent
-              {
-                  FC(i,j,N+1)=zero;
-                  FC(i,j,N)=( cff1*(vold(i,j,N-1,nrhs)+ vold(i,j,N  ,nrhs))
-                               -cff2*(vold(i,j,N-2,nrhs)+ vold(i,j,N  ,nrhs)) )*
-                                  ( cff1*(W(i,j  ,N)+ W(i,j-1,N))
-                                   -cff2*(W(i,j+1,N)+ W(i,j-2,N)) );
-                  FC(i,j,1)=( cff1*(vold(i,j,0,nrhs)+ vold(i,j,1,nrhs))
-                                 -cff2*(vold(i,j,0,nrhs)+ vold(i,j,2,nrhs)) )*
-                                ( cff1*(W(i,j  ,1)+ W(i,j-1,1))
-                                 -cff2*(W(i,j+1,1)+ W(i,j-2,1)) );
-                  FC(i,j,0)=zero;
-                  //              FC(i,0,-1)=zero;
-              }
-        });
-    } else if (uv_hadv_scheme == AdvectionScheme::centered2) {
-        ParallelFor(surroundingNodes(ybx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            if (k>0 && k<=N) {
-                FC(i,j,k) = Real(0.25) * (vold(i,j,k-1,nrhs)+vold(i,j,k,nrhs)) * (W(i,j,k) + W(i,j-1,k));
+            if (kf == 0 || kf == N+1) {
+                return zero;
+            } else if (UP3 == 1) {
+                if (kf == 1) {
+                    return ( cff1*(uold(i  ,j,0,nrhs)+ uold(i,j,1,nrhs))
+                            -cff2*(uold(i  ,j,0,nrhs)+ uold(i,j,2,nrhs)) )*
+                               ( cff1*(   W(i  ,j,1)+ W(i-1,j,1))
+                                -cff2*(   W(i+1,j,1)+ W(i-2,j,1)) );
+                } else if (kf == N) {
+                    return ( cff1*(uold(i  ,j,N-1,nrhs)+ uold(i,j,N  ,nrhs))
+                            -cff2*(uold(i  ,j,N-2,nrhs)+ uold(i,j,N  ,nrhs)) )*
+                               ( cff1*(   W(i  ,j,N)+ W(i-1,j,N))
+                                -cff2*(   W(i+1,j,N)+ W(i-2,j,N)) );
+                } else {
+                    return ( cff1*(uold(i  ,j,kf-1,nrhs)+ uold(i,j,kf  ,nrhs))
+                            -cff2*(uold(i  ,j,kf-2,nrhs)+ uold(i,j,kf+1,nrhs)) )*
+                               ( cff1*(   W(i  ,j,kf)+ W(i-1,j,kf))
+                                -cff2*(   W(i+1,j,kf)+ W(i-2,j,kf)) );
+                }
             } else {
-                FC(i,j,N+1)=zero;
-                FC(i,j,0)=zero;
+                return Real(0.25) * (uold(i,j,kf-1,nrhs)+uold(i,j,kf,nrhs)) * (W(i,j,kf) + W(i-1,j,kf));
             }
-        });
-    }
-    ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        };
+
+        const Real FC_lo = (k == 0) ? FC(0) : FCu(i,j,0);
+        const Real FC_hi = FC(k+1);
+        FCu(i,j,0) = FC_hi;
+
+        Real r = ru(i,j,k,nrhs) - ( (UFx(i,j,k)-UFx(i-1,j,k)) + (UFe(i,j+1,k)-UFe(i  ,j,k)) );
+        r -= FC_hi-FC_lo;
+        ru(i,j,k,nrhs) = r;
+
+        rufrc(i,j,0) += r;
+
+        Real cff  = omn_u(i,j,0);
+
+        Real cff3 = (k == N) ?  sustr(i,j,0)*cff : zero;
+        Real cff4 = (k == 0) ? -bustr(i,j,0)*cff : zero;
+
+        rufrc(i,j,0) += cff3+cff4;
+    },
+    [=] AMREX_GPU_DEVICE (int i, int j, int, int k, auto up3)
     {
-        Real cff = FC(i,j,k+1)-FC(i,j,k);
+        constexpr int UP3 = decltype(up3)::value;
+        const Real cff1=Real(9.0)/Real(16.0);
+        const Real cff2=one/Real(16.0);
 
-        rv(i,j,k,nrhs) -= cff;
-    });
+        // Vertical flux at w-level kf
+        auto FC = [&] (int kf) -> Real
+        {
+            if (kf == 0 || kf == N+1) {
+                return zero;
+            } else if (UP3 == 1) {
+                if (kf == 1) {
+                    return ( cff1*(vold(i,j,0,nrhs)+ vold(i,j,1,nrhs))
+                            -cff2*(vold(i,j,0,nrhs)+ vold(i,j,2,nrhs)) )*
+                           ( cff1*(W(i,j  ,1)+ W(i,j-1,1))
+                            -cff2*(W(i,j+1,1)+ W(i,j-2,1)) );
+                } else if (kf == N) {
+                    return ( cff1*(vold(i,j,N-1,nrhs)+ vold(i,j,N  ,nrhs))
+                            -cff2*(vold(i,j,N-2,nrhs)+ vold(i,j,N  ,nrhs)) )*
+                           ( cff1*(W(i,j  ,N)+ W(i,j-1,N))
+                            -cff2*(W(i,j+1,N)+ W(i,j-2,N)) );
+                } else {
+                    return ( cff1*(vold(i,j,kf-1,nrhs)+ vold(i,j,kf  ,nrhs))
+                            -cff2*(vold(i,j,kf-2,nrhs)+ vold(i,j,kf+1,nrhs)) )*
+                           ( cff1*(W(i,j  ,kf)+ W(i,j-1,kf))
+                            -cff2*(W(i,j+1,kf)+ W(i,j-2,kf)) );
+                }
+            } else {
+                return Real(0.25) * (vold(i,j,kf-1,nrhs)+vold(i,j,kf,nrhs)) * (W(i,j,kf) + W(i,j-1,kf));
+            }
+        };
 
-    ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
-    {
-       for (int k = 0; k <= N; ++k)
-       {
-          rvfrc(i,j,0) += rv(i,j,k,nrhs);
+        const Real FC_lo = (k == 0) ? FC(0) : FCv(i,j,0);
+        const Real FC_hi = FC(k+1);
+        FCv(i,j,0) = FC_hi;
 
-          Real cff = omn_v(i,j,0);
+        Real r = rv(i,j,k,nrhs) - ( (VFx(i+1,j,k)-VFx(i,j,k)) + (VFe(i,j,k)-VFe(i,j-1,k)) );
+        r -= FC_hi-FC_lo;
+        rv(i,j,k,nrhs) = r;
 
-          Real cff1 = (k == N) ?  svstr(i,j,0)*cff : zero;
-          Real cff2 = (k == 0) ? -bvstr(i,j,0)*cff : zero;
+        rvfrc(i,j,0) += r;
 
-          rvfrc(i,j,0) += cff1+cff2;
-       }
+        Real cff = omn_v(i,j,0);
+
+        Real cff3 = (k == N) ?  svstr(i,j,0)*cff : zero;
+        Real cff4 = (k == 0) ? -bvstr(i,j,0)*cff : zero;
+
+        rvfrc(i,j,0) += cff3+cff4;
     });
 }
