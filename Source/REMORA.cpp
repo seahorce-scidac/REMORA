@@ -3318,18 +3318,18 @@ namespace {
  * Deliberately not conservative -- the nine-point mean does not preserve the transport through
  * the interface, where average_down_faces alone does. ROMS accepts that trade.
  */
-void smooth_faces_along (amrex::MultiFab& mf, const amrex::MultiFab& msk, int dir,
-                         const amrex::Geometry& geom, int ncomp)
+void smooth_faces_along (const amrex::MultiFab& src, amrex::MultiFab& dst,
+                         const amrex::MultiFab& msk, int dir, int ncomp)
 {
-    mf.FillBoundary(geom.periodicity());
-    amrex::MultiFab orig(mf.boxArray(), mf.DistributionMap(), ncomp, mf.nGrowVect());
-    amrex::MultiFab::Copy(orig, mf, 0, 0, ncomp, mf.nGrowVect());
     const int di = (dir == 0) ? 1 : 0;
     const int dj = (dir == 1) ? 1 : 0;
-    for (amrex::MFIter mfi(mf, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    for (amrex::MFIter mfi(dst, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         const amrex::Box& bx = mfi.tilebox();
-        const auto& a = mf.array(mfi);
-        const auto& o = orig.const_array(mfi);
+        const auto& a = dst.array(mfi);
+        const auto& o = src.const_array(mfi);
         const auto& m = msk.const_array(mfi);
         amrex::ParallelFor(bx, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -3341,8 +3341,40 @@ void smooth_faces_along (amrex::MultiFab& mf, const amrex::MultiFab& msk, int di
                 sum += o(ii,jj,k,n) * m(ii,jj,0);
                 cnt += w;
             }
-            if (cnt > amrex::Real(0.0)) { a(i,j,k,n) = sum / cnt; }
+            a(i,j,k,n) = (cnt > amrex::Real(0.0)) ? sum / cnt : o(i,j,k,n);
         });
+    }
+}
+
+/** \brief The faces of fine smoothed along dir (smooth_faces_along) into sm, valid faces
+ *         only, which is all the average down reads.
+ *
+ * The smoothing reads one ghost face along dir, which must hold the neighbouring box's
+ * value. On the finest level it already does: the fine velocities, ubar and vbar end the
+ * step with an exchange and are not written again before the average, unless
+ * remora.cf_fill_vel_after refills the velocities with their boundary conditions. A level
+ * with a finer one has just had that one averaged onto its valid faces, so there the faces
+ * are first copied and the copy exchanged.
+ *
+ * @param[in   ] fine      fine field
+ * @param[out  ] sm        defined here: the smoothed faces
+ * @param[in   ] msk       fine mask on fine's layout
+ * @param[in   ] dir       face normal direction
+ * @param[in   ] ncomp     components to smooth
+ * @param[in   ] geom      geometry of fine's level
+ * @param[in   ] exchanged whether fine's ghost faces already hold their neighbours' values
+ */
+void smoothed_faces (const amrex::MultiFab& fine, amrex::MultiFab& sm, const amrex::MultiFab& msk,
+                     int dir, int ncomp, const amrex::Geometry& geom, bool exchanged)
+{
+    sm.define(fine.boxArray(), fine.DistributionMap(), ncomp, 0);
+    if (exchanged) {
+        smooth_faces_along(fine, sm, msk, dir, ncomp);
+    } else {
+        amrex::MultiFab tmp(fine.boxArray(), fine.DistributionMap(), ncomp, fine.nGrowVect());
+        amrex::MultiFab::Copy(tmp, fine, 0, 0, ncomp, fine.nGrowVect());
+        tmp.FillBoundary(geom.periodicity());
+        smooth_faces_along(tmp, sm, msk, dir, ncomp);
     }
 }
 } // namespace
@@ -3387,20 +3419,18 @@ REMORA::AverageDownTo (int crse_lev)
 
     // See smooth_faces_along: ROMS averages the donor over nine fine faces, AMReX over the
     // three that tile the coarse face, so the normal direction is smoothed in first.
+    // Whether the fine ghost faces the smoothing reads hold their neighbours' values (see
+    // smoothed_faces): ubar and vbar always on the finest level, the velocities unless they
+    // were refilled after the step
+    const bool bar_exchanged = (flev == finest_level);
+    const bool vel_exchanged = bar_exchanged && !cf_fill_vel_after;
     MultiFab xv_sm, yv_sm;
     const MultiFab* xv_f = xvel_new[flev];
     const MultiFab* yv_f = yvel_new[flev];
     if (cf_avgdown_stencil) {
-        xv_sm.define(xvel_new[flev]->boxArray(), xvel_new[flev]->DistributionMap(),
-                     1, xvel_new[flev]->nGrowVect());
-        MultiFab::Copy(xv_sm, *xvel_new[flev], 0, 0, 1, xvel_new[flev]->nGrowVect());
-        smooth_faces_along(xv_sm, *vec_msku[flev], 0, geom[flev], 1);
+        smoothed_faces(*xvel_new[flev], xv_sm, *vec_msku[flev], 0, 1, geom[flev], vel_exchanged);
         xv_f = &xv_sm;
-
-        yv_sm.define(yvel_new[flev]->boxArray(), yvel_new[flev]->DistributionMap(),
-                     1, yvel_new[flev]->nGrowVect());
-        MultiFab::Copy(yv_sm, *yvel_new[flev], 0, 0, 1, yvel_new[flev]->nGrowVect());
-        smooth_faces_along(yv_sm, *vec_mskv[flev], 1, geom[flev], 1);
+        smoothed_faces(*yvel_new[flev], yv_sm, *vec_mskv[flev], 1, 1, geom[flev], vel_exchanged);
         yv_f = &yv_sm;
     }
 
@@ -3439,16 +3469,11 @@ REMORA::AverageDownTo (int crse_lev)
         const MultiFab* ub_src = vec_ubar[crse_lev+1].get();
         const MultiFab* vb_src = vec_vbar[crse_lev+1].get();
         if (cf_avgdown_stencil) {
-            ub_sm.define(vec_ubar[flev]->boxArray(), vec_ubar[flev]->DistributionMap(),
-                         2, vec_ubar[flev]->nGrowVect());
-            MultiFab::Copy(ub_sm, *vec_ubar[flev], 0, 0, 2, vec_ubar[flev]->nGrowVect());
-            smooth_faces_along(ub_sm, *vec_msku[flev], 0, geom[flev], 2);
+            smoothed_faces(*vec_ubar[flev], ub_sm, *vec_msku[flev], 0, 2, geom[flev],
+                           bar_exchanged);
             ub_src = &ub_sm;
-
-            vb_sm.define(vec_vbar[flev]->boxArray(), vec_vbar[flev]->DistributionMap(),
-                         2, vec_vbar[flev]->nGrowVect());
-            MultiFab::Copy(vb_sm, *vec_vbar[flev], 0, 0, 2, vec_vbar[flev]->nGrowVect());
-            smooth_faces_along(vb_sm, *vec_mskv[flev], 1, geom[flev], 2);
+            smoothed_faces(*vec_vbar[flev], vb_sm, *vec_mskv[flev], 1, 2, geom[flev],
+                           bar_exchanged);
             vb_src = &vb_sm;
         }
 
