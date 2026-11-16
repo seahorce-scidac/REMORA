@@ -62,8 +62,9 @@ void NCTimeSeriesBoundary::Initialize()
     for (int ori = 0; ori < AMREX_SPACEDIM*2; ++ori) {
         any_side_needs_data = any_side_needs_data || var_need_data[ori];
     }
-    if (any_side_needs_data) {
-        amrex::Print() << "Setting up boundary data for " << field_name << " coming from NetCDF file " << std::endl;
+    if (any_side_needs_data && m_verbose >= 1) {
+        amrex::Print() << "Setting up NetCDF boundary data for " << field_name
+                       << std::endl;
     }
 
     // The time field can have any number of names, depending on the field.
@@ -230,28 +231,22 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (double time)
         }
     };
 
+    bool read_any = true;
     if (i_time_before_old + 1 == i_time_before) {
         // The old after record becomes the before record, so only one record is read
         for (const auto& ori : m_sides) {
             std::swap(m_dat_before[ori], m_dat_after[ori]);
         }
-        if (m_verbose >= 1) {
-            amrex::Print() << "Reading in " << field_name << " at (after) time " << i_time_after << std::endl;
-        }
         read_record(m_dat_after, i_time_after);
     } else if (i_time_before_old != i_time_before) {
-        if (m_verbose >= 1) {
-            amrex::Print() << "Reading in " << field_name << " at (before) time " << i_time_before << std::endl;
-        }
         read_record(m_dat_before, i_time_before);
-        if (m_verbose >= 1) {
-            amrex::Print() << "Reading in " << field_name << " at (after) time " << i_time_after << std::endl;
-        }
         read_record(m_dat_after, i_time_after);
+    } else {
+        read_any = false;
     }
     // The_Pinned_Arena is not stream-ordered, so wait for interp_fab's kernels before crse is
     // freed at return
-    if (m_lev > 0) {
+    if (read_any && m_lev > 0) {
         amrex::Gpu::streamSynchronize();
     }
 
@@ -265,7 +260,8 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (double time)
         amrex::Array4<amrex::Real const> after_arr = m_dat_after[ori].const_array();
         amrex::ParallelFor(m_dat_interp[ori].box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            interp_arr(i,j,k) = before_arr(i,j,k) + time_since_before * (after_arr(i,j,k) - before_arr(i,j,k)) / dt;
+            interp_arr(i,j,k) = before_arr(i,j,k)
+                              + time_since_before * (after_arr(i,j,k) - before_arr(i,j,k)) / dt;
         });
     }
 }
@@ -313,8 +309,9 @@ NCTimeSeriesBoundary::var_names () const
  * @param[inout] fabs    strips, indexed by Orientation; only those of m_sides are filled
  * @param[in   ] itime   index of time step to read from file
  */
-void NCTimeSeriesBoundary::read_in_at_time (std::array<amrex::FArrayBox, AMREX_SPACEDIM*2>& fabs,
-                                            int itime)
+void
+NCTimeSeriesBoundary::read_in_at_time (std::array<amrex::FArrayBox, AMREX_SPACEDIM*2>& fabs,
+                                       int itime)
 {
     // The host writes below land in pinned fabs that queued kernels may still be
     // reading in place, so drain the stream first
@@ -325,7 +322,8 @@ void NCTimeSeriesBoundary::read_in_at_time (std::array<amrex::FArrayBox, AMREX_S
     amrex::Vector<RARRAY> arrays(names.size());
 
     if (m_verbose >= 1) {
-        amrex::Print() << "Actually reading in " << field_name << " at time " << bry_times[itime] << std::endl;
+        amrex::Print() << "Reading boundary record " << itime << " of " << field_name << " (time "
+                       << bry_times[itime] << " s)" << std::endl;
     }
     std::string nc_bdry_file = file_names[file_for_time[itime]];
     int itime_offset = file_itime_offset[itime];
@@ -363,9 +361,6 @@ void NCTimeSeriesBoundary::read_in_at_time (std::array<amrex::FArrayBox, AMREX_S
         amrex::ParallelDescriptor::Bcast(fabs[ori].dataPtr(), fabs[ori].box().numPts(), ioproc);
     }
 
-    if (m_verbose >= 1) {
-        amrex::Print() << "DONE reading in " << field_name << " at time " << bry_times[itime] << std::endl;
-    }
 }
 
 /**
@@ -379,13 +374,16 @@ void NCTimeSeriesBoundary::read_in_at_time (std::array<amrex::FArrayBox, AMREX_S
  * @param[  out] dat_fine  fab of fine data to interpolate to
  * @param[in   ] ori       the side the strip lies on
  */
-void NCTimeSeriesBoundary::interp_fab (const amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine,
-                                       amrex::Orientation ori)
+void
+NCTimeSeriesBoundary::interp_fab (const amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine,
+                                  amrex::Orientation ori)
 {
     amrex::Array4<amrex::Real const> crse_arr = dat_crse.const_array();
     amrex::Array4<amrex::Real> fine_arr = dat_fine.array();
 
     // The strip is one point thick across the boundary and runs along the other direction
+    AMREX_ASSERT(dat_crse.box().length(ori.coordDir()) == 1 &&
+                 dat_fine.box().length(ori.coordDir()) == 1);
     const int along = 1 - ori.coordDir();
     const int across_crse = dat_crse.box().smallEnd(1 - along);
     const int ratio = (along == 0) ? m_rx : m_ry;

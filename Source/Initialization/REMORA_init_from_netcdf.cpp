@@ -952,7 +952,9 @@ REMORA::init_bdry_from_netcdf (int lev)
     field_name[bdy_vbar()] = "vbar"; index_types[bdy_vbar()] = IntVect(0,1,0); is_2d[bdy_vbar()] = true;
     field_name[bdy_zeta()] = "zeta"; index_types[bdy_zeta()] = IntVect(0,0,0); is_2d[bdy_zeta()] = true;
 
-    amrex::Print() << "DOING INIT AT LEVEL " << lev << std::endl;
+    if (verbose >= 1) {
+        amrex::Print() << "Reading NetCDF boundary data for level " << lev << std::endl;
+    }
     // A level removed by a regrid and later made again comes back through here;
     // start from an empty vector so the slots below stay at ivar.
     boundary_series[lev].clear();

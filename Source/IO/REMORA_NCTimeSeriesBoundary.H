@@ -39,7 +39,10 @@ class NCTimeSeriesBoundary
         /** \brief Data interpolated to the last time given to update_interpolated_to_time, on
          *         the strip one point thick outside horizontal side ori. A side that takes no
          *         boundary data holds 0. */
-        const amrex::FArrayBox& dat_interp (amrex::Orientation ori) const { return m_dat_interp[ori]; }
+        const amrex::FArrayBox& dat_interp (amrex::Orientation ori) const
+        {
+            return m_dat_interp[ori];
+        }
 
         /// Refinement ratios relative to level 0
         int m_rx; int m_ry;

@@ -1062,7 +1062,7 @@ List of Parameters
 |                            |                  |   (coupled: flux validation and  |                |
 |                            |                  |   wet surface-temperature min/max|                |
 |                            |                  |   every exchange); each NetCDF   |                |
-|                            |                  |   boundary record read           |                |
+|                            |                  |   boundary setup and records read|                |
 |                            |                  | - 2: print boxes                 |                |
 |                            | functions        |                                  |                |
 +----------------------------+------------------+----------------------------------+----------------+
