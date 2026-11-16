@@ -1061,7 +1061,8 @@ List of Parameters
 |                            | REMORA           | - 1: integrated/max quantities   |                |
 |                            |                  |   (coupled: flux validation and  |                |
 |                            |                  |   wet surface-temperature min/max|                |
-|                            |                  |   every exchange)                |                |
+|                            |                  |   every exchange); each NetCDF   |                |
+|                            |                  |   boundary record read           |                |
 |                            |                  | - 2: print boxes                 |                |
 |                            | functions        |                                  |                |
 +----------------------------+------------------+----------------------------------+----------------+

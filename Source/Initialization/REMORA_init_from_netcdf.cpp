@@ -968,7 +968,7 @@ REMORA::init_bdry_from_netcdf (int lev)
                                                                 bdry_time_name_byvar[ivar],
                                                                 index_types[ivar],
                                                                 phys_bc_need_data[ivar], is_2d[ivar], rx, ry,
-                                                                solverChoice.time_ref)));
+                                                                solverChoice.time_ref, verbose)));
         boundary_series[lev][ivar]->Initialize();
     }
 }
