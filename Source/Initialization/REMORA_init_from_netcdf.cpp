@@ -1335,10 +1335,18 @@ REMORA::init_refinement_from_netcdf ()
         check_hires_dims_from_netcdf(fname, "refinement", domain, ngrow);
     }
 
+    // Chopped like level 0 and spread over the ranks, so no rank holds the whole field and each
+    // regrid copies from all of them. Every level refines the same level-0 boxes, so box n of
+    // one level lies over box n of the next and the coarsening below stays local.
+    BoxArray ba(makeSlab(geom[0].Domain(),2,0));
+    ba.maxSize(maxGridSize(0));
+    const DistributionMapping dm(ba);
     vec_refine_full_domain.resize(file_lev+1);
     for (int lev = 0; lev <= file_lev; ++lev) {
-        vec_refine_full_domain[lev].reset(new MultiFab(BoxArray(makeSlab(geom[lev].Domain(),2,0)),
-                                                       full_domain_dmap(), 1, 0));
+        if (lev > 0) {
+            ba.refine(IntVect(ref_ratio[lev-1][0], ref_ratio[lev-1][1], 1));
+        }
+        vec_refine_full_domain[lev].reset(new MultiFab(ba, dm, 1, 0));
     }
 
     NCLocalFab NC_refine_fab;
@@ -1346,7 +1354,6 @@ REMORA::init_refinement_from_netcdf ()
     read_optional_grid_vars_from_netcdf(domain, region, fname, {"refinement"}, {&NC_refine_fab},
                                         "refinement levels", ngrow);
 
-    // Don't tile this since we are operating on full FABs in this routine
     for (MFIter mfi(*vec_refine_full_domain[file_lev], false); mfi.isValid(); ++mfi) {
         NC_refine_fab.copy_to((*vec_refine_full_domain[file_lev])[mfi]);
     }

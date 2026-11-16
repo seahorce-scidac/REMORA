@@ -538,6 +538,7 @@ public:
     /** \brief The grid file's refinement variable, the lowest level each cell must be refined
      * to, on the whole domain. Given at the level the grid file describes (0, or
      * hires_grid_level) and coarsened to the levels below by taking the largest value.
+     * Chopped like level 0 and spread over the ranks, unlike the other full-domain arrays.
      * Empty when the grid file has no refinement variable. **/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_refine_full_domain;
     /** \brief Whether the grid file has a refinement variable, so ErrorEst tags from it **/

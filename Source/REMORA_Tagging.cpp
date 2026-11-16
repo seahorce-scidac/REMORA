@@ -599,6 +599,18 @@ REMORA::refinement_criteria_setup ()
                         << " variable of grid file " << grid_file << "\n";
             }
         }
+        // With hires_grid_level set, the level-0 grid file is still read for Coriolis, but its
+        // refinement variable is not: say so rather than let it look as if it applied.
+        const std::string grid_file_0 = nc_grid_file[0].empty() ? std::string()
+                                                                : nc_grid_file[0][0];
+        const bool reads_grid_file_0 = solverChoice.use_coriolis &&
+                                       solverChoice.coriolis_type == Cor_Type::netcdf;
+        if (hires_grid_level > 0 && reads_grid_file_0 && !grid_file_0.empty() &&
+            QueryNetCDFHasVars(grid_file_0, {"refinement"})) {
+            Print() << "WARNING: the refinement variable of " << grid_file_0
+                    << " is not used: with remora.hires_grid_level set, only the one in"
+                    << " remora.nc_grid_file_hires is read.\n";
+        }
 #endif
         ParmParse pp(pp_prefix);
         Vector<std::string> refinement_indicators;
