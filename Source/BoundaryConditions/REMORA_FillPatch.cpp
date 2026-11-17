@@ -526,8 +526,8 @@ REMORA::cf_2d_cacheable (int lev, int slot, const MultiFab& mf, int ncomp, bool 
  * run in the same order, each after its own field's FillSet, replay and exchange.
  *
  * before_exchange, when given, runs between the replay and the exchange. advance_2d uses it
- * to set the interface faces (set_2d_cf_bcs) in time for this exchange to carry them, which
- * saves the exchange that would otherwise follow; see there for when that is exact.
+ * to set the interface faces (set_2d_cf_bcs) in time for this exchange to carry them; see
+ * there for when that is exact.
  *
  * With remora.cf_2d_fill_cache = 2 the fills are first made by fill_2d_from_parent, which
  * recomputes what it replays and checks it, followed by before_exchange and an exchange of

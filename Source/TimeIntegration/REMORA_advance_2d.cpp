@@ -972,9 +972,8 @@ REMORA::advance_2d (int lev,
             ((cf_set_2d_bcs == 1) || (cf_set_2d_bcs == 2 && my_iif == 0));
 
         // On a fine level clear of the domain boundary (cf_2d_interior), the interface faces
-        // can be set before the replayed fill's exchange instead of after the boundary
-        // conditions, so that exchange also carries them and the one after set_2d_cf_bcs
-        // below is saved. The result is the same: the boundary conditions and the periodic
+        // are set just before the replayed fill's exchange, which then carries them, and no
+        // exchange follows set_2d_cf_bcs. This is exact: the boundary conditions and the periodic
         // corner fill write nothing on such a level; set_2d_cf_bcs reads zeta's know
         // component (with its ghost band already filled, as below), h and the mask, none of
         // which the exchange changes, and writes only valid interface faces; and the
