@@ -971,12 +971,15 @@ extrapolate_strip (const Box& gbx, const Array4<Real>& arr, int dir, int ring, i
  * coordinates, which keep growing past the edge). Used in every build, so it lives here
  * rather than in the NetCDF-only initialisation.
  *
- * The x passes run first; the y passes then cover every column, including the x strips
- * just filled, which takes care of the corners. The linear mode leaves a periodic
- * direction alone, where FillBoundary has already put the wrapped values in the ghost
- * cells, and its x passes read two columns, so unless y is periodic they are limited to
- * the rows those columns hold data in (the domain and its ring). The copy mode is what it
- * always was: it reads only the ring and covers the full extent in every direction.
+ * The x passes run first; the y passes then cover the x strips just filled, which takes care
+ * of the corners. The linear mode leaves a periodic direction alone, where FillBoundary has
+ * already put the wrapped values in the ghost cells. Its passes read two rows, so each is
+ * limited along the other direction to where those rows hold data: the domain and its ring,
+ * or only the domain when that direction is periodic (the ring row holds data only over the
+ * domain's columns). EnforcePeriodicity then fills the ghost cells across the periodic
+ * direction in rows outside the domain from their images, which FillBoundary can't, since
+ * those images are outside the domain too. The copy mode is what it always was: it reads only
+ * the ring and covers the full extent in every direction.
  *
  * @param[inout] mf      multifab of data to extrapolate on
  * @param[in   ] geom    geometry
@@ -1006,10 +1009,18 @@ REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry&
         Box gbx_loy = adjCellLo(bx,1,ng[1]); gbx_loy.grow(0,ng[0]); gbx_loy.setBig  (1,dom_lo.y-2);
         Box gbx_hiy = adjCellHi(bx,1,ng[1]); gbx_hiy.grow(0,ng[0]); gbx_hiy.setSmall(1,dom_hi.y+2);
 
-        if (linear && !geom.isPeriodic(1)) {
+        if (linear) {
+            // Rows (or columns) along which a pass's two source rows hold data
+            const int ring_y = geom.isPeriodic(1) ? 0 : 1;
             for (Box* gbx : {&gbx_lox, &gbx_hix}) {
-                gbx->setSmall(1, std::max(gbx->smallEnd(1), dom_lo.y-1));
-                gbx->setBig  (1, std::min(gbx->bigEnd(1),   dom_hi.y+1));
+                gbx->setSmall(1, std::max(gbx->smallEnd(1), dom_lo.y-ring_y));
+                gbx->setBig  (1, std::min(gbx->bigEnd(1),   dom_hi.y+ring_y));
+            }
+            if (geom.isPeriodic(0)) {
+                for (Box* gbx : {&gbx_loy, &gbx_hiy}) {
+                    gbx->setSmall(0, std::max(gbx->smallEnd(0), dom_lo.x));
+                    gbx->setBig  (0, std::min(gbx->bigEnd(0),   dom_hi.x));
+                }
             }
         }
 
@@ -1022,6 +1033,10 @@ REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry&
             extrapolate_strip(gbx_hiy, mf_arr, 1, dom_hi.y+1, dom_hi.y, linear, wrap);
         }
     } // mfi
+
+    if (linear && geom.isPeriodic(0) != geom.isPeriodic(1)) {
+        mf.EnforcePeriodicity(geom.periodicity());
+    }
 }
 
 /**
