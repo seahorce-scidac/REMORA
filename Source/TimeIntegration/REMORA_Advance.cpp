@@ -110,14 +110,14 @@ REMORA::register_coarse_data (int lev, Real time, Real dt_lev)
     // reads only its own fields, so all the exchanges are posted together, in flight at
     // once, before the first copy.
     //
-    // Most of these fields already have them: an exchange has followed the last change to
-    // their valid cells, and only boundary conditions acting outside the domain have run
-    // since, so exchanging again would change nothing. The velocities were last filled at the
-    // start of the step (the old ones, in setup_step) or at the end of advance_3d_ml (the
-    // new ones, ubar and vbar), and w by its fill wherever it was formed (wvel_old_current,
-    // wvel_current). The exceptions are the tracers, which advance_3d_ml masks after their
-    // fill, w that was not formed, and the velocities refilled with their boundary
-    // conditions under cf_fill_vel_after.
+    // Most fields already have them, since an exchange followed the last change to their
+    // valid cells and only boundary conditions outside the domain have run since:
+    // - old u and v, filled in setup_step;
+    // - new u and v, ubar and vbar, filled at the end of advance_3d_ml;
+    // - w, filled wherever it was formed (wvel_old_current, wvel_current).
+    // Only these are exchanged here: the tracers, which advance_3d_ml masks after their
+    // fill; w that was not formed; and new u and v when cf_fill_vel_after refills them with
+    // their boundary conditions.
     Vector<MultiFab*> to_fill;
     if (cf_width > 0) {
         to_fill.push_back(cons_old[lev]);

@@ -3346,15 +3346,13 @@ void smooth_faces_along (const amrex::MultiFab& src, amrex::MultiFab& dst,
     }
 }
 
-/** \brief The faces of fine smoothed along dir (smooth_faces_along) into sm, valid faces
- *         only, which is all the average down reads.
+/** \brief Smooth fine's faces along dir (smooth_faces_along) into sm, valid faces only,
+ *         which is all the average down reads.
  *
  * The smoothing reads one ghost face along dir, which must hold the neighbouring box's
- * value. On the finest level it already does: the fine velocities, ubar and vbar end the
- * step with an exchange and are not written again before the average, unless
- * remora.cf_fill_vel_after refills the velocities with their boundary conditions. A level
- * with a finer one has just had that one averaged onto its valid faces, so there the faces
- * are first copied and the copy exchanged.
+ * value. With exchanged it already does, and fine is read directly. Otherwise fine is copied
+ * and the copy exchanged first: on a level that has just received the average from a finer
+ * one, or for velocities refilled with their boundary conditions (remora.cf_fill_vel_after).
  *
  * @param[in   ] fine      fine field
  * @param[out  ] sm        defined here: the smoothed faces
@@ -3419,9 +3417,10 @@ REMORA::AverageDownTo (int crse_lev)
 
     // See smooth_faces_along: ROMS averages the donor over nine fine faces, AMReX over the
     // three that tile the coarse face, so the normal direction is smoothed in first.
-    // Whether the fine ghost faces the smoothing reads hold their neighbours' values (see
-    // smoothed_faces): ubar and vbar always on the finest level, the velocities unless they
-    // were refilled after the step
+
+    // Whether the fine ghost faces already hold their neighbours' values (see
+    // smoothed_faces): on the finest level, which ends the step with an exchange, except for
+    // velocities refilled with their boundary conditions
     const bool bar_exchanged = (flev == finest_level);
     const bool vel_exchanged = bar_exchanged && !cf_fill_vel_after;
     MultiFab xv_sm, yv_sm;

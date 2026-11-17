@@ -525,14 +525,15 @@ REMORA::cf_2d_cacheable (int lev, int slot, const MultiFab& mf, int ncomp, bool 
  * only that field, zeta's know component (Flather and Chapman), h and the masks, and still
  * run in the same order, each after its own field's FillSet, replay and exchange.
  *
- * before_exchange, when given, runs between the replay and the exchange. advance_2d uses it
- * to set the interface faces (set_2d_cf_bcs) in time for this exchange to carry them; see
- * there for when that is exact.
+ * before_exchange, if given, runs between the replay and the exchange. advance_2d uses it to
+ * set the interface faces (set_2d_cf_bcs) so that this exchange carries them; see there for
+ * when that is exact.
  *
  * With remora.cf_2d_fill_cache = 2 the fills are first made by fill_2d_from_parent, which
- * recomputes what it replays and checks it, followed by before_exchange and an exchange of
- * ubar and vbar, as advance_2d does without the hook; the fields are then put back as they
- * were, replayed here, and the run aborts unless the two results agree bit for bit.
+ * recomputes what it replays and checks it, and then, if given, before_exchange and an
+ * exchange of ubar and vbar, in the order advance_2d uses without the replay. The fields are
+ * then put back as they were and replayed here, and the run aborts unless the two results
+ * agree bit for bit.
  *
  * @param[in] lev        fine level
  * @param[in] time       fill time

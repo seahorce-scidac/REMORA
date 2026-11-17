@@ -957,8 +957,8 @@ REMORA::advance_2d (int lev,
         MultiFab vbar_know(*vec_vbar[lev], make_alias, know, 1);
         MultiFab zeta_know(*vec_zeta[lev], make_alias, know, 1);
 
-        // Whether zeta's periodic corners are still to be filled: at level 0 they wait for the
-        // exchange of ubar and vbar below, so that both are in flight together
+        // At level 0, zeta's periodic corners are filled together with the ubar/vbar exchange
+        // below; this records that they are still to be filled
         bool zeta_corners_pending = false;
 
         // Whether to impose the coarse-fine interface condition (set_2d_cf_bcs) below.
@@ -971,14 +971,14 @@ REMORA::advance_2d (int lev,
         const bool set_2d_now = do_substep &&
             ((cf_set_2d_bcs == 1) || (cf_set_2d_bcs == 2 && my_iif == 0));
 
-        // On a fine level clear of the domain boundary (cf_2d_interior), the interface faces
-        // are set just before the replayed fill's exchange, which then carries them, and no
-        // exchange follows set_2d_cf_bcs. This is exact: the boundary conditions and the periodic
-        // corner fill write nothing on such a level; set_2d_cf_bcs reads zeta's know
-        // component (with its ghost band already filled, as below), h and the mask, none of
-        // which the exchange changes, and writes only valid interface faces; and the
-        // exchange makes every ghost copy of a face hold its owner's value either way. The
-        // rivers rewrite ubar and vbar after this, so they keep the original order.
+        // On a fine level clear of the domain boundary (cf_2d_interior), set_2d_cf_bcs runs
+        // just before the replayed fill's exchange, so that one exchange carries the interface
+        // faces too. The result is the same as setting them after the boundary conditions:
+        // - the boundary conditions and periodic corner fill write nothing on such a level;
+        // - set_2d_cf_bcs reads only zeta's know component, h and the mask, which the
+        //   exchange does not change, and writes only valid interface faces;
+        // - either way, the exchange leaves every ghost copy of a face equal to its owner.
+        // Rivers rewrite ubar and vbar after this, so with rivers the order is unchanged.
         bool rivers = false;
 #ifdef REMORA_USE_NETCDF
         rivers = solverChoice.do_rivers;
@@ -1011,7 +1011,8 @@ REMORA::advance_2d (int lev,
                          knew, 1, 0, know, dt2d, ubar_know);
             FillPatchBCs(lev, t_old[lev], *vec_vbar[lev], vbar_bc(), bdy_vbar(),
                          knew, 1, 0, know, dt2d, vbar_know);
-            // Nothing until that exchange reads zeta's corners or writes zeta
+            // zeta's corners are filled with the ubar/vbar exchange; nothing before it reads
+            // them or writes zeta
             FillPatchBCs(lev, t_old[lev], *vec_zeta[lev], zeta_bc(), bdy_zeta(),
                          knew, 1, 0, know, dt2d, zeta_know, false);
             zeta_corners_pending = true;
@@ -1171,11 +1172,11 @@ REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
 }
 
 /**
- * Whether no box of level lev, grown by the ghost cells of ubar, vbar or zeta, reaches the
- * domain boundary or crosses it: with one cell to spare, so that no boundary face is among
- * their faces either. On such a level the physical boundary conditions (REMORAPhysBCFunct
- * acts only on boxes not inside the domain), the boundary data from files and the periodic
- * corner fill write nothing in those fields, and no ghost cell has a periodic image.
+ * Whether every box of level lev, grown by the ghost cells of ubar, vbar and zeta plus one
+ * cell (so that no domain-boundary face is among their faces), lies inside the domain. On
+ * such a level the physical boundary conditions (REMORAPhysBCFunct acts only on boxes not
+ * inside the domain), the boundary data from files and the periodic corner fill write
+ * nothing in those fields, and no ghost cell has a periodic image.
  *
  * @param[in] lev  level
  */

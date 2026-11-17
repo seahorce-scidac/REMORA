@@ -455,11 +455,11 @@ REMORA therefore computes them once and replays them:
   conditions then run in the original order. The interface values ``FillSet`` writes are
   kept and replayed the same way, when they depend on the coarse data alone (checked once
   per grid layout; true at the default ``remora.cf_set_width = 0``), and so is the parent's
-  barotropic flux on the interface faces (``set_2d_cf_bcs``). On a fine level whose boxes,
-  grown by their ghost cells and one more cell, lie inside the domain, and without rivers,
-  that flux is set on the interface faces just before the fine-fine exchange, so the one
-  exchange also carries it; elsewhere it is set after the boundary conditions and exchanged
-  separately.
+  barotropic flux on the interface faces (``set_2d_cf_bcs``). If the fine level stays clear
+  of the domain boundary (its boxes, grown by their ghost cells and one more cell, lie
+  inside the domain) and there are no rivers, that flux is set just before the fine-fine
+  exchange, so one exchange carries both. Otherwise it is set after the boundary
+  conditions and exchanged separately.
 - A miss does the full fill and refreshes the entry. It comes from new parent data, a new
   substep time, a regrid that changed the layout, or a change of the coarse data the fill
   interpolates from: ``zeta`` switches from the parent's own field to the parent's
@@ -490,9 +490,9 @@ fill. Other domains need no copy and keep only the record of which fields were e
 - 1 (the default) replays as described.
 - 2 replays everything 1 does and also does the fresh computation each time, aborting if
   any value differs in bit pattern: the saved ghost values, the batched fills of the three
-  fields (against the same fills done in the original order, including the interface flux
-  set before the exchange on an interior level), the kept ``FillSet`` values, the interface
-  flux, and the exchanged and copied parent data of a frozen parent.
+  fields (compared with the unbatched fills, which set the interface flux after the
+  exchange), the kept ``FillSet`` values, the interface flux, and the exchanged and copied
+  parent data of a frozen parent.
 
 The ``*_cf_fill_cache_check`` regression tests run with 2.
 

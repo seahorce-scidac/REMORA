@@ -89,11 +89,10 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
 
     // Nothing reads the new tracers' ghost cells before advance_3d fills them: the steps below
-    // and advance_3d read the new tracers only in their own valid cells (the first step copies
-    // the old tracers in, ghost cells and all). So the fill is needed only where it does more
-    // than that: with remora.cf_set_width > 0 it also sets valid cells along the coarse-fine
-    // interface, and with remora.cf_width > 0 the lockstep driver hands the tracers to the
-    // fill patchers right after this, ghost cells included.
+    // and advance_3d read the new tracers only in valid cells. The fill is still needed when
+    // remora.cf_set_width > 0, where it also sets valid cells along the coarse-fine interface,
+    // and when the lockstep driver with remora.cf_width > 0 passes the tracers, ghost cells
+    // included, to the fill patchers right after this.
     if (cf_set_width > 0 || (cf_width > 0 && !do_substep && max_level > 0)) {
         FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t,0,true,true, cons_old, cons_new);
     }
