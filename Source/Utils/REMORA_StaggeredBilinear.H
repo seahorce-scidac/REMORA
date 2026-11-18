@@ -1,10 +1,49 @@
 #ifndef REMORA_STAGGERED_BILINEAR_H_
 #define REMORA_STAGGERED_BILINEAR_H_
 
+#include <AMReX_FArrayBox.H>
+#include <AMReX_GpuLaunch.H>
 #include <AMReX_Interpolater.H>
+#include <AMReX_Loop.H>
 #include <REMORA_NonperiodicGeometry.H>
+#include <REMORA_PeriodicImage.H>
 
 #include <cmath>
+
+/**
+ * One bilinear value from the four coarse values around it, at weights wx and wy measured from
+ * c00 (outside [0, 1] when extrapolating). With a period, the four are first brought within half
+ * a period of c00, and the result is then taken to the image nearest the coarse value with the
+ * largest weight, so each fine value stays on the branch of its nearest coarse point and a
+ * branch cut (the date line) falls between the same points as on the coarse level.
+ *
+ * @param[in   ] c00     coarse value at (ic, jc)
+ * @param[in   ] c10     coarse value at (ic+1, jc)
+ * @param[in   ] c01     coarse value at (ic, jc+1)
+ * @param[in   ] c11     coarse value at (ic+1, jc+1)
+ * @param[in   ] wx      weight of the ic+1 side
+ * @param[in   ] wy      weight of the jc+1 side
+ * @param[in   ] period  period of the field, or 0 for a field that does not wrap
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+amrex::Real
+staggered_bilinear_value (amrex::Real c00, amrex::Real c10, amrex::Real c01, amrex::Real c11,
+                          amrex::Real wx, amrex::Real wy, amrex::Real period)
+{
+    const amrex::Real half = amrex::Real(0.5);
+    const amrex::Real nearest = (wx < half) ? ((wy < half) ? c00 : c01)
+                                            : ((wy < half) ? c10 : c11);
+    if (period > amrex::Real(0.0)) {
+        c10 = nearest_periodic_image(c10, c00, period);
+        c01 = nearest_periodic_image(c01, c00, period);
+        c11 = nearest_periodic_image(c11, c00, period);
+    }
+    const amrex::Real v = (amrex::Real(1.0) - wx) * (amrex::Real(1.0) - wy) * c00
+                        + wx * (amrex::Real(1.0) - wy)                      * c10
+                        + (amrex::Real(1.0) - wx) * wy                      * c01
+                        + wx * wy                                          * c11;
+    return (period > amrex::Real(0.0)) ? nearest_periodic_image(v, nearest, period) : v;
+}
 
 /**
  * \brief Bilinear coarse-to-fine interpolation of a 2D field at any horizontal staggering
@@ -24,11 +63,21 @@
  * periodic edge it reads no coarse ghost cell at all, since those hold the wrapped values from
  * the other side. InterpFromCoarseLevel copies the parent's ghost cells into the coarse patch,
  * so the parent needs ceil(fine ghosts / ratio) + 1 of them.
+ *
+ * Constructed with a period (360 for a longitude in degrees, 2 pi for an angle in radians),
+ * it interpolates a field that wraps (a longitude across the date line) across the cut rather
+ * than through the jump, and keeps each fine value on its nearest coarse point's branch (see
+ * staggered_bilinear_value).
  */
 class StaggeredBilinear
     : public amrex::Interpolater
 {
 public:
+    /**
+     * @param[in   ] period  period of the field, or 0 for a field that does not wrap
+     */
+    explicit StaggeredBilinear (amrex::Real period = amrex::Real(0.0)) : m_period(period) {}
+
     /**
      * The coarse box a fine box needs, for a uniform refinement ratio
      *
@@ -105,6 +154,7 @@ public:
 
             amrex::Array4<amrex::Real const> const& c = crse.const_array(crse_comp + n);
             amrex::Array4<amrex::Real> const& f = fine.array(fine_comp + n);
+            const amrex::Real period = m_period;
 
             // Written out rather than AMREX_HOST_DEVICE_PARALLEL_FOR_3D_FLAG, whose GPU expansion
             // names RunOn and Gpu without the amrex:: this header can't assume
@@ -117,10 +167,8 @@ public:
                 const int jc = amrex::min(amrex::max(static_cast<int>(std::floor(ty)), jlo), jhi);
                 const amrex::Real wx = tx - amrex::Real(ic);
                 const amrex::Real wy = ty - amrex::Real(jc);
-                f(i,j,k) = (amrex::Real(1.0) - wx) * (amrex::Real(1.0) - wy) * c(ic  ,jc  ,k)
-                         + wx * (amrex::Real(1.0) - wy)                      * c(ic+1,jc  ,k)
-                         + (amrex::Real(1.0) - wx) * wy                      * c(ic  ,jc+1,k)
-                         + wx * wy                                          * c(ic+1,jc+1,k);
+                f(i,j,k) = staggered_bilinear_value(c(ic,jc,k), c(ic+1,jc,k), c(ic,jc+1,k),
+                                                    c(ic+1,jc+1,k), wx, wy, period);
             };
             if (runon == amrex::RunOn::Device && amrex::Gpu::inLaunchRegion()) {
                 amrex::ParallelFor(fine_region, kernel);
@@ -129,10 +177,10 @@ public:
             }
         }
     }
-};
 
-//! The one instance, used like AMReX's own interpolaters
-inline StaggeredBilinear staggered_bilinear_interp;
+private:
+    amrex::Real m_period;
+};
 
 /**
  * The boundary records StaggeredBilinear expects for a coarse level: ext_dir at a physical

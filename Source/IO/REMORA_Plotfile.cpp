@@ -1259,8 +1259,8 @@ REMORA::plot_node_coords (Vector<MultiFab>& mf_xy)
     }
     // Coordinates are not periodic: on a domain periodic in x, nodes 0 and nx of the coarse
     // level are both valid and a domain width apart, so a periodic copy would give the node at
-    // the seam two different sources. Copy without periodicity, as interp_grid_coords_from_coarse
-    // does (#775).
+    // the seam two different sources. Copy without periodicity, as
+    // interp_staggered_coords_from_coarse does (#775).
     for (int lev = 1; lev <= finest_level; ++lev) {
         const IntVect rr(ref_ratio[lev-1][0], ref_ratio[lev-1][1], 1);
         const Geometry crse_geom_nonperiodic = nonperiodic_geometry(geom[lev-1]);

@@ -412,8 +412,10 @@ public:
     void set_grid_coords (int lev);
     /** \brief Level-0 coordinates by summing the cell widths 1/pm and 1/pn */
     void set_grid_coords_by_summing_widths ();
-    /** \brief Fill a refined level's coordinate array by bilinear interpolation of its parent's */
-    void interp_staggered_coords_from_coarse (int lev, amrex::MultiFab& fine, const amrex::MultiFab& crse);
+    /** \brief Fill a refined level's coordinate array by bilinear interpolation of its parent's;
+     *         period > 0 for a field that wraps (a longitude or an angle) */
+    void interp_staggered_coords_from_coarse (int lev, amrex::MultiFab& fine, const amrex::MultiFab& crse,
+                                              amrex::Real period = amrex::Real(0.0));
 
     /** \brief Set curvilinear derivative terms on level lev based on pm and pn */
     void set_curvilinear_terms_from_grid_scale (int lev);
@@ -1729,10 +1731,6 @@ public:
      *         (steps taken modulo wrap when wrap > 0, for a longitude) */
     void extrapolate_metric_to_physical_boundaries(amrex::MultiFab& mf, const amrex::Geometry& geom,
                                                    bool linear = false, amrex::Real wrap = amrex::Real(0.0));
-
-    /** \brief Fill a refined level's coordinate array (lon, lat, angle) from the coarser
-     *         level, including the ghost cells outside the domain */
-    void interp_grid_coords_from_coarse (int lev, amrex::MultiFab& fine, const amrex::MultiFab& crse);
 
     /** \brief Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);

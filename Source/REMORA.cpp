@@ -6,6 +6,7 @@
 #include <REMORA.H>
 #include <REMORA_MaskedAverageDown.H>
 #include <REMORA_LatLonRegridMath.H>
+#include <REMORA_PeriodicImage.H>
 
 #ifdef REMORA_USE_NETCDF
 #include "REMORA_NCFile.H"
@@ -951,7 +952,7 @@ extrapolate_strip (const Box& gbx, const Array4<Real>& arr, int dir, int ring, i
             const Real vring = (dir == 0) ? arr(ring,j,k,0)  : arr(i,ring,k,0);
             const Real vin   = (dir == 0) ? arr(inner,j,k,0) : arr(i,inner,k,0);
             Real step = vring - vin;
-            if (wrap > Real(0.0)) { step -= wrap * std::round(step / wrap); }
+            if (wrap > Real(0.0)) { step = nearest_periodic_image(step, Real(0.0), wrap); }
             arr(i,j,k,0) = vring + dist * step;
         });
     } else {
