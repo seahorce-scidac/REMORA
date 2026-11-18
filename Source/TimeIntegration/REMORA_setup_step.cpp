@@ -26,14 +26,16 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     [[maybe_unused]] int nvars = S_old.nComp();
 
     // Fill ghost cells/faces at old time
-    FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t,0,true,true, cons_old, cons_new);
-    FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u,0,true,true, xvel_old, xvel_new);
-    FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v,0,true,true, yvel_old, yvel_new);
-    // zvel_old is read by the checkpoint and, with refinement, by the coarse-fine fills of
-    // w; a stale one (single level, w not formed) is left alone
-    if (wvel_old_current[lev]) {
-        FillPatch(lev, time, *zvel_old[lev], zvel_old, zvel_bc(), BdyVars::null,0,true,true,0,0,zero,
-                  amrex::MultiFab(), zvel_old, zvel_new);
+    if (solverChoice.solve3d) {
+        FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t,0,true,true, cons_old, cons_new);
+        FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u,0,true,true, xvel_old, xvel_new);
+        FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v,0,true,true, yvel_old, yvel_new);
+        // zvel_old is read by the checkpoint and, with refinement, by the coarse-fine fills of
+        // w; a stale one (single level, w not formed) is left alone
+        if (wvel_old_current[lev]) {
+            FillPatch(lev, time, *zvel_old[lev], zvel_old, zvel_bc(), BdyVars::null,0,true,true,0,0,zero,
+                      amrex::MultiFab(), zvel_old, zvel_new);
+        }
     }
 
     //////////    //pre_step3d corrections to boundaries
@@ -88,23 +90,25 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
     std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
 
-    // Nothing reads the new tracers' ghost cells before advance_3d fills them: the steps below
-    // and advance_3d read the new tracers only in valid cells. The fill is still needed when
-    // remora.cf_set_width > 0, where it also sets valid cells along the coarse-fine interface,
-    // and when the lockstep driver with remora.cf_width > 0 passes the tracers, ghost cells
-    // included, to the fill patchers right after this.
-    if (cf_set_width > 0 || (cf_width > 0 && !do_substep && max_level > 0)) {
-        FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t,0,true,true, cons_old, cons_new);
+    if (solverChoice.solve3d) {
+        // Nothing reads the new tracers' ghost cells before advance_3d fills them: the steps below
+        // and advance_3d read the new tracers only in valid cells. The fill is still needed when
+        // remora.cf_set_width > 0, where it also sets valid cells along the coarse-fine interface,
+        // and when the lockstep driver with remora.cf_width > 0 passes the tracers, ghost cells
+        // included, to the fill patchers right after this.
+        if (cf_set_width > 0 || (cf_width > 0 && !do_substep && max_level > 0)) {
+            FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t,0,true,true, cons_old, cons_new);
+        }
+        FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u,0,true,true, xvel_old, xvel_new);
+        FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v,0,true,true, yvel_old, yvel_new);
     }
-    FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u,0,true,true, xvel_old, xvel_new);
-    FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v,0,true,true, yvel_old, yvel_new);
 
     mf_rufrc->setVal(zero);
     mf_rvfrc->setVal(zero);
 
     int iic = istep[lev];
     int ntfirst = 0;
-    if(iic==ntfirst) {
+    if(iic==ntfirst || !solverChoice.solve3d) {
         MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
         MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
         MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
@@ -136,6 +140,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 #endif
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
+        if (!solverChoice.solve3d) { continue; }
         Array4<Real const> const& h     = vec_h[lev]->const_array(mfi);
         Array4<Real const> const& Hz    = vec_Hz[lev]->const_array(mfi);
         Array4<Real      > const& Huon  = vec_Huon[lev]->array(mfi);
@@ -216,7 +221,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         vec_evap[lev]->FillBoundary(geom[lev].periodicity());
     }
 
-    if (solverChoice.do_temp_flux) {
+    if (solverChoice.solve3d && solverChoice.do_temp_flux) {
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -235,7 +240,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             });
         }
     }
-    if (solverChoice.do_salt_flux) {
+    if (solverChoice.solve3d && solverChoice.do_salt_flux) {
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -289,8 +294,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     {
         Array4<Real      > const& bustr = mf_bustr->array(mfi);
         Array4<Real      > const& bvstr = mf_bvstr->array(mfi);
-        Array4<Real const> const& uold  = U_old.const_array(mfi);
-        Array4<Real const> const& vold  = V_old.const_array(mfi);
+        // ROMS set_vbc uses the preceding predictor after the first 2D step.
+        const int stress_comp = iic == ntfirst ? 0 : 2;
+        Array4<Real const> const& uold  = solverChoice.solve3d ? U_old.const_array(mfi)
+                                      : vec_ubar[lev]->const_array(mfi, stress_comp);
+        Array4<Real const> const& vold  = solverChoice.solve3d ? V_old.const_array(mfi)
+                                      : vec_vbar[lev]->const_array(mfi, stress_comp);
         Array4<Real const> const& logdrg_tmp = mf_logdrg_tmp.const_array(mfi);
 
         Box ubx1 = mfi.grownnodaltilebox(0,IntVect(NGROW-1,NGROW-1,0));
@@ -341,6 +350,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
     FillPatch(lev, time, *vec_bustr[lev].get(), GetVecOfPtrs(vec_bustr), u2d_simple_bc(), BdyVars::null,0,true,false);
     FillPatch(lev, time, *vec_bvstr[lev].get(), GetVecOfPtrs(vec_bvstr), v2d_simple_bc(), BdyVars::null,0,true,false);
+
+    if (!solverChoice.solve3d) { return; }
 
     if (solverChoice.vert_mixing_type == VertMixingType::analytic) {
         // Update Akv if using analytic mixing

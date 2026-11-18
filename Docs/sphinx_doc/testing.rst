@@ -139,6 +139,12 @@ say the baseline was right, and it cannot notice a feature that has silently sto
     Run an input to the end with a checkpoint partway, restart a second run from the named checkpoint,
     and require the two final plotfiles to agree: a restart must continue the run it was saved from.
 
+``add_test_restart_exact``
+    Require a restarted run's final plotfile to agree bit for bit with the uninterrupted run.
+    An optional fifth argument selects another test's input, including a composed input.
+    A sixth argument names the final checkpoint to compare in full, including history
+    fields. A seventh supplies additional command-line options for the restarted run.
+
 ``add_test_0``
     Require the final plotfile to equal ``plt00000`` to 1e-14. For a case whose exact solution is rest.
 

@@ -1,0 +1,13 @@
+# Uniform flow under linear bottom drag: u(t) = u(0)*exp(-rdrag*t/h).
+remora.solve3d = false
+remora.max_step = 200
+remora.prob_hi = 16000 16000 0
+remora.n_cell = 16 16 1
+remora.fixed_dt = 0.05
+remora.rdrag = 1
+remora.horizontal_mixing_type = constant
+remora.visc2 = 0
+remora.plot_int = 200
+remora.plot_vars_2d = zeta ubar vbar
+remora.check_int = 100
+amrex.init_snan = 1

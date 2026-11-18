@@ -4,16 +4,16 @@
 Regression Tests
 ================
 
-There are currently 70 regression tests which are run as part of every PR on a range of architectures:
+The regression tests run as part of every PR on a range of architectures. They include tests that:
 
-* 22 that compare a plotfile against a stored reference;
-* 6 that compare two runs of the model against each other, or a run against its own initial state, and
+* compare a plotfile against a stored reference;
+* compare two runs of the model against each other, or a run against its own initial state, and
   need no reference;
-* 5 that assert values against an external reference;
-* 10 that assert the structure of the refined grid;
-* 8 that assert how far an integrated quantity drifts over a run;
-* 8 that assert a run reaches a behavior it reports in its log;
-* 11 that assert a misconfigured input fails for the stated reason.
+* assert values against an external reference;
+* assert the structure of the refined grid;
+* assert how far an integrated quantity drifts over a run;
+* assert a run reaches a behavior it reports in its log;
+* assert a misconfigured input fails for the stated reason.
 
 PnetCDF builds add two more that assert the structure of the refined grid, read from a NetCDF grid
 file's ``refinement`` variable (see :ref:`sec:ci-tagging-tests`).
@@ -501,7 +501,7 @@ drivers in this case.
 Barotropic substep count tests
 ------------------------------
 
-``remora.ndtfast`` is the number of barotropic steps per baroclinic step. It has no usable default, and a
+With ``remora.solve3d = true``, ``remora.ndtfast`` is the number of barotropic steps per baroclinic step. It has no usable default, and a
 zero divides by zero and sizes the barotropic weights to one element, which the 2D step then reads past
 the end of. These lanes, all on ``Channel_Test``, cover it and the input names around it.
 
@@ -525,6 +525,90 @@ the end of. These lanes, all on ``Channel_Test``, cover it and the input names a
 
 The alias comparison cannot pass for the wrong reason: a run that ignored the alias would be left without
 a count and abort rather than agree.
+
+The standalone 2D tests set ``remora.solve3d = false`` and need no gold files:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Test
+     - Assertion
+   * - Barotropic_wind
+     - Wind-driven zonal velocity equals ``t*sustr/h`` after 40 s over a 500 m
+       flat bottom, to 1e-12 m/s. Meridional and vertical velocities remain zero.
+   * - Barotropic_cfl
+     - The same wind case started from rest uses the external-wave CFL timestep,
+       5.04904994275638 s, regardless of a supplied ``ndtfast = 37``. Its velocity
+       matches the resulting acceleration to 1e-12 m/s.
+   * - Barotropic_wave
+     - With Coriolis enabled, the wind produces the linear rotating shallow-water
+       response at 100 s, within 1e-10 m/s. This checks the free-surface pressure
+       feedback as well as Coriolis and the persistent time history.
+   * - Barotropic_clipped
+     - Uniform inertial rotation follows the ROMS startup pair for a 10 s
+       step followed by a shortened 2 s step, within 1e-12 m/s.
+   * - Barotropic_cfl_history
+     - Four successive CFL timesteps of uniform inertial rotation each use
+       the startup pair, within 1e-12 m/s of its amplification formula.
+   * - Barotropic_initial_velocity
+     - A sheared channel initial condition produces the thickness-weighted
+       depth-mean velocity at every vertical level before the first step.
+   * - Barotropic_relative_wind
+     - Subtracting the depth-mean current from the wind produces the same
+       first step as prescribing the resulting wind directly.
+   * - Barotropic_drag
+     - Uniform flow decays according to ``u(0)*exp(-rdrag*t/h)`` after 10 s,
+       within 1e-6 m/s. Temperature and salinity keep their initial values.
+   * - Barotropic_rest
+     - A flat surface stays exactly at rest over the seamount's varying depth.
+   * - Barotropic_ndtfast
+     - Setting the ignored ratio to 1 or 37 gives bitwise-identical velocity
+       output and every checkpoint MultiFab, including the 2D histories.
+   * - Barotropic_eos
+     - Selecting the linear or nonlinear equation of state leaves the 2D answer
+       and checkpoint MultiFabs bitwise identical.
+   * - Barotropic_tiled
+     - Tiled and untiled runs of the spatially varying Channel_Test agree bit
+       for bit, including checkpoint histories.
+   * - Barotropic_restart
+     - Restarting the drag case at 5 s reproduces the uninterrupted final
+       output and every checkpoint MultiFab bit for bit.
+   * - Barotropic_wave_restart
+     - Restarting the rotating wave at 50 s reproduces all checkpoint fields
+       bit for bit, including nonzero free-surface and momentum histories.
+   * - Barotropic_dt_restart
+     - Restarting at 10 s with a 2 s timestep reproduces the shortened final
+       step of the uninterrupted run, including every checkpoint field.
+
+For the wave test, let ``a*cos(k*y)`` be the zonal acceleration, ``H`` the depth,
+``d`` the grid spacing in y, ``F = f*cos(k*d/2)`` and ``K = 2*sin(k*d/2)/d``.
+The linear C-grid equations for the velocity amplitudes and free-surface amplitude
+are ``U' = F*V + a``, ``V' = -F*U - g*K*Z`` and ``Z' = H*K*V``. Starting from
+rest, with ``w**2 = F**2 + g*H*K**2``, their closed-form solution is
+``U = a*((1-F**2/w**2)*t + F**2*sin(w*t)/w**3)`` and
+``V = -F*a*(1-cos(w*t))/w**2``. The test uses ``f = 0.01 s-1``, ``H = 500 m``,
+``d = 1000 m`` and a 16000 m wavelength. The asserted extrema include the
+face-to-cell averages used by the velocity output. The wind is weak enough that
+nonlinear corrections are below the stated tolerance.
+
+For uniform inertial rotation, define ``q = u + i*v``. ROMS's first-step
+predictor and corrector give ``q_new = (1 - (f*dt)**2 - i*f*dt)*q``. The
+shortened-step test applies this factor for 10 s and 2 s with ``f = 0.01 s-1``
+and ``q(0) = 0.1 m/s``. For the CFL history test, each interval is computed from
+``dt = 0.5/(sqrt(g*150)*sqrt(2)/1000 + max(abs(u),abs(v))/1000)`` s before
+applying the same factor. Its four intervals are approximately 9.201297831,
+9.201441193, 9.201726722 and 9.202150830 s. These references check the numerical
+startup scheme in `ROMS step2d_LF_AM3.h
+<https://github.com/myroms/roms/blob/develop/ROMS/Nonlinear/step2d_LF_AM3.h>`_
+when the interval changes.
+
+For the initial-velocity test, the channel has ``u = 0.01*(50+z)`` plus a
+sinusoidal horizontal perturbation. With four layers, ``theta_s = 3``,
+``theta_b = 0`` and ``tcline = 25 m``, ROMS Vtransform 2 gives a discrete
+thickness-weighted mean of 0.2618509682013199 m/s for the linear profile.
+The perturbation, after the face-to-cell average, has extrema
+``+/-0.05*cos(pi/16)*cos(pi/32)`` m/s on the 16 by 32 grid.
 
 .. _sec:ci-maskring-tests:
 
