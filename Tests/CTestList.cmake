@@ -918,6 +918,13 @@ if (REMORA_ENABLE_PNETCDF)
     # Harmonic forcing must agree with independently sampled boundary time series.
     add_test_equiv(TidalBoundary reference "remora_exec" "plt_tides00004" "plt_reference00004"
                    0.005 x_velocity -0.0114 0.0340 y_velocity -0.0125 0.0314)
+    foreach (test TidalBoundary_clamped TidalBoundary_mixed)
+        compose_test_input(${test} TidalBoundary)
+        add_test_equiv(${test} reference "remora_exec" "plt_tides00004" "plt_reference00004")
+    endforeach ()
+    compose_test_input(TidalBoundary_unused TidalBoundary)
+    add_test_log(TidalBoundary_unused "remora_exec"
+                 "no tides on the West boundary, because its normal barotropic velocity (ubar) is not flather")
     # Variants of TidalBoundary that read its data files from its test directory
     compose_test_input(TidalBoundary_phase_units_abort TidalBoundary)
     compose_test_input(TidalBoundary_restart TidalBoundary)

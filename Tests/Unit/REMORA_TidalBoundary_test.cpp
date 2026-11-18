@@ -33,14 +33,12 @@ int main (int argc, char* argv[])
             for (int q = 0; q < 3; ++q) {
                 for (bool enabled : {false, true}) {
                     NCTimeSeriesBoundary series(lev, geom, {directory + "/subtidal.nc"},
-                        fields[q], "ocean_time", index_types[q], all_sides, true, rx, ry, 20000101.0);
+                        fields[q], "ocean_time", index_types[q], all_sides, true, rx, ry, 20000101.0, 0);
                     series.Initialize();
                     GpuArray<bool, 6> tidal_sides = all_sides;
                     if (q == 1) { tidal_sides[1] = tidal_sides[4] = false; }
                     if (q == 2) { tidal_sides[0] = tidal_sides[3] = false; }
                     if (enabled) { series.InitializeTides(directory + "/tides.nc", tidal_sides); }
-                    Array<FArrayBox*, 6> result = {&series.xlo_dat_interp, &series.ylo_dat_interp,
-                        nullptr, &series.xhi_dat_interp, &series.yhi_dat_interp, nullptr};
                     // Repeated and decreasing requests must rebuild from the subtidal records.
                     for (double elapsed : {0.0, 60.0, 60.0, 30.0, 300.0, 0.0}) {
                         series.update_interpolated_to_time(86400.0 + elapsed);
@@ -48,8 +46,11 @@ int main (int argc, char* argv[])
                         for (int ori : {0, 1, 3, 4}) {
                             const int along = (ori == 0 || ori == 3) ? 1 : 0;
                             const int ratio = along == 0 ? rx : ry;
-                            const auto actual = result[ori]->const_array();
-                            for (BoxIterator it(result[ori]->box()); it.ok(); ++it) {
+                            const Orientation side(along == 1 ? 0 : 1,
+                                ori < AMREX_SPACEDIM ? Orientation::low : Orientation::high);
+                            const auto& result = series.dat_interp(side);
+                            const auto actual = result.const_array();
+                            for (BoxIterator it(result.box()); it.ok(); ++it) {
                                 const IntVect point = it();
                                 // Position in level-0 index units: fine cell centers lie at
                                 // (coordinate + 0.5)/ratio coarse cells and fine nodes at

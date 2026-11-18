@@ -179,8 +179,6 @@ NCTimeSeriesBoundary::InitializeTides (
 {
     using namespace amrex;
     const Array<const char*, 6> side_names = {"west", "south", "", "east", "north", ""};
-    Array<FArrayBox*, 6> destinations = {&xlo_dat_interp, &ylo_dat_interp, nullptr,
-                                       &xhi_dat_interp, &yhi_dat_interp, nullptr};
     // Each variable read from the file, with what it holds and, for a boundary field, its side
     enum class TideQuantity { period, epoch, amplitude, phase };
     struct TideVariable {
@@ -190,9 +188,10 @@ NCTimeSeriesBoundary::InitializeTides (
     };
     Vector<TideVariable> variables = {{"tide_period", TideQuantity::period, -1},
                                       {"tide_epoch",  TideQuantity::epoch,  -1}};
-    Vector<int> orientations;
-    for (int ori = 0; ori < AMREX_SPACEDIM*2; ++ori) {
-        if (sides[ori] && destinations[ori] != nullptr) {
+    Vector<Orientation> orientations;
+    for (OrientationIter oit; oit; ++oit) {
+        const Orientation ori = oit();
+        if (sides[ori] && ori.coordDir() < 2) {
             orientations.push_back(ori);
             variables.push_back({"tide_" + field_name + "_amp_" + side_names[ori],
                                  TideQuantity::amplitude, ori});
@@ -228,13 +227,10 @@ NCTimeSeriesBoundary::InitializeTides (
     }
     Vector<NDArray<double>> data(names.size());
     ReadNetCDFFile(file_name, names, data);
-    Vector<NDArray<char>> labels(1);
-    ReadNetCDFFile(file_name, {"tide_name"}, labels);
 
     int nconstituents = 0;
-    auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
-    ncmpi_begin_indep_data(ncf.ncid);
     if (ParallelDescriptor::IOProcessor()) {
+        auto ncf = ncutils::NCFile::open_local(file_name);
         auto fail = [&] (const std::string& name, const std::string& reason) {
             Abort("Tidal variable '" + name + "' in " + file_name + ": " + reason);
         };
@@ -252,7 +248,7 @@ NCTimeSeriesBoundary::InitializeTides (
             fail("tide_period", "expected a nonempty one-dimensional array");
         }
         nconstituents = static_cast<int>(shape[0]);
-        const auto label_shape = labels[0].get_vshape();
+        const auto label_shape = ncf.var("tide_name").shape();
         if (label_shape.size() != 2 || label_shape[0] != nconstituents || label_shape[1] < 1) {
             fail("tide_name", "expected (tide, name_strlen), matching tide_period");
         }
@@ -284,8 +280,10 @@ NCTimeSeriesBoundary::InitializeTides (
             if (quantity == TideQuantity::period) {
                 check_units(name, {"s"});
             } else if (quantity == TideQuantity::amplitude || quantity == TideQuantity::phase) {
-                Box coarse_box = destinations[variables[n].ori]->box();
-                coarse_box.coarsen(IntVect(m_rx, m_ry, 1));
+                const Box coarse_box = strip_box(m_geom[0].Domain(),
+                                                  Orientation(variables[n].ori % AMREX_SPACEDIM,
+                                                      variables[n].ori < AMREX_SPACEDIM
+                                                          ? Orientation::low : Orientation::high));
                 const auto field_shape = data[n].get_vshape();
                 if (field_shape.size() != 2 || field_shape[0] != nconstituents ||
                     field_shape[1] != coarse_box.numPts()) {
@@ -299,7 +297,6 @@ NCTimeSeriesBoundary::InitializeTides (
         tide_periods.assign(data[period_index].get_data(),
                             data[period_index].get_data() + nconstituents);
     }
-    ncf.close();
     const int root = ParallelDescriptor::IOProcessorNumber();
     ParallelDescriptor::Bcast(&nconstituents, 1, root);
     tide_periods.resize(nconstituents);
@@ -315,9 +312,8 @@ NCTimeSeriesBoundary::InitializeTides (
     host_arena = The_Pinned_Arena();
 #endif
     for (int b = 0; b < orientations.size(); ++b) {
-        const int ori = orientations[b];
-        Box coarse_box = destinations[ori]->box();
-        coarse_box.coarsen(IntVect(m_rx, m_ry, 1));
+        const Orientation ori = orientations[b];
+        const Box coarse_box = strip_box(m_geom[0].Domain(), ori);
         FArrayBox coarse(coarse_box, 2*nconstituents, host_arena);
         const auto count = coarse_box.numPts();
         if (ParallelDescriptor::IOProcessor()) {
@@ -334,7 +330,7 @@ NCTimeSeriesBoundary::InitializeTides (
         }
         ParallelDescriptor::Bcast(coarse.dataPtr(), coarse.size(), root);
         auto& coefficients = tide_coefficients[ori];
-        coefficients.resize(destinations[ori]->box(), 2*nconstituents);
+        coefficients.resize(m_dat_interp[ori].box(), 2*nconstituents);
         if (m_lev == 0) {
             Gpu::copy(Gpu::hostToDevice, coarse.dataPtr(), coarse.dataPtr() + coarse.size(),
                       coefficients.dataPtr());
@@ -342,7 +338,7 @@ NCTimeSeriesBoundary::InitializeTides (
             for (int c = 0; c < 2*nconstituents; ++c) {
                 FArrayBox source(coarse, make_alias, c, 1);
                 FArrayBox target(coefficients, make_alias, c, 1);
-                interp_fab(source, target);
+                interp_fab(source, target, ori);
             }
             // The pinned source must outlive interpolation on the device.
             Gpu::streamSynchronize();
@@ -373,13 +369,11 @@ NCTimeSeriesBoundary::add_tides (double time)
     Gpu::copy(Gpu::hostToDevice, tide_weights_host.begin(), tide_weights_host.end(),
               tide_weights_device.begin());
     const Real* weights = tide_weights_device.data();
-    Array<FArrayBox*, 6> destinations = {&xlo_dat_interp, &ylo_dat_interp, nullptr,
-                                       &xhi_dat_interp, &yhi_dat_interp, nullptr};
     for (int ori = 0; ori < AMREX_SPACEDIM*2; ++ori) {
         if (tide_coefficients[ori].nComp() == 0) { continue; }
         const auto coefficients = tide_coefficients[ori].const_array();
-        const auto dest = destinations[ori]->array();
-        ParallelFor(destinations[ori]->box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        const auto dest = m_dat_interp[ori].array();
+        ParallelFor(m_dat_interp[ori].box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real value = Real(0.0);
             for (int c = 0; c < nconstituents; ++c) {

@@ -115,5 +115,5 @@ jobs:
 
     - name: Regression Tests
       run: |
-        ctest -L regression --output-on-failure
+        ctest -L "regression|unit" --output-on-failure
       working-directory: ${{runner.workspace}}/REMORA/build-pnetcdf

@@ -214,6 +214,10 @@ rather than assumed.
   disabled tides and refinement ratios of 2 in x and 3 in y. It also executes the boundary kernels on
   the device in GPU builds.
 
+The PnetCDF PR workflow runs both the regression and unit labels, including ``TideMath`` and
+``TidalBoundaryReader``. Tidal model variants also check clamped elevation and tangential
+velocities, mixed Flather/outflow sides with clamped elevation, and unused-tide warnings.
+
 The lat-lon forcing interpolation as a whole needs PnetCDF and data files, so it is not in ctest; the developer
 lane ``Exec/IdealMiniGrid/inputs_frc_latlon`` and ``Tests/tools/make_latlon_forcing_test_data.py``
 make a lat-lon forcing file and a rotated grid, run, and check the result exactly.

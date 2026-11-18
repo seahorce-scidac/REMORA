@@ -124,6 +124,7 @@ Each velocity entry sets that component's own condition. On the West and East si
 ``ubar`` are the normal components and ``v`` and ``vbar`` the tangential ones; on the South and North
 sides it is the reverse. So ``slipwall``, ``symmetry`` or ``flather`` takes its normal-velocity form
 on a side only where the normal component's entry names it.
+
 .. _sec:tidal-boundaries:
 
 Tidal boundary forcing
@@ -169,7 +170,8 @@ The tangential barotropic velocity keeps its own condition and receives no tide.
 
 Every other side gets no tides, and the run prints a warning naming each such side at startup.
 This includes a ``clamped`` normal velocity, radiation conditions, and walls. Periodic sides
-have no boundary and print nothing.
+have no boundary and print nothing. These warnings also appear when no boundary condition
+reads a file; in that case the tidal file is unused.
 
 Conventions
 ~~~~~~~~~~~

@@ -18,10 +18,12 @@ There are currently 70 regression tests which are run as part of every PR on a r
 PnetCDF builds add two more that assert the structure of the refined grid, read from a NetCDF grid
 file's ``refinement`` variable (see :ref:`sec:ci-tagging-tests`).
 
-There are also unit tests, ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp``, ``BiologyInterface``, ``TideMath`` and ``TidalBoundaryReader`` and, in PnetCDF builds, ``NCFormats``, which is also labelled ``regression``. The CI tests use cmake and are based on the version
-of AMReX in the REMORA submodule. This suite can be run following the
-instructions in :ref:`Testing<Testing>`, which also describes the different kinds of assertion and what
-each is for. All of them run under MPI on two ranks, and are checked to be rank-invariant.
+The unit tests include ``DateClock``, ``LatLonRegrid``, ``BoundaryInterp``, ``BiologyInterface``
+and ``TideMath``. PnetCDF builds additionally register ``NCFormats`` and ``TidalBoundaryReader``.
+The PnetCDF PR workflow runs both regression and unit tests; the other PR workflows select
+regression tests. These CMake builds use AMReX from the submodule. See :ref:`Testing` for
+local test commands and the assertions each test uses. Model regression tests use two MPI ranks
+in MPI builds; individual unit tests specify their own rank count.
 
 In addition there is a suite of more extensive nightly tests that use GNUMake and use the current
 development branch of AMReX.
@@ -617,6 +619,11 @@ assertion is that they agree and neither needs a stored reference.
 independently at each requested time. Both use Chapman/Flather on all four sides, with nonzero,
 spatially varying elevation and normal velocity. The fixture contains two periods, 240 and 600
 seconds, phase lags straddling 0/360 degrees, and a file epoch one day after ``remora.time_ref``.
+``TidalBoundary_clamped`` repeats the equivalence check with clamped elevation and tangential
+velocities. ``TidalBoundary_mixed`` uses Flather on the West and South with clamped elevation,
+and outflow normal velocities on the East and North. Both compare against the sampled boundary
+file, whose tangential velocities are subtidal. ``TidalBoundary_unused`` checks that an all-outflow
+setup reports unused tides even though it reads no boundary file.
 ``TidalBoundaryReader`` additionally checks the boundary arrays directly, including repeated
 updates and anisotropic refinement; see :ref:`Testing`. Regenerate the small CDF-2 fixtures with
 ``python3 Tests/tools/make_tidal_test_data.py`` (NumPy and netCDF4 are required).
