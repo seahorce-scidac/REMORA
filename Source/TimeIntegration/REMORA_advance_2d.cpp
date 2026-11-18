@@ -981,8 +981,12 @@ REMORA::advance_2d (int lev,
             // On GPU the tile is the whole box, so the free-surface step stores directly and
             // every flux box above lies in rbx: one kernel does all of this, each part on the
             // points its own pass covers. None reads what another writes.
-            AMREX_ASSERT(direct && tbxp1D == rbx && growHi(xbxD,1,1) == pbx
-                         && growHi(ybxD,0,1) == pbx);
+            static_assert(NGROW == 2, "the free-surface box tbxp1D must be the tile grown by one");
+            const auto same_cells = [] (Box const& a, Box const& b) {
+                return a.smallEnd() == b.smallEnd() && a.bigEnd() == b.bigEnd();
+            };
+            AMREX_ALWAYS_ASSERT(direct && tbxp1D == rbx && same_cells(growHi(xbxD,1,1), pbx)
+                                && same_cells(growHi(ybxD,0,1), pbx));
             const auto blo = amrex::lbound(bxD);
             const auto bhi = amrex::ubound(bxD);
             AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
