@@ -27,14 +27,15 @@ public:
      * @param[in   ] time slow-step midpoint in elapsed model seconds
      * @param[in   ] geom provider geometry
      * @param[in   ] remora ocean model and tracer registry
-     * @param[out  ] q_and_concentrations q (m/s, into ocean), then incoming registry values
+     * @param[inout] q_and_concentrations input constants: q (m/s), then incoming registry values
      */
     virtual void
     bottom_exchange (
         int /*lev*/, amrex::Real /*time*/, const amrex::Geometry& /*geom*/,
         REMORA const& /*remora*/, amrex::MultiFab& /*q_and_concentrations*/)
     {
-        amrex::Abort("bottom_exchange_type=analytic requires ProblemBase::bottom_exchange");
+        amrex::Abort("bottom_exchange_type=analytic: override bottom_exchange in this problem's "
+                     "Problem class");
     }
 
     virtual void

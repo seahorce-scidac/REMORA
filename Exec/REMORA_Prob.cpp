@@ -433,7 +433,7 @@ void Problem::init_analytic_biology (
  * @param[in   ] time slow-step midpoint in elapsed model seconds
  * @param[in   ] geom provider geometry
  * @param[in   ] remora ocean model and tracer registry
- * @param[out  ] q_and_concentrations water flux (m/s), then incoming concentrations
+ * @param[inout] q_and_concentrations input water flux (m/s), then incoming concentrations
  */
 void
 Problem::bottom_exchange (int lev, Real time, const Geometry& geom,

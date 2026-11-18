@@ -1084,7 +1084,7 @@ add_test_checkpoint_restart(Upwelling_ECB_restart    "chk00002" "plt00003" rejec
 # Assert prescribed nonzero transfers from the model's checkpoint output. The existing
 # conservation helper checks drift about a constant inventory, rather than an imposed source.
 function(add_test_bottom_exchange TEST_NAME INPUT_NAME TEST_EXE)
-    cmake_parse_arguments(BOTTOM "FORCING" "" "OPTIONS;VARIANTS" ${ARGN})
+    cmake_parse_arguments(BOTTOM "FORCING" "REJECT" "OPTIONS;VARIANTS" ${ARGN})
     setup_test(${INPUT_NAME})
     resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
     resolve_test_exe("" "remora_bottom_exchange_check" CHECK_EXE)
@@ -1106,8 +1106,13 @@ function(add_test_bottom_exchange TEST_NAME INPUT_NAME TEST_EXE)
             string(APPEND command " && ${MPI_COMMANDS} ${CHECK_EXE} ${input} ${options}"
                 " check.write_forcing=true")
         endif()
-        string(APPEND command " && ${MPI_COMMANDS} ${TEST_EXE} ${input} ${options}"
-            " && ${MPI_COMMANDS} ${CHECK_EXE} ${input} ${options} && cd ..")
+        if(BOTTOM_REJECT)
+            string(APPEND command " && ! ${MPI_COMMANDS} ${TEST_EXE} ${input} ${options} > model.log 2>&1"
+                " && grep -q -- \"${BOTTOM_REJECT}\" model.log && cd ..")
+        else()
+            string(APPEND command " && ${MPI_COMMANDS} ${TEST_EXE} ${input} ${options}"
+                " && ${MPI_COMMANDS} ${CHECK_EXE} ${input} ${options} && cd ..")
+        endif()
         math(EXPR index "${index}+1")
     endforeach()
     add_test(NAME ${TEST_NAME} COMMAND sh -c "(${command}) > ${TEST_NAME}.log 2>&1")
@@ -1174,9 +1179,27 @@ if(REMORA_BUILD_EXECUTABLES)
             remora.bottom_exchange_type=netcdf
             "remora.bottom_exchange_file=bottom0.nc bottom1.nc"
             remora.prob.bottom_ramp_time=8 amr.max_grid_size=4)
+        foreach(invalid q_nan q_inf salt_negative tracer_nan)
+            add_test_bottom_exchange(BottomNetCDFRing_${invalid} BottomAPI
+                remora_bottom_exchange_api FORCING REJECT "explicit finite concentrations"
+                OPTIONS remora.bottom_exchange_type=netcdf remora.bottom_exchange_file=bottom.nc
+                check.invalid_ring=${invalid} "remora.is_periodic=1 0 0"
+                "geometry.is_periodic=1 0 0" remora.bc.ylo.type=slipwall
+                remora.bc.yhi.type=slipwall remora.prob.u_0=0)
+        endforeach()
+        add_test_bottom_exchange(BottomNetCDFOutflowRing BottomAPI remora_bottom_exchange_api
+            FORCING OPTIONS remora.bottom_exchange_type=netcdf
+            remora.bottom_exchange_file=bottom.nc remora.bottom_q=-0.0001
+            check.invalid_ring=tracer_nan "remora.is_periodic=1 0 0"
+            "geometry.is_periodic=1 0 0" remora.bc.ylo.type=slipwall
+            remora.bc.yhi.type=slipwall remora.prob.u_0=0)
+        string(JOIN " " ring_refinement "amr.max_level=1 'amr.ref_ratio_vect=2 2 1'"
+            "remora.refinement_indicators=patch 'remora.patch.in_box_lo=0 0'"
+            "'remora.patch.in_box_hi=400 400' remora.patch.max_level=1")
         add_test_bottom_exchange(BottomNetCDFRing BottomAPI remora_bottom_exchange_api FORCING
             OPTIONS remora.bottom_exchange_type=netcdf remora.bottom_exchange_file=bottom.nc
             check.rho_ring_scale=2 "remora.is_periodic=1 0 0" "geometry.is_periodic=1 0 0"
-            remora.bc.ylo.type=slipwall remora.bc.yhi.type=slipwall remora.prob.u_0=0)
+            remora.bc.ylo.type=slipwall remora.bc.yhi.type=slipwall remora.prob.u_0=0
+            VARIANTS "${ring_refinement}")
     endif()
 endif()

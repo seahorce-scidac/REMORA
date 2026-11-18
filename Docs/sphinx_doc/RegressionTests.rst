@@ -724,10 +724,15 @@ passive tracer and horizontal momentum. No gold files are required.
      - The requested rejection diagnostic.
    * - BottomNetCDF, BottomNetCDFMulti, BottomNetCDFRing
      - Timed forcing budgets, multi-file interpolation and supplied rho ring.
+   * - BottomNetCDFRing_q_nan, BottomNetCDFRing_q_inf,
+       BottomNetCDFRing_salt_negative, BottomNetCDFRing_tracer_nan
+     - Rejection of invalid forcing on the wet physical ghost ring
+   * - BottomNetCDFOutflowRing
+     - Missing incoming concentrations on an outflow ghost ring are unused
    * - BottomExchangeMath
      - Donor flux identities and neutral-log-layer GLS ratios.
 
-The three NetCDF tests require PNetCDF. MPI builds run the integration cases on
+The NetCDF tests require PNetCDF. MPI builds run the integration cases on
 two ranks. See :ref:`Testing` for the inventory formulas and tolerances.
 
 Nightly Regression Tests on CPU

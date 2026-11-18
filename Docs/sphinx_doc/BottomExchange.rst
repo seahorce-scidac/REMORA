@@ -62,8 +62,11 @@ concentrations are rejected wherever inflow occurs; zero is an explicit choice.
 
 For analytic forcing, override ``ProblemBase::bottom_exchange``. Its MultiFab has
 component 0 for ``q`` and components 1 through ``ncons`` for concentrations in
-registry order. The hook fills the level-0 rho slab and is evaluated at each
-level's slow-step midpoint, using elapsed model seconds. No hook is required for
+registry order. The slab starts with the input constants. The hook fills the
+level-0 slab, including its one-cell horizontal ghost ring, and is evaluated at
+each level's slow-step midpoint, using elapsed model seconds. Values supplied on
+nonperiodic physical boundaries are retained; internal and periodic ghosts are
+filled by block exchanges. No hook is required for
 the default impermeable boundary.
 
 The Advection problem supplies an example hook using ``bottom_q`` and the named
@@ -88,7 +91,10 @@ The files contain ``bottom_q`` and ``bottom_<tracer-name>`` on dimensions
 ``(bottom_time, eta_rho, xi_rho)``. There is no vertical dimension. The model rho
 dimensions include the ROMS boundary ring, so they are
 ``(n_cell_y + 2, n_cell_x + 2)``. Supply data on the level-0 model grid and keep
-variables and dimensions consistent across the file set.
+variables and dimensions consistent across the file set. The physical boundary
+ring is used and validated along with the interior: wet points require finite q,
+and inflowing points require finite incoming concentrations and nonnegative
+salinity. Tracer values at outflow-only points are unused.
 
 All fields are read through ``NCTimeSeries``. Supply at least two time records in
 total; records may be split across files. Equal values at two different times

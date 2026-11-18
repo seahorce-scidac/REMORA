@@ -196,8 +196,9 @@ REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
         }
 #endif
         Vector<MultiFab*> raw_levels{&raw};
-        const int prescribed_ring = solverChoice.bottom_exchange_type == BottomExchangeType::netcdf
-                                  ? 1 : 0;
+        const int prescribed_ring =
+            solverChoice.bottom_exchange_type == BottomExchangeType::netcdf ||
+            solverChoice.bottom_exchange_type == BottomExchangeType::analytic ? 1 : 0;
         for (int n = 0; n < nc; ++n) {
             FillPatch(0, sample_time, raw, raw_levels, foextrap_periodic_bc(),
                       BdyVars::null, n, false, false, prescribed_ring);
@@ -212,7 +213,7 @@ REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
         for (MFIter mfi(raw, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
             const auto a = raw.const_array(mfi);
             const auto mask = vec_mskr[0]->const_array(mfi);
-            op.eval(mfi.tilebox(), data, [=] AMREX_GPU_DEVICE (int i, int j, int) -> GpuTuple<int> {
+            op.eval(mfi.growntilebox(), data, [=] AMREX_GPU_DEVICE (int i, int j, int) -> GpuTuple<int> {
                 if (mask(i,j,0) <= 0) { return {0}; }
                 if (!std::isfinite(a(i,j,0,0))) { return {1}; }
                 if (a(i,j,0,0) > 0) {

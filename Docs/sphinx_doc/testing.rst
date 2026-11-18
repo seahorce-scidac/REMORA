@@ -258,6 +258,9 @@ CTest entries. MPI builds use two ranks through the standard test helpers.
 PNetCDF builds additionally test steady and varying timed fields, interpolation
 across two single-record files, and a physical rho ring distinct from the interior.
 The assertion utility prepares those analytic NetCDF inputs before running REMORA.
+Physical-ring tests reject NaN and infinite q, negative incoming salinity and
+NaN incoming tracers; outflow accepts unused NaN concentrations. The supplied
+ring is checked on both levels of a refined boundary case.
 
 The ``BottomCoast``, ``BottomCoastOutflow`` and ``BottomCoast3L`` runs use the
 Dogbone coastline with partly wet parent cells. They assert zero source on dry

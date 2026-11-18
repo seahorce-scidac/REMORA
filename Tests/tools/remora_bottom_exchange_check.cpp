@@ -196,6 +196,8 @@ write_forcing (ParmParse& pp)
     };
     Real ramp = 0;
     ParmParse("remora.prob").query("bottom_ramp_time", ramp);
+    std::string invalid_ring;
+    ParmParse("check").query("invalid_ring", invalid_ring);
     for (int file = 0; file < files.size(); ++file) {
         const int records = files.size() == 1 ? 2 : 1;
         int nc, eta, xi, time;
@@ -233,6 +235,17 @@ write_forcing (ParmParse& pp)
                         const double ring = n == 0 && (row == 0 || row == cells[1]+1)
                                           ? double(ring_scale) : 1;
                         values[record*size+i] *= factor * ring;
+                        if (row == 0 || row == cells[1]+1) {
+                            if (n == 0 && invalid_ring == "q_nan") {
+                                values[record*size+i] = std::numeric_limits<double>::quiet_NaN();
+                            } else if (n == 0 && invalid_ring == "q_inf") {
+                                values[record*size+i] = std::numeric_limits<double>::infinity();
+                            } else if (n == 2 && invalid_ring == "salt_negative") {
+                                values[record*size+i] = -1;
+                            } else if (n > 0 && invalid_ring == "tracer_nan") {
+                                values[record*size+i] = std::numeric_limits<double>::quiet_NaN();
+                            }
+                        }
                     }
                 }
                 check(ncmpi_put_var_double(nc, vars[n], values.data()));

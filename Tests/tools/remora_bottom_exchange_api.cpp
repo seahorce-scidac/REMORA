@@ -117,24 +117,22 @@ main (int argc, char** argv)
         Real ring_scale = Real(1);
         check.query("rho_ring_scale", ring_scale);
         if (type == "netcdf" && ring_scale != Real(1)) {
-            Vector<Real> lo, hi;
-            Vector<int> cells;
-            pp.getarr("prob_lo", lo);
-            pp.getarr("prob_hi", hi);
-            pp.getarr("n_cell", cells);
-            const Real area = (hi[0]-lo[0]) * (hi[1]-lo[1]) / Real(cells[0]*cells[1]);
-            const auto* transport = ocean.GetBottomExchangeTransport(0);
-            AMREX_ALWAYS_ASSERT(transport);
-            for (MFIter mfi(*transport); mfi.isValid(); ++mfi) {
-                const Box edge = makeSlab(mfi.fabbox(), 1, -1) & mfi.fabbox();
-                if (!edge.ok()) { continue; }
-                const Real expected = ring_scale * q * area;
-                const Real tolerance = Real(32) * std::numeric_limits<Real>::epsilon() *
-                                       std::abs(expected);
-                const Real minimum = (*transport)[mfi].min<RunOn::Device>(edge, 0);
-                const Real maximum = (*transport)[mfi].max<RunOn::Device>(edge, 0);
-                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(std::abs(minimum-expected) <= tolerance &&
-                    std::abs(maximum-expected) <= tolerance, "Supplied NetCDF rho ring changed");
+            for (int lev = 0; lev <= ocean.finestLevel(); ++lev) {
+                const auto dx = ocean.Geom(lev).CellSizeArray();
+                const Real area = dx[0]*dx[1];
+                const auto* transport = ocean.GetBottomExchangeTransport(lev);
+                AMREX_ALWAYS_ASSERT(transport);
+                for (MFIter mfi(*transport); mfi.isValid(); ++mfi) {
+                    const Box edge = makeSlab(mfi.fabbox(), 1, -1) & mfi.fabbox();
+                    if (!edge.ok()) { continue; }
+                    const Real expected = ring_scale * q * area;
+                    const Real tolerance = Real(32) * std::numeric_limits<Real>::epsilon() *
+                                           std::abs(expected);
+                    const Real minimum = (*transport)[mfi].min<RunOn::Device>(edge, 0);
+                    const Real maximum = (*transport)[mfi].max<RunOn::Device>(edge, 0);
+                    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(std::abs(minimum-expected) <= tolerance &&
+                        std::abs(maximum-expected) <= tolerance, "Supplied NetCDF rho ring changed");
+                }
             }
         }
         bool coast = false;
