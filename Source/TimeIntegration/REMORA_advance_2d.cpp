@@ -34,6 +34,24 @@ void fill_ghost_kcomps (MultiFab& mf, int knew, const iMultiFab& band)
     }
 }
 
+/** \brief Exchange component knew of ubar and vbar and, when zeta is given, fill the periodic
+ *         corners of every component of zeta (EnforcePeriodicity), with all their messages in
+ *         flight at once. The three touch different fields, so the order does not matter.
+ */
+void exchange_uvbar_and_zeta_corners (MultiFab& ubar, MultiFab& vbar, MultiFab* zeta, int knew,
+                                      const Periodicity& per)
+{
+    const bool corners = zeta && per.isAnyPeriodic();
+    if (corners) {
+        zeta->FBEP_nowait(0, zeta->nComp(), zeta->nGrowVect(), per, false, true);
+    }
+    ubar.FillBoundary_nowait(knew, 1, ubar.nGrowVect(), per);
+    vbar.FillBoundary_nowait(knew, 1, vbar.nGrowVect(), per);
+    if (corners) { zeta->FillBoundary_finish(); }
+    ubar.FillBoundary_finish();
+    vbar.FillBoundary_finish();
+}
+
 /** Which time averages of the barotropic fluxes a fast step accumulates */
 enum AvgMode : int { avg_none, avg_first_pred, avg_pred, avg_corr };
 
@@ -939,6 +957,41 @@ REMORA::advance_2d (int lev,
         MultiFab vbar_know(*vec_vbar[lev], make_alias, know, 1);
         MultiFab zeta_know(*vec_zeta[lev], make_alias, know, 1);
 
+        // At level 0, zeta's periodic corners are filled together with the ubar/vbar exchange
+        // below; this records that they are still to be filled
+        bool zeta_corners_pending = false;
+
+        // Whether to impose the coarse-fine interface condition (set_2d_cf_bcs) below.
+        //
+        // cf_set_2d_bcs = 2 imposes it only on the first fast step, where ROMS calls
+        // put_refine2d (main3d.F, before the barotropic loop; inside it only composite grids
+        // and the NESTING_DEBUG check run). Every fast step instead re-applies the parent's
+        // step-averaged transport twenty times per step rather than letting the barotropic
+        // solver carry the interface.
+        const bool set_2d_now = do_substep &&
+            ((cf_set_2d_bcs == 1) || (cf_set_2d_bcs == 2 && my_iif == 0));
+
+        // On a fine level clear of the domain boundary (cf_2d_interior), set_2d_cf_bcs runs
+        // just before the replayed fill's exchange, so that one exchange carries the interface
+        // faces too. The result is the same as setting them after the boundary conditions:
+        // - the boundary conditions and periodic corner fill write nothing on such a level;
+        // - set_2d_cf_bcs reads only zeta's know component, h and the mask, which the
+        //   exchange does not change, and writes only valid interface faces;
+        // - either way, the exchange leaves every ghost copy of a face equal to its owner.
+        // Rivers rewrite ubar and vbar after this, so with rivers the order is unchanged.
+        bool rivers = false;
+#ifdef REMORA_USE_NETCDF
+        rivers = solverChoice.do_rivers;
+#endif
+        const bool set_before_exchange = lev > 0 && set_2d_now && !rivers && cf_2d_interior(lev);
+        const auto set_interface = [&] () {
+            if (cf_fill_all_kcomp) {
+                fill_ghost_kcomps(*vec_zeta[lev], knew, cf_ghost_band(lev, 2, *vec_zeta[lev]));
+            }
+            set_2d_cf_bcs(lev, t_old[lev], know, knew);
+        };
+        bool interface_set = false;
+
         if (lev == 0) {
             // At level 0 FillPatch is one exchange of component knew followed by the
             // boundary conditions, and those read only `know` components (the field's own,
@@ -958,10 +1011,17 @@ REMORA::advance_2d (int lev,
                          knew, 1, 0, know, dt2d, ubar_know);
             FillPatchBCs(lev, t_old[lev], *vec_vbar[lev], vbar_bc(), bdy_vbar(),
                          knew, 1, 0, know, dt2d, vbar_know);
+            // zeta's corners are filled with the ubar/vbar exchange; nothing before it reads
+            // them or writes zeta
             FillPatchBCs(lev, t_old[lev], *vec_zeta[lev], zeta_bc(), bdy_zeta(),
-                         knew, 1, 0, know, dt2d, zeta_know);
-        } else if (!replay_cf_2d_fills(lev, t_old[lev], knew, know, dt2d,
-                                       ubar_know, vbar_know, zeta_know)) {
+                         knew, 1, 0, know, dt2d, zeta_know, false);
+            zeta_corners_pending = true;
+        } else if (replay_cf_2d_fills(lev, t_old[lev], knew, know, dt2d,
+                                      ubar_know, vbar_know, zeta_know,
+                                      set_before_exchange ? std::function<void()>(set_interface)
+                                                          : std::function<void()>())) {
+            interface_set = set_before_exchange;
+        } else {
             fill_2d_from_parent(lev, t_old[lev], knew, know, dt2d,
                                 ubar_know, vbar_know, zeta_know);
         }
@@ -969,21 +1029,18 @@ REMORA::advance_2d (int lev,
         // See fill_ghost_kcomps: without this the components the solver reads in the ghost
         // band lag the one FillPatch just wrote by a whole parent step.
         if (lev > 0 && cf_fill_all_kcomp) {
-            fill_ghost_kcomps(*vec_zeta[lev], knew, cf_ghost_band(lev, 2, *vec_zeta[lev]));
+            if (!interface_set) {
+                fill_ghost_kcomps(*vec_zeta[lev], knew, cf_ghost_band(lev, 2, *vec_zeta[lev]));
+            }
             fill_ghost_kcomps(*vec_ubar[lev], knew, cf_ghost_band(lev, 0, *vec_ubar[lev]));
             fill_ghost_kcomps(*vec_vbar[lev], knew, cf_ghost_band(lev, 1, *vec_vbar[lev]));
         }
 
         // Replace the interface faces the FillPatchers just set from the parent's ubar with
         // the parent's mass flux, which conserves mass. Must follow the FillPatch.
-        //
-        // cf_set_2d_bcs = 2 imposes it only on the first fast step, where ROMS calls
-        // put_refine2d (main3d.F, before the barotropic loop; inside it only composite grids
-        // and the NESTING_DEBUG check run). Every fast step instead re-applies the parent's
-        // step-averaged transport twenty times per step rather than letting the barotropic
-        // solver carry the interface.
-        const bool set_2d_now = (cf_set_2d_bcs == 1) || (cf_set_2d_bcs == 2 && my_iif == 0);
-        if (do_substep && set_2d_now) {
+        if (set_2d_now && interface_set) {
+            uvbar_exchanged_after_bcs[lev][knew] = 1;
+        } else if (set_2d_now) {
             set_2d_cf_bcs(lev, t_old[lev], know, knew);
             // set_2d_cf_bcs writes each box's own interface faces. Where a box boundary meets
             // the interface, the neighbouring box's ghost copy of that face still holds the
@@ -991,15 +1048,16 @@ REMORA::advance_2d (int lev,
             // from different neighbours -- the answer then depends on the box layout. On
             // level 0 set_2d_cf_bcs does nothing, but this exchange still follows the boundary
             // conditions, which lets the next flux pass skip exchanging the fluxes.
-            const Periodicity& per = geom[lev].periodicity();
-            amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get()},
-                                Vector<int>{knew, knew}, Vector<int>{1, 1},
-                                Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
-                                                vec_vbar[lev]->nGrowVect()},
-                                Vector<Periodicity>{per, per});
+            exchange_uvbar_and_zeta_corners(*vec_ubar[lev], *vec_vbar[lev],
+                                            zeta_corners_pending ? vec_zeta[lev].get() : nullptr,
+                                            knew, geom[lev].periodicity());
+            zeta_corners_pending = false;
             // The rivers below rewrite knew, but an exchange follows them (FillBoundary at
             // level 0, FillPatchNoBC above it), so the flag still holds
             uvbar_exchanged_after_bcs[lev][knew] = 1;
+        }
+        if (zeta_corners_pending) {
+            vec_zeta[lev]->EnforcePeriodicity(geom[lev].periodicity());
         }
 
 #ifdef REMORA_USE_NETCDF
@@ -1111,6 +1169,28 @@ REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
         });
     }
     return *band;
+}
+
+/**
+ * Whether every box of level lev, grown by the ghost cells of ubar, vbar and zeta plus one
+ * cell (so that no domain-boundary face is among their faces), lies inside the domain. On
+ * such a level the physical boundary conditions (REMORAPhysBCFunct acts only on boxes not
+ * inside the domain), the boundary data from files and the periodic corner fill write
+ * nothing in those fields, and no ghost cell has a periodic image.
+ *
+ * @param[in] lev  level
+ */
+bool
+REMORA::cf_2d_interior (int lev) const
+{
+    IntVect ng = vec_ubar[lev]->nGrowVect();
+    ng.max(vec_vbar[lev]->nGrowVect());
+    ng.max(vec_zeta[lev]->nGrowVect());
+    const Box& dom = geom[lev].Domain();
+    Box b = vec_zeta[lev]->boxArray().minimalBox();
+    b.grow(0, ng[0]+1).grow(1, ng[1]+1);
+    b.setSmall(2, dom.smallEnd(2)).setBig(2, dom.smallEnd(2));
+    return dom.contains(b);
 }
 
 /**

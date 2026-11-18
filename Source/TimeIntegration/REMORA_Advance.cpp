@@ -109,16 +109,26 @@ REMORA::register_coarse_data (int lev, Real time, Real dt_lev)
     // The parallel copies inside RegisterCoarseData need filled ghost cells. Each copy
     // reads only its own fields, so all the exchanges are posted together, in flight at
     // once, before the first copy.
+    //
+    // Most fields already have them, since an exchange followed the last change to their
+    // valid cells and only boundary conditions outside the domain have run since:
+    // - old u and v, filled in setup_step;
+    // - new u and v, ubar and vbar, filled at the end of advance_3d_ml;
+    // - w, filled wherever it was formed (wvel_old_current, wvel_current).
+    // Only these are exchanged here: the tracers, which advance_3d_ml masks after their
+    // fill; w that was not formed; and new u and v when cf_fill_vel_after refills them with
+    // their boundary conditions.
     Vector<MultiFab*> to_fill;
     if (cf_width > 0) {
         to_fill.push_back(cons_old[lev]);
         to_fill.push_back(cons_new[lev]);
     }
     if (cf_width >= 0) {
-        for (MultiFab* mf : {xvel_old[lev], xvel_new[lev], yvel_old[lev], yvel_new[lev],
-                             zvel_old[lev], zvel_new[lev],
-                             vec_ubar[lev].get(), vec_vbar[lev].get()}) {
-            to_fill.push_back(mf);
+        if (!wvel_old_current[lev]) { to_fill.push_back(zvel_old[lev]); }
+        if (!wvel_current[lev])     { to_fill.push_back(zvel_new[lev]); }
+        if (cf_fill_vel_after && lev > 0) {
+            to_fill.push_back(xvel_new[lev]);
+            to_fill.push_back(yvel_new[lev]);
         }
     }
     if (!to_fill.empty()) { amrex::FillBoundary(to_fill, per); }

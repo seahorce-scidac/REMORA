@@ -525,9 +525,15 @@ REMORA::cf_2d_cacheable (int lev, int slot, const MultiFab& mf, int ncomp, bool 
  * only that field, zeta's know component (Flather and Chapman), h and the masks, and still
  * run in the same order, each after its own field's FillSet, replay and exchange.
  *
+ * before_exchange, if given, runs between the replay and the exchange. advance_2d uses it to
+ * set the interface faces (set_2d_cf_bcs) so that this exchange carries them; see there for
+ * when that is exact.
+ *
  * With remora.cf_2d_fill_cache = 2 the fills are first made by fill_2d_from_parent, which
- * recomputes what it replays and checks it; the fields are then put back as they were,
- * replayed here, and the run aborts unless the two results agree bit for bit.
+ * recomputes what it replays and checks it, and then, if given, before_exchange and an
+ * exchange of ubar and vbar, in the order advance_2d uses without the replay. The fields are
+ * then put back as they were and replayed here, and the run aborts unless the two results
+ * agree bit for bit.
  *
  * @param[in] lev        fine level
  * @param[in] time       fill time
@@ -537,12 +543,14 @@ REMORA::cf_2d_cacheable (int lev, int slot, const MultiFab& mf, int ncomp, bool 
  * @param[in] ubar_know  component know of ubar, for the boundary conditions
  * @param[in] vbar_know  component know of vbar
  * @param[in] zeta_know  component know of zeta
+ * @param[in] before_exchange  work to do just before the exchange, or empty
  * @return whether the fills were done; if false nothing was changed
  */
 bool
 REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
                             const MultiFab& ubar_know, const MultiFab& vbar_know,
-                            const MultiFab& zeta_know)
+                            const MultiFab& zeta_know,
+                            const std::function<void()>& before_exchange)
 {
     if (cf_2d_fill_cache == 0) { return false; }
 
@@ -583,6 +591,14 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
             MultiFab::Copy(*before[n], *mfs[n], 0, 0, mfs[n]->nComp(), mfs[n]->nGrowVect());
         }
         fill_2d_from_parent(lev, time, knew, know, dt2d, ubar_know, vbar_know, zeta_know);
+        if (before_exchange) {
+            before_exchange();
+            const Periodicity& per = geom[lev].periodicity();
+            amrex::FillBoundary(Vector<MultiFab*>{mfs[0], mfs[1]}, Vector<int>{knew, knew},
+                                Vector<int>{1, 1},
+                                Vector<IntVect>{mfs[0]->nGrowVect(), mfs[1]->nGrowVect()},
+                                Vector<Periodicity>{per, per});
+        }
         for (int n = 0; n < 3; ++n) {
             fresh[n] = std::make_unique<MultiFab>(mfs[n]->boxArray(), mfs[n]->DistributionMap(),
                                                   mfs[n]->nComp(), mfs[n]->nGrowVect());
@@ -598,6 +614,7 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
     for (int n = 0; n < 3; ++n) {
         copy_on_mask(*mfs[n], *cache[n]->vals, *cache[n]->mask, knew);
     }
+    if (before_exchange) { before_exchange(); }
     const Periodicity& per = geom[lev].periodicity();
     amrex::FillBoundary(Vector<MultiFab*>{mfs[0], mfs[1], mfs[2]},
                         Vector<int>{knew, knew, knew}, Vector<int>{1, 1, 1},
@@ -714,6 +731,8 @@ REMORA::cf_2d_cache_entry (int lev, int slot, const MultiFab& mf, const MultiFab
  * @param[in   ] icomp_calc     component to use in RHS boundary calculation
  * @param[in   ] dt_lev         time step at this level
  * @param[in   ] mf_calc        data to use in RHS boundary calculation
+ * @param[in   ] enforce_periodicity  whether to fill the periodic corners of cell data here;
+ *                                    without it the caller must, before they are read
  */
 void
 REMORA::FillPatchBCs (int lev, Real time, MultiFab& mf_to_fill,
@@ -724,7 +743,8 @@ REMORA::FillPatchBCs (int lev, Real time, MultiFab& mf_to_fill,
                       const int  n_not_fill,
                       const int  icomp_calc,
                       const Real dt_lev,
-                      const MultiFab& mf_calc)
+                      const MultiFab& mf_calc,
+                      const bool enforce_periodicity)
 {
     Box mf_box(mf_to_fill.boxArray()[0]);
 
@@ -755,7 +775,7 @@ REMORA::FillPatchBCs (int lev, Real time, MultiFab& mf_to_fill,
     amrex::ignore_unused(bdy_var_type, icomp_calc, dt_lev);
 #endif
     // Fill corners of the domain with periodic data
-    if  ( mf_box.ixType() == IndexType(IntVect(0,0,0)) ) {
+    if  ( enforce_periodicity && mf_box.ixType() == IndexType(IntVect(0,0,0)) ) {
         mf_to_fill.EnforcePeriodicity(geom[lev].periodicity());
     }
 
