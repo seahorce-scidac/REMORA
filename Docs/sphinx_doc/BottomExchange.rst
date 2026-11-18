@@ -144,16 +144,17 @@ preserve their product. Subdivide intervals containing inflow/outflow reversals.
 Refinement and restart
 ----------------------
 
-The provider's level-0 water transport and incoming tracer transports are split
-equally among descendant cells in index space. Their sums are preserved across
-refinement, including with curvilinear metrics. The corresponding local m/s
+At each refinement interface, the parent's water transport and incoming tracer
+transports are split equally among its wet children in index space. Dry children
+receive zero. This preserves both sums across each interface, including partly
+wet coastal cells and curvilinear metrics. The corresponding local m/s
 values follow from each child's physical area. This is a piecewise constant
 transport specification; fine spatial structure requires a finer forcing grid
 or a future remapping adapter.
 
-Wet masks must be consistent across refinement wherever exchange is nonzero;
-REMORA rejects a refined land cell that would discard part of a source. Regridding
-invalidates the affected exchange slabs, and each substep samples its own forcing
+The distribution uses the model's land-sea masks, whose coarse cells are wet if
+any child is wet. Weights are cached with the level layouts. Regridding
+invalidates the affected exchange slabs and weights, and each substep samples its own forcing
 time. Constant transports are reused until the layout changes;
 coupled transports are reused until the snapshot or layout changes.
 Existing coarse/fine dynamics and conservation options still apply; see

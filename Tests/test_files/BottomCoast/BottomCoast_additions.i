@@ -1,0 +1,21 @@
+# Check source sums across a resolved coastline through the coupling API.
+amr.n_cell = 42 15 16
+geometry.prob_lo = 0 0 -10
+geometry.prob_hi = 8400 750 0
+geometry.is_periodic = 0 0 0
+amr.refine_grid_layout_z = 0
+amr.n_proper = 2
+fabarray.mfiter_tile_size = 1024 8 1024
+amr.max_grid_size = 21
+remora.max_step = 2
+remora.plot_int = -1
+remora.sum_interval = -1
+remora.nscalar = 1
+remora.bottom_exchange_type = constant
+remora.bottom_q = 0.0001
+remora.bottom_temp = 10
+remora.bottom_salt = 35
+remora.bottom_tracer = 7
+remora.Tcoef = 0
+remora.Scoef = 0
+check.coast = true

@@ -4,12 +4,72 @@
 #include <REMORA.H>
 #include <AMReX.H>
 #include <AMReX_ParmParse.H>
+#include <AMReX_MultiFabUtil.H>
+#include <AMReX_Reduce.H>
 
 #include <cmath>
 #include <limits>
 
 using namespace amrex;
 std::string inputs_name;
+
+/** Check water and tracer transport sums over each refined parent, and dry children.
+ * @param[in   ] ocean initialized model with prepared bottom exchange
+ */
+void
+check_coast (REMORA& ocean)
+{
+    int partial = 0;
+    for (int lev = 1; lev <= ocean.finestLevel(); ++lev) {
+        const auto& fine = *ocean.GetBottomExchangeTransport(lev);
+        const auto& parent = *ocean.GetBottomExchangeTransport(lev-1);
+        const IntVect ratio = ocean.refRatio(lev-1);
+        const Real children = Real(ratio[0]*ratio[1]);
+        MultiFab averaged(amrex::coarsen(fine.boxArray(), ratio), fine.DistributionMap(),
+                          fine.nComp(), 0);
+        MultiFab expected(averaged.boxArray(), averaged.DistributionMap(), fine.nComp(), 0);
+        average_down(fine, averaged, 0, fine.nComp(), ratio);
+        averaged.mult(children);
+        expected.ParallelCopy(parent);
+        MultiFab::Subtract(averaged, expected, 0, 0, fine.nComp(), 0);
+        for (int n = 0; n < fine.nComp(); ++n) {
+            const Real tolerance = Real(128)*std::numeric_limits<Real>::epsilon()*
+                                   amrex::max(Real(1), expected.norm0(n));
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(averaged.norm0(n) <= tolerance,
+                                             "Refined bottom transport sum changed");
+        }
+        MultiFab wet(averaged.boxArray(), averaged.DistributionMap(), 1, 0);
+        average_down(*ocean.vec_mskr[lev], wet, 0, 1, ratio);
+        ReduceOps<ReduceOpSum> op;
+        ReduceData<int> data(op);
+        for (MFIter mfi(wet, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            const auto mask = wet.const_array(mfi);
+            op.eval(mfi.tilebox(), data, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                -> GpuTuple<int> {
+                return {mask(i,j,k) > Real(0) && mask(i,j,k) < Real(1) ? 1 : 0};
+            });
+        }
+        partial += get<0>(data.value(op));
+        MultiFab dry(fine.boxArray(), fine.DistributionMap(), fine.nComp(), 0);
+        for (MFIter mfi(dry, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            const auto out = dry.array(mfi);
+            const auto in = fine.const_array(mfi);
+            const auto mask = ocean.vec_mskr[lev]->const_array(mfi);
+            ParallelFor(mfi.tilebox(), fine.nComp(),
+            [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
+                out(i,j,k,n) = mask(i,j,k) == Real(0) ? in(i,j,k,n) : Real(0);
+            });
+        }
+        for (int n = 0; n < fine.nComp(); ++n) {
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(dry.norm0(n) == Real(0),
+                                             "Bottom transport reached a dry child");
+        }
+    }
+    ParallelDescriptor::ReduceIntSum(partial);
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(partial > 0, "Coast test has no partly wet parents");
+    Print() << "Bottom transport sums and dry children passed (" << partial
+            << " partly wet parents)\n";
+}
 
 /** Initialize the model, submit owned snapshots and check exported bottom state.
  * @param[in   ] argc argument count
@@ -77,6 +137,9 @@ main (int argc, char** argv)
                     std::abs(maximum-expected) <= tolerance, "Supplied NetCDF rho ring changed");
             }
         }
+        bool coast = false;
+        check.query("coast", coast);
+        if (coast) { check_coast(ocean); }
         int steps = 0;
         pp.get("max_step", steps);
         Real time = ocean.get_t_new(0);
@@ -91,6 +154,7 @@ main (int argc, char** argv)
             const Real advanced = ocean.EvolveOneStep(time, Real(0));
             if (advanced <= Real(0)) { break; }
             time += advanced;
+            if (coast) { check_coast(ocean); }
         }
         ocean.WriteAtFinalTime();
         const int temp = ocean.component_index("temp");
@@ -102,8 +166,15 @@ main (int argc, char** argv)
             ocean.PackBottomState(lev, bottom);
             const Real tolerance = Real(32) * std::numeric_limits<Real>::epsilon() *
                                    std::abs(expected_temp);
-            AMREX_ALWAYS_ASSERT(std::abs(bottom.min(temp)-expected_temp) <= tolerance);
-            AMREX_ALWAYS_ASSERT(std::abs(bottom.max(temp)-expected_temp) <= tolerance);
+            for (MFIter mfi(bottom, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                const auto out = bottom.array(mfi);
+                const auto mask = ocean.vec_mskr[lev]->const_array(mfi);
+                ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    out(i,j,k,temp) -= expected_temp * mask(i,j,k);
+                });
+            }
+            if (!coast) { AMREX_ALWAYS_ASSERT(bottom.norm0(temp) <= tolerance); }
+            AMREX_ALWAYS_ASSERT(!bottom.contains_nan());
             const auto* transport = ocean.GetBottomExchangeTransport(lev);
             AMREX_ALWAYS_ASSERT_WITH_MESSAGE(transport && !transport->contains_nan(),
                                              "Uninitialized bottom transport halo");

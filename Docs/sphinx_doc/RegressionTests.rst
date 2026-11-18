@@ -2,8 +2,9 @@
  .. _RegressionTests:
 
 Regression Tests
+================
 
-There are currently 70 regression tests which are run as part of every PR on a range of architectures:
+The regression suite runs as part of every PR on a range of architectures. It includes:
 
 * 22 that compare a plotfile against a stored reference;
 * 6 that compare two runs of the model against each other, or a run against its own initial state, and
@@ -689,7 +690,8 @@ misleading values are rejected or reported.
 Bottom exchange tests
 ---------------------
 
-The ``bottom_exchange`` tests use the Advection problem on an 8 x 8 x 8 domain.
+The ``bottom_exchange`` column tests use Advection on an 8 x 8 x 8 domain;
+the coastline tests use the existing Dogbone mask with partly wet parents.
 Checkpoint assertions check the prescribed changes in water, temperature, salt,
 passive tracer and horizontal momentum. No gold files are required.
 
@@ -708,6 +710,8 @@ passive tracer and horizontal momentum. No gold files are required.
      - Composite budgets with subcycling, lockstep stepping and regridding.
    * - BottomSpatial
      - Integrated correlated velocity and dye forcing, on one and two levels.
+   * - BottomCoast, BottomCoastOutflow, BottomCoast3L
+     - Parent/child water and tracer transport sums, zero dry-cell sources, and regridding
    * - BottomCoupler
      - Snapshot ownership, exported state and budgets, including flow reversal.
    * - BottomAMRWall

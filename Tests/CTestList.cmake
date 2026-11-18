@@ -1121,6 +1121,16 @@ if(REMORA_BUILD_EXECUTABLES)
     foreach(name BottomAPI BottomAMR BottomSpatial BottomRestart)
         compose_test_input(${name} BottomExchange)
     endforeach()
+    compose_test_input(BottomCoast DogboneAnalytic_MLmask)
+    add_test_run(BottomCoast BottomCoast remora_bottom_exchange_api "")
+    add_test_run(BottomCoastOutflow BottomCoast remora_bottom_exchange_api
+        "remora.bottom_q=-0.0001")
+    string(JOIN " " coast_options "amr.max_level=2 'amr.ref_ratio_vect=3 3 1 3 3 1'"
+        "remora.hires_grid_level=2 remora.coastbox.max_level=2"
+        "remora.prob.mask_y_lo=261.11111111111111 amr.regrid_int=1")
+    add_test_run(BottomCoast3L BottomCoast remora_bottom_exchange_api "${coast_options}")
+    set_tests_properties(BottomCoast BottomCoastOutflow BottomCoast3L PROPERTIES
+        LABELS "regression;bottom_exchange")
     add_test_bottom_exchange(BottomBudgets BottomExchange remora_exec VARIANTS
         "remora.bottom_salt=35" "remora.bottom_q=-0.0001" "remora.bottom_exchange_type=none")
     add_test_bottom_exchange(BottomAdaptive BottomExchange remora_exec OPTIONS

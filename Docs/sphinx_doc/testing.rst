@@ -258,3 +258,9 @@ CTest entries. MPI builds use two ranks through the standard test helpers.
 PNetCDF builds additionally test steady and varying timed fields, interpolation
 across two single-record files, and a physical rho ring distinct from the interior.
 The assertion utility prepares those analytic NetCDF inputs before running REMORA.
+
+The ``BottomCoast``, ``BottomCoastOutflow`` and ``BottomCoast3L`` runs use the
+Dogbone coastline with partly wet parent cells. They assert zero source on dry
+children and equality of parent and summed child water and incoming tracer
+transports, including after regridding. These are spatial source assertions;
+they do not assert conservation of the model's wet-only state average-down.

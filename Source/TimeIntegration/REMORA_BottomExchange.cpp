@@ -1,6 +1,8 @@
 #include <REMORA.H>
 #include <REMORA_prob_common.H>
 #include <REMORA_BottomExchange.H>
+#include <REMORA_NonperiodicGeometry.H>
+#include <AMReX_MultiFabUtil.H>
 #include <AMReX_FillPatchUtil.H>
 #include <AMReX_Interpolater.H>
 #include <AMReX_Reduce.H>
@@ -100,7 +102,10 @@ REMORA::invalidate_bottom_exchange (int lev)
         m_bottom_level_times.clear();
     } else if (lev < int(m_bottom_transport.size())) {
         m_bottom_transport[lev].reset();
-        if (lev < int(m_bottom_work.size())) { m_bottom_work[lev].reset(); }
+        if (lev < int(m_bottom_work.size())) {
+            m_bottom_work[lev].reset();
+            m_bottom_fraction[lev].reset();
+        }
     }
 }
 
@@ -131,6 +136,7 @@ REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
     if (!m_bottom_raw || m_bottom_raw->boxArray() != ba || m_bottom_raw->DistributionMap() != dm) {
         invalidate_bottom_exchange(0);
         m_bottom_work.clear();
+        m_bottom_fraction.clear();
         m_bottom_work_generation.clear();
         m_bottom_raw = std::make_unique<MultiFab>(ba, dm, nc, ng);
         m_bottom_base_transport = std::make_unique<MultiFab>(ba, dm, nc, ng);
@@ -243,29 +249,72 @@ REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
         m_bottom_base_time = sample_time;
         ++m_bottom_generation;
     }
-    // Fill one instantaneous hierarchy in level-0 transport units. The coarse
-    // fields have this sample time, independently of the parent's held slow-step data.
+    // Build one instantaneous hierarchy independently of the parent's held slow-step data.
     m_bottom_work.resize(finest_level + 1);
+    m_bottom_fraction.resize(finest_level + 1);
     m_bottom_work_generation.resize(finest_level + 1, -1);
-    Vector<MultiFab*> fields(lev + 1, nullptr);
-    fields[0] = m_bottom_base_transport.get();
-    IntVect ratio(1);
-    const Geometry coarse_geom(geom[0].Domain(), geom[0].ProbDomain(), geom[0].Coord(),
-                               Array<int,AMREX_SPACEDIM>{0,0,0});
+    const MultiFab* parent = m_bottom_base_transport.get();
     for (int level = 1; level <= lev; ++level) {
-        ratio *= ref_ratio[level - 1];
+        const IntVect ratio = ref_ratio[level - 1];
+        const Real children = Real(ratio[0] * ratio[1]);
+        const Geometry coarse_geom = nonperiodic_geometry(geom[level - 1]);
         auto& work = m_bottom_work[level];
+        auto& fraction = m_bottom_fraction[level];
         if (!work || work->boxArray() != vec_mskr[level]->boxArray() ||
             work->DistributionMap() != dmap[level]) {
             work = std::make_unique<MultiFab>(vec_mskr[level]->boxArray(), dmap[level], nc, ng);
+            fraction = std::make_unique<MultiFab>(work->boxArray(), dmap[level], 1, ng);
+            fraction->setVal(Real(1));
+            if (solverChoice.mask_type != MaskType::none && level <= hires_grid_level) {
+                // Count all children, including those outside the current refined patch.
+                // The full-domain masks already include the physical boundary ring.
+                const auto& mask = *vec_mskr_full_domain[level];
+                AMREX_ALWAYS_ASSERT(mask.nGrowVect().allGE(ng * ratio));
+                MultiFab wet(amrex::coarsen(mask.boxArray(), ratio),
+                             mask.DistributionMap(), 1, ng);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+                for (MFIter mfi(wet, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                    const auto out = wet.array(mfi);
+                    const auto in = mask.const_array(mfi);
+                    ParallelFor(mfi.growntilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                        amrex_avgdown(i,j,k,0,out,in,0,0,ratio);
+                    });
+                }
+                InterpFromCoarseLevel(*fraction, ng, ng, wet, 0, 0, 1, coarse_geom,
+                                     geom[level], ratio, &pc_interp, bcs, 0);
+            }
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(*fraction, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                const auto weight = fraction->array(mfi);
+                const auto mask = vec_mskr[level]->const_array(mfi);
+                ParallelFor(mfi.growntilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    weight(i,j,k) = mask(i,j,k) > Real(0) && weight(i,j,k) > Real(0)
+                        ? Real(1) / (children * weight(i,j,k)) : Real(0);
+                });
+            }
             m_bottom_work_generation[level] = -1;
         }
-        fields[level] = work.get();
         if (m_bottom_work_generation[level] != m_bottom_generation) {
-            InterpFromCoarseLevel(*work, ng, ng, *fields[0], 0, 0, nc, coarse_geom,
+            InterpFromCoarseLevel(*work, ng, ng, *parent, 0, 0, nc, coarse_geom,
                                  geom[level], ratio, &pc_interp, bcs, 0);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(*work, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                const auto out = work->array(mfi);
+                const auto weight = fraction->const_array(mfi);
+                ParallelFor(mfi.growntilebox(), nc,
+                [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
+                    out(i,j,k,n) *= weight(i,j,k);
+                });
+            }
             m_bottom_work_generation[level] = m_bottom_generation;
         }
+        parent = work.get();
     }
 
     m_bottom_transport.resize(finest_level + 1);
@@ -275,39 +324,7 @@ REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
         target->DistributionMap() != dmap[lev]) {
         target = std::make_unique<MultiFab>(vec_mskr[lev]->boxArray(), dmap[lev], nc, ng);
     }
-    MultiFab::Copy(*target, *fields[lev], 0, 0, nc, ng);
-    if (lev > 0) {
-        // Divide integrated Q and Q*C among descendant cells after filling halos.
-        const Real fraction = Real(1) / Real(ratio[0] * ratio[1]);
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-        for (MFIter mfi(*target, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-            const auto a = target->array(mfi);
-            ParallelFor(mfi.growntilebox(), nc,
-            [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                a(i,j,k,n) *= fraction;
-            });
-        }
-        // A finer land mask must not silently delete part of a water source.
-        ReduceOps<ReduceOpMax> mask_op;
-        ReduceData<int> mask_data(mask_op);
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-        for (MFIter mfi(*target, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-            const auto a = target->const_array(mfi), mask = vec_mskr[lev]->const_array(mfi);
-            mask_op.eval(mfi.tilebox(), mask_data,
-                [=] AMREX_GPU_DEVICE (int i, int j, int) -> GpuTuple<int> {
-                    return {mask(i,j,0) <= 0 && a(i,j,0) != 0 ? 1 : 0};
-                });
-        }
-        int inconsistent = get<0>(mask_data.value(mask_op));
-        ParallelDescriptor::ReduceIntMax(inconsistent);
-        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!inconsistent,
-            "Bottom exchange requires consistent coarse/fine wet masks over source cells");
-    }
+    MultiFab::Copy(*target, *parent, 0, 0, nc, ng);
     m_bottom_level_times[lev] = sample_time;
 }
 

@@ -1856,6 +1856,7 @@ private:
     amrex::Real m_bottom_base_time = 0;
     amrex::Long m_bottom_generation = 0;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> m_bottom_work;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> m_bottom_fraction;
     amrex::Vector<amrex::Long> m_bottom_work_generation;
     std::unique_ptr<amrex::MultiFab> m_bottom_raw;
     std::unique_ptr<amrex::MultiFab> m_bottom_base_transport;
