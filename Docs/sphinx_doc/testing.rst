@@ -238,7 +238,8 @@ With incoming dye concentration 7, it adds 3584 concentration-unit m^3 of dye.
 Freshwater adds no salt, while extraction removes ocean-side concentrations and
 horizontal momentum. The spatial forcing has a known covariance between velocity
 and dye concentration. The adaptive case checks the exact time integral of a
-linear ramp and the vertical velocity at the final slow-step midpoint. The GLS
+linear ramp and the vertical velocity at the final slow-step midpoint; its stop
+time limits the step, so it does not test a source-limited timestep. The GLS
 case requires freshening, positive finite turbulent kinetic energy, and the same
 integral budgets. Arithmetic comparisons use machine precision; inventory checks
 allow the larger of 2e-10 and 16 times machine precision, relative to the expected
@@ -249,6 +250,8 @@ as its dimensional rounding scale.
 physical wall, multiple boxes, mixed periodic/wall boundaries and signaling-NaN
 initialization. It checks the complete one-cell horizontal transport halo.
 The same application checks copied coupler snapshots and inflow/outflow reversal.
+Checkpoint assertions read both current and previous vertical velocities,
+including the first coupled step and a reversal between output times.
 ``BottomTiled`` requires bitwise equality of both checkpoints and plotfiles between
 2 x 2 column tiles and untiled boxes; its forcing varies in x and y.
 ``BottomRestart`` requires bitwise equality with a continuous run.

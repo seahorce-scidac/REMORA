@@ -713,10 +713,10 @@ passive tracer and horizontal momentum. No gold files are required.
    * - BottomCoast, BottomCoastOutflow, BottomCoast3L
      - Parent/child water and tracer transport sums, zero dry-cell sources, and regridding
    * - BottomCoupler
-     - Snapshot ownership, exported state and budgets, including flow reversal.
+     - Snapshot ownership, budgets and current/previous checkpoint velocities through reversal.
    * - BottomAMRWall
      - Complete transport halos and budgets at a refined physical boundary.
-   * - BottomRestart
+   * - BottomRestart, BottomCouplerRestart
      - Bitwise equality of restarted and continuous plotfiles.
    * - BottomTiled
      - Bitwise equality of tiled and untiled checkpoints and plotfiles.

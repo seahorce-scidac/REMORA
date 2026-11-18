@@ -43,7 +43,9 @@ struct State {
     double time = 0;
     double dt = 0;
     Vector<std::string> names;
-    Vector<std::unique_ptr<MultiFab>> cell, depth, surface, u, w;
+    Vector<std::unique_ptr<MultiFab>> cell, depth, surface, u, w, w_old;
+    Vector<double> level_dt;
+    Vector<int> steps;
 
     /** Resolve a state component using the checkpoint registry.
      * @param[in   ] name registered component name
@@ -94,9 +96,15 @@ read_state (const std::string& path)
     header >> finest;
     for (int n = 0; n < 8; ++n) { header >> count; }
     std::getline(header, line);
-    std::getline(header, line); // Step counters.
     std::getline(header, line);
-    std::istringstream(line) >> state.dt;
+    state.steps.resize(finest+1);
+    std::istringstream steps(line);
+    for (auto& step : state.steps) { steps >> step; }
+    std::getline(header, line);
+    state.level_dt.resize(finest+1);
+    std::istringstream timesteps(line);
+    for (auto& dt : state.level_dt) { timesteps >> dt; }
+    state.dt = state.level_dt[0];
     std::getline(header, line); // Absolute times; elapsed time follows the layouts.
     while (std::getline(header, line)) {
         std::istringstream fields(line);
@@ -117,6 +125,7 @@ read_state (const std::string& path)
         state.surface.push_back(read_field(prefix + "Zt_avg1", *cells, true, IntVect(0)));
         state.u.push_back(read_field(prefix + "XFace", *cells, false, IntVect(1,0,0)));
         state.w.push_back(read_field(prefix + "ZFace", *cells, false, IntVect(0,0,1)));
+        state.w_old.push_back(read_field(prefix + "ZFace_old", *cells, false, IntVect(0,0,1)));
         state.cell.push_back(std::move(cells));
     }
     return state;
@@ -285,6 +294,7 @@ main (int argc, char** argv)
                 if (item.is_directory() && name.rfind("chk", 0) == 0 &&
                     name.size() == 8 && name > last) { last = name; }
             }
+            check.query("checkpoint", last);
             const auto final = read_state(last);
             AMREX_ALWAYS_ASSERT_WITH_MESSAGE(final.time > initial.time, "No evolved checkpoint");
             Vector<Real> lo, hi;
@@ -317,12 +327,12 @@ main (int argc, char** argv)
                 ? (final.time*final.time - initial.time*initial.time)/(2*double(ramp)) : 0);
             const double area = double(hi[0]-lo[0]) * double(hi[1]-lo[1]);
             const double added = type == "none" ? 0 : reverse_time > 0
-                ? double(q)*area*(2*double(reverse_time)-duration) : double(q)*area*integrated;
+                ? double(q)*area*(2*std::min(double(reverse_time),duration)-duration) : double(q)*area*integrated;
             require_close("volume (m^3)", after[0], before[0] + added);
             const double values[] = {temp, salt, dye};
             for (int n = 1; n <= 3; ++n) {
                 const double covariance = n == 3 ? 1 + double(q_amplitude)*c_amplitude/4 : 1;
-                const double expected = reverse_time > 0 ? before[n]
+                const double expected = reverse_time > 0 ? before[n]*after[0]/before[0]
                     : q >= 0 ? before[n] + added*values[n-1]*covariance
                     : before[n] * after[0]/before[0];
                 require_close(initial.names[initial.component_index(n == 1 ? "temp" :
@@ -332,11 +342,25 @@ main (int argc, char** argv)
                           q >= 0 ? before[4] : before[4]*after[0]/before[0],
                           before[0]*std::abs(double(q)));
             if (q_amplitude == 0) {
-                const double expected = type == "none" ? 0 : reverse_time > 0 ? -q
+                const double expected = type == "none" ? 0 : reverse_time > 0
+                    ? (final.time-final.dt/2 < reverse_time ? q : -q)
                     : double(q)*(ramp > 0 ? 1+(final.time-final.dt/2)/ramp : 1);
                 for (const auto& w : final.w) {
                     require_close("vertical velocity min (m/s)", w->min(0), expected, 0.001);
                     require_close("vertical velocity max (m/s)", w->max(0), expected, 0.001);
+                }
+            }
+            if (q_amplitude == 0) {
+                for (int lev = 0; lev < final.w_old.size(); ++lev) {
+                    const double sample = final.steps[lev] == 1 ? initial.time
+                        : final.time - 1.5*final.level_dt[lev];
+                    const double expected = type == "none" ? 0
+                        : reverse_time > 0 ? (sample < reverse_time ? q : -q)
+                        : double(q)*(ramp > 0 ? 1+sample/ramp : 1);
+                    require_close("old vertical velocity min (m/s)",
+                                  final.w_old[lev]->min(0), expected, 0.001);
+                    require_close("old vertical velocity max (m/s)",
+                                  final.w_old[lev]->max(0), expected, 0.001);
                 }
             }
             if (q_amplitude == 0 && type != "coupler") {

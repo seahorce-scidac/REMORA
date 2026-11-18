@@ -1147,16 +1147,26 @@ if(REMORA_BUILD_EXECUTABLES)
     add_test_bottom_exchange(BottomAMR BottomAMR remora_exec VARIANTS
         "remora.do_substep=false" "amr.regrid_int=1 remora.patch.start_time=2")
     add_test_bottom_exchange(BottomSpatial BottomSpatial remora_exec VARIANTS "amr.max_level=0")
+    string(JOIN " " reversal_options "coupler.reverse_time=4 remora.prob.u_0=0"
+        "remora.check_int=3 remora.plot_int=-1 check.checkpoint=chk00003")
     add_test_bottom_exchange(BottomCoupler BottomAPI remora_bottom_exchange_api OPTIONS
         remora.bottom_exchange_type=coupler VARIANTS
-        "coupler.reverse_time=4 remora.prob.u_0=0")
+        "coupler.reverse_time=4 remora.prob.u_0=0"
+        "${reversal_options}"
+        "remora.max_step=1 remora.check_int=1 remora.plot_int=-1"
+        "remora.fixed_dt=-1 remora.stop_time=8 remora.max_step=1 remora.check_int=1")
+    string(JOIN " " coupler_options "remora.bottom_exchange_type=coupler"
+        "remora.bottom_salt=0 remora.stop_time=8")
+    add_test_layout(BottomCouplerRestart BottomAPI remora_bottom_exchange_api plt_00004 none
+        "${coupler_options}" "${coupler_options} remora.restart=../runA/chk00002")
+    set_tests_properties(BottomCouplerRestart PROPERTIES LABELS "regression;bottom_exchange")
     add_test_bottom_exchange(BottomAMRWall BottomAPI remora_bottom_exchange_api OPTIONS
         amr.max_level=1 "amr.ref_ratio_vect=2 2 1"
         "remora.is_periodic=1 0 0" "geometry.is_periodic=1 0 0"
         remora.bc.ylo.type=slipwall remora.bc.yhi.type=slipwall
         remora.refinement_indicators=patch "remora.patch.in_box_lo=0 0"
         "remora.patch.in_box_hi=400 400" remora.patch.max_level=1
-        remora.prob.u_0=0 amrex.init_snan=1)
+        remora.prob.u_0=0 amrex.init_snan=1 VARIANTS "remora.bottom_exchange_type=coupler")
     add_test_restart_exact(BottomRestart remora_exec plt_00004 chk00002)
     add_test_layout(BottomTiled BottomSpatial remora_exec plt_00004 chk00004
         "amr.max_level=0 'fabarray.mfiter_tile_size=1024 1024 1024'"

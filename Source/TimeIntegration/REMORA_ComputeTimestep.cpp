@@ -65,7 +65,8 @@ REMORA::ComputeDt ()
 
     for (int lev = 0; lev <= finest_level; ++lev)
     {
-        if ((fixed_dt <= zero || verbose) &&
+        // Reuse the held rate; setup_step samples the upcoming midpoint once dt is known.
+        if ((fixed_dt <= zero || verbose) && !GetBottomExchangeTransport(lev) &&
             (solverChoice.bottom_exchange_type != BottomExchangeType::coupler || m_bottom_coupled)) {
             prepare_bottom_exchange(lev, t_new[lev], Real(0));
         }

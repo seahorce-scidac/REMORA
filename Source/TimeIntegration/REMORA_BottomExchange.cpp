@@ -44,12 +44,25 @@ REMORA::SetBottomExchangeData (const MultiFab& q, const MultiFab& concentrations
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(q.boxArray() == ba && concentrations.boxArray() == ba &&
         q.nComp() == 1 && concentrations.nComp() == ncons,
         "Bottom input must cover the rho layout, with 1 water and ncons concentration components");
+    // Finish the completed state's diagnostic while its held transport is still available.
+    if (m_bottom_coupled) { update_wvel(); }
     m_bottom_coupled = std::make_unique<MultiFab>(ba, dm, ncons+1, IntVect(0));
     m_bottom_coupled->ParallelCopy(q, 0, 0, 1);
     m_bottom_coupled->ParallelCopy(concentrations, 0, 1, ncons);
     m_bottom_begin = begin;
     m_bottom_end = end;
     invalidate_bottom_exchange(0);
+    if (istep[0] == 0) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            prepare_bottom_exchange(lev, t_new[lev], Real(0));
+            compute_wvel(lev, *zvel_new[lev]);
+            FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null);
+            wvel_current[lev] = 1;
+            MultiFab::Copy(*zvel_old[lev], *zvel_new[lev], 0, 0, 1,
+                           zvel_old[lev]->nGrowVect());
+            wvel_old_current[lev] = 1;
+        }
+    }
 }
 
 /** Export bottom-cell concentrations on the requested rho layout, with land zeroed.

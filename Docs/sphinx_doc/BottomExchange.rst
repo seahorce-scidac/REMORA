@@ -140,7 +140,10 @@ snapshot supplies all refinement levels. ``PackBottomState(lev, c)`` exports the
 current bottom-cell concentrations on that level's rho slab, with land zeroed.
 ``GetBottomExchangeTransport(lev)`` exposes read-only water transport followed by
 incoming tracer transports for the current step; it returns null for an
-impermeable boundary or an unprepared layout.
+impermeable boundary or an unprepared layout. Before replacing a snapshot,
+REMORA diagnoses any pending vertical velocity using the completed step's held
+transport. The first snapshot also updates the initial vertical velocity; output
+already written by ``InitData`` predates that snapshot.
 
 Snapshots describe constant rates and incoming concentrations. If a coupler has
 interval totals, it must preserve both water and tracer transfers when preparing
@@ -209,7 +212,11 @@ does not imply weak buoyancy forcing: the buoyancy flux is
 
 The source Courant number ``abs(q_b)*dt/Hz_bottom`` must not exceed
 ``remora.bottom_exchange_max_courant`` (default 0.5, allowed range (0,1]). The
-adaptive timestep estimate includes the current imposed exchange. The actual
+adaptive timestep estimate uses the previous held exchange rate, or the current
+rate if no transport has been prepared. The actual
 midpoint forcing is checked again before advancing, including for a fixed
 timestep. Reduce the slow timestep if that check fails. Resolve convection and
 forcing transients according to the accuracy requirements of the application.
+There is no automatic retry, source clipping or timestep reduction on failure.
+Vertical diffusion is implicit; the advective source updates still need an
+appropriately resolved slow timestep.
