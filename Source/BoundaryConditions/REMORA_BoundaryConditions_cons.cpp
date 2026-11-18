@@ -273,6 +273,22 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
         Box bx_zhi(bx);  bx_zhi.setSmall(2,std::min(dom_hi.z+1,bx.bigEnd(2)));
         // Populate ghost cells on lo-z and hi-z domain boundaries
 
+        // A box with no cells beyond the domain in z, such as any box of a 2D field, gets only
+        // its end layer here. That layer takes the domain's condition only if it is the
+        // domain's end layer, where the extrapolation copies each cell onto itself, so only a
+        // reflection changes anything and otherwise the kernel need not run.
+        auto reflects = [&] (bool lo) {
+            for (const auto& b : bcrs) {
+                const int t = lo ? b.lo(2) : b.hi(2);
+                if (t == REMORABCType::reflect_even || t == REMORABCType::reflect_odd) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        if (bx.smallEnd(2) >= dom_lo.z && !reflects(true)) { bx_zlo = Box(); }
+        if (bx.bigEnd(2)   <= dom_hi.z && !reflects(false)) { bx_zhi = Box(); }
+
         if (bx_zlo.ok()) {
             ParallelFor(bx_zlo & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
