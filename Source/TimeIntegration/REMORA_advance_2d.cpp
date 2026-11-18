@@ -307,7 +307,9 @@ REMORA::advance_2d (int lev,
     // fused further where that slows the CPU: advection and viscosity fluxes, and the two
     // halves of the momentum right-hand side, ran 10-40% slower in one body than apart
     // (each loop then reads 20-35 arrays at once, and a body with per-cell region tests
-    // does not vectorize at all).
+    // does not vectorize at all). On GPU, where each launch and each pass over memory costs
+    // more than such tests, the same bodies run in fewer kernels: the free-surface step with
+    // all the momentum fluxes, and the momentum right-hand side with the time step.
 
     //
     //  Do not perform the actual time stepping during the auxiliary
@@ -484,10 +486,7 @@ REMORA::advance_2d (int lev,
         FArrayBox fab_znew;
         if (!direct) { fab_znew.resize(tbxp1D, 2, The_Async_Arena()); }
         auto znew = fab_znew.array();
-        AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
-                        CompileTimeOptions<0,1>>{}, {scheme, direct},
-        [&] (auto const& f) { ParallelFor(tbxp1D, f); },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch, auto store_direct)
+        auto zeta_step = [=] AMREX_GPU_DEVICE (int i, int j, auto sch, auto store_direct)
         {
             Real rhs_zeta = zero;
             Real zeta_new, zw;
@@ -527,17 +526,7 @@ REMORA::advance_2d (int lev,
                 znew(i,j,0,0) = zeta_new;
                 znew(i,j,0,1) = rhs_zeta;
             }
-        });
-
-        //  Load the new free surface into the state at both predictor and corrector steps,
-        //  and the predictor's right-hand side.
-        if (!direct) {
-            ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                zeta(i,j,0,knew) = znew(i,j,0,0);
-                if (store_rhs) { rzeta(i,j,0,krhs) = znew(i,j,0,1); }
-            });
-        }
+        };
 
         //
         // Momentum fluxes at the rho and psi points around the tile: horizontal advection
@@ -551,13 +540,9 @@ REMORA::advance_2d (int lev,
         FArrayBox fab_flx(grow(bxD,IntVect(1,1,0)), nflx, The_Async_Arena());
         auto flx = fab_flx.array();
 
-        // Cells: the x-fluxes of u on [lo-1:hi+1] x [lo:hi], the y-fluxes of v on
-        // [lo:hi] x [lo-1:hi+1]
-        AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
-        [&] (auto const& fu, auto const& fv) {
-            ParallelFor(growLo(xbxD,0,1), growLo(ybxD,1,1), fu, fv);
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3)
+        // Rho points: the x-flux of u (read on [lo-1:hi+1] x [lo:hi]) and the y-flux of v
+        // (read on [lo:hi] x [lo-1:hi+1])
+        auto adv_u_rho = [=] AMREX_GPU_DEVICE (int i, int j, auto up3)
         {
             if (up3.value) {
                 Real uxx_i   = ubar(i-1,j,0,krhs)-two*ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
@@ -581,8 +566,8 @@ REMORA::advance_2d (int lev,
             } else {
                 flx(i,j,0,aUFx) = Real(0.25) * (DUon(i,j,0)+DUon(i+1,j,0)) * (ubar(i,j,0,krhs)+ubar(i+1,j,0,krhs));
             }
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3)
+        };
+        auto adv_v_rho = [=] AMREX_GPU_DEVICE (int i, int j, auto up3)
         {
             if (up3.value) {
                 Real vee_j    = vbar(i,j-1,0,krhs)-two*vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
@@ -607,14 +592,13 @@ REMORA::advance_2d (int lev,
             } else {
                 flx(i,j,0,aVFe) = Real(0.25) * (DVom(i,j,0) + DVom(i,j+1,0))*(vbar(i,j,0,krhs)+vbar(i,j+1,0,krhs));
             }
-        });
+        };
 
         // The two viscous fluxes at a rho point share the strain term cff, so one pass over
         // the tile grown by one computes it once for both. The x-flux is read on at most
         // [lo-1:hi+1] x [lo:hi] and the y-flux on [lo:hi] x [lo-1:hi+1]; the rest is computed
         // but not read.
-        ParallelFor(grow(bxD,IntVect(1,1,0)),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        auto visc_rho = [=] AMREX_GPU_DEVICE (int i, int j)
         {
             const Real cff = Real(0.5)*(zeta(i,j,0,krhs)+h(i,j,0)) * ( metr(i,j,0,MetricR::pmon_r) *
                                         ( (pn(i  ,j,0) + pn(i+1,j,0)) * ubar(i+1,j,0,krhs)-
@@ -626,14 +610,10 @@ REMORA::advance_2d (int lev,
             const Real om_r = metr(i,j,0,MetricR::om_r);
             flx(i,j,0,hUFx) = on_r * on_r * visc2_r(i,j,0) * cff;
             flx(i,j,0,hVFe) = om_r * om_r * visc2_r(i,j,0) * cff;
-        });
+        };
 
-        // psi points: the y-fluxes of u and the x-fluxes of v, both on [lo:hi+1]^2
-        AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
-        [&] (auto const& fu, auto const& fv) {
-            ParallelFor(growHi(xbxD,1,1), growHi(ybxD,0,1), fu, fv);
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3)
+        // Psi points: the y-fluxes of u and the x-fluxes of v, both on [lo:hi+1]^2
+        auto adv_u_psi = [=] AMREX_GPU_DEVICE (int i, int j, auto up3)
         {
             if (up3.value) {
                 Real uee_j   = ubar(i,j-1,0,krhs)-two*ubar(i,j  ,0,krhs)+ubar(i,j+1,0,krhs);
@@ -656,8 +636,8 @@ REMORA::advance_2d (int lev,
             } else {
                 flx(i,j,0,aUFe) = Real(0.25) * (DVom(i,j,0)+DVom(i-1,j,0)) * (ubar(i,j,0,krhs)+ubar(i,j-1,0,krhs));
             }
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3)
+        };
+        auto adv_v_psi = [=] AMREX_GPU_DEVICE (int i, int j, auto up3)
         {
             if (up3.value) {
                 Real vxx_i   = vbar(i-1,j,0,krhs)-two*vbar(i  ,j,0,krhs)+vbar(i+1,j,0,krhs);
@@ -679,14 +659,10 @@ REMORA::advance_2d (int lev,
             } else {
                 flx(i,j,0,aVFx) = Real(0.25) * (DUon(i,j,0) + DUon(i,j-1,0))*(vbar(i,j,0,krhs)+vbar(i-1,j,0,krhs));
             }
-        });
+        };
 
-        // Both viscous fluxes at a psi point, on [lo:hi+1]^2, from one shared strain term.
-        // The box is grown from the cell tile box, because a nodal tile box includes the high
-        // face only on a box's last tile, and every tile's right-hand side reads the psi
-        // points on its high edge.
-        ParallelFor(growHi(growHi(bxD,0,1),1,1),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        // Both viscous fluxes at a psi point, on [lo:hi+1]^2, from one shared strain term
+        auto visc_psi = [=] AMREX_GPU_DEVICE (int i, int j)
         {
             const Real cff = mskp(i,j,0) * Real(0.125) *
                         ((zeta(i-1,j  ,0,krhs)+h(i-1,j  ,0)) + (zeta(i,j  ,0,krhs)+h(i,j  ,0))+
@@ -701,30 +677,107 @@ REMORA::advance_2d (int lev,
             const Real on_p = metp(i,j,0,MetricP::on_p);
             flx(i,j,0,hUFe) = om_p*om_p*visc2_p(i,j,0)*cff;
             flx(i,j,0,hVFx) = on_p*on_p*visc2_p(i,j,0)*cff;
-        });
+        };
 
+        Array4<Real const> dndx, dmde;
         if (use_curv) {
-            Array4<Real const> const& dndx = vec_dndx[lev]->const_array(mfi);
-            Array4<Real const> const& dmde = vec_dmde[lev]->const_array(mfi);
-            ParallelFor(grow(bxD,IntVect(1,1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            dndx = vec_dndx[lev]->const_array(mfi);
+            dmde = vec_dmde[lev]->const_array(mfi);
+        }
+        auto curv_rho = [=] AMREX_GPU_DEVICE (int i, int j)
+        {
+            Real cff1 = Real(0.5) * (vbar(i,j,0,krhs) + vbar(i  ,j+1,0,krhs));
+            Real cff2 = Real(0.5) * (ubar(i,j,0,krhs) + ubar(i+1,j  ,0,krhs));
+            Real cff3 = cff1 * dndx(i,j,0);
+            Real cff4 = cff2 * dmde(i,j,0);
+            Real cff = (zeta(i,j,0,krhs)+h(i,j,0)) * (cff3 - cff4);
+            flx(i,j,0,cUFx) = cff * cff1;
+            flx(i,j,0,cVFe) = cff * cff2;
+        };
+
+        // Rho points around the tile, and the psi points on [lo:hi+1]^2. The psi box is grown
+        // from the cell tile box, because a nodal tile box includes the high face only on a
+        // box's last tile, and every tile's right-hand side reads the psi points on its high
+        // edge.
+        const Box rbx = grow(bxD,IntVect(1,1,0));
+        const Box pbx = growHi(growHi(bxD,0,1),1,1);
+
+#ifdef AMREX_USE_GPU
+        if (Gpu::inLaunchRegion()) {
+            // On GPU the tile is the whole box, so the free-surface step stores directly and
+            // every flux box above lies in rbx: one kernel does all of this, each part on the
+            // points its own pass covers. None reads what another writes.
+            AMREX_ASSERT(direct && tbxp1D == rbx && growHi(xbxD,1,1) == pbx
+                         && growHi(ybxD,0,1) == pbx);
+            const auto blo = amrex::lbound(bxD);
+            const auto bhi = amrex::ubound(bxD);
+            AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
+                            CompileTimeOptions<0,1>,CompileTimeOptions<0,1>>{},
+                   {scheme, upstream3, use_curv},
+            [&] (auto const& f) { ParallelFor(rbx, f); },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch, auto up3, auto curv)
             {
-                Real cff1 = Real(0.5) * (vbar(i,j,0,krhs) + vbar(i  ,j+1,0,krhs));
-                Real cff2 = Real(0.5) * (ubar(i,j,0,krhs) + ubar(i+1,j  ,0,krhs));
-                Real cff3 = cff1 * dndx(i,j,0);
-                Real cff4 = cff2 * dmde(i,j,0);
-                Real cff = (zeta(i,j,0,krhs)+h(i,j,0)) * (cff3 - cff4);
-                flx(i,j,0,cUFx) = cff * cff1;
-                flx(i,j,0,cVFe) = cff * cff2;
+                zeta_step(i, j, sch, std::integral_constant<int,1>{});
+                if (j >= blo.y && j <= bhi.y) { adv_u_rho(i, j, up3); }
+                if (i >= blo.x && i <= bhi.x) { adv_v_rho(i, j, up3); }
+                visc_rho(i, j);
+                if (curv.value) { curv_rho(i, j); }
+                if (i >= blo.x && j >= blo.y) {
+                    adv_u_psi(i, j, up3);
+                    adv_v_psi(i, j, up3);
+                    visc_psi(i, j);
+                }
             });
+        } else
+#endif
+        {
+            AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
+                            CompileTimeOptions<0,1>>{}, {scheme, direct},
+            [&] (auto const& f) { ParallelFor(tbxp1D, f); },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch, auto store_direct)
+            {
+                zeta_step(i, j, sch, store_direct);
+            });
+
+            //  Load the new free surface into the state at both predictor and corrector
+            //  steps, and the predictor's right-hand side.
+            if (!direct) {
+                ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    zeta(i,j,0,knew) = znew(i,j,0,0);
+                    if (store_rhs) { rzeta(i,j,0,krhs) = znew(i,j,0,1); }
+                });
+            }
+
+            AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
+            [&] (auto const& fu, auto const& fv) {
+                ParallelFor(growLo(xbxD,0,1), growLo(ybxD,1,1), fu, fv);
+            },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3) { adv_u_rho(i, j, up3); },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3) { adv_v_rho(i, j, up3); });
+
+            ParallelFor(rbx, [=] AMREX_GPU_DEVICE (int i, int j, int) { visc_rho(i, j); });
+
+            AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
+            [&] (auto const& fu, auto const& fv) {
+                ParallelFor(growHi(xbxD,1,1), growHi(ybxD,0,1), fu, fv);
+            },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3) { adv_u_psi(i, j, up3); },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3) { adv_v_psi(i, j, up3); });
+
+            ParallelFor(pbx, [=] AMREX_GPU_DEVICE (int i, int j, int) { visc_psi(i, j); });
+
+            if (use_curv) {
+                ParallelFor(rbx, [=] AMREX_GPU_DEVICE (int i, int j, int) { curv_rho(i, j); });
+            }
         }
 
         //
         // Right-hand side of the 2D momentum equations, the terms in the order the
-        // separate kernels added them: pressure gradient, advection, Coriolis (with
-        // fomn = fcor/(pm*pn)), curvilinear, viscosity.
+        // separate kernels added them: pressure gradient and advection, then Coriolis (with
+        // fomn = fcor/(pm*pn)), curvilinear and viscosity; and the time step it drives.
         //
-        ParallelFor(xbxD, ybxD,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        auto rhs_u_pgadv = [=] AMREX_GPU_DEVICE (int i, int j) -> Real
         {
             Real rhs = g_half * on_u(i,j,0) *
                           ((    h(i-1,j,0) +     h(i,j,0))*
@@ -737,9 +790,9 @@ REMORA::advance_2d (int lev,
 
             rhs -= ((flx(i,j  ,0,aUFx)-flx(i-1,j,0,aUFx)) +
                     (flx(i,j+1,0,aUFe)-flx(i  ,j,0,aUFe)));
-            rhs_ubar(i,j,0) = rhs;
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+            return rhs;
+        };
+        auto rhs_v_pgadv = [=] AMREX_GPU_DEVICE (int i, int j) -> Real
         {
             Real rhs = g_half*om_v(i,j,0) *
                           ((    h(i,j-1,0) +     h(i,j,0))*
@@ -752,14 +805,11 @@ REMORA::advance_2d (int lev,
 
             rhs -= ((flx(i+1,j,0,aVFx)-flx(i  ,j,0,aVFx)) +
                     (flx(i  ,j,0,aVFe)-flx(i,j-1,0,aVFe)));
-            rhs_vbar(i,j,0) = rhs;
-        });
+            return rhs;
+        };
 
-        AnyCTO(TypeList<CompileTimeOptions<0,1>,CompileTimeOptions<0,1>>{}, {use_cor, use_curv},
-        [&] (auto const& fu, auto const& fv) { ParallelFor(xbxD, ybxD, fu, fv); },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto cor, auto curv)
+        auto rhs_u_more = [=] AMREX_GPU_DEVICE (int i, int j, Real rhs, auto cor, auto curv) -> Real
         {
-            Real rhs = rhs_ubar(i,j,0);
             if (cor.value) {
                 Real UFx_i   = Real(0.5) * (zeta(i  ,j,0,krhs)+h(i  ,j,0)) * (fcor(i  ,j,0)*omn(i  ,j,0)) * (vbar(i  ,j,0,krhs)+vbar(i  ,j+1,0,krhs));
                 Real UFx_im1 = Real(0.5) * (zeta(i-1,j,0,krhs)+h(i-1,j,0)) * (fcor(i-1,j,0)*omn(i-1,j,0)) * (vbar(i-1,j,0,krhs)+vbar(i-1,j+1,0,krhs));
@@ -772,12 +822,10 @@ REMORA::advance_2d (int lev,
 
             const Real cff1=Real(0.5)*(pn(i-1,j,0)+pn(i,j,0))*(flx(i,j  ,0,hUFx)-flx(i-1,j,0,hUFx));
             const Real cff2=Real(0.5)*(pm(i-1,j,0)+pm(i,j,0))*(flx(i,j+1,0,hUFe)-flx(i  ,j,0,hUFe));
-            rhs_ubar(i,j,0) = rhs + (cff1+cff2);
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto cor, auto curv)
+            return rhs + (cff1+cff2);
+        };
+        auto rhs_v_more = [=] AMREX_GPU_DEVICE (int i, int j, Real rhs, auto cor, auto curv) -> Real
         {
-            Real rhs = rhs_vbar(i,j,0);
-
             if (cor.value) {
                 Real VFe_j   = Real(0.5) * (zeta(i,j  ,0,krhs)+h(i,j  ,0)) * (fcor(i,j  ,0)*omn(i,j  ,0)) * (ubar(i,j  ,0,krhs)+ubar(i+1,j  ,0,krhs));
                 Real VFe_jm1 = Real(0.5) * (zeta(i,j-1,0,krhs)+h(i,j-1,0)) * (fcor(i,j-1,0)*omn(i,j-1,0)) * (ubar(i,j-1,0,krhs)+ubar(i+1,j-1,0,krhs));
@@ -790,7 +838,97 @@ REMORA::advance_2d (int lev,
 
             const Real cff1=Real(0.5)*(pn(i,j-1,0)+pn(i,j,0))*(flx(i+1,j,0,hVFx)-flx(i,j  ,0,hVFx));
             const Real cff2=Real(0.5)*(pm(i,j-1,0)+pm(i,j,0))*(flx(i  ,j,0,hVFe)-flx(i,j-1,0,hVFe));
-            rhs_vbar(i,j,0) = rhs + (cff1-cff2);
+            return rhs + (cff1-cff2);
+        };
+
+        //
+        // Time step of the 2D momentum equations, from the right-hand side with the 3D
+        // forcing added, and Dstp = zeta(kstp) + h. If predictor step, load right-side-term
+        // into shared arrays for the subsequent corrector step.
+        //
+        auto step_u = [=] AMREX_GPU_DEVICE (int i, int j, Real rhs, auto am3, auto is_pred)
+        {
+            Real cff=pmn4_u(i,j,0);
+            Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i-1,j,0));
+            Real Dstp_sum=(zeta(i,j,0,kstp)+h(i,j,0))+(zeta(i-1,j,0,kstp)+h(i-1,j,0));
+            if (am3.value) {
+                ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*Dstp_sum+
+                                 cff*(mcff1*rhs+
+                                      mcff2*rubar(i,j,0,kstp)-
+                                      mcff3*rubar(i,j,0,ptsk)))*Dnew_avg * msku(i,j,0);
+            } else {
+                ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*Dstp_sum+
+                                  cff*mcff1*rhs)*Dnew_avg * msku(i,j,0);
+            }
+            if (is_pred.value) {
+                rubar(i,j,0,krhs)=rhs;
+            }
+        };
+        auto step_v = [=] AMREX_GPU_DEVICE (int i, int j, Real rhs, auto am3, auto is_pred)
+        {
+            Real cff=pmn4_v(i,j,0);
+            Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i,j-1,0));
+            Real Dstp_sum=(zeta(i,j,0,kstp)+h(i,j,0))+(zeta(i,j-1,0,kstp)+h(i,j-1,0));
+            if (am3.value) {
+                vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*Dstp_sum+
+                                 cff*(mcff1*rhs+
+                                      mcff2*rvbar(i,j,0,kstp)-
+                                      mcff3*rvbar(i,j,0,ptsk)))*Dnew_avg * mskv(i,j,0);
+            } else {
+                vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*Dstp_sum+
+                                  cff*mcff1*rhs)*Dnew_avg * mskv(i,j,0);
+            }
+            if (is_pred.value) {
+                rvbar(i,j,0,krhs)=rhs;
+            }
+        };
+
+        const int am3_opt = (scheme == adams_moulton) ? 1 : 0;
+
+#ifdef AMREX_USE_GPU
+        bool nudge = false;
+#ifdef REMORA_USE_NETCDF
+        nudge = solverChoice.do_m2_clim_nudg;
+#endif
+        if (Gpu::inLaunchRegion() && couple == couple_none && !nudge) {
+            // Without the coupling step or nudging, which change the right-hand side between
+            // its terms and the time step, each face runs through all of it in one kernel, the
+            // 3D forcing added before the step.
+            AnyCTO(TypeList<CompileTimeOptions<0,1>,CompileTimeOptions<0,1>,
+                            CompileTimeOptions<0,1>,CompileTimeOptions<0,1>>{},
+                   {use_cor, use_curv, am3_opt, pred},
+            [&] (auto const& fu, auto const& fv) { ParallelFor(xbxD, ybxD, fu, fv); },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto cor, auto curv, auto am3, auto is_pred)
+            {
+                Real rhs = rhs_u_more(i, j, rhs_u_pgadv(i, j), cor, curv);
+                rhs += rufrc(i,j,0);
+                step_u(i, j, rhs, am3, is_pred);
+            },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto cor, auto curv, auto am3, auto is_pred)
+            {
+                Real rhs = rhs_v_more(i, j, rhs_v_pgadv(i, j), cor, curv);
+                rhs += rvfrc(i,j,0);
+                step_v(i, j, rhs, am3, is_pred);
+            });
+            continue;
+        }
+#endif
+
+        // Otherwise the right-hand side is staged in rhs_ubar and rhs_vbar, and the forcing is
+        // added on every fast step but the coupling one.
+        ParallelFor(xbxD, ybxD,
+        [=] AMREX_GPU_DEVICE (int i, int j, int) { rhs_ubar(i,j,0) = rhs_u_pgadv(i, j); },
+        [=] AMREX_GPU_DEVICE (int i, int j, int) { rhs_vbar(i,j,0) = rhs_v_pgadv(i, j); });
+
+        AnyCTO(TypeList<CompileTimeOptions<0,1>,CompileTimeOptions<0,1>>{}, {use_cor, use_curv},
+        [&] (auto const& fu, auto const& fv) { ParallelFor(xbxD, ybxD, fu, fv); },
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto cor, auto curv)
+        {
+            rhs_ubar(i,j,0) = rhs_u_more(i, j, rhs_ubar(i,j,0), cor, curv);
+        },
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto cor, auto curv)
+        {
+            rhs_vbar(i,j,0) = rhs_v_more(i, j, rhs_vbar(i,j,0), cor, curv);
         });
 
 #ifdef REMORA_USE_NETCDF
@@ -884,53 +1022,20 @@ REMORA::advance_2d (int lev,
             });
         }
 
-        //
-        // Time step of the 2D momentum equations, with the 3D forcing added first on every
-        // fast step but the coupling one, and Dstp = zeta(kstp) + h. If predictor step,
-        // load right-side-term into shared arrays for the subsequent corrector step.
-        //
         AnyCTO(TypeList<CompileTimeOptions<0,1>,CompileTimeOptions<0,1>,CompileTimeOptions<0,1>>{},
-               {scheme == adams_moulton ? 1 : 0, pred, add_frc},
+               {am3_opt, pred, add_frc},
         [&] (auto const& fu, auto const& fv) { ParallelFor(xbxD, ybxD, fu, fv); },
         [=] AMREX_GPU_DEVICE (int i, int j, int, auto am3, auto is_pred, auto frc)
         {
             Real rhs = rhs_ubar(i,j,0);
             if (frc.value) { rhs += rufrc(i,j,0); }
-            Real cff=pmn4_u(i,j,0);
-            Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i-1,j,0));
-            Real Dstp_sum=(zeta(i,j,0,kstp)+h(i,j,0))+(zeta(i-1,j,0,kstp)+h(i-1,j,0));
-            if (am3.value) {
-                ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*Dstp_sum+
-                                 cff*(mcff1*rhs+
-                                      mcff2*rubar(i,j,0,kstp)-
-                                      mcff3*rubar(i,j,0,ptsk)))*Dnew_avg * msku(i,j,0);
-            } else {
-                ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*Dstp_sum+
-                                  cff*mcff1*rhs)*Dnew_avg * msku(i,j,0);
-            }
-            if (is_pred.value) {
-                rubar(i,j,0,krhs)=rhs;
-            }
+            step_u(i, j, rhs, am3, is_pred);
         },
         [=] AMREX_GPU_DEVICE (int i, int j, int, auto am3, auto is_pred, auto frc)
         {
             Real rhs = rhs_vbar(i,j,0);
             if (frc.value) { rhs += rvfrc(i,j,0); }
-            Real cff=pmn4_v(i,j,0);
-            Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i,j-1,0));
-            Real Dstp_sum=(zeta(i,j,0,kstp)+h(i,j,0))+(zeta(i,j-1,0,kstp)+h(i,j-1,0));
-            if (am3.value) {
-                vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*Dstp_sum+
-                                 cff*(mcff1*rhs+
-                                      mcff2*rvbar(i,j,0,kstp)-
-                                      mcff3*rvbar(i,j,0,ptsk)))*Dnew_avg * mskv(i,j,0);
-            } else {
-                vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*Dstp_sum+
-                                  cff*mcff1*rhs)*Dnew_avg * mskv(i,j,0);
-            }
-            if (is_pred.value) {
-                rvbar(i,j,0,krhs)=rhs;
-            }
+            step_v(i, j, rhs, am3, is_pred);
         });
     }
 
