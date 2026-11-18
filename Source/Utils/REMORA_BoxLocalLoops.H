@@ -1,54 +1,39 @@
 #ifndef REMORA_BOX_LOCAL_LOOPS_H_
 #define REMORA_BOX_LOCAL_LOOPS_H_
 
-#include <AMReX_FabArrayBase.H>
 #include <AMReX_GpuControl.H>
 #include <AMReX_GpuDevice.H>
 
-#include <algorithm>
 #include <utility>
 
 /**
- * Scope for consecutive MFIter loops over FabArrays with the layout of fa, in which each box
- * reads and writes only its own data, valid and ghost cells alike.
+ * Scope for consecutive MFIter loops in which each box reads and writes only its own data,
+ * valid and ghost cells alike.
  *
  * On GPU every MFIter loop waits for its stream before it starts and for every stream it used
  * when it ends, so that the next loop or exchange may read what any box wrote. MFIter sends
  * all the work of one box to the same stream, where it runs in order, so loops that never read
  * another box's data need none of that between them. Inside this scope they skip it: the scope
- * waits for the current stream on entry and for the streams of fa's boxes on exit, as its
- * first and last loop would.
+ * waits for the current stream on entry and for every stream on exit.
  *
  * Nothing inside may exchange ghost cells or read another box's data in any other way, read
- * device data on the host, or free memory that a kernel may still read: a temporary MultiFab
- * or FArrayBox there must come from The_Async_Arena. On CPU the scope does nothing.
+ * device data on the host, or free memory that a kernel on another stream may still read. A
+ * temporary FArrayBox allocated from The_Async_Arena inside a box's own MFIter iteration is
+ * safe, since it is allocated and freed in that box's stream order; a temporary MultiFab or
+ * FArrayBox made outside the loop is not, since it lives in the order of the current stream
+ * while box b runs on stream b. On CPU the scope does nothing.
  */
 class BoxLocalLoops
 {
 public:
-    explicit BoxLocalLoops (const amrex::FabArrayBase& fa)
-        : m_nstreams(std::min(fa.local_size(), amrex::Gpu::numGpuStreams()))
-    {
-        amrex::Gpu::streamSynchronize();
-    }
-
-    ~BoxLocalLoops ()
-    {
-#ifdef AMREX_USE_GPU
-        for (int i = 0; i < m_nstreams; ++i) {
-            amrex::Gpu::Device::setStreamIndex(i);
-            amrex::Gpu::streamSynchronize();
-        }
-        amrex::Gpu::Device::resetStreamIndex();
-#endif
-    }
+    BoxLocalLoops () { amrex::Gpu::streamSynchronize(); }
+    ~BoxLocalLoops () { amrex::Gpu::streamSynchronizeAll(); }
 
     BoxLocalLoops (const BoxLocalLoops&) = delete;
     BoxLocalLoops& operator= (const BoxLocalLoops&) = delete;
 
 private:
     amrex::Gpu::NoSyncRegion m_no_sync;
-    int m_nstreams;
 };
 
 /**

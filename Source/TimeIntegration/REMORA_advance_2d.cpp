@@ -684,7 +684,7 @@ REMORA::advance_2d (int lev,
     // This loop and the main one below read and write only each box's own data, so on GPU
     // they share one synchronization at either end unless the fluxes are exchanged or reset,
     // or the climatology is read, in between.
-    std::optional<BoxLocalLoops> box_local(std::in_place, *mf_rhoS);
+    std::optional<BoxLocalLoops> box_local(std::in_place);
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -774,7 +774,7 @@ REMORA::advance_2d (int lev,
         vbar_clim_data_from_file->update_interpolated_to_time(model_time(t_new[lev]), lev, vec_vbar[lev].get(), geom, ref_ratio);
     }
 #endif
-    if (!box_local) { box_local.emplace(*mf_rhoS); }
+    if (!box_local) { box_local.emplace(); }
 
     // The passes below each run over one box with a branch-free body: run-time choices
     // (time-stepping scheme, advection scheme, optional terms) are compile-time options,
@@ -1298,7 +1298,7 @@ REMORA::advance_2d (int lev,
             if (cf_2d_fill_cache == 1) {
                 cf_interface_flux(lev, t_old[lev]);
                 if (cf_fill_all_kcomp) { cf_ghost_band(lev, 2, *vec_zeta[lev]); }
-                iface_local.emplace(*vec_zeta[lev]);
+                iface_local.emplace();
             }
             if (cf_fill_all_kcomp) {
                 fill_ghost_kcomps(*vec_zeta[lev], knew, cf_ghost_band(lev, 2, *vec_zeta[lev]));
@@ -1327,7 +1327,7 @@ REMORA::advance_2d (int lev,
             // Without boundary data from files, the conditions read and write only each
             // box's own data
             std::optional<BoxLocalLoops> bc_local;
-            if (!solverChoice.boundary_from_netcdf) { bc_local.emplace(*vec_zeta[lev]); }
+            if (!solverChoice.boundary_from_netcdf) { bc_local.emplace(); }
             FillPatchBCs(lev, t_old[lev], *vec_ubar[lev], ubar_bc(), bdy_ubar(),
                          knew, 1, 0, know, dt2d, ubar_know);
             FillPatchBCs(lev, t_old[lev], *vec_vbar[lev], vbar_bc(), bdy_vbar(),
@@ -1355,7 +1355,7 @@ REMORA::advance_2d (int lev,
             const iMultiFab& band_z = cf_ghost_band(lev, 2, *vec_zeta[lev]);
             const iMultiFab& band_u = cf_ghost_band(lev, 0, *vec_ubar[lev]);
             const iMultiFab& band_v = cf_ghost_band(lev, 1, *vec_vbar[lev]);
-            BoxLocalLoops band_local(*vec_zeta[lev]);
+            BoxLocalLoops band_local;
             if (!interface_set) {
                 fill_ghost_kcomps(*vec_zeta[lev], knew, band_z);
             }

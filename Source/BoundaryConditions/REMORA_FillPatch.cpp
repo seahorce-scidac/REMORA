@@ -649,7 +649,7 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
         FPr_vbar[lev-1].FillSetKept(*mfs[1], time, domain_bcs_type, check);
     }
     {
-        BoxLocalLoops copy_local(*mfs[2]);
+        BoxLocalLoops copy_local;
         const MultiFab* vals[3]   = {cache[0]->vals.get(), cache[1]->vals.get(), cache[2]->vals.get()};
         const iMultiFab* masks[3] = {cache[0]->mask.get(), cache[1]->mask.get(), cache[2]->mask.get()};
         copy_on_mask3(mfs, vals, masks, knew);
@@ -668,7 +668,7 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
         // data. zeta's periodic corners, which FillPatchBCs would fill last, are an exchange, so
         // they are filled after these loops.
         std::optional<BoxLocalLoops> bc_local;
-        if (!solverChoice.boundary_from_netcdf) { bc_local.emplace(*mfs[2]); }
+        if (!solverChoice.boundary_from_netcdf) { bc_local.emplace(); }
         for (int n = 0; n < 3; ++n) {
             FillPatchBCs(lev, time, *mfs[n], bccomp[n], bdy[n], knew, 1, 0, know, dt2d,
                          *mf_calc[n], false);
