@@ -3,6 +3,9 @@
 #include <REMORA_IndexDefines.H>
 #include <REMORA_TimeInterpolatedData.H>
 #include <REMORA_BitwiseDiff.H>
+#include <REMORA_BoxLocalLoops.H>
+
+#include <optional>
 
 using namespace amrex;
 
@@ -611,19 +614,33 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
         FPr_ubar[lev-1].FillSetKept(*mfs[0], time, domain_bcs_type, check);
         FPr_vbar[lev-1].FillSetKept(*mfs[1], time, domain_bcs_type, check);
     }
-    for (int n = 0; n < 3; ++n) {
-        copy_on_mask(*mfs[n], *cache[n]->vals, *cache[n]->mask, knew);
+    {
+        BoxLocalLoops copy_local(*mfs[2]);
+        for (int n = 0; n < 3; ++n) {
+            copy_on_mask(*mfs[n], *cache[n]->vals, *cache[n]->mask, knew);
+        }
     }
     if (before_exchange) { before_exchange(); }
     const Periodicity& per = geom[lev].periodicity();
-    amrex::FillBoundary(Vector<MultiFab*>{mfs[0], mfs[1], mfs[2]},
-                        Vector<int>{knew, knew, knew}, Vector<int>{1, 1, 1},
-                        Vector<IntVect>{mfs[0]->nGrowVect(), mfs[1]->nGrowVect(),
-                                        mfs[2]->nGrowVect()},
-                        Vector<Periodicity>{per, per, per});
-    for (int n = 0; n < 3; ++n) {
-        FillPatchBCs(lev, time, *mfs[n], bccomp[n], bdy[n], knew, 1, 0, know, dt2d, *mf_calc[n]);
+    exchange_then_sync([&] {
+        amrex::FillBoundary(Vector<MultiFab*>{mfs[0], mfs[1], mfs[2]},
+                            Vector<int>{knew, knew, knew}, Vector<int>{1, 1, 1},
+                            Vector<IntVect>{mfs[0]->nGrowVect(), mfs[1]->nGrowVect(),
+                                            mfs[2]->nGrowVect()},
+                            Vector<Periodicity>{per, per, per});
+    });
+    {
+        // Without boundary data from files, the conditions read and write only each box's own
+        // data. zeta's periodic corners, which FillPatchBCs would fill last, are an exchange, so
+        // they are filled after these loops.
+        std::optional<BoxLocalLoops> bc_local;
+        if (!solverChoice.boundary_from_netcdf) { bc_local.emplace(*mfs[2]); }
+        for (int n = 0; n < 3; ++n) {
+            FillPatchBCs(lev, time, *mfs[n], bccomp[n], bdy[n], knew, 1, 0, know, dt2d,
+                         *mf_calc[n], false);
+        }
     }
+    mfs[2]->EnforcePeriodicity(per);
 
     if (check) {
         for (int n = 0; n < 3; ++n) {

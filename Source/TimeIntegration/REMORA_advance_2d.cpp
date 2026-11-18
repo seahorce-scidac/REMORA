@@ -1,4 +1,7 @@
 #include <REMORA.H>
+#include <REMORA_BoxLocalLoops.H>
+
+#include <optional>
 
 using namespace amrex;
 
@@ -36,20 +39,23 @@ void fill_ghost_kcomps (MultiFab& mf, int knew, const iMultiFab& band)
 
 /** \brief Exchange component knew of ubar and vbar and, when zeta is given, fill the periodic
  *         corners of every component of zeta (EnforcePeriodicity), with all their messages in
- *         flight at once. The three touch different fields, so the order does not matter.
+ *         flight at once and one wait for the GPU stream at the end. The three touch different
+ *         fields, so the order does not matter. Every GPU stream must be idle on entry.
  */
 void exchange_uvbar_and_zeta_corners (MultiFab& ubar, MultiFab& vbar, MultiFab* zeta, int knew,
                                       const Periodicity& per)
 {
     const bool corners = zeta && per.isAnyPeriodic();
-    if (corners) {
-        zeta->FBEP_nowait(0, zeta->nComp(), zeta->nGrowVect(), per, false, true);
-    }
-    ubar.FillBoundary_nowait(knew, 1, ubar.nGrowVect(), per);
-    vbar.FillBoundary_nowait(knew, 1, vbar.nGrowVect(), per);
-    if (corners) { zeta->FillBoundary_finish(); }
-    ubar.FillBoundary_finish();
-    vbar.FillBoundary_finish();
+    exchange_then_sync([&] {
+        if (corners) {
+            zeta->FBEP_nowait(0, zeta->nComp(), zeta->nGrowVect(), per, false, true);
+        }
+        ubar.FillBoundary_nowait(knew, 1, ubar.nGrowVect(), per);
+        vbar.FillBoundary_nowait(knew, 1, vbar.nGrowVect(), per);
+        if (corners) { zeta->FillBoundary_finish(); }
+        ubar.FillBoundary_finish();
+        vbar.FillBoundary_finish();
+    });
 }
 
 /** Which time averages of the barotropic fluxes a fast step accumulates */
@@ -231,6 +237,11 @@ REMORA::advance_2d (int lev,
     // Barotropic mass fluxes DUon and DVom: ubar and vbar times the depth zeta(krhs) + h
     // averaged to the face and the face length, both directions in one launch, with their
     // time averages unless the fluxes are exchanged afterwards.
+    //
+    // This loop and the main one below read and write only each box's own data, so on GPU
+    // they share one synchronization at either end unless the fluxes are exchanged or reset,
+    // or the climatology is read, in between.
+    std::optional<BoxLocalLoops> box_local(std::in_place, *mf_rhoS);
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -286,6 +297,11 @@ REMORA::advance_2d (int lev,
     //    cells inside the domain come from exchanges, and their boundary conditions write
     //    only outside it; and
     //  - set_2d_cf_flux has not changed any face, since it writes only each box's own faces.
+    bool clim_update = false;
+#ifdef REMORA_USE_NETCDF
+    clim_update = solverChoice.do_m2_clim_nudg;
+#endif
+    if (cf_flux || exchange_flux || clim_update) { box_local.reset(); }
     if (cf_flux) {
         set_2d_cf_flux(lev, t_old[lev], mf_DUon, mf_DVom);
     }
@@ -300,6 +316,7 @@ REMORA::advance_2d (int lev,
         vbar_clim_data_from_file->update_interpolated_to_time(model_time(t_new[lev]), lev, vec_vbar[lev].get(), geom, ref_ratio);
     }
 #endif
+    if (!box_local) { box_local.emplace(*mf_rhoS); }
 
     // The passes below each run over one box with a branch-free body: run-time choices
     // (time-stepping scheme, advection scheme, optional terms) are compile-time options,
@@ -1038,6 +1055,7 @@ REMORA::advance_2d (int lev,
             step_v(i, j, rhs, am3, is_pred);
         });
     }
+    box_local.reset();
 
     // Don't do the FillPatch or rivers at the last truncated predictor step.
     // We may need to move the zeta FillPatch further up
@@ -1090,6 +1108,15 @@ REMORA::advance_2d (int lev,
 #endif
         const bool set_before_exchange = lev > 0 && set_2d_now && !rivers && cf_2d_interior(lev);
         const auto set_interface = [&] () {
+            // With the fill cache on, the parent's interface flux and the ghost band are kept
+            // and rebuilt, with exchanges, only when their inputs change. Building them first
+            // leaves loops that read and write only each box's own data.
+            std::optional<BoxLocalLoops> iface_local;
+            if (cf_2d_fill_cache == 1) {
+                cf_interface_flux(lev, t_old[lev]);
+                if (cf_fill_all_kcomp) { cf_ghost_band(lev, 2, *vec_zeta[lev]); }
+                iface_local.emplace(*vec_zeta[lev]);
+            }
             if (cf_fill_all_kcomp) {
                 fill_ghost_kcomps(*vec_zeta[lev], knew, cf_ghost_band(lev, 2, *vec_zeta[lev]));
             }
@@ -1105,13 +1132,19 @@ REMORA::advance_2d (int lev,
             // flight at once -- this runs every fast step -- then apply the conditions in
             // the same order as before.
             const Periodicity& per = geom[lev].periodicity();
-            amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get(),
-                                                  vec_zeta[lev].get()},
-                                Vector<int>{knew, knew, knew}, Vector<int>{1, 1, 1},
-                                Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
-                                                vec_vbar[lev]->nGrowVect(),
-                                                vec_zeta[lev]->nGrowVect()},
-                                Vector<Periodicity>{per, per, per});
+            exchange_then_sync([&] {
+                amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get(),
+                                                      vec_zeta[lev].get()},
+                                    Vector<int>{knew, knew, knew}, Vector<int>{1, 1, 1},
+                                    Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
+                                                    vec_vbar[lev]->nGrowVect(),
+                                                    vec_zeta[lev]->nGrowVect()},
+                                    Vector<Periodicity>{per, per, per});
+            });
+            // Without boundary data from files, the conditions read and write only each
+            // box's own data
+            std::optional<BoxLocalLoops> bc_local;
+            if (!solverChoice.boundary_from_netcdf) { bc_local.emplace(*vec_zeta[lev]); }
             FillPatchBCs(lev, t_old[lev], *vec_ubar[lev], ubar_bc(), bdy_ubar(),
                          knew, 1, 0, know, dt2d, ubar_know);
             FillPatchBCs(lev, t_old[lev], *vec_vbar[lev], vbar_bc(), bdy_vbar(),
@@ -1134,11 +1167,17 @@ REMORA::advance_2d (int lev,
         // See fill_ghost_kcomps: without this the components the solver reads in the ghost
         // band lag the one FillPatch just wrote by a whole parent step.
         if (lev > 0 && cf_fill_all_kcomp) {
+            // A band is built, with an exchange, when the layout changes: before the box-local
+            // loops
+            const iMultiFab& band_z = cf_ghost_band(lev, 2, *vec_zeta[lev]);
+            const iMultiFab& band_u = cf_ghost_band(lev, 0, *vec_ubar[lev]);
+            const iMultiFab& band_v = cf_ghost_band(lev, 1, *vec_vbar[lev]);
+            BoxLocalLoops band_local(*vec_zeta[lev]);
             if (!interface_set) {
-                fill_ghost_kcomps(*vec_zeta[lev], knew, cf_ghost_band(lev, 2, *vec_zeta[lev]));
+                fill_ghost_kcomps(*vec_zeta[lev], knew, band_z);
             }
-            fill_ghost_kcomps(*vec_ubar[lev], knew, cf_ghost_band(lev, 0, *vec_ubar[lev]));
-            fill_ghost_kcomps(*vec_vbar[lev], knew, cf_ghost_band(lev, 1, *vec_vbar[lev]));
+            fill_ghost_kcomps(*vec_ubar[lev], knew, band_u);
+            fill_ghost_kcomps(*vec_vbar[lev], knew, band_v);
         }
 
         // Replace the interface faces the FillPatchers just set from the parent's ubar with
