@@ -275,6 +275,16 @@ REMORA::set_2d_cf_bcs (int lev, Real time, int know, int knew)
     // cover. On GPU one launch per box sets the u- and the v-faces.
     const bool both_in_one = Gpu::inLaunchRegion();
     if (both_in_one) {
+        // Box b of ubar, vbar and the fields they read runs in the same launch, on box b's
+        // stream
+        AMREX_ASSERT(amrex::convert(vec_ubar[lev]->boxArray(), IntVect(0))
+                         == amrex::convert(vec_vbar[lev]->boxArray(), IntVect(0))
+                     && amrex::convert(vec_ubar[lev]->boxArray(), IntVect(0))
+                         == vec_zeta[lev]->boxArray()
+                     && vec_ubar[lev]->DistributionMap() == vec_vbar[lev]->DistributionMap()
+                     && vec_ubar[lev]->DistributionMap() == vec_zeta[lev]->DistributionMap()
+                     && Dubar_cf.DistributionMap() == vec_ubar[lev]->DistributionMap()
+                     && Dvbar_cf.DistributionMap() == vec_vbar[lev]->DistributionMap());
         for (MFIter mfi(*vec_ubar[lev]); mfi.isValid(); ++mfi)
         {
             const int b = mfi.index();

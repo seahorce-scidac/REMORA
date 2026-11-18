@@ -45,6 +45,18 @@ void copy_on_mask3 (MultiFab* const dst[3], const MultiFab* const src[3],
 {
 #ifdef AMREX_USE_GPU
     if (Gpu::inLaunchRegion()) {
+        // Box b of every field runs in the same launch, on box b's stream
+        for (int n = 1; n < 3; ++n) {
+            AMREX_ASSERT(amrex::convert(dst[n]->boxArray(), IntVect(0))
+                             == amrex::convert(dst[0]->boxArray(), IntVect(0))
+                         && dst[n]->DistributionMap() == dst[0]->DistributionMap());
+        }
+        for (int n = 0; n < 3; ++n) {
+            AMREX_ASSERT(src[n]->boxArray() == dst[n]->boxArray()
+                         && src[n]->DistributionMap() == dst[n]->DistributionMap()
+                         && mask[n]->boxArray() == dst[n]->boxArray()
+                         && mask[n]->DistributionMap() == dst[n]->DistributionMap());
+        }
         for (MFIter mfi(*dst[0]); mfi.isValid(); ++mfi) {
             const int b = mfi.index();
             ParallelFor(dst[0]->fabbox(b), dst[1]->fabbox(b), dst[2]->fabbox(b),

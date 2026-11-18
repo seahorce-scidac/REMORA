@@ -51,6 +51,14 @@ void fill_ghost_kcomps_uv (MultiFab& ubar, const iMultiFab& band_u,
 {
 #ifdef AMREX_USE_GPU
     if (Gpu::inLaunchRegion()) {
+        // Box b of both fields runs in the same launch, on box b's stream
+        AMREX_ASSERT(amrex::convert(ubar.boxArray(), IntVect(0))
+                         == amrex::convert(vbar.boxArray(), IntVect(0))
+                     && ubar.DistributionMap() == vbar.DistributionMap()
+                     && band_u.boxArray() == ubar.boxArray()
+                     && band_u.DistributionMap() == ubar.DistributionMap()
+                     && band_v.boxArray() == vbar.boxArray()
+                     && band_v.DistributionMap() == vbar.DistributionMap());
         for (MFIter mfi(ubar); mfi.isValid(); ++mfi) {
             const int b = mfi.index();
             ParallelFor(ubar.fabbox(b), vbar.fabbox(b),
