@@ -363,7 +363,7 @@ function(add_test_run TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
 
     resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
 
-    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${OPTIONS} > ${TEST_NAME}.log 2>&1")
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${OPTIONS} > ${TEST_NAME}.log 2>&1 || (cat ${TEST_NAME}.log && false)")
 
     add_test(${TEST_NAME} ${test_command})
     set_tests_properties(${TEST_NAME}

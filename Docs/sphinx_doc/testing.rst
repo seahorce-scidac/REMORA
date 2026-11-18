@@ -83,7 +83,9 @@ explicit finiteness assertions check the transferred fields.
 ``GLS_regrid_restart_lockstep`` and ``GLS_regrid_restart_subcycle`` continue after the
 layout change, checkpoint, and restart. They compare every file in both checkpoint
 level directories byte for byte against the uninterrupted run, including all turbulence
-components. These checks need no NetCDF files or gold plotfiles.
+components. These checks need no NetCDF files or gold plotfiles. Run them in a Debug
+build too: AMReX assertions check that a new level uses coarse-only interpolation
+without an empty fine source. Failed runs print their model log in the CTest output.
 
 Adding Tests
 ~~~~~~~~~~~~

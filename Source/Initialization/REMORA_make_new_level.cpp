@@ -1605,15 +1605,10 @@ REMORA::remap_gls_state (int lev, Real time,
 
     for (int field = 0; field < 7; ++field) {
         auto& dst = *fine[field];
-        // An empty fine source makes FillPatch interpolate all cells on a new level.
-        BoxArray empty_boxes;
-        empty_boxes.convert(dst.ixType());
-        MultiFab empty_fine(empty_boxes, DistributionMapping(), dst.nComp(), 0);
-        MultiFab& src_fine = old_fine[field] ? *old_fine[field] : empty_fine;
-
         iMultiFab interpolated(dst.boxArray(), dst.DistributionMap(), 1, dst.nGrowVect());
         interpolated.setVal(1);
         if (old_fine[field]) {
+            const auto& src_fine = *old_fine[field];
             iMultiFab retained(src_fine.boxArray(), src_fine.DistributionMap(), 1, 0);
             retained.setVal(0);
             interpolated.ParallelCopy(retained, 0, 0, 1, IntVect(0), dst.nGrowVect(),
@@ -1626,16 +1621,31 @@ REMORA::remap_gls_state (int lev, Real time,
         for (int comp = 0; comp < ncomp; ++comp) {
             const int coarse_comp = field < 2 && comp < 2 ? coarse_latest : comp;
             MultiFab crse_alias(*coarse[field], make_alias, coarse_comp, 1);
-            MultiFab fine_alias(src_fine, make_alias, comp, 1);
             MultiFab dst_alias(dst, make_alias, comp, 1);
-            Vector<MultiFab*> sources(lev+1, nullptr);
-            sources[lev-1] = &crse_alias;
-            sources[lev] = &fine_alias;
-            if (field < 2 || field == 4) {
-                FillPatch(lev, time, dst_alias, sources,
-                          field < 2 ? tke_bc() : zvel_bc(), BdyVars::null, 0, true, false);
+            const bool apply_bcs = field < 2 || field == 4;
+            const int bccomp = field < 2 ? tke_bc() : zvel_bc();
+            if (old_fine[field]) {
+                MultiFab fine_alias(*old_fine[field], make_alias, comp, 1);
+                Vector<MultiFab*> sources(lev+1, nullptr);
+                sources[lev-1] = &crse_alias;
+                sources[lev] = &fine_alias;
+                if (apply_bcs) {
+                    FillPatch(lev, time, dst_alias, sources, bccomp,
+                              BdyVars::null, 0, true, false);
+                } else {
+                    FillPatchNoBC(lev, time, dst_alias, sources, BdyVars::null, 0, true, false);
+                }
             } else {
-                FillPatchNoBC(lev, time, dst_alias, sources, BdyVars::null, 0, true, false);
+                // A new level has no fine source; FillPatchTwoLevels requires a nonempty one.
+                MultiFab crse_scratch;
+                const MultiFab& src = coarse_for_interp(lev-1, crse_alias, crse_scratch);
+                amrex::InterpFromCoarseLevel(dst_alias, dst_alias.nGrowVect(), IntVect(0),
+                    src, 0, 0, 1, geom[lev-1], geom[lev], refRatio(lev-1),
+                    &face_cons_linear_interp, domain_bcs_type, bccomp);
+                if (apply_bcs) {
+                    FillPatchBCs(lev, time, dst_alias, bccomp, BdyVars::null,
+                                 0, 1, 0, 0, Real(0), MultiFab());
+                }
             }
 
             Real lower = Real(0);
@@ -1660,6 +1670,7 @@ REMORA::remap_gls_state (int lev, Real time,
             }
             // Physical BCs can touch valid boundary faces. Retained fine values take priority.
             if (old_fine[field]) {
+                MultiFab fine_alias(*old_fine[field], make_alias, comp, 1);
                 dst_alias.ParallelCopy(fine_alias, 0, 0, 1, 0, 0, geom[lev].periodicity());
             }
         }
