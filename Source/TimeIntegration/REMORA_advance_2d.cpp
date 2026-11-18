@@ -17,24 +17,51 @@ namespace {
  *
  * The band (REMORA::cf_ghost_band) depends on the layout alone.
  */
+struct FillGhostKcomps
+{
+    Array4<Real> a;
+    Array4<int const> b;
+    int knew;
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void operator() (int i, int j, int k) const noexcept
+    {
+        if (!b(i,j,k)) { return; }
+        const Real val = a(i,j,k,knew);
+        a(i,j,k,0) = val;
+        a(i,j,k,1) = val;
+        a(i,j,k,2) = val;
+    }
+};
+
 void fill_ghost_kcomps (MultiFab& mf, int knew, const iMultiFab& band)
 {
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        Box gbx = mfi.growntilebox();
-        const auto& a = mf.array(mfi);
-        const auto& b = band.const_array(mfi);
-        ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            if (!b(i,j,k)) { return; }
-            const Real val = a(i,j,k,knew);
-            a(i,j,k,0) = val;
-            a(i,j,k,1) = val;
-            a(i,j,k,2) = val;
-        });
+        ParallelFor(mfi.growntilebox(), FillGhostKcomps{mf.array(mfi), band.const_array(mfi), knew});
     }
+}
+
+/** \brief fill_ghost_kcomps for ubar and vbar, which share a layout. On GPU one launch per box
+ *         covers both. */
+void fill_ghost_kcomps_uv (MultiFab& ubar, const iMultiFab& band_u,
+                           MultiFab& vbar, const iMultiFab& band_v, int knew)
+{
+#ifdef AMREX_USE_GPU
+    if (Gpu::inLaunchRegion()) {
+        for (MFIter mfi(ubar); mfi.isValid(); ++mfi) {
+            const int b = mfi.index();
+            ParallelFor(ubar.fabbox(b), vbar.fabbox(b),
+                        FillGhostKcomps{ubar.array(b), band_u.const_array(b), knew},
+                        FillGhostKcomps{vbar.array(b), band_v.const_array(b), knew});
+        }
+        return;
+    }
+#endif
+    fill_ghost_kcomps(ubar, knew, band_u);
+    fill_ghost_kcomps(vbar, knew, band_v);
 }
 
 /** \brief Exchange component knew of ubar and vbar and, when zeta is given, fill the periodic
@@ -1176,8 +1203,7 @@ REMORA::advance_2d (int lev,
             if (!interface_set) {
                 fill_ghost_kcomps(*vec_zeta[lev], knew, band_z);
             }
-            fill_ghost_kcomps(*vec_ubar[lev], knew, band_u);
-            fill_ghost_kcomps(*vec_vbar[lev], knew, band_v);
+            fill_ghost_kcomps_uv(*vec_ubar[lev], band_u, *vec_vbar[lev], band_v, knew);
         }
 
         // Replace the interface faces the FillPatchers just set from the parent's ubar with

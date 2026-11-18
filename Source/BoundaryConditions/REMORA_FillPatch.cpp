@@ -12,6 +12,20 @@ using namespace amrex;
 PhysBCFunctNoOp null_bc;
 
 namespace {
+/** \brief d = a wherever m is set */
+struct CopyOnMask
+{
+    Array4<Real> d;
+    Array4<Real const> a;
+    Array4<int const> m;
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void operator() (int i, int j, int k) const noexcept
+    {
+        if (m(i,j,k)) { d(i,j,k) = a(i,j,k); }
+    }
+};
+
 /** \brief dst(comp) = src(comp) wherever mask is set, ghost cells included */
 void copy_on_mask (MultiFab& dst, const MultiFab& src, const iMultiFab& mask, int comp)
 {
@@ -19,13 +33,33 @@ void copy_on_mask (MultiFab& dst, const MultiFab& src, const iMultiFab& mask, in
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        auto d = dst.array(mfi, comp);
-        auto a = src.const_array(mfi, comp);
-        auto m = mask.const_array(mfi);
-        ParallelFor(mfi.growntilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            if (m(i,j,k)) { d(i,j,k) = a(i,j,k); }
-        });
+        ParallelFor(mfi.growntilebox(), CopyOnMask{dst.array(mfi, comp), src.const_array(mfi, comp),
+                                                   mask.const_array(mfi)});
+    }
+}
+
+/** \brief copy_on_mask for three fields on one layout (any index types). On GPU one launch
+ *         per box covers all three. */
+void copy_on_mask3 (MultiFab* const dst[3], const MultiFab* const src[3],
+                    const iMultiFab* const mask[3], int comp)
+{
+#ifdef AMREX_USE_GPU
+    if (Gpu::inLaunchRegion()) {
+        for (MFIter mfi(*dst[0]); mfi.isValid(); ++mfi) {
+            const int b = mfi.index();
+            ParallelFor(dst[0]->fabbox(b), dst[1]->fabbox(b), dst[2]->fabbox(b),
+                        CopyOnMask{dst[0]->array(b, comp), src[0]->const_array(b, comp),
+                                   mask[0]->const_array(b)},
+                        CopyOnMask{dst[1]->array(b, comp), src[1]->const_array(b, comp),
+                                   mask[1]->const_array(b)},
+                        CopyOnMask{dst[2]->array(b, comp), src[2]->const_array(b, comp),
+                                   mask[2]->const_array(b)});
+        }
+        return;
+    }
+#endif
+    for (int n = 0; n < 3; ++n) {
+        copy_on_mask(*dst[n], *src[n], *mask[n], comp);
     }
 }
 
@@ -616,9 +650,9 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
     }
     {
         BoxLocalLoops copy_local(*mfs[2]);
-        for (int n = 0; n < 3; ++n) {
-            copy_on_mask(*mfs[n], *cache[n]->vals, *cache[n]->mask, knew);
-        }
+        const MultiFab* vals[3]   = {cache[0]->vals.get(), cache[1]->vals.get(), cache[2]->vals.get()};
+        const iMultiFab* masks[3] = {cache[0]->mask.get(), cache[1]->mask.get(), cache[2]->mask.get()};
+        copy_on_mask3(mfs, vals, masks, knew);
     }
     if (before_exchange) { before_exchange(); }
     const Periodicity& per = geom[lev].periodicity();
