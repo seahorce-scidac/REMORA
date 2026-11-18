@@ -240,7 +240,8 @@ horizontal momentum. The spatial forcing has a known covariance between velocity
 and dye concentration. The adaptive case checks the exact time integral of a
 linear ramp and the vertical velocity at the final slow-step midpoint; its stop
 time limits the step, so it does not test a source-limited timestep. The GLS
-case requires freshening, positive finite turbulent kinetic energy, and the same
+case requires salinity increasing from the bottom cell to the cell above,
+positive finite turbulent kinetic energy, and the same
 integral budgets. Arithmetic comparisons use machine precision; inventory checks
 allow the larger of 2e-10 and 16 times machine precision, relative to the expected
 inventory. A zero momentum integral uses initial volume times the seepage speed
@@ -268,5 +269,6 @@ ring is checked on both levels of a refined boundary case.
 The ``BottomCoast``, ``BottomCoastOutflow`` and ``BottomCoast3L`` runs use the
 Dogbone coastline with partly wet parent cells. They assert zero source on dry
 children and equality of parent and summed child water and incoming tracer
-transports, including after regridding. These are spatial source assertions;
+transports, including after the three-level case expands its refined patch.
+The test also requires that the layout changed. These are spatial source assertions;
 they do not assert conservation of the model's wet-only state average-down.

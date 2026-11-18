@@ -1132,7 +1132,10 @@ if(REMORA_BUILD_EXECUTABLES)
         "remora.bottom_q=-0.0001")
     string(JOIN " " coast_options "amr.max_level=2 'amr.ref_ratio_vect=3 3 1 3 3 1'"
         "remora.hires_grid_level=2 remora.coastbox.max_level=2"
-        "remora.prob.mask_y_lo=261.11111111111111 amr.regrid_int=1")
+        "remora.prob.mask_y_lo=261.11111111111111 amr.regrid_int=1 check.regrid=true"
+        "'remora.refinement_indicators=coastbox expand' remora.expand.max_level=2"
+        "remora.expand.start_time=2 'remora.expand.in_box_lo=2000 0'"
+        "'remora.expand.in_box_hi=6400 750'")
     add_test_run(BottomCoast3L BottomCoast remora_bottom_exchange_api "${coast_options}")
     set_tests_properties(BottomCoast BottomCoastOutflow BottomCoast3L PROPERTIES
         LABELS "regression;bottom_exchange")

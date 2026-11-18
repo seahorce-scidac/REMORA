@@ -378,10 +378,19 @@ main (int argc, char** argv)
                 AMREX_ALWAYS_ASSERT(tke.min(0) > Real(0) && !tke.contains_nan());
                 const auto& c = *final.cell[0];
                 const int salt_comp = final.component_index("salt");
-                const Real bottom = c.min(salt_comp);
-                const Real top = c.max(salt_comp);
-                Print() << "Salinity range (psu): " << bottom << " " << top << '\n';
-                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(bottom < top-Real(1.e-3),
+                ReduceOps<ReduceOpMax> op;
+                ReduceData<Real> data(op);
+                for (MFIter mfi(c, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                    const auto state = c.const_array(mfi);
+                    const Box bed = makeSlab(mfi.tilebox(), 2, 0) & mfi.tilebox();
+                    op.eval(bed, data, [=] AMREX_GPU_DEVICE (int i, int j, int) -> GpuTuple<Real> {
+                        return {state(i,j,1,salt_comp) - state(i,j,0,salt_comp)};
+                    });
+                }
+                Real difference = get<0>(data.value(op));
+                ParallelDescriptor::ReduceRealMax(difference);
+                Print() << "Salinity above minus bottom (psu): " << difference << '\n';
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(difference > Real(1.e-3),
                     "Freshwater did not destabilize the bottom layer");
             }
             Print() << "Bottom exchange budgets passed\n";

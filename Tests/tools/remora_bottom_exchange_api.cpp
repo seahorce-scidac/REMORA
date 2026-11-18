@@ -136,7 +136,10 @@ main (int argc, char** argv)
             }
         }
         bool coast = false;
+        bool regrid = false;
         check.query("coast", coast);
+        check.query("regrid", regrid);
+        const BoxArray initial_layout = ocean.vec_mskr[ocean.finestLevel()]->boxArray();
         if (coast) { check_coast(ocean); }
         int steps = 0;
         pp.get("max_step", steps);
@@ -153,6 +156,11 @@ main (int argc, char** argv)
             if (advanced <= Real(0)) { break; }
             time += advanced;
             if (coast) { check_coast(ocean); }
+        }
+        if (regrid) {
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+                initial_layout != ocean.vec_mskr[ocean.finestLevel()]->boxArray(),
+                "Coast test did not change the refined layout");
         }
         ocean.WriteAtFinalTime();
         const int temp = ocean.component_index("temp");
