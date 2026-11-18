@@ -13,7 +13,7 @@ using namespace amrex;
  */
 void REMORA::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int my_iif, int nfast_counter)
 {
-    bool first_2d_step=solverChoice.solve3d ? my_iif==0 : istep[lev]==0;
+    bool first_2d_step=solverChoice.solve3d ? my_iif==0 : (istep[lev]==0 || restart_2d_history);
 
     //Predictor
     bool predictor_2d_step=true;
@@ -81,23 +81,34 @@ void REMORA::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int 
                        vec_Zt_avg1[lev]->nGrowVect());
         stretch_transform(lev);
 
-        // The existing output fields show the depth-uniform horizontal velocity.
-        for (int dir = 0; dir < 2; ++dir) {
-            MultiFab& vel = dir == 0 ? *xvel_new[lev] : *yvel_new[lev];
-            const MultiFab& bar = dir == 0 ? *vec_ubar[lev] : *vec_vbar[lev];
+        fill_barotropic_velocity(lev);
+    }
+}
+
+/**
+ * Fill the retained 3D velocity fields with the standalone depth-mean flow.
+ * This also supplies the surface current used by bulk fluxes and the coupled driver.
+ *
+ * @param[in   ] lev    level to fill
+ */
+void
+REMORA::fill_barotropic_velocity (int lev)
+{
+    for (int dir = 0; dir < 2; ++dir) {
+        MultiFab& vel = dir == 0 ? *xvel_new[lev] : *yvel_new[lev];
+        const MultiFab& bar = dir == 0 ? *vec_ubar[lev] : *vec_vbar[lev];
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-            for (MFIter mfi(vel, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                auto const& a = vel.array(mfi);
-                auto const& b = bar.const_array(mfi);
-                ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-                    a(i,j,k) = b(i,j,0,0);
-                });
-            }
-            FillPatch(lev, t_new[lev], vel, dir == 0 ? xvel_new : yvel_new,
-                      foextrap_periodic_bc());
+        for (MFIter mfi(vel, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            auto const& a = vel.array(mfi);
+            auto const& b = bar.const_array(mfi);
+            ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                a(i,j,k) = b(i,j,0,0);
+            });
         }
-        zvel_new[lev]->setVal(Real(0.0));
+        FillPatch(lev, t_new[lev], vel, dir == 0 ? xvel_new : yvel_new,
+                  foextrap_periodic_bc());
     }
+    zvel_new[lev]->setVal(Real(0.0));
 }

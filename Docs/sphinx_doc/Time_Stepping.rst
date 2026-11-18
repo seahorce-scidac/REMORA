@@ -10,8 +10,8 @@ While time-stepping the model, we have a stored history of the model fields at t
 
 Setting ``remora.solve3d = false`` selects a standalone 2D integration. Each model
 timestep consists of one predictor and one corrector, with the first-step scheme
-used only at startup. Subsequent steps retain the free-surface, velocity and
-right-hand-side history for the leapfrog/Adams--Moulton scheme, as in ROMS
+used at startup and whenever the timestep changes. With an unchanged timestep,
+subsequent steps retain the free-surface, velocity and right-hand-side history for the leapfrog/Adams--Moulton scheme, as in ROMS
 ``main2d.F``. Surface and bottom stresses enter the 2D momentum equations directly.
 Density corrections, 3D forcing, the coupling time averages and the auxiliary fast
 step are omitted. ``remora.ndtfast`` is ignored in this mode. See :ref:`sec:Inputs`

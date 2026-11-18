@@ -279,7 +279,17 @@ function(add_test_restart_exact TEST_NAME TEST_EXE PLTFILE CHKFILE)
 
     resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
 
-    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} remora.restart=../runA/${CHKFILE} remora.check_int=-1 >> ../${TEST_NAME}.log 2>&1 && cd .. && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}")
+    set(RESTART_OPTIONS "remora.check_int=-1")
+    set(CHK_CLAUSE "")
+    if(${ARGC} GREATER 5)
+        set(RESTART_OPTIONS "")
+        set(CHK_CLAUSE " && ${SUBSET_COMPARE_EXE} --chk runB/${ARGV5} runA/${ARGV5}")
+    endif()
+    if(${ARGC} GREATER 6)
+        string(APPEND RESTART_OPTIONS " ${ARGV6}")
+    endif()
+
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${RUNTIME_OPTIONS} remora.restart=../runA/${CHKFILE} ${RESTART_OPTIONS} >> ../${TEST_NAME}.log 2>&1 && cd .. && ${SUBSET_COMPARE_EXE} runB/${PLTFILE} runA/${PLTFILE}${CHK_CLAUSE}")
 
     add_test(${TEST_NAME} ${test_command})
     set_tests_properties(${TEST_NAME}
@@ -968,6 +978,21 @@ compose_test_input(Barotropic_wave Barotropic_wind)
 add_test_extrema(Barotropic_wave "remora_exec" "plt01000" 1e-10
                 x_velocity -8.565319188235369e-6 8.565319188235369e-6
                 y_velocity -2.1535950759979073e-6 2.1535950759979073e-6)
+compose_test_input(Barotropic_clipped Advection)
+add_test_extrema(Barotropic_clipped "remora_exec" "plt00002" 1e-12
+                x_velocity 0.0987604 0.0987604 y_velocity -0.011976 -0.011976)
+compose_test_input(Barotropic_cfl_history Advection)
+add_test_extrema(Barotropic_cfl_history "remora_exec" "plt00004" 1e-12
+                x_velocity 0.0916685621856356 0.0916685621856356
+                y_velocity -0.03557057606803965 -0.03557057606803965)
+compose_test_input(Barotropic_initial_velocity Channel_Test)
+add_test_extrema(Barotropic_initial_velocity "remora_exec" "plt00000" 1e-11
+                x_velocity 0.21304784164120977 0.3106540947614301
+                y_velocity 0 0 z_velocity 0 0)
+compose_test_input(Barotropic_relative_wind Advection)
+add_test_r_selfcompare(Barotropic_relative_wind "remora_exec" "plt00001"
+    "remora.bulk_flux_relative_wind=true remora.uwind=5.5 remora.vwind=1.25"
+    "remora.bulk_flux_relative_wind=false remora.uwind=5 remora.vwind=1")
 compose_test_input(Barotropic_drag Advection)
 add_test_extrema(Barotropic_drag "remora_exec" "plt00200" 1e-6
                 x_velocity 0.09355069850316178 0.09355069850316178
@@ -978,8 +1003,6 @@ add_test_extrema(Barotropic_rest "remora_exec" "plt00004" 0
                 x_velocity 0 0 y_velocity 0 0 z_velocity 0 0)
 add_test_layout(Barotropic_ndtfast Barotropic_wind "remora_exec" "plt00004" "chk00004"
                 "remora.ndtfast=1" "remora.ndtfast=37")
-add_test_layout(Barotropic_driver Barotropic_wind "remora_exec" "plt00004" "chk00004"
-                "remora.do_substep=1" "remora.do_substep=0")
 add_test_layout(Barotropic_eos Barotropic_wind "remora_exec" "plt00004" "chk00004"
                 "remora.eos_type=linear" "remora.eos_type=nonlinear")
 set(barotropic_channel_options
@@ -987,7 +1010,11 @@ set(barotropic_channel_options
 add_test_layout(Barotropic_tiled Channel_Test "remora_exec" "plt00004" "chk00004"
                 "${barotropic_channel_options} 'fabarray.mfiter_tile_size=1024000 1024000 1024000'"
                 "${barotropic_channel_options} 'fabarray.mfiter_tile_size=8 8 1024000'")
-add_test_restart_exact(Barotropic_restart "remora_exec" "plt00200" "chk00100" Barotropic_drag)
+add_test_restart_exact(Barotropic_restart "remora_exec" "plt00200" "chk00100" Barotropic_drag "chk00200")
+add_test_restart_exact(Barotropic_wave_restart "remora_exec" "plt01000" "chk00500"
+                       Barotropic_wave "chk01000")
+add_test_restart_exact(Barotropic_dt_restart "remora_exec" "plt00002" "chk00001"
+                       Barotropic_clipped "chk00002" "remora.fixed_dt=2")
 
 #=============================================================================
 # Land on the boundary ring beside water, as in a ROMS closed basin. The gold test pins the

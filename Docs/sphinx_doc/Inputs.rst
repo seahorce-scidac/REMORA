@@ -1011,7 +1011,10 @@ With ``remora.solve3d = false``, each model timestep advances only the free surf
 ``remora.fixed_dt`` is then the barotropic timestep in seconds. ``remora.ndtfast``
 may be omitted; its supplied value is ignored. Without a fixed timestep, the CFL
 estimate uses the depth-mean flow and the external gravity wave speed for the total
-depth ``h + zeta``.
+depth ``h + zeta``. When the timestep changes, including the final shortened step
+or a restart with a different timestep, the solver repeats its startup
+predictor/corrector pair to rebuild the equally spaced history. Frequent changes
+can reduce temporal accuracy; a fixed timestep preserves the multistep scheme.
 
 .. warning::
 
@@ -1026,8 +1029,8 @@ initialization still requires the existing 3D fields; a file containing only
 Temperature, salinity and other tracers keep their initial values; tracer transport,
 vertical mixing, biology and particle advection are inactive. Bulk fluxes, when
 enabled, use the fixed surface temperature. Output ``x_velocity`` and ``y_velocity``
-show the depth-uniform barotropic flow after each step; ``z_velocity`` and ``omega``
-are zero. Use ``remora.plot_vars_2d = zeta ubar vbar`` for the prognostic fields.
+show the depth-uniform barotropic flow from initialization onward;
+``z_velocity`` and ``omega`` are zero. Use ``remora.plot_vars_2d = zeta ubar vbar`` for the prognostic fields.
 A restart must use the same ``solve3d`` setting as its checkpoint.
 
 Examples of Usage

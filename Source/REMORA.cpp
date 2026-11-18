@@ -581,6 +581,8 @@ REMORA::InitData ()
             compute_wvel(lev, *zvel_new[lev]);
             FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null, 0, true, false);
 
+            if (!solverChoice.solve3d) { fill_barotropic_velocity(lev); }
+
             // Copy from new into old just in case when initializing from scratch
             int ngs   = cons_new[lev]->nGrow();
             int ngvel = xvel_new[lev]->nGrow();

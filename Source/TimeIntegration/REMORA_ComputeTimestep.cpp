@@ -95,6 +95,9 @@ REMORA::ComputeDt ()
         dt_0 = stop_elapsed - t_new[0];
     }
 
+    // The standalone leapfrog/Adams-Moulton history requires equally spaced states.
+    // dt[0] also holds the preceding interval when read from a checkpoint.
+    restart_2d_history = !solverChoice.solve3d && dt_0 != dt[0];
     dt[0] = dt_0;
     for (int lev = 1; lev <= finest_level; ++lev) {
         dt[lev] = dt[lev-1] / nsubsteps[lev];

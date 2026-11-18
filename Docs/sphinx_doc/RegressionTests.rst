@@ -545,6 +545,18 @@ The standalone 2D tests set ``remora.solve3d = false`` and need no gold files:
      - With Coriolis enabled, the wind produces the linear rotating shallow-water
        response at 100 s, within 1e-10 m/s. This checks the free-surface pressure
        feedback as well as Coriolis and the persistent time history.
+   * - Barotropic_clipped
+     - Uniform inertial rotation follows the ROMS startup pair for a 10 s
+       step followed by a shortened 2 s step, within 1e-12 m/s.
+   * - Barotropic_cfl_history
+     - Four successive CFL timesteps of uniform inertial rotation each use
+       the startup pair, within 1e-12 m/s of its amplification formula.
+   * - Barotropic_initial_velocity
+     - A sheared channel initial condition produces the thickness-weighted
+       depth-mean velocity at every vertical level before the first step.
+   * - Barotropic_relative_wind
+     - Subtracting the depth-mean current from the wind produces the same
+       first step as prescribing the resulting wind directly.
    * - Barotropic_drag
      - Uniform flow decays according to ``u(0)*exp(-rdrag*t/h)`` after 10 s,
        within 1e-6 m/s. Temperature and salinity keep their initial values.
@@ -553,9 +565,6 @@ The standalone 2D tests set ``remora.solve3d = false`` and need no gold files:
    * - Barotropic_ndtfast
      - Setting the ignored ratio to 1 or 37 gives bitwise-identical velocity
        output and every checkpoint MultiFab, including the 2D histories.
-   * - Barotropic_driver
-     - Both time-stepping drivers give bitwise-identical output and checkpoint
-       MultiFabs.
    * - Barotropic_eos
      - Selecting the linear or nonlinear equation of state leaves the 2D answer
        and checkpoint MultiFabs bitwise identical.
@@ -564,7 +573,13 @@ The standalone 2D tests set ``remora.solve3d = false`` and need no gold files:
        for bit, including checkpoint histories.
    * - Barotropic_restart
      - Restarting the drag case at 5 s reproduces the uninterrupted final
-       velocity bit for bit.
+       output and every checkpoint MultiFab bit for bit.
+   * - Barotropic_wave_restart
+     - Restarting the rotating wave at 50 s reproduces all checkpoint fields
+       bit for bit, including nonzero free-surface and momentum histories.
+   * - Barotropic_dt_restart
+     - Restarting at 10 s with a 2 s timestep reproduces the shortened final
+       step of the uninterrupted run, including every checkpoint field.
 
 For the wave test, let ``a*cos(k*y)`` be the zonal acceleration, ``H`` the depth,
 ``d`` the grid spacing in y, ``F = f*cos(k*d/2)`` and ``K = 2*sin(k*d/2)/d``.
@@ -576,6 +591,24 @@ rest, with ``w**2 = F**2 + g*H*K**2``, their closed-form solution is
 ``d = 1000 m`` and a 16000 m wavelength. The asserted extrema include the
 face-to-cell averages used by the velocity output. The wind is weak enough that
 nonlinear corrections are below the stated tolerance.
+
+For uniform inertial rotation, define ``q = u + i*v``. ROMS's first-step
+predictor and corrector give ``q_new = (1 - (f*dt)**2 - i*f*dt)*q``. The
+shortened-step test applies this factor for 10 s and 2 s with ``f = 0.01 s-1``
+and ``q(0) = 0.1 m/s``. For the CFL history test, each interval is computed from
+``dt = 0.5/(sqrt(g*150)*sqrt(2)/1000 + max(abs(u),abs(v))/1000)`` s before
+applying the same factor. Its four intervals are approximately 9.201297831,
+9.201441193, 9.201726722 and 9.202150830 s. These references check the numerical
+startup scheme in `ROMS step2d_LF_AM3.h
+<https://github.com/myroms/roms/blob/develop/ROMS/Nonlinear/step2d_LF_AM3.h>`_
+when the interval changes.
+
+For the initial-velocity test, the channel has ``u = 0.01*(50+z)`` plus a
+sinusoidal horizontal perturbation. With four layers, ``theta_s = 3``,
+``theta_b = 0`` and ``tcline = 25 m``, ROMS Vtransform 2 gives a discrete
+thickness-weighted mean of 0.2618509682013199 m/s for the linear profile.
+The perturbation, after the face-to-cell average, has extrema
+``+/-0.05*cos(pi/16)*cos(pi/32)`` m/s on the 16 by 32 grid.
 
 .. _sec:ci-maskring-tests:
 

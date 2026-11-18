@@ -909,6 +909,9 @@ public:
     /** \brief 2D advance, one predictor/corrector step */
     void advance_2d_onestep (int lev, amrex::Real dt_lev, amrex::Real dtfast_lev, int my_iif, int nfast_counter);
 
+    /** \brief Fill 3D diagnostics and the surface current from the standalone 2D flow. */
+    void fill_barotropic_velocity (int lev);
+
     /** \brief Perform a 2D predictor (predictor_2d_step=True) or corrector (predictor_2d_step=False) step */
     void advance_2d (int lev,
                      amrex::MultiFab const* mf_rhoS,
@@ -2167,6 +2170,8 @@ private:
     static int ndtfast;
     /** \brief Number of fast steps to take */
     int nfast;
+    /** \brief Rebuild standalone 2D history after a timestep change. */
+    bool restart_2d_history = false;
 
     /** \brief Whether to substep fine levels in time */
     int do_substep = 1;
