@@ -29,7 +29,7 @@ And build,
 
       make -j USE_MPI=TRUE
 
-which will produce the executable ``REMORA.3d.gnu.TEST.MPI.ex``.
+which will produce the executable ``REMORA3d.gnu.MPI.ex``.
 
 Now to run the Advection problem, for example,
 
@@ -41,7 +41,7 @@ Then, for a single-rank run,
 
    .. code:: shell
 
-      ../REMORA.3d.gnu.TEST.MPI.ex inputs
+      ../REMORA3d.gnu.MPI.ex inputs
 
 This will produce an AMReX plotfile at the 10th time step called ``plt00010`` which can be :ref:`visualized<Visualization>`.
 

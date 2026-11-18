@@ -21,7 +21,7 @@ USE_SYCL = FALSE
 # Enable debug flags (rich backtrace)
 DEBUG = FALSE
 
-TEST = TRUE
+TEST = FALSE
 USE_ASSERTION = TRUE
 
 # Enable PNETCDF support

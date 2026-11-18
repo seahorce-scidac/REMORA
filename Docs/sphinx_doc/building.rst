@@ -215,6 +215,10 @@ or if using tcsh,
    +-----------------+----------------------------------+------------------+-------------+
    | DEBUG           | Whether to use DEBUG mode        | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
+   | TEST            | Fill new arrays with signalling  | TRUE / FALSE     | FALSE       |
+   |                 | NaNs to catch reads of unset     |                  |             |
+   |                 | data (costs about 8% on CPU)     |                  |             |
+   +-----------------+----------------------------------+------------------+-------------+
    | USE_PNETCDF     | Whether to compile with PnetCDF  | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
    | USE_PARTICLES   | Whether to compile with particle | TRUE / FALSE     | FALSE       |
