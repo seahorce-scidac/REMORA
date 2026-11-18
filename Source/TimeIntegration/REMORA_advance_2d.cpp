@@ -236,7 +236,8 @@ REMORA::advance_2d (int lev,
 
     // Barotropic mass fluxes DUon and DVom: ubar and vbar times the depth zeta(krhs) + h
     // averaged to the face and the face length, both directions in one launch, with their
-    // time averages unless the fluxes are exchanged afterwards.
+    // time averages unless the fluxes are exchanged afterwards. The predictor's time average
+    // of the free surface, which reads only zeta(krhs), goes in the same launch.
     //
     // This loop and the main one below read and write only each box's own data, so on GPU
     // they share one synchronization at either end unless the fluxes are exchanged or reset,
@@ -261,14 +262,21 @@ REMORA::advance_2d (int lev,
         Array4<Real> const& DU_avg2 = mf_DU_avg2->array(mfi);
         Array4<Real> const& DV_avg1 = mf_DV_avg1->array(mfi);
         Array4<Real> const& DV_avg2 = mf_DV_avg2->array(mfi);
+        Array4<Real> const& Zt_avg1 = mf_Zt_avg1->array(mfi);
 
-        AnyCTO(TypeList<CompileTimeOptions<avg_none,avg_first_pred,avg_pred,avg_corr>>{},
-               {exchange_flux ? int(avg_none) : avg_mode},
-        [&] (auto const& fu, auto const& fv) {
+        // Empty unless this is a predictor step
+        const Box zbx = predictor_2d_step
+                      ? makeSlab(mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0)),2,0) : Box();
+
+        AnyCTO(TypeList<CompileTimeOptions<avg_none,avg_first_pred,avg_pred,avg_corr>,
+                        CompileTimeOptions<0,1>>{},
+               {exchange_flux ? int(avg_none) : avg_mode, first_2d_step ? 1 : 0},
+        [&] (auto const& fu, auto const& fv, auto const& fz) {
             ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
-                        makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0), fu, fv);
+                        makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0),
+                        zbx, fu, fv, fz);
         },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode, auto)
         {
             Real cff1= Real(0.5) * on_u(i,j,0) *((zeta(i,j,0,krhs)+h(i,j,0))+
                                                 (zeta(i-1,j,0,krhs)+h(i-1,j,0)));
@@ -276,13 +284,21 @@ REMORA::advance_2d (int lev,
             DUon(i,j,0) = DU;
             accumulate_flux_avg<decltype(mode)::value>(i, j, DU, DU_avg1, DU_avg2, cff1_wt1, cff2_wt);
         },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode, auto)
         {
             Real cff1= Real(0.5) * om_v(i,j,0) * ((zeta(i,j,0,krhs)+h(i,j,0))+
                                                  (zeta(i,j-1,0,krhs)+h(i,j-1,0)));
             const Real DV = vbar(i,j,0,krhs)*cff1;
             DVom(i,j,0) = DV;
             accumulate_flux_avg<decltype(mode)::value>(i, j, DV, DV_avg1, DV_avg2, cff1_wt1, cff2_wt);
+        },
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto, auto first)
+        {
+            if (first.value) {
+                Zt_avg1(i,j,0)=zero;
+            } else {
+                Zt_avg1(i,j,0) += cff1_wt1*zeta(i,j,0,krhs);
+            }
         });
     }
 
@@ -403,7 +419,6 @@ REMORA::advance_2d (int lev,
 
         Array4<Real      > const& rufrc   = mf_rufrc->array(mfi);
         Array4<Real      > const& rvfrc   = mf_rvfrc->array(mfi);
-        Array4<Real      > const& Zt_avg1 = mf_Zt_avg1->array(mfi);
         Array4<Real      > const& ubar    = mf_ubar->array(mfi);
         Array4<Real      > const& vbar    = mf_vbar->array(mfi);
         Array4<Real      > const& zeta = mf_zeta->array(mfi);
@@ -453,7 +468,7 @@ REMORA::advance_2d (int lev,
         Box ybxD = makeSlab(mfi.nodaltilebox(1),2,0);
 
         //
-        // Time averages of the barotropic fluxes after their exchange, and of the free surface
+        // Time averages of the barotropic fluxes after their exchange
         //
         if (exchange_flux) {
             AnyCTO(TypeList<CompileTimeOptions<avg_first_pred,avg_pred,avg_corr>>{}, {avg_mode},
@@ -469,21 +484,6 @@ REMORA::advance_2d (int lev,
             {
                 accumulate_flux_avg<decltype(mode)::value>(i, j, DVom(i,j,0), DV_avg1, DV_avg2, cff1_wt1, cff2_wt);
             });
-        }
-
-        if (predictor_2d_step) {
-            Box gbx3D = makeSlab(mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0)),2,0);
-            if (first_2d_step) {
-                ParallelFor(gbx3D, [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    Zt_avg1(i,j,0)=zero;
-                });
-            } else {
-                ParallelFor(gbx3D, [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    Zt_avg1(i,j,0) += cff1_wt1*zeta(i,j,0,krhs);
-                });
-            }
         }
 
         if (!do_step) { continue; }
