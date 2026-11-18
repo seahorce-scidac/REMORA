@@ -70,7 +70,7 @@ build directory that was configured without it produces a `FATAL_ERROR` telling
 you to reconfigure; a fresh build directory always works.
 
 The GNUmake executable name reflects `Exec/GNUmakefile` settings, e.g.
-`REMORA3d.gnu.TEST.MPI.PNC.ex` for `COMP=gnu TEST=TRUE USE_MPI=TRUE
+`REMORA3d.gnu.MPI.PNC.ex` for `COMP=gnu USE_MPI=TRUE
 USE_PNETCDF=TRUE`.
 
 ### Parity build
@@ -127,7 +127,7 @@ BioToy without obtaining them separately.
 Then run each path into its own log:
 
 ```sh
-EXE=$REMORA_HOME/Exec/REMORA3d.gnu.TEST.MPI.PNC.ex
+EXE=$REMORA_HOME/Exec/REMORA3d.gnu.MPI.PNC.ex
 
 # Path A (oracle)
 $EXE inputs remora.use_biology_cpp_answer=0 remora.biology_debug=1 \
