@@ -107,14 +107,9 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
                   vec_z_w[lev]->const_array(mfi), vec_h[lev]->const_array(mfi), N,
                   bottom_transport ? bottom_transport->const_array(mfi) : Array4<Real const>());
 
-        if (bottom_transport) {
-            ParallelFor(bx2d, [=] AMREX_GPU_DEVICE (int i,int j,int) {
-                W(i,j,0) *= pm(i,j,0)*pn(i,j,0);
-            });
-        }
-        ParallelFor(bx2d, N, [=] AMREX_GPU_DEVICE (int i, int j, int, int kk)
+        ParallelFor(bx2d, N+1, [=] AMREX_GPU_DEVICE (int i, int j, int, int k)
         {
-            W(i,j,kk+1) *= pm(i,j,0) * pn(i,j,0);
+            W(i,j,k) *= pm(i,j,0) * pn(i,j,0);
         });
     }
 

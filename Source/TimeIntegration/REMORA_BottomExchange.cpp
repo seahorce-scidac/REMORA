@@ -264,11 +264,6 @@ REMORA::prepare_bottom_exchange (int lev, Real time, Real dt_lev)
         if (m_bottom_work_generation[level] != m_bottom_generation) {
             InterpFromCoarseLevel(*work, ng, ng, *fields[0], 0, 0, nc, coarse_geom,
                                  geom[level], ratio, &pc_interp, bcs, 0);
-            for (int n = 0; n < nc; ++n) {
-                FillPatch(level, sample_time, *work, fields, foextrap_periodic_bc(),
-                          BdyVars::null, n, false, false, 1, 0, Real(0), MultiFab(),
-                          {}, {}, -1, &pc_interp);
-            }
             m_bottom_work_generation[level] = m_bottom_generation;
         }
     }

@@ -397,9 +397,11 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             const Array4<const Real>& river_source = Array4<const Real>();
 #endif
             Array4<Real> const& sstore = mf_sstore->array(mfi, i_comp);
+            const auto bottom_incoming = bottom_transport
+                ? bottom_transport->const_array(mfi,i_comp+1) : Array4<Real const>();
             rhs_t_3d(lev,bx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
                      Hz, pn, pm, W, FC, mskr, msku, mskv, river_pos, river_source,
-                     bottom_transport ? bottom_transport->const_array(mfi,i_comp+1) : Array4<Real const>(),
+                     bottom_incoming,
                      nrhs, nnew, N,dt_lev,
                      refluxing ? fab_fx_reg.array(i_comp) : Array4<Real>(),
                      refluxing ? fab_fy_reg.array(i_comp) : Array4<Real>());

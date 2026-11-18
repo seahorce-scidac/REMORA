@@ -1541,10 +1541,7 @@ public:
     /** \brief Fill the physical boundary conditions for cell-centered velocity (diagnostic only) */
     void FillBdyCCVels (int lev, amrex::MultiFab& mf_cc_vel);
 
-    /** Fill valid and ghost cells from a level hierarchy.
-     * @param[in   ] spatial_mapper optional conservative interpolation override;
-     *                             null uses the field's usual cell/face interpolater
-     */
+    /** Fill valid and ghost cells from a level hierarchy. */
     void FillPatch (int lev, amrex::Real time,
                     amrex::MultiFab& mf_to_be_filled,
                     amrex::Vector<amrex::MultiFab*> const& mfs,
@@ -1559,8 +1556,7 @@ public:
                     const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_old = {},
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {},
-                    const int cf_cache_slot = -1,
-                    amrex::Interpolater* spatial_mapper = nullptr);
+                    const int cf_cache_slot = -1);
 
     /** \brief Make cf_2d_cache[lev][slot] fit mf's layout: on a layout change, find the
      *  ghost cells a two-level fill of mf from crse writes (by a probe fill) and drop the
