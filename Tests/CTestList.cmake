@@ -571,6 +571,10 @@ compose_test_input(Seamount_ECB_tiled Seamount)
 add_test_layout(Seamount_ECB_tiled Seamount_ECB_tiled "remora_exec" "plt00003" "none"
     "remora.omp_tile_size=1024000 1024000 1024000" "remora.omp_tile_size=2 3 1024000")
 add_test_r(Channel_Test                 "remora_exec" "plt00010")
+# Akv, Akt, tke and gls in a plotfile at initialization, against the values the inputs set
+compose_test_input(Channel_Test_mixing_plot_vars Channel_Test)
+add_test_extrema(Channel_Test_mixing_plot_vars "remora_exec" "plt00000" 1e-12
+    Akv 1.0e-4 2.0e-4  Akt 5.0e-5 1.0e-4  tke 1.0e-5 1.0e-5  gls 2.0e-6 2.0e-6)
 add_test_r(DoubleGyre                   "remora_exec" "plt00010")
 # Walls on all sides, one box against six, with the 2D velocities not exchanged after their
 # boundary conditions on the fast steps (remora.cf_set_2d_bcs = 0): the barotropic fluxes

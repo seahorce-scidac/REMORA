@@ -609,6 +609,31 @@ REMORA::WritePlotFile (int istep_for_plot)
             mf_comp++;
         }
 
+        // Vertical mixing fields live on w-levels; write the average of the two faces of
+        // each cell.  Akt is temperature's diffusivity.  tke and gls hold time levels, of
+        // which the newest after a step is istep % 2.
+        for (const std::string nm : {"Akv", "Akt", "tke", "gls"}) {
+            if (!containerHasElement(plot_var_names_3d, nm)) { continue; }
+            const MultiFab* src = (nm == "Akv") ? vec_Akv[lev].get()
+                                : (nm == "Akt") ? vec_Akt[lev].get()
+                                : (nm == "tke") ? vec_tke[lev].get() : vec_gls[lev].get();
+            const int scomp = (nm == "Akt") ? Temp_comp
+                            : (nm == "Akv") ? 0 : istep[lev] % 2;
+            MultiFab dmf(plotMF[lev], make_alias, mf_comp, 1);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                const Box& bx = mfi.tilebox();
+                const Array4<Real      > dst = dmf.array(mfi);
+                const Array4<Real const> a   = src->const_array(mfi);
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    dst(i,j,k) = myhalf * (a(i,j,k,scomp) + a(i,j,k+1,scomp));
+                });
+            }
+            mf_comp++;
+        }
+
 #ifdef REMORA_USE_PARTICLES
         const auto& particles_namelist( particleData.getNames() );
         for (ParticlesNamesVector::size_type i = 0; i < particles_namelist.size(); i++) {

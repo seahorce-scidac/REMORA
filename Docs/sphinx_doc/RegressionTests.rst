@@ -687,6 +687,25 @@ misleading values are rejected or reported.
 |                                 |          | 4000 m) runs and is reported                            |
 +---------------------------------+----------+---------------------------------------------------------+
 
+Plotfile variable tests
+-----------------------
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Channel_Test_mixing_plot_vars   | 20 60 50 | at initialization, ``Akv``, ``Akt``, ``tke`` and ``gls``|
+|                                 |          |                                                         |
+|                                 |          | in the plotfile match the background values the inputs  |
+|                                 |          |                                                         |
+|                                 |          | set: ``tke`` and ``gls`` equal to ``gls_Kmin`` and      |
+|                                 |          |                                                         |
+|                                 |          | ``gls_Pmin``, ``Akv`` and ``Akt`` from half to all of   |
+|                                 |          |                                                         |
+|                                 |          | ``Akv_bak`` and ``Akt_bak``                             |
++---------------------------------+----------+---------------------------------------------------------+
+
+The half values are in the top and bottom cells, whose surface and bottom w-levels start at zero.
+
 Nightly Regression Tests on CPU
 -------------------------------
 And the following are currently tested nighly on CPU.

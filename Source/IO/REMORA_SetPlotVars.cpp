@@ -95,6 +95,18 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
         } // if
     } // i
 
+    // Vertical mixing fields, averaged from w-levels to cell centres; AMReX plotfiles
+    // only.  tke and gls exist only with GLS mixing.
+    if (plotfile_type == PlotfileType::amrex) {
+        const bool gls = (solverChoice.vert_mixing_type == VertMixingType::GLS);
+        for (const std::string nm : {"Akv", "Akt", "tke", "gls"}) {
+            if (containerHasElement(plot_var_names_3d, nm) &&
+                (gls || (nm != "tke" && nm != "gls"))) {
+                tmp_plot_names.push_back(nm);
+            }
+        }
+    }
+
 #ifdef REMORA_USE_PARTICLES
     const auto& particles_namelist( particleData.getNamesUnalloc() );
     for (auto it = particles_namelist.cbegin(); it != particles_namelist.cend(); ++it) {
