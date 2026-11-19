@@ -2390,6 +2390,8 @@ private:
     // Note that the order of variable names here must match the order in PlotFile.cpp
     /** \brief Names of derived fields for 3d plotfile fields */
     const amrex::Vector<std::string> derived_names_3d {"vorticity", "omega"};
+    /** \brief Names of vertical mixing fields for 3d plotfile fields */
+    const amrex::Vector<std::string> mixing_names_3d {"Akv", "Akt", "tke", "gls"};
     /** \brief Names of derived fields for 2d plotfile fields */
     const amrex::Vector<std::string> derived_names_2d {};
 

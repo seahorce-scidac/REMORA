@@ -4,12 +4,12 @@
 Regression Tests
 ================
 
-There are currently 70 regression tests which are run as part of every PR on a range of architectures:
+There are currently 71 regression tests which are run as part of every PR on a range of architectures:
 
 * 22 that compare a plotfile against a stored reference;
 * 6 that compare two runs of the model against each other, or a run against its own initial state, and
   need no reference;
-* 5 that assert values against an external reference;
+* 6 that assert values against an external reference;
 * 10 that assert the structure of the refined grid;
 * 8 that assert how far an integrated quantity drifts over a run;
 * 8 that assert a run reaches a behavior it reports in its log;
@@ -712,6 +712,25 @@ misleading values are rejected or reported.
 |                                 |          |                                                         |
 |                                 |          | 4000 m) runs and is reported                            |
 +---------------------------------+----------+---------------------------------------------------------+
+
+Plotfile variable tests
+-----------------------
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Channel_Test_mixing_plot_vars   | 20 60 50 | at initialization, ``Akv``, ``Akt``, ``tke`` and        |
+|                                 |          |                                                         |
+|                                 |          | ``gls`` in the plotfile match the background values the |
+|                                 |          |                                                         |
+|                                 |          | inputs set: ``tke`` and ``gls`` equal to ``gls_Kmin``   |
+|                                 |          |                                                         |
+|                                 |          | and ``gls_Pmin``, ``Akv`` and ``Akt`` from half to all  |
+|                                 |          |                                                         |
+|                                 |          | of ``Akv_bak`` and ``Akt_bak``                          |
++---------------------------------+----------+---------------------------------------------------------+
+
+The half values are in the top and bottom cells, whose surface and bottom w-levels start at zero.
 
 Nightly Regression Tests on CPU
 -------------------------------
