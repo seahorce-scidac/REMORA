@@ -16,6 +16,10 @@
  * another box's data need none of that between them. Inside this scope they skip it: the scope
  * waits for the current stream on entry and for every stream on exit.
  *
+ * MFIter picks a box's stream from its local index, so every loop inside must iterate
+ * FabArrays with the same BoxArray (up to index type) and DistributionMapping, untiled on GPU;
+ * otherwise one box's work could land on different streams in different loops.
+ *
  * Nothing inside may exchange ghost cells or read another box's data in any other way, read
  * device data on the host, or free memory that a kernel on another stream may still read. A
  * temporary FArrayBox allocated from The_Async_Arena inside a box's own MFIter iteration is

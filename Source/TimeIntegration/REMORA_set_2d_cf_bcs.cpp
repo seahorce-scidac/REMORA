@@ -220,6 +220,12 @@ REMORA::cf_interface_flux (int lev, Real time)
         return {c.u.get(), c.v.get()};
     }
 
+    // Forming the flux exchanges data between boxes, so it must not run inside a
+    // BoxLocalLoops scope; callers there form it first, so that this call hits the cache
+#ifdef AMREX_USE_GPU
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!Gpu::inNoSyncRegion(),
+        "cf_interface_flux: the interface flux must be formed outside a BoxLocalLoops scope");
+#endif
     if (!same_layout) {
         c.u = std::make_unique<MultiFab>(du.boxArray(), du.DistributionMap(), 1, du.nGrowVect());
         c.v = std::make_unique<MultiFab>(dv.boxArray(), dv.DistributionMap(), 1, dv.nGrowVect());

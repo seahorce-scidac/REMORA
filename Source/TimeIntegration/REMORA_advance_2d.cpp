@@ -1479,6 +1479,12 @@ REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
         return *band;
     }
 
+    // Building the band exchanges data between boxes, so it must not run inside a
+    // BoxLocalLoops scope; callers there build it first
+#ifdef AMREX_USE_GPU
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!Gpu::inNoSyncRegion(),
+        "cf_ghost_band: the band must be built outside a BoxLocalLoops scope");
+#endif
     const Geometry& gm = geom[lev];
     iMultiFab covered(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
     covered.setVal(0);
