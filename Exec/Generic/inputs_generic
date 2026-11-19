@@ -890,6 +890,10 @@ remora.init_l1ad_T = false
 # type=Vector<int>; method=queryarr
 remora.is_periodic = 1 1 0
 
+# Fraction of the surface shortwave reaching depth d is jerlov_r1*exp(-d/jerlov_mu1) + (1-jerlov_r1)*exp(-d/jerlov_mu2), with the coefficients of ROMS lmd_swfrac
+# type=string; method=queryAdd
+remora.jerlov_type = I
+
 # How boxes are assigned to ranks
 # type=string; method=queryAdd
 remora.load_balance = <UNKNOWN_DEFAULT>
@@ -1221,6 +1225,10 @@ remora.riv_time_varname = <UNKNOWN_DEFAULT>
 # For scaled_to_grid runs with AMR refinement: optionally scale the coefficients by the horizontal refinement ratio (linear in grid size).
 # type=string; method=queryAdd
 remora.scaled_to_grid_amr_scaling = none
+
+# Absorb the shortwave over depth with a Jerlov profile (ROMS ``SOLAR_SOURCE``) instead of in the top cell
+# type=bool; method=queryAdd
+remora.shortwave_penetration = <UNKNOWN_DEFAULT>
 
 # Input format for surface momentum flux if using. ``analytic`` specified in ``prob.cpp``; ``netcdf`` from file.
 # type=string; method=queryAdd
