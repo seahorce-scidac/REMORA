@@ -659,6 +659,32 @@ subtracted, or if the stress keeps the absolute wind's direction. The values are
 both runs see the same relative wind to the last bit. The comparison holds for one step only: after
 it, the two currents differ by the stress the wind put into them.
 
+Shortwave penetration tests
+---------------------------
+
+These cover **remora.shortwave_penetration** and **remora.jerlov_type** on the ``Advection`` case
+with bulk fluxes. Each comparison runs one step twice, with and without penetration, and needs no
+reference file.
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Advection_sw_penetration        | 81 81 16 | with 400 W/m^2 of shortwave and Jerlov type IB,         |
+|                                 |          |                                                         |
+|                                 |          | penetration changes the answer                          |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_sw_penetration_no_sw  | 81 81 16 | with no shortwave, penetration changes nothing          |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_jerlov_type_abort     | 81 81 16 | an unknown Jerlov water type is rejected                |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_sw_penetration\_      | 81 81 16 | penetration without bulk fluxes or flux coupling is     |
+| no_bulk_abort                   |          |                                                         |
+|                                 |          | rejected                                                |
++---------------------------------+----------+---------------------------------------------------------+
+
+The first fails if the option is ignored; the second fails if penetration moves heat that the
+surface flux did not bring in.
+
 A uniform current is the same on every face, so these tests cannot tell which faces are averaged to
 the rho points, and the domain is periodic, so the boundary faces are not covered either.
 

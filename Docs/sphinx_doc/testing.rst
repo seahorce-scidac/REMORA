@@ -135,6 +135,11 @@ say the baseline was right, and it cannot notice a feature that has silently sto
     1e-11. For an invariant between two code paths, such as a driver that must reproduce another at a
     degenerate setting, or output frequency not changing the answer. Needs no gold file.
 
+``add_test_r_selfdiffer``
+    Run one input twice under two sets of command-line options and require both plotfiles to exist and
+    to *differ* beyond 1e-11. For an option whose point is to change the answer, without a gold file: an
+    option that silently does nothing makes the runs agree.
+
 ``add_test_restart``
     Run an input to the end with a checkpoint partway, restart a second run from the named checkpoint,
     and require the two final plotfiles to agree: a restart must continue the run it was saved from.

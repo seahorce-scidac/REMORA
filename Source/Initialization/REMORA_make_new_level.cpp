@@ -1211,8 +1211,8 @@ REMORA::set_derived_metrics (int lev)
  *
  * The coarse data is copied without periodicity. Across a periodic edge, FillBoundary has
  * already put the wrapped values in the coarse ghost cells, but a ghost cell that also lies
- * beyond a wall (a corner where the seam meets a non-periodic face) keeps the value continued
- * from the file's ring, while its periodic image keeps the other side's. A periodic copy
+ * beyond a wall (a corner where the seam meets a non-periodic face) need not match its
+ * periodic image: angle's corners keep the ring copied outward. A periodic copy
  * would give that cell both as sources, and which one wins is not defined: on a GPU it varies
  * from run to run (#775). Copied without periodicity, each cell comes from the coarse level's
  * own ghost cell. The fine level's ghost cells across a periodic edge are then refilled from
