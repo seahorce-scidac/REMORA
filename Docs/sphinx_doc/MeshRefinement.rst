@@ -38,6 +38,13 @@ individual grids are created.
 
 .. _`Gridding`: https://amrex-codes.github.io/amrex/docs_html/ManagingGridHierarchy_Chapter.html
 
+With ``remora.vertical_mixing_type = gls``, regridding retains TKE and GLS history,
+length scale, viscosity and diffusivities in overlapping fine cells. Newly refined
+cells interpolate the coarse latest history into both fine history slots, and take
+the predictor (component 2) from coarse component 2. Retained cells keep all three
+components. Only interpolated values receive the GLS minimum and background-coefficient
+bounds. Levels made at startup initialize the closure as usual.
+
 Static Mesh Refinement
 ----------------------
 

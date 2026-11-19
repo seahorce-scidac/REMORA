@@ -1453,11 +1453,22 @@ public:
                                         const amrex::MultiFab& mf_zeta,
                                         amrex::MultiFab& mf_z_r, amrex::MultiFab& mf_z_w);
 
-    /** \brief Initialize vertical mixing coefficients from file or analytic */
-    void init_set_vmix (int lev);
+    /** \brief Boundary and transfer rules for a GLS field. */
+    struct GLSField {
+        const char* name;
+        amrex::Vector<std::unique_ptr<amrex::MultiFab>>* levels;
+        int bccomp; // -1 for fields filled without physical boundary conditions.
+        amrex::Vector<amrex::Real> lower;
+        bool has_history;
+    };
+    /** \brief Describe the fields carried through a GLS regrid. */
+    amrex::Vector<GLSField> gls_fields ();
+    /** \brief Initialize vertical mixing, or transfer it during regridding. */
+    void init_set_vmix (int lev, bool regrid = false, amrex::Real time = 0,
+                       const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& old_fine = {});
     /** \brief Transfer GLS history and coefficients when a fine layout changes. */
     void remap_gls_state (int lev, amrex::Real time,
-                         const std::array<std::unique_ptr<amrex::MultiFab>, 7>& old_fine);
+                         const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& old_fine);
     /** \brief Set vertical mixing coefficients from analytic */
     void set_analytic_vmix (int lev);
     /** \brief Initialize GLS variables */

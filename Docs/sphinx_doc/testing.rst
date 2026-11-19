@@ -67,25 +67,17 @@ Output for the last set of tests run is available in the ``Build`` directory in 
 GLS level lifecycle checks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Run ``ctest -R GLS_regrid_ --output-on-failure`` to check turbulence transfer through
-changing refinement layouts. These two-level cases reuse the channel setup, advance
-one coarse step, then move and enlarge the fine patch. Distinct values in the two
-history slots check that retained cells keep both slots exactly and new cells use the
-coarse latest slot for both. Subcycling gives the levels different history parities.
-The predictor component is retained too, including distinct surface and bottom values.
-Vertical advection reads these endpoints; the predictor step leaves them unchanged.
-New cells and newly created levels take that component from the coarse predictor,
-independently of history-slot parity. An identical-layout remake must preserve all three components.
-The tests also preserve retained values below the bounds and bound interpolated values
-for all seven turbulence fields. The test decks disable invalid-operation traps;
-explicit finiteness assertions check the transferred fields.
+Run ``ctest -R GLS_regrid_ --output-on-failure`` for these channel-based checks:
 
-``GLS_regrid_restart_lockstep`` and ``GLS_regrid_restart_subcycle`` continue after the
-layout change, checkpoint, and restart. They compare every file in both checkpoint
-level directories byte for byte against the uninterrupted run, including all turbulence
-components. These checks need no NetCDF files or gold plotfiles. Run them in a Debug
-build too: AMReX assertions check that a new level uses coarse-only interpolation
-without an empty fine source. Failed runs print their model log in the CTest output.
+- ``GLS_regrid_lockstep`` and ``GLS_regrid_subcycle`` assert exact preservation of
+  retained turbulence fields, coarse latest-slot mapping into both new history slots,
+  transfer of predictor values including endpoints, and bounds on interpolated values.
+  A new patch spanning the periodic direction must have ghosts equal to their images.
+- ``GLS_regrid_restart_lockstep`` and ``GLS_regrid_restart_subcycle`` restart from a
+  checkpoint before a timed refinement-box expansion. Both runs regrid and must produce
+  identical final plotfiles and valid checkpoint values, including every GLS component.
+
+These tests need no NetCDF files or gold plotfiles and run with invalid-operation traps on.
 
 Adding Tests
 ~~~~~~~~~~~~

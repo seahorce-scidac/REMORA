@@ -16,6 +16,8 @@ void test_defaults ()
     remora.getarr("prob_lo", lo);
     remora.getarr("prob_hi", hi);
     amr.addarr("n_cell", cells);
+    // Keep the initial patch in a single box and allow the small hand-built layouts below;
+    // main.cpp's production defaults would round or split these test boxes.
     amr.add("max_grid_size", 2048);
     amr.add("max_grid_size_z", cells[2]);
     amr.add("blocking_factor", 1);
@@ -35,11 +37,26 @@ void test_defaults ()
     ParmParse("fabarray").addarr("mfiter_tile_size", tile_size);
 }
 
-std::array<MultiFab*, 7> fields (REMORA& model, int lev)
+Vector<MultiFab*> fields (REMORA& model, int lev)
 {
-    return {model.vec_tke[lev].get(), model.vec_gls[lev].get(),
-            model.vec_Lscale[lev].get(), model.vec_Akv[lev].get(),
-            model.vec_Akt[lev].get(), model.vec_Akk[lev].get(), model.vec_Akp[lev].get()};
+    Vector<MultiFab*> result;
+    for (const auto& field : model.gls_fields()) {
+        result.push_back((*field.levels)[lev].get());
+    }
+    return result;
+}
+
+void check_periodic_ghosts (const MultiFab& mf, const Geometry& geom)
+{
+    AMREX_ALWAYS_ASSERT(!mf.contains_nan(0, mf.nComp(), mf.nGrowVect()));
+    AMREX_ALWAYS_ASSERT(!mf.contains_inf(0, mf.nComp(), mf.nGrowVect()));
+    MultiFab exchanged(mf.boxArray(), mf.DistributionMap(), mf.nComp(), mf.nGrowVect());
+    MultiFab::Copy(exchanged, mf, 0, 0, mf.nComp(), mf.nGrowVect());
+    exchanged.FillBoundary(geom.periodicity());
+    MultiFab::Subtract(exchanged, mf, 0, 0, mf.nComp(), mf.nGrowVect());
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        exchanged.norm0(0, mf.nComp(), mf.nGrowVect()) == Real(0),
+        "New GLS level has ghost cells that differ from their periodic images");
 }
 
 // Predictor endpoints enter vertical advection without being rebuilt by gls_prestep.
@@ -82,21 +99,19 @@ int main (int argc, char* argv[])
     {
         REMORA model;
         model.InitData();
-        bool skip_transfer = false;
-        ParmParse test("test");
-        test.query("skip_transfer", skip_transfer);
-        if (!skip_transfer) {
+        const auto descriptors = model.gls_fields();
+        {
             Real time = model.EvolveOneStep(Real(0), Real(1));
             auto coarse = fields(model, 0);
             auto fine = fields(model, 1);
-            std::array<std::unique_ptr<MultiFab>, 7> saved;
-            for (int f = 0; f < 7; ++f) {
+            Vector<std::unique_ptr<MultiFab>> saved(descriptors.size());
+            for (int f = 0; f < descriptors.size(); ++f) {
                 // After one coarse step, coarse slot 1 is latest. Subcycling has fine parity 0.
                 for (int n = 0; n < coarse[f]->nComp(); ++n) {
                     coarse[f]->setVal(Real(0.02)*(n+1), n, 1, coarse[f]->nGrowVect());
                     fine[f]->setVal(Real(0.003)*(n+1), n, 1, fine[f]->nGrowVect());
                 }
-                if (f < 2) {
+                if (descriptors[f].has_history) {
                     set_predictor_endpoints(*coarse[f], model.Geom(0), Real(0.07), Real(0.08));
                     set_predictor_endpoints(*fine[f], model.Geom(1), Real(0.011), Real(0.013));
                 }
@@ -107,7 +122,7 @@ int main (int argc, char* argv[])
             // A remake of the same layout must retain all three GLS components.
             model.RemakeLevel(1, time, model.boxArray(1), model.DistributionMap(1));
             fine = fields(model, 1);
-            for (int f = 0; f < 7; ++f) {
+            for (int f = 0; f < descriptors.size(); ++f) {
                 check_equal(*fine[f], *saved[f], fine[f]->nComp());
             }
             // Enlarge and move the patch: retain some cells, remove others, and add new cells.
@@ -124,14 +139,14 @@ int main (int argc, char* argv[])
             model.SetBoxArray(1, changed);
             model.SetDistributionMap(1, mapping);
             fine = fields(model, 1);
-            for (int f = 0; f < 7; ++f) {
+            for (int f = 0; f < descriptors.size(); ++f) {
                 int count = fine[f]->nComp();
                 MultiFab expected(fine[f]->boxArray(), fine[f]->DistributionMap(), count, 0);
                 for (int n = 0; n < count; ++n) {
-                    Real value = f < 2 && n < 2 ? Real(0.04) : Real(0.02)*(n+1);
+                    Real value = descriptors[f].has_history && n < 2 ? Real(0.04) : Real(0.02)*(n+1);
                     expected.setVal(value, n, 1, 0);
                 }
-                if (f < 2) {
+                if (descriptors[f].has_history) {
                     set_predictor_endpoints(expected, model.Geom(1), Real(0.07), Real(0.08));
                 }
                 expected.ParallelCopy(*saved[f], 0, 0, count, 0, 0, model.Geom(1).periodicity());
@@ -141,32 +156,26 @@ int main (int argc, char* argv[])
             model.ClearLevel(1);
             model.MakeNewLevelFromCoarse(1, time, changed, mapping);
             fine = fields(model, 1);
-            for (int f = 0; f < 7; ++f) {
+            for (int f = 0; f < descriptors.size(); ++f) {
                 int count = fine[f]->nComp();
                 MultiFab expected(fine[f]->boxArray(), fine[f]->DistributionMap(), count, 0);
                 for (int n = 0; n < count; ++n) {
-                    Real value = f < 2 && n < 2 ? Real(0.04) : Real(0.02)*(n+1);
+                    Real value = descriptors[f].has_history && n < 2 ? Real(0.04) : Real(0.02)*(n+1);
                     expected.setVal(value, n, 1, 0);
                 }
-                if (f < 2) {
+                if (descriptors[f].has_history) {
                     set_predictor_endpoints(expected, model.Geom(1), Real(0.07), Real(0.08));
                 }
                 check_equal(*fine[f], expected, count);
             }
             // Coarse interpolation is bounded, while old fine values below the bounds survive.
-            const std::array<const char*, 7> keys = {"gls_Kmin", "gls_Pmin", "", "Akv_bak",
-                                                   "Akt_bak", "Akk_bak", "Akp_bak"};
-            std::array<Real, 7> lower = {Real(7.6e-6), Real(1.e-12), Real(0), Real(1.e-5),
-                                         Real(1.e-6), Real(5.e-6), Real(5.e-6)};
-            ParmParse remora("remora");
-            for (int f = 0; f < 7; ++f) {
-                if (f != 2) { remora.query(keys[f], lower[f]); }
+            for (int f = 0; f < descriptors.size(); ++f) {
                 coarse[f]->setVal(Real(-1));
                 fine[f]->setVal(Real(-2));
             }
             model.RemakeLevel(1, time, changed, mapping);
             fine = fields(model, 1);
-            for (int f = 0; f < 7; ++f) {
+            for (int f = 0; f < descriptors.size(); ++f) {
                 for (int n = 0; n < fine[f]->nComp(); ++n) {
                     AMREX_ALWAYS_ASSERT(fine[f]->min(n) == Real(-2));
                     AMREX_ALWAYS_ASSERT(fine[f]->max(n) == Real(-2));
@@ -175,18 +184,39 @@ int main (int argc, char* argv[])
             model.ClearLevel(1);
             model.MakeNewLevelFromCoarse(1, time, changed, mapping);
             fine = fields(model, 1);
-            for (int f = 0; f < 7; ++f) {
+            for (int f = 0; f < descriptors.size(); ++f) {
                 AMREX_ALWAYS_ASSERT(!fine[f]->contains_nan(0, fine[f]->nComp(), 0));
                 for (int n = 0; n < fine[f]->nComp(); ++n) {
-                    Real bound = lower[f];
-                    if (f == 4) {
-                        remora.query(n == 0 ? "Akt_bak_temp" : "Akt_bak_salt", bound);
-                    }
+                    const auto& bounds = descriptors[f].lower;
+                    Real bound = bounds.size() == 1 ? bounds[0] : bounds[n];
                     AMREX_ALWAYS_ASSERT(fine[f]->min(n) >= bound);
                 }
             }
-            for (int f = 0; f < 7; ++f) {
-                coarse[f]->setVal(lower[f]);
+            // Smooth data exposes tangential nodal interpolation errors at a periodic seam.
+            const int nx = model.Geom(0).Domain().length(0);
+            for (auto* mf : coarse) {
+                for (MFIter mfi(*mf); mfi.isValid(); ++mfi) {
+                    auto values = mf->array(mfi);
+                    ParallelFor(mfi.growntilebox(), mf->nComp(),
+                        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+                    {
+                        values(i,j,k,n) = Real(2) + std::sin(Real(2)*Real(3.141592653589793)*
+                            (Real(i)+Real(0.5))/nx) + Real(0.01)*(j+k+n);
+                    });
+                }
+            }
+            Box seam_box = model.Geom(1).Domain();
+            seam_box.setSmall(1, 4);
+            seam_box.setBig(1, 35);
+            BoxArray seam(seam_box);
+            DistributionMapping seam_mapping(seam);
+            model.ClearLevel(1);
+            model.MakeNewLevelFromCoarse(1, time, seam, seam_mapping);
+            model.SetBoxArray(1, seam);
+            model.SetDistributionMap(1, seam_mapping);
+            fine = fields(model, 1);
+            for (auto* mf : fine) {
+                check_periodic_ghosts(*mf, model.Geom(1));
             }
             amrex::Print() << "GLS changing-layout transfer, history slots and bounds passed\n";
         }

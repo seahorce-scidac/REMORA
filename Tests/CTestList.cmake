@@ -1041,15 +1041,20 @@ add_test_abort(DogboneAnalytic_split_column_abort "remora_exec" "Boxes must hold
 # exactly, and restart must reject a checkpoint whose BiologyHeader model or Header
 # component list differs from the run's. MISSING_HEADER (accept|reject) says whether a
 # checkpoint without BiologyHeader restarts, as it does for models taking legacy files.
+# An optional final checkpoint compares every level array as well as the plotfile.
 function(add_test_checkpoint_restart TEST_NAME CHKFILE PLTFILE MISSING_HEADER)
     setup_test()
     resolve_test_exe("${TEST_DIR}" "remora_exec" TEST_EXE)
+    set(FINAL_CHECKPOINT "-")
+    if(ARGC GREATER 4)
+        set(FINAL_CHECKPOINT "${ARGV4}")
+    endif()
     # MPI_COMMANDS is deliberately split into launcher arguments for this script.
     separate_arguments(CHECKPOINT_MPI_COMMANDS NATIVE_COMMAND "${MPI_COMMANDS}")
     add_test(NAME ${TEST_NAME} COMMAND sh
         ${CMAKE_CURRENT_SOURCE_DIR}/check_checkpoint_restart.sh
         ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${FCOMPARE_EXE} ${CHKFILE} ${PLTFILE}
-        ${MISSING_HEADER} ${CHECKPOINT_MPI_COMMANDS} ${TEST_EXE})
+        ${MISSING_HEADER} ${FINAL_CHECKPOINT} ${SUBSET_COMPARE_EXE} ${CHECKPOINT_MPI_COMMANDS} ${TEST_EXE})
     set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 5400
         PROCESSORS ${NP} WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}"
         LABELS "regression")
@@ -1060,22 +1065,12 @@ add_test_checkpoint_restart(Upwelling_ECB_restart    "chk00002" "plt00003" rejec
 
 # Retained turbulence is exact; new cells use the coarse latest history slot.
 add_test_run(GLS_regrid_lockstep Channel_Test_ML_seam remora_gls_regrid
-  "remora.n_cell=20 24 12 remora.fixed_dt=1 remora.max_step=1 remora.plot_int=-1 remora.check_int=-1 amr.regrid_int=-1 amrex.fpe_trap_invalid=0 remora.do_substep=0")
+  "remora.n_cell=20 24 12 remora.fixed_dt=1 remora.max_step=1 remora.plot_int=-1 remora.check_int=-1 amr.regrid_int=-1 remora.do_substep=0")
 add_test_run(GLS_regrid_subcycle Channel_Test_ML_seam remora_gls_regrid
-  "remora.n_cell=20 24 12 remora.fixed_dt=1 remora.max_step=1 remora.plot_int=-1 remora.check_int=-1 amr.regrid_int=-1 amrex.fpe_trap_invalid=0 remora.do_substep=1")
+  "remora.n_cell=20 24 12 remora.fixed_dt=1 remora.max_step=1 remora.plot_int=-1 remora.check_int=-1 amr.regrid_int=-1 remora.do_substep=1")
 
 foreach(mode lockstep subcycle)
-    set(TEST_NAME GLS_regrid_restart_${mode})
-    setup_test(Channel_Test_ML_seam)
-    if(mode STREQUAL "subcycle")
-        set(subcycle 1)
-    else()
-        set(subcycle 0)
-    endif()
-    separate_arguments(GLS_MPI_COMMANDS NATIVE_COMMAND "${MPI_COMMANDS}")
-    add_test(NAME ${TEST_NAME} COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/check_gls_regrid_restart.sh
-      ${CURRENT_TEST_BINARY_DIR}/Channel_Test_ML_seam.i $<TARGET_FILE:remora_gls_regrid>
-      ${subcycle} ${GLS_MPI_COMMANDS})
-    set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 120 PROCESSORS ${NP}
-      WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}" LABELS "regression")
+    compose_test_input(GLS_regrid_restart_${mode} Channel_Test_ML_seam)
+    add_test_checkpoint_restart(GLS_regrid_restart_${mode} "chk00001" "plt00003" accept
+                                "chk00003")
 endforeach()

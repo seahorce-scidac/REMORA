@@ -1105,15 +1105,28 @@ REMORA::set_coriolis(int lev) {
     }
 }
 
+/**
+ * Initialize vertical mixing at startup or transfer its state through a regrid.
+ *
+ * @param[in   ] lev       level to initialize
+ * @param[in   ] regrid    transfer GLS state instead of initializing the closure
+ * @param[in   ] time      regrid time
+ * @param[in   ] old_fine  retained fine fields, or an empty vector for a new level
+ */
 void
-REMORA::init_set_vmix(int lev) {
+REMORA::init_set_vmix (int lev, bool regrid, Real time,
+                       const Vector<std::unique_ptr<MultiFab>>& old_fine)
+{
     BL_PROFILE("REMORA::init_set_vmix()");
     if (solverChoice.vert_mixing_type == VertMixingType::analytic) {
         set_analytic_vmix(lev);
     } else if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
-        init_gls_vmix(lev, solverChoice);
-        // The GLS initialization just sets the multifab to a value, so there's
-        // no need to call FillPatch here
+        if (regrid) {
+            remap_gls_state(lev, time, old_fine);
+        } else {
+            // Initialization sets all cells, including ghosts, to constants.
+            init_gls_vmix(lev, solverChoice);
+        }
     } else {
         Abort("Don't know this vertical mixing type");
     }
