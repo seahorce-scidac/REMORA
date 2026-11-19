@@ -371,6 +371,18 @@ conservation with one-way coupling. Two-way coupling ensures conservation of the
 advective contribution to all scalar updates but does not account for loss of
 conservation due to diffusive or source terms.
 
+For :ref:`water and tracer exchange through the bottom <sec:bottom-exchange>`,
+REMORA splits the prescribed water and incoming tracer transports conservatively
+among wet children at each refinement interface; dry children receive zero.
+Each level samples at its own slow-step midpoint. Spatial sums are conserved.
+With subcycling, time-integrated coarse and fine sources agree exactly only when
+both water transport Q and incoming tracer transport Q*C are linear in time
+throughout the coarse step. Linear q and C individually can give a quadratic
+product, so their midpoint integrals need not agree. Nonlinear forcing and steps
+crossing forcing-record boundaries retain the temporal quadrature error; there
+is no source reflux correction. The existing options for coarse-fine fluid
+dynamics and conservation still apply.
+
 Coarse-Fine Operators for the Barotropic Mode
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

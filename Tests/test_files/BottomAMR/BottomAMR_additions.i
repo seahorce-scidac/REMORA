@@ -1,0 +1,9 @@
+amr.max_level = 1
+amr.ref_ratio_vect = 2 2 1
+remora.refinement_indicators = patch
+remora.patch.in_box_lo = 200 200
+remora.patch.in_box_hi = 600 600
+remora.patch.max_level = 1
+remora.cf_fill_all_kcomp = 0
+remora.cf_time_interp_zeta = 0
+remora.prob.u_0 = 0

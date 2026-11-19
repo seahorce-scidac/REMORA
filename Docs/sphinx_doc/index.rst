@@ -67,6 +67,7 @@ In addition to this documentation, there is API documentation for REMORA generat
    AMReX.rst
    ArakawaCGrid.rst
    BoundaryConditions.rst
+   BottomExchange.rst
    Checkpoint.rst
    Climatology.rst
    Biology.rst

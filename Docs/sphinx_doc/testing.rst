@@ -229,3 +229,51 @@ A gold file is only meaningful if what produced it is known, so when regeneratin
    baseline is only valid if the run is rank-invariant to the accepted tolerance.
 #. Treat a change to any input datum as invalidating the baseline: the same commit should update the data,
    the gold file, and the recorded checksums together.
+
+The ``bottom_exchange`` CTest label selects the exchange integration tests and the
+small ``BottomExchangeMath`` arithmetic test. The numerical tests run the normal
+``remora_exec`` application with the Advection initial condition. The assertion
+utility reads checkpoints and integrates volume, temperature, salinity, passive
+tracer and horizontal momentum, excluding covered coarse cells. These integrals
+are compared with prescribed water and tracer transfers, rather than gold files.
+The initial dye maximum must exceed 0.1 so its transport cannot pass trivially.
+
+For the 800 m by 800 m domain, 8 s of steady inflow at 0.0001 m/s adds 512 m^3.
+With incoming dye concentration 7, it adds 3584 concentration-unit m^3 of dye.
+Freshwater adds no salt, while extraction removes ocean-side concentrations and
+horizontal momentum. The spatial forcing has a known covariance between velocity
+and dye concentration. The adaptive case checks the exact time integral of a
+linear ramp and the vertical velocity at the final slow-step midpoint; its stop
+time limits the step, so it does not test a source-limited timestep. The GLS
+case requires salinity increasing from the bottom cell to the cell above,
+positive finite turbulent kinetic energy, and the same
+integral budgets. Arithmetic comparisons use machine precision; inventory checks
+allow the larger of 2e-10 and 16 times machine precision, relative to the expected
+inventory. A zero momentum integral uses initial volume times the seepage speed
+as its dimensional rounding scale.
+
+``BottomAMRWall`` runs an embedding application with a refined patch touching a
+physical wall, multiple boxes, mixed periodic/wall boundaries and signaling-NaN
+initialization. It checks the complete one-cell horizontal transport halo.
+The same application checks copied coupler snapshots and inflow/outflow reversal.
+Checkpoint assertions read both current and previous vertical velocities,
+including the first coupled step and a reversal between output times.
+``BottomTiled`` requires bitwise equality of both checkpoints and plotfiles between
+2 x 2 column tiles and untiled boxes; its forcing varies in x and y.
+``BottomRestart`` requires bitwise equality with a continuous run.
+
+Budget variants and the AMR timing modes run in separate processes within shared
+CTest entries. MPI builds use two ranks through the standard test helpers.
+PNetCDF builds additionally test steady and varying timed fields, interpolation
+across two single-record files, and a physical rho ring distinct from the interior.
+The assertion utility prepares those analytic NetCDF inputs before running REMORA.
+Physical-ring tests reject NaN and infinite q, negative incoming salinity and
+NaN incoming tracers; outflow accepts unused NaN concentrations. The supplied
+ring is checked on both levels of a refined boundary case.
+
+The ``BottomCoast``, ``BottomCoastOutflow`` and ``BottomCoast3L`` runs use the
+Dogbone coastline with partly wet parent cells. They assert zero source on dry
+children and equality of parent and summed child water and incoming tracer
+transports, including after the three-level case expands its refined patch.
+The test also requires that the layout changed. These are spatial source assertions;
+they do not assert conservation of the model's wet-only state average-down.

@@ -1,3 +1,4 @@
+#include <REMORA_BottomExchange.H>
 #include <REMORA.H>
 
 using namespace amrex;
@@ -19,6 +20,7 @@ using namespace amrex;
  * @param[in   ] mskv            land-sea mask on v-points
  * @param[in   ] river_pos       river positions
  * @param[in   ] river_source    river source data to add, if using
+ * @param[in   ] bottom_incoming incoming bottom tracer transport
  * @param[in   ] iic             which time step we're on
  * @param[in   ] ntfirst         what is the first time step?
  * @param[in   ] nrhs            index of RHS component
@@ -42,6 +44,7 @@ REMORA::prestep_t_advection (int lev, const Box& tbx,
                             const Array4<Real const>& mskv,
                             const Array4<int  const>& river_pos,
                             const Array4<Real const>& river_source,
+                            const Array4<Real const>& bottom_incoming,
                             int iic, int ntfirst, int nrhs, int N,
                             Real dt_lev)
 {
@@ -165,11 +168,14 @@ REMORA::prestep_t_advection (int lev, const Box& tbx,
 
     //
     // Vertical advective flux at the w-levels of the tile's columns: fourth-order in the
-    // interior, one-sided next to the bottom and the surface, and zero through them.
+    // interior, one-sided next to the bottom and the surface, and prescribed at the bottom.
     //
     ParallelFor(surroundingNodes(tbx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        if (k == 0 || k == N+1) {
+        if (k == 0) {
+            FC(i,j,0) = bottom_incoming ? BottomExchange::tracer_flux(
+                W(i,j,0), bottom_incoming(i,j,0), tempold(i,j,0,nrhs)) : Real(0.0);
+        } else if (k == N+1) {
             FC(i,j,k) = Real(0.0);
         } else if (k >= 2 && k <= N-1) {
             FC(i,j,k)=( c2*(tempold(i  ,j,k-1,nrhs)+ tempold(i,j,k  ,nrhs))

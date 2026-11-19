@@ -57,6 +57,7 @@ REMORA::prestep (int lev,
                 int N, const Real dt_lev)
 {
     BL_PROFILE("REMORA::prestep()");
+    const MultiFab* bottom_transport = GetBottomExchangeTransport(lev);
 
 #ifdef REMORA_USE_NETCDF
     // These do MPI-collective NetCDF reads, so they must be called by every rank,
@@ -130,7 +131,9 @@ REMORA::prestep (int lev,
         // W depends on the mass fluxes only, so it is formed once for every tracer. Each
         // tile forms its own columns and, at the edge of its box, the first ghost ring, so
         // no column is written by two tiles; the advection reads W on the tile's own cells.
-        compute_W(gbx1D, W, Huon, Hvom, z_w, h, N);
+        const auto bottom_volume = bottom_transport
+            ? bottom_transport->const_array(mfi) : Array4<Real const>();
+        compute_W(gbx1D, W, Huon, Hvom, z_w, h, N, bottom_volume);
 
         for (int i_comp=0; i_comp < ncons; i_comp++) {
             Array4<Real> const& sstore = (vec_sstore[lev])->array(mfi,i_comp);
@@ -148,10 +151,12 @@ REMORA::prestep (int lev,
             // prestep_t_advection reads S_new on this tile's own cells only, and the
             // diffusion below, which overwrites S_new, writes only those cells too, after
             // every component's advection. So it still reads the value S_new came in with.
+            const auto bottom_incoming = bottom_transport
+                ? bottom_transport->const_array(mfi,i_comp+1) : Array4<Real const>();
             prestep_t_advection(lev, bx, S_old.array(mfi,i_comp),
                                 S_new.array(mfi,i_comp), Hz, Huon, Hvom,
                                 W, FC, sstore, pm, pn, msku, mskv, river_pos,
-                                river_source, iic, ntfirst,
+                                river_source, bottom_incoming, iic, ntfirst,
                                 nrhs, N, dt_lev);
         }
 
