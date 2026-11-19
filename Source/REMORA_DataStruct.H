@@ -107,6 +107,12 @@ enum class HarmonicMixingType {
     s, geopotential
 };
 
+/** \brief Jerlov (1968) water type, which sets the shortwave absorption profile:
+ *  the oceanic types I to III and the coastal types 1C to 7C, as in ROMS */
+enum class JerlovType {
+    I, IA, IB, II, III, C1, C3, C5, C7
+};
+
 struct SolverChoice {
   public:
     static BulkForcingType parse_bulk_forcing_type(const std::string& type_string,
@@ -239,6 +245,45 @@ struct SolverChoice {
         }
 
         pp.queryAdd("bulk_fluxes",bulk_fluxes);
+        pp.queryAdd("shortwave_penetration", shortwave_penetration);
+        {
+            // Fraction of the surface shortwave reaching depth d is
+            // jerlov_r1*exp(-d/jerlov_mu1) + (1-jerlov_r1)*exp(-d/jerlov_mu2),
+            // with the coefficients of ROMS lmd_swfrac
+            std::string jerlov_string = "I";
+            pp.queryAdd("jerlov_type", jerlov_string);
+            const std::string jt = amrex::toLower(jerlov_string);
+            if (jt == "i") {
+                jerlov_type = JerlovType::I;
+                jerlov_r1 = amrex::Real(0.58); jerlov_mu1 = amrex::Real(0.35); jerlov_mu2 = amrex::Real(23.0);
+            } else if (jt == "ia") {
+                jerlov_type = JerlovType::IA;
+                jerlov_r1 = amrex::Real(0.62); jerlov_mu1 = amrex::Real(0.6);  jerlov_mu2 = amrex::Real(20.0);
+            } else if (jt == "ib") {
+                jerlov_type = JerlovType::IB;
+                jerlov_r1 = amrex::Real(0.67); jerlov_mu1 = amrex::Real(1.0);  jerlov_mu2 = amrex::Real(17.0);
+            } else if (jt == "ii") {
+                jerlov_type = JerlovType::II;
+                jerlov_r1 = amrex::Real(0.77); jerlov_mu1 = amrex::Real(1.5);  jerlov_mu2 = amrex::Real(14.0);
+            } else if (jt == "iii") {
+                jerlov_type = JerlovType::III;
+                jerlov_r1 = amrex::Real(0.78); jerlov_mu1 = amrex::Real(1.4);  jerlov_mu2 = amrex::Real(7.9);
+            } else if (jt == "1c") {
+                jerlov_type = JerlovType::C1;
+                jerlov_r1 = amrex::Real(0.57); jerlov_mu1 = amrex::Real(0.42); jerlov_mu2 = amrex::Real(5.13);
+            } else if (jt == "3c") {
+                jerlov_type = JerlovType::C3;
+                jerlov_r1 = amrex::Real(0.57); jerlov_mu1 = amrex::Real(0.37); jerlov_mu2 = amrex::Real(3.54);
+            } else if (jt == "5c") {
+                jerlov_type = JerlovType::C5;
+                jerlov_r1 = amrex::Real(0.57); jerlov_mu1 = amrex::Real(0.33); jerlov_mu2 = amrex::Real(2.34);
+            } else if (jt == "7c") {
+                jerlov_type = JerlovType::C7;
+                jerlov_r1 = amrex::Real(0.55); jerlov_mu1 = amrex::Real(0.00468592); jerlov_mu2 = amrex::Real(1.51);
+            } else {
+                amrex::Abort("remora.jerlov_type must be I, IA, IB, II, III, 1C, 3C, 5C or 7C");
+            }
+        }
         {
             std::string scheme_string = "coare30";
             pp.queryAdd("bulk_flux_scheme", scheme_string);
@@ -399,6 +444,9 @@ struct SolverChoice {
         }
         if (eminusp and !bulk_fluxes) {
             amrex::Abort("Evaporation minus precipitation (E-P) requires bulk flux parametrizations (remora.bulk_fluxes=true)");
+        }
+        if (shortwave_penetration and !bulk_fluxes and !atm2ocn_flux_mode) {
+            amrex::Abort("remora.shortwave_penetration needs the surface shortwave radiation that remora.bulk_fluxes=true or flux coupling provides");
         }
         if (bulk_flux_relative_wind and !bulk_fluxes) {
             amrex::Abort("remora.bulk_flux_relative_wind requires bulk flux parametrizations (remora.bulk_fluxes=true)");
@@ -927,6 +975,15 @@ struct SolverChoice {
     bool        use_curvilinear_grid  = false;
 
     bool        bulk_fluxes           = false;
+    // Absorb the shortwave part of the surface heat flux over depth with a Jerlov
+    // double-exponential profile (ROMS SOLAR_SOURCE), instead of all in the top cell
+    bool        shortwave_penetration = false;
+    // Jerlov water type and its absorption coefficients: fraction r1 decays over
+    // mu1 [m], the rest over mu2 [m]
+    JerlovType  jerlov_type           = JerlovType::I;
+    amrex::Real jerlov_r1             = amrex::Real(0.58);
+    amrex::Real jerlov_mu1            = amrex::Real(0.35);
+    amrex::Real jerlov_mu2            = amrex::Real(23.0);
     // The COARE version of the bulk flux's Charnock parameter and scalar roughness
     // lengths: coare30 (Fairall et al. 2003; ROMS with COARE_30 defined) or coare35
     // (Edson et al. 2013; ROMS's default). The rest of the bulk flux follows myROMS

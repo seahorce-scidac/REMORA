@@ -1877,6 +1877,15 @@ Additional bulk-flux controls:
 | **remora.bulk_flux_current_factor**  | Fraction of the surface current        | 0 to 1            | 1.0            |
 |                                      | subtracted from the wind               |                   |                |
 +--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.shortwave_penetration**     | Absorb the shortwave over depth with   | true / false      | false          |
+|                                      | a Jerlov profile (ROMS                 |                   |                |
+|                                      | ``SOLAR_SOURCE``) instead of in the    |                   |                |
+|                                      | top cell                               |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.jerlov_type**               | Jerlov water type of the absorption    | I, IA, IB, II,    | I              |
+|                                      | profile                                | III, 1C, 3C, 5C,  |                |
+|                                      |                                        | 7C                |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
 
 With **remora.bulk_flux_relative_wind**, the wind in the bulk flux is the wind less
 **remora.bulk_flux_current_factor** times the top-level current, averaged to the rho
@@ -1894,6 +1903,24 @@ region. Keep the factor at 1 only when the atmosphere itself takes its surface s
 relative to the current. **remora.bulk_flux_current_factor** without
 **remora.bulk_flux_relative_wind** is rejected, as is the relative wind under a
 coupling driver that passes fluxes, since REMORA then computes no bulk fluxes.
+
+With **remora.shortwave_penetration**, the shortwave part of the surface heat flux is
+absorbed over depth instead of entirely in the top cell, as with ROMS's ``SOLAR_SOURCE``.
+The fraction reaching depth :math:`d` below the surface is the Paulson and Simpson (1977)
+double exponential
+
+.. math::
+
+   r_1 e^{-d/\mu_1} + (1 - r_1) e^{-d/\mu_2},
+
+with :math:`r_1`, :math:`\mu_1` and :math:`\mu_2` set by **remora.jerlov_type**: the
+oceanic Jerlov water types I (clearest), IA, IB, II and III, and the coastal types 1C, 3C,
+5C and 7C (most turbid), with the coefficients of ROMS's ``lmd_swfrac``. The temperature
+of each cell changes by the difference between the shortwave reaching its top and its
+bottom faces; what reaches the sea floor stays in the bottom cell, so the column's heat
+content is unchanged. The shortwave comes from the bulk flux forcing or, under a
+coupling driver that passes fluxes, from the atmosphere, and the option is rejected when
+neither provides it. It applies to temperature only.
 
 The rest of the bulk flux follows myROMS's ``bulk_flux.F`` whatever the COARE
 version: the buoyancy flux in the gustiness, the vector stress normalized by the
