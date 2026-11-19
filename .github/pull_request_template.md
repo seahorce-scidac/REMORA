@@ -33,9 +33,9 @@ run, and results with numbers. Say what was verified by hand and what was not ru
 
 ## Checklist
 
-- [ ] New or changed behaviour has a test in `Tests/CTestList.cmake` that fails when the
+- [ ] New or changed behavior has a test in `Tests/CTestList.cmake` that fails when the
       feature is broken.
-- [ ] New options are in the `remora.` namespace, default to the ROMS behaviour, and are
+- [ ] New options are in the `remora.` namespace, default to the ROMS behavior, and are
       documented in `Docs/sphinx_doc/`.
 - [ ] New tests are listed in `Docs/sphinx_doc/testing.rst` / `RegressionTests.rst`.
 - [ ] Builds with and without PnetCDF (if NetCDF code was touched) and with
