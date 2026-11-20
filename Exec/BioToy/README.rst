@@ -10,5 +10,5 @@ and bottom-sediment fluxes enabled. Vertical mixing uses the GLS scheme, the equ
 nonlinear, and the bottom stress is quadratic.
 
 The netCDF files needed to run this test can be found in the
-`remora-data <https://github.com/seahorce-scidac/remora-data>`_
+`remora-data <https://github.com/remora-ocean/remora-data>`_
 repository under the ``BioToy`` directory.

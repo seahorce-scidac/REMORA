@@ -61,7 +61,7 @@ remora.do_rivers = true
 #remora.vertical_mixing_type = "gls"
 remora.bulk_fluxes = false
 
-# These files can be found at https://github.com/seahorce-scidac/REMORA-data
+# These files can be found at https://github.com/remora-ocean/REMORA-data
 remora.ic_bc_type       = "netcdf"
 remora.nc_init_file_0   = "idRiv_ini_consTS_v0.2_classic64.nc"
 remora.nc_grid_file_0   = "idRiv_grd_masked_v0.2_classic64.nc"

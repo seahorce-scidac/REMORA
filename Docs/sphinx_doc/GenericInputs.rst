@@ -68,7 +68,7 @@ On pull requests, ``generic-inputs-validate.yml``:
 
   .. code-block:: bash
 
-     git fetch https://github.com/seahorce-scidac/REMORA development
+     git fetch https://github.com/remora-ocean/REMORA development
      git checkout FETCH_HEAD -- Exec/Generic/inputs_generic
 
   To edit it deliberately, for example while changing the generator, label the

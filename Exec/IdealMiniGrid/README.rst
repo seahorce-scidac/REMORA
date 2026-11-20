@@ -23,6 +23,6 @@ the generator with ``--with-refinement`` first, and compare the grids the run pr
 ones in the file's header.
 
 The netCDF files needed to run these tests can be found in the
-`remora-data <https://github.com/seahorce-scidac/remora-data>`_
+`remora-data <https://github.com/remora-ocean/remora-data>`_
 repository under the ``IdealMiniGrid`` directory.
 
