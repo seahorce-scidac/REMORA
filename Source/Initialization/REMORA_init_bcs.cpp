@@ -730,6 +730,26 @@ void REMORA::init_bcs ()
         }
     }
 
+    // Tides apply only on sides whose normal barotropic velocity is Flather. Say which
+    // open or closed sides get none, once.
+    if (solverChoice.tide_type == TideType::netcdf) {
+        const std::array<std::string, 6> side_names = {"West", "South", "", "East", "North", ""};
+        for (OrientationIter oit; oit; ++oit) {
+            const Orientation ori = oit();
+            const int dir = ori.coordDir();
+            if (dir == 2 || geom[0].isPeriodic(dir)) { continue; }
+            const auto& normal_bc = domain_bcs_type[(dir == 0) ? ubar_bc() : vbar_bc()];
+            const auto normal_type = (ori.faceDir() == Orientation::low) ? normal_bc.lo(dir)
+                                                                         : normal_bc.hi(dir);
+            if (normal_type != REMORABCType::flather && ParallelDescriptor::IOProcessor()) {
+                amrex::Warning("remora.tide_type = netcdf: no tides on the " + side_names[ori] +
+                               " boundary, because its normal barotropic velocity (" +
+                               std::string(dir == 0 ? "ubar" : "vbar") + ") is not flather. "
+                               "Tides are applied only on Flather boundaries");
+            }
+        }
+    }
+
     // *****************************************************************************
     //
     // Here we translate the physical boundary conditions -- one type per face --
