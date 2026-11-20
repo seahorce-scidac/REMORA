@@ -388,7 +388,7 @@ function(add_test_run TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
 
     resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
 
-    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${OPTIONS} > ${TEST_NAME}.log 2>&1")
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${OPTIONS} > ${TEST_NAME}.log 2>&1 || (cat ${TEST_NAME}.log && false)")
 
     add_test(${TEST_NAME} ${test_command})
     set_tests_properties(${TEST_NAME}
@@ -1084,15 +1084,20 @@ add_test_abort(DogboneAnalytic_split_column_abort "remora_exec" "Boxes must hold
 # exactly, and restart must reject a checkpoint whose BiologyHeader model or Header
 # component list differs from the run's. MISSING_HEADER (accept|reject) says whether a
 # checkpoint without BiologyHeader restarts, as it does for models taking legacy files.
+# An optional final checkpoint compares every level array as well as the plotfile.
 function(add_test_checkpoint_restart TEST_NAME CHKFILE PLTFILE MISSING_HEADER)
     setup_test()
     resolve_test_exe("${TEST_DIR}" "remora_exec" TEST_EXE)
+    set(FINAL_CHECKPOINT "-")
+    if(ARGC GREATER 4)
+        set(FINAL_CHECKPOINT "${ARGV4}")
+    endif()
     # MPI_COMMANDS is deliberately split into launcher arguments for this script.
     separate_arguments(CHECKPOINT_MPI_COMMANDS NATIVE_COMMAND "${MPI_COMMANDS}")
     add_test(NAME ${TEST_NAME} COMMAND sh
         ${CMAKE_CURRENT_SOURCE_DIR}/check_checkpoint_restart.sh
         ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${FCOMPARE_EXE} ${CHKFILE} ${PLTFILE}
-        ${MISSING_HEADER} ${CHECKPOINT_MPI_COMMANDS} ${TEST_EXE})
+        ${MISSING_HEADER} ${FINAL_CHECKPOINT} ${SUBSET_COMPARE_EXE} ${CHECKPOINT_MPI_COMMANDS} ${TEST_EXE})
     set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 5400
         PROCESSORS ${NP} WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}"
         LABELS "regression")
@@ -1100,3 +1105,15 @@ endfunction()
 add_test_checkpoint_restart(Upwelling_Fennel_restart "chk00005" "plt00010" accept)
 # ECB takes no checkpoint without BiologyHeader.
 add_test_checkpoint_restart(Upwelling_ECB_restart    "chk00002" "plt00003" reject)
+
+# Retained turbulence is exact; new cells use the coarse latest history slot.
+add_test_run(GLS_regrid_lockstep Channel_Test_ML_seam remora_gls_regrid
+  "remora.n_cell=20 24 12 remora.fixed_dt=1 remora.max_step=1 remora.plot_int=-1 remora.check_int=-1 amr.regrid_int=-1 remora.do_substep=0")
+add_test_run(GLS_regrid_subcycle Channel_Test_ML_seam remora_gls_regrid
+  "remora.n_cell=20 24 12 remora.fixed_dt=1 remora.max_step=1 remora.plot_int=-1 remora.check_int=-1 amr.regrid_int=-1 remora.do_substep=1")
+
+foreach(mode lockstep subcycle)
+    compose_test_input(GLS_regrid_restart_${mode} Channel_Test_ML_seam)
+    add_test_checkpoint_restart(GLS_regrid_restart_${mode} "chk00001" "plt00003" accept
+                                "chk00003")
+endforeach()

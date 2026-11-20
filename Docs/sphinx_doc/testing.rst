@@ -64,6 +64,21 @@ parallel based on how many processes each test is specified to use and fit them 
 on the machine.
 Output for the last set of tests run is available in the ``Build`` directory in ``Testing/Temporary/LastTest.log``.
 
+GLS level lifecycle checks
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Run ``ctest -R GLS_regrid_ --output-on-failure`` for these channel-based checks:
+
+- ``GLS_regrid_lockstep`` and ``GLS_regrid_subcycle`` assert exact preservation of
+  retained turbulence fields, coarse latest-slot mapping into both new history slots,
+  transfer of predictor values including endpoints, and bounds on interpolated values.
+  A new patch spanning the periodic direction must have ghosts equal to their images.
+- ``GLS_regrid_restart_lockstep`` and ``GLS_regrid_restart_subcycle`` restart from a
+  checkpoint before a timed refinement-box expansion. Both runs regrid and must produce
+  identical final plotfiles and valid checkpoint values, including every GLS component.
+
+These tests need no NetCDF files or gold plotfiles and run with invalid-operation traps on.
+
 Adding Tests
 ~~~~~~~~~~~~
 

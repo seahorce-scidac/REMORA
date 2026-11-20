@@ -230,7 +230,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     stretch_transform(lev);
 
-    init_set_vmix(lev);
+    init_set_vmix(lev, true, time);
     set_hmixcoef(lev);
     set_coriolis(lev);
 
@@ -310,6 +310,14 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     MultiFab tmp_ru2d_new(convert(ba2d, IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0));
     MultiFab tmp_rv2d_new(convert(ba2d, IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0));
+
+    // init_stuff replaces the level arrays; retain the old fine turbulence first.
+    Vector<std::unique_ptr<MultiFab>> old_gls;
+    if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
+        for (const auto& field : gls_fields()) {
+            old_gls.push_back(std::move((*field.levels)[lev]));
+        }
+    }
 
     init_masks(lev, ba, dm);
 
@@ -426,7 +434,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     stretch_transform(lev);
 
-    init_set_vmix(lev);
+    init_set_vmix(lev, true, time, old_gls);
     set_hmixcoef(lev);
     set_coriolis(lev);
     bool apply_eminusp = false;
@@ -1568,5 +1576,98 @@ REMORA::fill_3d_masks (int lev)
         {
             mskr3d(i,j,k) = mskr(i,j,0);
         });
+    }
+}
+
+/** Describe each GLS field's boundary conditions, component bounds and history slots. */
+Vector<REMORA::GLSField>
+REMORA::gls_fields ()
+{
+    return {{"tke",    &vec_tke,    tke_bc(),  {solverChoice.gls_Kmin}, true},
+            {"gls",    &vec_gls,    tke_bc(),  {solverChoice.gls_Pmin}, true},
+            {"Lscale", &vec_Lscale, -1,        {Real(0)}, false},
+            {"Akv",    &vec_Akv,    -1,        {solverChoice.Akv_bak}, false},
+            {"Akt",    &vec_Akt,    zvel_bc(), {solverChoice.Akt_bak[0],
+                                              solverChoice.Akt_bak[1]}, false},
+            {"Akk",    &vec_Akk,    -1,        {solverChoice.Akk_bak}, false},
+            {"Akp",    &vec_Akp,    -1,        {solverChoice.Akp_bak}, false}};
+}
+
+/**
+ * Carry GLS state through a level creation or remake without restarting the closure.
+ *
+ * @param[in   ] lev       fine level being filled
+ * @param[in   ] time      regrid time
+ * @param[in   ] old_fine  retained fine fields, or an empty vector for a new level
+ */
+void
+REMORA::remap_gls_state (int lev, Real time,
+                        const Vector<std::unique_ptr<MultiFab>>& old_fine)
+{
+    const int coarse_latest = istep[lev-1] % 2;
+    int field_index = 0;
+    for (const auto& field : gls_fields()) {
+        auto& dst = *(*field.levels)[lev];
+        auto& coarse = *(*field.levels)[lev-1];
+        const MultiFab* retained_fine = old_fine.empty() ? nullptr : old_fine[field_index].get();
+        ++field_index;
+        iMultiFab interpolated(dst.boxArray(), dst.DistributionMap(), 1, dst.nGrowVect());
+        interpolated.setVal(1);
+        if (retained_fine) {
+            const auto& src_fine = *retained_fine;
+            iMultiFab retained(src_fine.boxArray(), src_fine.DistributionMap(), 1, 0);
+            retained.setVal(0);
+            interpolated.ParallelCopy(retained, 0, 0, 1, IntVect(0), dst.nGrowVect(),
+                                      geom[lev].periodicity());
+        }
+
+        // The predictor step rebuilds only interior w levels. Its surface and bottom
+        // values enter vertical advection, so transfer the predictor component too.
+        const int ncomp = dst.nComp();
+        for (int comp = 0; comp < ncomp; ++comp) {
+            const int coarse_comp = field.has_history && comp < 2 ? coarse_latest : comp;
+            MultiFab crse_alias(coarse, make_alias, coarse_comp, 1);
+            MultiFab dst_alias(dst, make_alias, comp, 1);
+            const bool apply_bcs = field.bccomp >= 0;
+            const int bccomp = apply_bcs ? field.bccomp : zvel_bc();
+            if (retained_fine) {
+                MultiFab fine_alias(*retained_fine, make_alias, comp, 1);
+                Vector<MultiFab*> sources(lev+1, nullptr);
+                sources[lev-1] = &crse_alias;
+                sources[lev] = &fine_alias;
+                if (apply_bcs) {
+                    FillPatch(lev, time, dst_alias, sources, bccomp,
+                              BdyVars::null, 0, true, false);
+                } else {
+                    FillPatchNoBC(lev, time, dst_alias, sources, BdyVars::null, 0, true, false);
+                }
+            } else if (apply_bcs) {
+                FillCoarsePatch(lev, time, &dst_alias, &crse_alias, bccomp,
+                                BdyVars::null, 0, false);
+            } else {
+                MultiFab crse_scratch;
+                const MultiFab& src = coarse_for_interp(lev-1, crse_alias, crse_scratch);
+                amrex::InterpFromCoarseLevel(dst_alias, dst_alias.nGrowVect(), IntVect(0),
+                    src, 0, 0, 1, geom[lev-1], geom[lev], refRatio(lev-1),
+                    &face_cons_linear_interp, domain_bcs_type, bccomp);
+                // Nodal interpolation can leave seam ghosts different from their images.
+                dst_alias.FillBoundary(geom[lev].periodicity());
+            }
+
+            const Real lower = field.lower.size() == 1 ? field.lower[0] : field.lower[comp];
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(dst_alias, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                auto values = dst_alias.array(mfi);
+                auto mask = interpolated.const_array(mfi);
+                ParallelFor(mfi.growntilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    if (mask(i,j,k)) {
+                        values(i,j,k) = amrex::max(values(i,j,k), lower);
+                    }
+                });
+            }
+        }
     }
 }
