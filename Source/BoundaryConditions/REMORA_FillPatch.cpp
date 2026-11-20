@@ -1098,7 +1098,7 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
                          const MultiFab& mf_calc,
                                amrex::Interpolater* mapper)
 {
-    BL_PROFILE_VAR("FillCoarsePatch()",FillCoarsePatch);
+    BL_PROFILE_VAR("REMORA::FillCoarsePatchMap()",FillCoarsePatch);
     AMREX_ASSERT(lev > 0);
 
     MultiFab* mask = nullptr;

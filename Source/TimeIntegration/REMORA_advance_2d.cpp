@@ -151,7 +151,7 @@ REMORA::advance_2d (int lev,
                    bool first_2d_step, int my_iif,
                    int & next_indx1)
 {
-    BL_PROFILE("REMORA::advance2d()");
+    BL_PROFILE("REMORA::advance_2d()");
     int iic = istep[lev];
     const int nstp  = 0;
     int ntfirst = 0;
