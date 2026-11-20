@@ -2262,6 +2262,8 @@ private:
     struct CF2DCache {
         std::unique_ptr<amrex::MultiFab>  vals;
         std::unique_ptr<amrex::iMultiFab> mask;
+        /** \brief the cells where mask is set, which the record and replay copy */
+        MaskPoints pts;
         amrex::Vector<amrex::Real> time;
         amrex::Vector<long> gen;
         /** \brief the coarse data each component was interpolated from: the old snapshot of

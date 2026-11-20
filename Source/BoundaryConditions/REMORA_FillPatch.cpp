@@ -4,6 +4,7 @@
 #include <REMORA_TimeInterpolatedData.H>
 #include <REMORA_BitwiseDiff.H>
 #include <REMORA_BoxLocalLoops.H>
+#include <REMORA_MaskPoints.H>
 
 #include <optional>
 
@@ -12,37 +13,63 @@ using namespace amrex;
 PhysBCFunctNoOp null_bc;
 
 namespace {
-/** \brief d = a wherever m is set */
+/** \brief d = a at the listed cells */
 struct CopyOnMask
 {
     Array4<Real> d;
     Array4<Real const> a;
-    Array4<int const> m;
+    const Dim3* pts;
 
     AMREX_GPU_DEVICE AMREX_FORCE_INLINE
-    void operator() (int i, int j, int k) const noexcept
+    void operator() (int p) const noexcept
     {
-        if (m(i,j,k)) { d(i,j,k) = a(i,j,k); }
+        const Dim3 c = pts[p];
+        d(c.x,c.y,c.z) = a(c.x,c.y,c.z);
     }
 };
 
-/** \brief dst(comp) = src(comp) wherever mask is set, ghost cells included */
-void copy_on_mask (MultiFab& dst, const MultiFab& src, const iMultiFab& mask, int comp)
+/** \brief CopyOnMask for three fields in one loop: points [0, n0) of f0, then [n0, n01) of f1,
+ *         then those of f2 */
+struct CopyOnMask3
+{
+    CopyOnMask f0;
+    CopyOnMask f1;
+    CopyOnMask f2;
+    int n0;
+    int n01;
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void operator() (int p) const noexcept
+    {
+        if (p < n0) {
+            f0(p);
+        } else if (p < n01) {
+            f1(p - n0);
+        } else {
+            f2(p - n01);
+        }
+    }
+};
+
+/** \brief dst(comp) = src(comp) at the cells of pts (where the mask it lists is set), ghost
+ *         cells included */
+void copy_on_mask (MultiFab& dst, const MultiFab& src, const MaskPoints& pts, int comp)
 {
     BL_PROFILE("copy_on_mask()");
+    AMREX_ASSERT(pts.matches(dst) && pts.matches(src));
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        ParallelFor(mfi.growntilebox(), CopyOnMask{dst.array(mfi, comp), src.const_array(mfi, comp),
-                                                   mask.const_array(mfi)});
+    for (MFIter mfi(dst); mfi.isValid(); ++mfi) {
+        ParallelFor(pts.size(mfi), CopyOnMask{dst.array(mfi, comp), src.const_array(mfi, comp),
+                                              pts.data(mfi)});
     }
 }
 
 /** \brief copy_on_mask for three fields on one layout (any index types). On GPU one launch
  *         per box covers all three. */
 void copy_on_mask3 (MultiFab* const dst[3], const MultiFab* const src[3],
-                    const iMultiFab* const mask[3], int comp)
+                    const MaskPoints* const pts[3], int comp)
 {
 #ifdef AMREX_USE_GPU
     if (Gpu::inLaunchRegion()) {
@@ -54,26 +81,26 @@ void copy_on_mask3 (MultiFab* const dst[3], const MultiFab* const src[3],
                          && dst[n]->DistributionMap() == dst[0]->DistributionMap());
         }
         for (int n = 0; n < 3; ++n) {
-            AMREX_ASSERT(src[n]->boxArray() == dst[n]->boxArray()
-                         && src[n]->DistributionMap() == dst[n]->DistributionMap()
-                         && mask[n]->boxArray() == dst[n]->boxArray()
-                         && mask[n]->DistributionMap() == dst[n]->DistributionMap());
+            AMREX_ASSERT(pts[n]->matches(*dst[n]) && pts[n]->matches(*src[n]));
         }
         for (MFIter mfi(*dst[0]); mfi.isValid(); ++mfi) {
             const int b = mfi.index();
-            ParallelFor(dst[0]->fabbox(b), dst[1]->fabbox(b), dst[2]->fabbox(b),
-                        CopyOnMask{dst[0]->array(b, comp), src[0]->const_array(b, comp),
-                                   mask[0]->const_array(b)},
-                        CopyOnMask{dst[1]->array(b, comp), src[1]->const_array(b, comp),
-                                   mask[1]->const_array(b)},
-                        CopyOnMask{dst[2]->array(b, comp), src[2]->const_array(b, comp),
-                                   mask[2]->const_array(b)});
+            const int n0 = pts[0]->size(mfi);
+            const int n01 = n0 + pts[1]->size(mfi);
+            ParallelFor(n01 + pts[2]->size(mfi),
+                        CopyOnMask3{CopyOnMask{dst[0]->array(b, comp), src[0]->const_array(b, comp),
+                                               pts[0]->data(mfi)},
+                                    CopyOnMask{dst[1]->array(b, comp), src[1]->const_array(b, comp),
+                                               pts[1]->data(mfi)},
+                                    CopyOnMask{dst[2]->array(b, comp), src[2]->const_array(b, comp),
+                                               pts[2]->data(mfi)},
+                                    n0, n01});
         }
         return;
     }
 #endif
     for (int n = 0; n < 3; ++n) {
-        copy_on_mask(*dst[n], *src[n], *mask[n], comp);
+        copy_on_mask(*dst[n], *src[n], *pts[n], comp);
     }
 }
 
@@ -496,7 +523,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         }
 
         if (hit && cf_2d_fill_cache == 1) {
-            copy_on_mask(mf_to_fill, *cache->vals, *cache->mask, icomp);
+            copy_on_mask(mf_to_fill, *cache->vals, cache->pts, icomp);
             mf_to_fill.FillBoundary(icomp, 1, mf_to_fill.nGrowVect(), geom[lev].periodicity());
         } else {
             Vector<MultiFab*> fmf = {mfs[lev], mfs[lev]};
@@ -535,7 +562,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                                  + ")");
                 }
             } else if (cacheable) {
-                copy_on_mask(*cache->vals, mf_to_fill, *cache->mask, icomp);
+                copy_on_mask(*cache->vals, mf_to_fill, cache->pts, icomp);
                 cache->gen[icomp]  = gen;
                 cache->time[icomp] = time;
                 cache->src[icomp]  = crse_src;
@@ -665,8 +692,8 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
     {
         BoxLocalLoops copy_local;
         const MultiFab* vals[3]   = {cache[0]->vals.get(), cache[1]->vals.get(), cache[2]->vals.get()};
-        const iMultiFab* masks[3] = {cache[0]->mask.get(), cache[1]->mask.get(), cache[2]->mask.get()};
-        copy_on_mask3(mfs, vals, masks, knew);
+        const MaskPoints* pts[3]  = {&cache[0]->pts, &cache[1]->pts, &cache[2]->pts};
+        copy_on_mask3(mfs, vals, pts, knew);
     }
     if (before_exchange) { before_exchange(); }
     const Periodicity& per = geom[lev].periodicity();
@@ -710,7 +737,9 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
  * dropped and the mask is rebuilt: the ghost cells a two-level fill of mf writes, which is
  * the coarse-fine ghost region together with whatever the interpolater's patches overlap.
  * Rather than restate AMReX's region logic, run the same fill on a probe whose ghost cells
- * hold a sentinel no fill can produce (valid cells 0, parent 1) and mark what changed.
+ * hold a sentinel no fill can produce (valid cells 0, parent 1) and mark what changed. The
+ * record and replay copy only the cells so marked, from a list of them (CF2DCache::pts); the
+ * mask itself stays for the checks of remora.cf_2d_fill_cache = 2.
  *
  * @param[in] lev     fine level
  * @param[in] slot    cache slot (0 ubar, 1 vbar, 2 zeta)
@@ -776,6 +805,7 @@ REMORA::cf_2d_cache_entry (int lev, int slot, const MultiFab& mf, const MultiFab
             m(i,j,k) = (cv(i,j,k) == 0 && pr(i,j,k) != sentinel) ? 1 : 0;
         });
     }
+    c.pts.define(*c.mask, 1);
 }
 
 /**
