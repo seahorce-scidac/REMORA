@@ -2,6 +2,7 @@
 #define REMORA_FILLPATCHER_H_
 
 #include <REMORA_Constants.H>
+#include <REMORA_MaskPoints.H>
 #include <AMReX_FillPatchUtil.H>
 #include <AMReX_Interp_C.H>
 #include <AMReX_MFInterp_C.H>
@@ -107,6 +108,9 @@ private:
     amrex::Real m_kept_time{0};
     /** \brief SetValuesFromCoarseOnly for the current layout: -1 not yet known, else 0 or 1 */
     int m_set_pure{-1};
+    /** \brief the cells where m_cf_mask is m_set_mask, which FillSetKept keeps and replays;
+     *  listed on its first use for the current layout */
+    MaskPoints m_set_pts;
 };
 
 /**

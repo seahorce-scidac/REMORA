@@ -74,6 +74,7 @@ void REMORAFillPatcher::Define (BoxArray const& fba, DistributionMapping const& 
     m_kept.reset();
     m_kept_reg = -1;
     m_set_pure = -1;
+    m_set_pts = MaskPoints{};
     ++m_reg_count;
     if (m_cf_crse_data_old) m_cf_crse_data_old.reset();
     if (m_cf_crse_data_new) m_cf_crse_data_new.reset();
@@ -297,7 +298,8 @@ bool REMORAFillPatcher::SetValuesFromCoarseOnly ()
  * registered data, time and layout writes them again instead of interpolating. That gives the
  * same values only when they depend on the coarse data alone (SetValuesFromCoarseOnly);
  * otherwise every call interpolates. With check, a replay also interpolates into a copy of mf
- * and aborts if any set value differs in bit pattern from the kept one.
+ * and aborts if any set value differs in bit pattern from the kept one. Keeping and replaying
+ * loop over the list of set cells (m_set_pts), not over whole boxes.
  *
  * @param[inout] mf     fine data
  * @param[in]    time   time to fill at
@@ -309,6 +311,7 @@ void REMORAFillPatcher::FillSetKept (MultiFab& mf, Real time, Vector<BCRec> cons
 {
     BL_PROFILE("REMORAFillPatcher::FillSetKept()");
     if (m_set_pure < 0) { m_set_pure = SetValuesFromCoarseOnly() ? 1 : 0; }
+    if (m_set_pure && !m_set_pts.matches(*m_cf_mask)) { m_set_pts.define(*m_cf_mask, m_set_mask); }
 
     // Fill writes every component of the set cells, but one of a z-face
     const IndexType ixt = mf.boxArray().ixType();
@@ -317,6 +320,7 @@ void REMORAFillPatcher::FillSetKept (MultiFab& mf, Real time, Vector<BCRec> cons
     const bool same_layout = m_kept && m_kept->boxArray() == mf.boxArray()
                              && m_kept->DistributionMap() == mf.DistributionMap();
     const int set_mask = m_set_mask;
+    const MaskPoints& pts = m_set_pts;
 
     PhysBCFunctNoOp no_bc;
     if (m_set_pure && same_layout && m_kept_reg == m_reg_count && m_kept_time == time) {
@@ -331,13 +335,17 @@ void REMORAFillPatcher::FillSetKept (MultiFab& mf, Real time, Vector<BCRec> cons
                       "FillSet in " + std::to_string(ndiff) + " points");
             }
         }
-        for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
             auto const& f = mf.array(mfi);
             auto const& kept = m_kept->const_array(mfi);
-            auto const& m = m_cf_mask->const_array(mfi);
-            ParallelFor(mfi.tilebox(), nwrite, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            const Dim3* p = pts.data(mfi);
+            ParallelFor(pts.size(mfi), [=] AMREX_GPU_DEVICE (int q)
             {
-                if (m(i,j,k) == set_mask) { f(i,j,k,n) = kept(i,j,k,n); }
+                const Dim3 c = p[q];
+                for (int n = 0; n < nwrite; ++n) { f(c.x,c.y,c.z,n) = kept(c.x,c.y,c.z,n); }
             });
         }
         return;
@@ -349,13 +357,17 @@ void REMORAFillPatcher::FillSetKept (MultiFab& mf, Real time, Vector<BCRec> cons
     if (!same_layout) {
         m_kept = std::make_unique<MultiFab>(mf.boxArray(), mf.DistributionMap(), m_ncomp, 0);
     }
-    for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
         auto const& f = mf.const_array(mfi);
         auto const& kept = m_kept->array(mfi);
-        auto const& m = m_cf_mask->const_array(mfi);
-        ParallelFor(mfi.tilebox(), nwrite, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        const Dim3* p = pts.data(mfi);
+        ParallelFor(pts.size(mfi), [=] AMREX_GPU_DEVICE (int q)
         {
-            if (m(i,j,k) == set_mask) { kept(i,j,k,n) = f(i,j,k,n); }
+            const Dim3 c = p[q];
+            for (int n = 0; n < nwrite; ++n) { kept(c.x,c.y,c.z,n) = f(c.x,c.y,c.z,n); }
         });
     }
     m_kept_reg  = m_reg_count;
