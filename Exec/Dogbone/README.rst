@@ -2,6 +2,6 @@ The Dogbone problem is a standard test in `ROMS <https://www.myroms.org/wiki/Tes
 ``inputs`` file matches the unrefined ``dogbone_whole`` case.
 
 The netCDF files needed to run these tests can be found in the
-`remora-data <https://github.com/seahorce-scidac/remora-data>`_
+`remora-data <https://github.com/remora-ocean/remora-data>`_
 repository under the ``Dogbone`` directory.
 

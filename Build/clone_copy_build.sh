@@ -4,7 +4,7 @@ set -e
 
 umask 002
 
-git clone --recursive git@github.com:seahorce-scidac/REMORA
+git clone --recursive git@github.com:remora-ocean/REMORA
 git clone --recursive git@github.com:seahorce-scidac/COAWST
 
 cd COAWST

@@ -96,7 +96,7 @@ void REMORA::print_banner(MPI_Comm comm, std::ostream& out)
 
     // clang-format off
     out << dbl_line
-        << "                REMORA (https://github.com/seahorce-scidac/REMORA)"
+        << "                REMORA (https://github.com/remora-ocean/REMORA)"
         << std::endl << std::endl
         << "  REMORA Git SHA   :: " << githash1 << std::endl
         << "  AMReX Git SHA    :: " << githash2 << std::endl
@@ -137,7 +137,7 @@ void REMORA::print_banner(MPI_Comm comm, std::ostream& out)
 
     out << "           This software is released under the BSD 3-clause license.           "
         << std::endl
-        << " See https://github.com/seahorce-scidac/REMORA/blob/development/LICENSE.md for details. "
+        << " See https://github.com/remora-ocean/REMORA/blob/development/LICENSE.md for details. "
         << dash_line << std::endl;
     // clang-format on
 }

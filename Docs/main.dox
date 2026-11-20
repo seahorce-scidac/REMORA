@@ -26,13 +26,13 @@
   \section getting_started Getting Started
 
   To get started, please see the
-  <a href="https://github.com/seahorce-scidac/REMORA/README.rst">
+  <a href="https://github.com/remora-ocean/REMORA/README.rst">
   README</a> at GitHub.
 
   \section dev_model Development Model
 
   Please see the
-  <a href="https://github.com/seahorce-scidac/REMORA/CONTRIBUTING.md">
+  <a href="https://github.com/remora-ocean/REMORA/CONTRIBUTING.md">
   CONTRIBUTING</a> document on GitHub for details on how to contribute to
   this project.
 

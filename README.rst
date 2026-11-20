@@ -21,7 +21,7 @@ Documentation
 
 Documentation of the REMORA theory and implementation is available `here <https://remora-ocean.readthedocs.io/en/latest/>`_ .
 
-In addition, there is doxygen documentation of the REMORA Code available `here <https://seahorce-scidac.github.io/docs/index.html>`_
+In addition, there is doxygen documentation of the REMORA Code available `here <https://remora-ocean.github.io/docs/index.html>`_
 
 Development model
 ~~~~~~~~~~~~~~~~~
