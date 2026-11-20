@@ -68,7 +68,7 @@ remora.do_m2_clim_nudg = true
 remora.do_temp_clim_nudg = true
 remora.do_salt_clim_nudg = true
 
-# These files can be found at https://github.com/seahorce-scidac/REMORA-data
+# These files can be found at https://github.com/remora-ocean/REMORA-data
 remora.ic_bc_type       = "netcdf"
 remora.nc_init_file_0   = "idmini_ini_v2_classic64.nc"
 remora.nc_grid_file_0   = "idmini_grd_v1_classic64.nc"

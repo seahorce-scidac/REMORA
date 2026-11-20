@@ -32,7 +32,7 @@ permissions:
 
 jobs:
   update-generic-inputs:
-    if: github.repository == 'seahorce-scidac/REMORA'
+    if: github.repository == 'remora-ocean/REMORA'
     runs-on: ubuntu-latest
     environment: inputs-bot
 

@@ -8,4 +8,4 @@ Doxygen Documentation
 =====================
 
 For details about the REMORA code structure and APIs,
-see the `Doxygen documentation <https://seahorce-scidac.github.io/docs/index.html>`_
+see the `Doxygen documentation <https://remora-ocean.github.io/docs/index.html>`_

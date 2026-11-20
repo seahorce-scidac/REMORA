@@ -100,7 +100,7 @@ remora.lwrad_type = "computed"
 remora.rain_type = "netcdf"
 remora.qair_is_percent = 1
 
-# These files can be found at https://github.com/seahorce-scidac/REMORA-data
+# These files can be found at https://github.com/remora-ocean/REMORA-data
 remora.ic_bc_type       = "netcdf"
 remora.nc_init_file_0   = "bio_toy_ini_fennel_classic64.nc"
 remora.nc_grid_file_0   = "bio_toy_grd_classic64.nc"
