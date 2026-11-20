@@ -141,6 +141,7 @@ void NCTimeSeriesRiver::Initialize() {
 }
 
 void NCTimeSeriesRiver::update_interpolated_to_time (double time) {
+    BL_PROFILE("NCTimeSeriesRiver::update_interpolated_to_time()");
     // Figure out time index:
     int i_time_before_old = i_time_before;
     int i_time_new = -1;
@@ -191,6 +192,7 @@ void NCTimeSeriesRiver::update_interpolated_to_time (double time) {
 }
 
 void NCTimeSeriesRiver::read_in_at_time (amrex::FArrayBox* fab_dat, int itime) {
+    BL_PROFILE("NCTimeSeriesRiver::read_in_at_time()");
     amrex::FArrayBox NC_fab;
     amrex::Vector<amrex::FArrayBox*> NC_fabs;
     amrex::Vector<std::string> NC_names;

@@ -304,6 +304,7 @@ REMORABiology::FennelBiology::components (int component_start) const
 void
 REMORABiology::FennelBiology::advance (const BiologyAdvanceContext& context) const
 {
+    BL_PROFILE("FennelBiology::advance()");
     if (m_parameters.BioIter <= 0) {
         return;
     }

@@ -3890,6 +3890,7 @@ void
 REMORA::advance_biology (int lev, amrex::MultiFab const& old_state,
                         amrex::MultiFab& new_state, int N, amrex::Real dt_lev)
 {
+    BL_PROFILE("REMORA::advance_biology()");
     if (nbio == 0) {
         return;
     }

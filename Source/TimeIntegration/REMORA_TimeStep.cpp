@@ -10,6 +10,7 @@ using namespace amrex;
 void
 REMORA::timeStep (int lev, Real time, int iteration)
 {
+    BL_PROFILE("REMORA::timeStep()");
     if (regrid_int > 0)  // We may need to regrid
     {
         // help keep track of whether a level was already regridded

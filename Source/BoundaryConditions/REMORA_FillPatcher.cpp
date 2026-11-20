@@ -307,6 +307,7 @@ bool REMORAFillPatcher::SetValuesFromCoarseOnly ()
 void REMORAFillPatcher::FillSetKept (MultiFab& mf, Real time, Vector<BCRec> const& bcs,
                                      bool check)
 {
+    BL_PROFILE("REMORAFillPatcher::FillSetKept()");
     if (m_set_pure < 0) { m_set_pure = SetValuesFromCoarseOnly() ? 1 : 0; }
 
     // Fill writes every component of the set cells, but one of a z-face
@@ -370,6 +371,7 @@ void REMORAFillPatcher::InterpFace (MultiFab& fine,
                                  MultiFab const& crse,
                                  int mask_val)
 {
+    BL_PROFILE("REMORAFillPatcher::InterpFace()");
     int ncomp = m_ncomp;
     IntVect ratio = m_ratio;
 
@@ -495,6 +497,7 @@ void REMORAFillPatcher::InterpCell (MultiFab& fine,
                                  Vector<BCRec> const& bcr,
                                  int mask_val)
 {
+    BL_PROFILE("REMORAFillPatcher::InterpCell()");
     int ncomp = m_ncomp;
     IntVect ratio = m_ratio;
     IndexType m_ixt = fine.boxArray().ixType();

@@ -70,6 +70,7 @@ void group_average_faces (MultiFab& mf, const iMultiFab& mask, int set_mask, int
 void
 REMORA::store_2d_flux (int lev)
 {
+    BL_PROFILE("REMORA::store_2d_flux()");
     // The previous step's end-of-step value is this step's start-of-step value: DU_avg2 is
     // accumulated during a step and only meaningful once it is over.
     MultiFab::Copy(*vec_Dubar_old[lev], *vec_Dubar_new[lev], 0, 0, 1,

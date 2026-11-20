@@ -9,6 +9,7 @@ using namespace amrex;
 void
 REMORA::timeStepML (Real time, int /*iteration*/)
 {
+    BL_PROFILE("REMORA::timeStepML()");
 #if 0
     if (time == zero && solverChoice.init_l1ad_T) {
         average_down(*cons_new[1], *cons_new[0],

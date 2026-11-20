@@ -452,6 +452,7 @@ void
 LatLonRegrid::apply (const std::string& file_name, const std::string& field_name, int itime,
                      MultiFab& dst) const
 {
+    BL_PROFILE("LatLonRegrid::apply()");
     // Each rank reads its own box of the record, (time, lat, lon) in the file: one piece,
     // or two when the box runs past the last longitude and wraps to the first. Every rank
     // joins both collective reads, with an empty count for a piece it does not have.

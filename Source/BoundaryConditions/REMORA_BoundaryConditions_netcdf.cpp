@@ -20,6 +20,7 @@ void
 REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_mask, const Real time, const int bccomp,
                             const int bdy_var_type, const int icomp_to_fill, const int icomp_calc, const MultiFab& mf_calc, const Real dt_calc)
 {
+    BL_PROFILE("REMORA::fill_from_bdyfiles()");
     // Which variable are we filling
     int ivar = bdy_var_type;
 

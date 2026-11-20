@@ -292,6 +292,7 @@ bool fits_level (const ncutils::NCFile& ncf, const amrex::Box& subdomain)
  */
 void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
                              MultiFab const* mf_omega, MultiFab const* mf_wvel) {
+    BL_PROFILE("REMORA::WriteNCPlotFile()");
     // Each level is written to its own file, _d02 and up for the refined levels, the way
     // ROMS names a nested grid. Every level's file covers the whole domain at that level's
     // resolution, so a level covering nx by ny cells gets xi_rho = nx+2, xi_u = nx+1 and

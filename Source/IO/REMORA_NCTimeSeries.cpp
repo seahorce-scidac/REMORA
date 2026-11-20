@@ -413,6 +413,7 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
                                                 amrex::MultiFab* mf_lev,
                                                 const amrex::Vector<amrex::Geometry>& geom,
                                                 const amrex::Vector<amrex::IntVect>& ref_ratio) {
+    BL_PROFILE("NCTimeSeries::update_interpolated_to_time()");
 
     // Wrap into [ocean_times[0], ocean_times[0]+cycle_length], which the padded time
     // array always covers. The phase is taken relative to the first stored time rather

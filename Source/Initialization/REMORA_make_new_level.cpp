@@ -90,6 +90,7 @@ void
 REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
                                const DistributionMapping& dm)
 {
+    BL_PROFILE("REMORA::MakeNewLevelFromCoarse()");
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
         b.setRange(2,0);
@@ -265,6 +266,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 void
 REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMapping& dm)
 {
+    BL_PROFILE("REMORA::RemakeLevel()");
 
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
@@ -466,6 +468,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba_in,
                                      const DistributionMapping& dm_in)
 {
+    BL_PROFILE("REMORA::MakeNewLevelFromScratch()");
     BoxArray ba = ba_in;
     DistributionMapping dm = dm_in;
     // Decided once, when the run starts: a restart keeps the checkpoint's BoxArray, which

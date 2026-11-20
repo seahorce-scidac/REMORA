@@ -268,6 +268,7 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
 void
 REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 {
+    BL_PROFILE("REMORA::ErrorEst()");
     const int clearval = TagBox::CLEAR;
     const int   tagval = TagBox::SET;
 
