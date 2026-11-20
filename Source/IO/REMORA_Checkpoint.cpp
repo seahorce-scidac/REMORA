@@ -14,6 +14,7 @@ REMORA::GotoNextLine (std::istream& is)
 void
 REMORA::WriteCheckpointFile ()
 {
+    BL_PROFILE("REMORA::WriteCheckpointFile()");
     update_wvel();
 
     // chk00010            write a checkpoint file with this root directory
@@ -277,6 +278,7 @@ REMORA::WriteCheckpointFile ()
 void
 REMORA::ReadCheckpointFile ()
 {
+    BL_PROFILE("REMORA::ReadCheckpointFile()");
     amrex::Print() << "Restart from checkpoint " << restart_chkfile << "\n";
 
     const std::string biology_file = restart_chkfile + "/BiologyHeader";

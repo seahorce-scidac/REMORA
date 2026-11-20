@@ -96,6 +96,7 @@ REMORA::Advance (int lev, Real time, Real dt_lev, int iteration, int ncycle)
 void
 REMORA::register_coarse_data (int lev, Real time, Real dt_lev)
 {
+    BL_PROFILE("REMORA::register_coarse_data()");
     // At the end of Advance, once the new state is valid. The parent completes its whole
     // step before any child substep, so {t_old, t_new} brackets every time the child asks for.
     if (lev >= finest_level) { return; }

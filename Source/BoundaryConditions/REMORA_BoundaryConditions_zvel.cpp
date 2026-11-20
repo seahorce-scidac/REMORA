@@ -18,6 +18,7 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
                                         const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/,const Array4<const Real>& mskr,
                                         Real /*time*/, int bccomp)
 {
+    BL_PROFILE("impose_zvel_bcs()");
     const auto& dom_lo = amrex::lbound(domain);
     const auto& dom_hi = amrex::ubound(domain);
 

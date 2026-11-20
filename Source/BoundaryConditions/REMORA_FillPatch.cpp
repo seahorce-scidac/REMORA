@@ -1098,7 +1098,7 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
                          const MultiFab& mf_calc,
                                amrex::Interpolater* mapper)
 {
-    BL_PROFILE_VAR("FillCoarsePatch()",FillCoarsePatch);
+    BL_PROFILE_VAR("REMORA::FillCoarsePatchMap()",FillCoarsePatch);
     AMREX_ASSERT(lev > 0);
 
     MultiFab* mask = nullptr;
@@ -1285,6 +1285,7 @@ cc_vel_bdy_mult (REMORA_BC bc, bool is_normal)
 void
 REMORA::FillBdyCCVels (int lev, MultiFab& mf_cc_vel)
 {
+    BL_PROFILE("REMORA::FillBdyCCVels()");
     // Impose bc's at domain boundaries
     Box domain(Geom(lev).Domain());
 

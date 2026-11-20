@@ -103,6 +103,7 @@ refine_in_z (const MultiFab& src, MultiFab& dst, int rz)
 void
 REMORA::WritePlotFile (int istep_for_plot)
 {
+    BL_PROFILE("REMORA::WritePlotFile()");
 #ifndef REMORA_USE_NETCDF
     amrex::ignore_unused(istep_for_plot);
 #endif
@@ -1408,6 +1409,7 @@ REMORA::check_plot_nodal_z (const Vector<const MultiFab*>& nd, const Vector<Geom
 void
 REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 {
+    BL_PROFILE("REMORA::mask_arrays_for_write()");
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
         Box gbx1 = mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0));
         Box gbx_coeff = mfi.growntilebox(IntVect(NGROW,NGROW,0));

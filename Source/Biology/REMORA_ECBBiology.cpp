@@ -150,6 +150,7 @@ REMORABiology::ECBBiology::configure (const std::string& remora_prefix)
 void
 REMORABiology::ECBBiology::advance (const BiologyAdvanceContext& context) const
 {
+    BL_PROFILE("ECBBiology::advance()");
     const auto parms = m_parameters;
     if (parms.BioIter <= 0) {
         return;

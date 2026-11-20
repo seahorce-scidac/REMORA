@@ -345,6 +345,7 @@ RemapOrCopy (const amrex::MultiFab& src, amrex::MultiFab& dst,
 amrex::Real
 REMORA::EvolveOneStep (amrex::Real /*time*/, amrex::Real /*dt_request*/)
 {
+    BL_PROFILE("REMORA::EvolveOneStep()");
     Real cur_time = t_new[0];
     const int step = istep[0];
 
@@ -547,6 +548,7 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state,
                           int max_stencil_size,
                           const amrex::iMultiFab* dst_land_mask)
 {
+    BL_PROFILE("REMORA::PackSurfaceState()");
     if (state.empty() || state[SSTIndex] == nullptr) { return; }
     const int lev = 0;
 
@@ -639,6 +641,7 @@ REMORA::PackSurfaceCurrents (MultiFab& east_dst, MultiFab& north_dst,
                              int max_stencil_size,
                              const iMultiFab* dst_land_mask)
 {
+    BL_PROFILE("REMORA::PackSurfaceCurrents()");
     const int lev = 0;
     const int k_sfc = cons_new[lev]->boxArray().minimalBox().bigEnd(2);
     const BoxArray ba2d = SurfaceSlabLayout(cons_new[lev]->boxArray());
@@ -683,6 +686,7 @@ REMORA::PackSurfaceCurrents (MultiFab& east_dst, MultiFab& north_dst,
 void
 REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
 {
+    BL_PROFILE("REMORA::ApplyAtmosphericStates()");
     running_with_coupling_driver = true;
     driver_atmos_forcing_mode = DriverAtmosForcingMode::State;
     driver_atmos_state_from_driver.fill(false);
@@ -778,6 +782,7 @@ REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
 void
 REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
 {
+    BL_PROFILE("REMORA::ApplyAtmosphericFluxes()");
     running_with_coupling_driver = true;
     driver_atmos_forcing_mode = DriverAtmosForcingMode::Flux;
     driver_atmos_state_from_driver.fill(false);

@@ -43,6 +43,7 @@ int fidx (int i, int j, int k, int n,
 void
 REMORABiology::FennelBiology::advance_fortran (const BiologyAdvanceContext& context) const
 {
+    BL_PROFILE("FennelBiology::advance_fortran()");
 #ifdef AMREX_USE_GPU
     amrex::ignore_unused(context);
     amrex::Abort("Fennel Fortran bridge is host-only. Serial-first acceptance "
