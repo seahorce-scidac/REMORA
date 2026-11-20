@@ -21,7 +21,8 @@ class NCTimeSeriesRiver
 
         void Initialize ();
 
-        /// Calculate interpolated values at time, in seconds on the model clock
+        /// Calculate interpolated values at time, in seconds on the model clock. A time equal
+        /// to the last one leaves fab_interp as it is.
         void update_interpolated_to_time (double time);
 
         /// Container for interpolated data; Only used if save_interpolated == true
@@ -80,6 +81,10 @@ class NCTimeSeriesRiver
         double time_before;
         /// Time in ocean_time immediately after the last time interpolated to
         double time_after;
+        /// Whether fab_interp holds data interpolated to interp_time
+        bool have_interp = false;
+        /// Time fab_interp was last interpolated to
+        double interp_time = 0.0;
 
 };
 
