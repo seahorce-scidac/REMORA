@@ -5,18 +5,14 @@ name: Generic Inputs Validate
 # PR. This workflow fails on hand edits and previews the change a merge will
 # cause. Label a PR "inputs-generic-hand-edit" to allow an edit deliberately.
 # A manual run checks strictly that the file on the branch is up to date.
+#
+# There is no paths filter: reject-hand-edits is a required check, and a PR
+# whose changes a filter excludes would leave it waiting forever.
 
 on:
   pull_request:
     branches: [development]
     types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths:
-      - "Source/**"
-      - "Submodules/AMReX"
-      - "Exec/Generic/**"
-      - "Docs/sphinx_doc/Inputs.rst"
-      - ".github/workflows/generic-inputs-validate.yml"
-      - ".github/workflows/style/check_generic_inputs.sh"
   workflow_dispatch:
 
 # Label events only rerun the hand-edit gate, so give them their own group;
