@@ -8,6 +8,33 @@ using namespace amrex;
 namespace {
     PhysBCFunctNoOp no_bc;
 
+/** \brief On an interface face the set mask covers, the velocity that carries the parent's
+ *         flux Dflux through the depth averaged across the face (zeta component know plus h),
+ *         unless that depth is not positive. (di,dj) points across the face: (1,0) for u, (0,1)
+ *         for v. */
+struct SetCFFace
+{
+    Array4<Real> vel;
+    Array4<Real const> Dflux;
+    Array4<int const> cmask;
+    Array4<Real const> zeta;
+    Array4<Real const> h;
+    Array4<Real const> msk;
+    int set_mask, know, knew, di, dj;
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void operator() (int i, int j, int) const noexcept
+    {
+        if (cmask(i,j,0) != set_mask) { return; }
+
+        Real D = Real(0.5) * (h(i-di,j-dj,0,0) + zeta(i-di,j-dj,0,know) +
+                              h(i   ,j   ,0,0) + zeta(i   ,j   ,0,know));
+        if (D <= zero) { return; }
+
+        vel(i,j,0,knew) = Dflux(i,j,0) / D * msk(i,j,0);
+    }
+};
+
 /** \brief Replace each group of nr faces along the interface by their mean.
  *
  * ROMS gives every fine face under one parent face the same parent flux: get_persisted2d
@@ -194,6 +221,12 @@ REMORA::cf_interface_flux (int lev, Real time)
         return {c.u.get(), c.v.get()};
     }
 
+    // Forming the flux exchanges data between boxes, so it must not run inside a
+    // BoxLocalLoops scope; callers there form it first, so that this call hits the cache
+#ifdef AMREX_USE_GPU
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!Gpu::inNoSyncRegion(),
+        "cf_interface_flux: the interface flux must be formed outside a BoxLocalLoops scope");
+#endif
     if (!same_layout) {
         c.u = std::make_unique<MultiFab>(du.boxArray(), du.DistributionMap(), 1, du.nGrowVect());
         c.v = std::make_unique<MultiFab>(dv.boxArray(), dv.DistributionMap(), 1, dv.nGrowVect());
@@ -245,30 +278,45 @@ REMORA::set_2d_cf_bcs (int lev, Real time, int know, int knew)
     const MultiFab& Dubar_cf = *pu;
     const MultiFab& Dvbar_cf = *pv;
 
-
+    // The masks carry no ghost cells, so the valid (tile) boxes are exactly the regions they
+    // cover. On GPU one launch per box sets the u- and the v-faces.
+    const bool both_in_one = Gpu::inLaunchRegion();
+    if (both_in_one) {
+        // Box b of ubar, vbar and the fields they read runs in the same launch, on box b's
+        // stream
+        AMREX_ASSERT(amrex::convert(vec_ubar[lev]->boxArray(), IntVect(0))
+                         == amrex::convert(vec_vbar[lev]->boxArray(), IntVect(0))
+                     && amrex::convert(vec_ubar[lev]->boxArray(), IntVect(0))
+                         == vec_zeta[lev]->boxArray()
+                     && vec_ubar[lev]->DistributionMap() == vec_vbar[lev]->DistributionMap()
+                     && vec_ubar[lev]->DistributionMap() == vec_zeta[lev]->DistributionMap()
+                     && Dubar_cf.DistributionMap() == vec_ubar[lev]->DistributionMap()
+                     && Dvbar_cf.DistributionMap() == vec_vbar[lev]->DistributionMap());
+        for (MFIter mfi(*vec_ubar[lev]); mfi.isValid(); ++mfi)
+        {
+            const int b = mfi.index();
+            ParallelFor(vec_ubar[lev]->box(b), vec_vbar[lev]->box(b),
+                        SetCFFace{vec_ubar[lev]->array(b), Dubar_cf.const_array(b),
+                                  FPr_Dubar[lev-1].GetMask()->const_array(b),
+                                  vec_zeta[lev]->const_array(b), vec_h[lev]->const_array(b),
+                                  vec_msku[lev]->const_array(b), set_mask, know, knew, 1, 0},
+                        SetCFFace{vec_vbar[lev]->array(b), Dvbar_cf.const_array(b),
+                                  FPr_Dvbar[lev-1].GetMask()->const_array(b),
+                                  vec_zeta[lev]->const_array(b), vec_h[lev]->const_array(b),
+                                  vec_mskv[lev]->const_array(b), set_mask, know, knew, 0, 1});
+        }
+    } else {
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for ( MFIter mfi(*vec_ubar[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
-    {
-        Array4<Real      > const& ubar  = vec_ubar[lev]->array(mfi);
-        Array4<Real const> const& Dubar = Dubar_cf.const_array(mfi);
-        Array4<int  const> const& cmask = FPr_Dubar[lev-1].GetMask()->const_array(mfi);
-        Array4<Real const> const& zeta  = vec_zeta[lev]->const_array(mfi);
-        Array4<Real const> const& h     = vec_h[lev]->const_array(mfi);
-        Array4<Real const> const& msku  = vec_msku[lev]->const_array(mfi);
-
-        // The mask carries no ghost cells, so this is exactly the region it covers.
-        ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        for ( MFIter mfi(*vec_ubar[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
-            if (cmask(i,j,0) != set_mask) { return; }
-
-            Real D = Real(0.5) * (h(i-1,j,0,0) + zeta(i-1,j,0,know) +
-                                  h(i  ,j,0,0) + zeta(i  ,j,0,know));
-            if (D <= zero) { return; }
-
-            ubar(i,j,0,knew) = Dubar(i,j,0) / D * msku(i,j,0);
-        });
+            ParallelFor(mfi.tilebox(),
+                        SetCFFace{vec_ubar[lev]->array(mfi), Dubar_cf.const_array(mfi),
+                                  FPr_Dubar[lev-1].GetMask()->const_array(mfi),
+                                  vec_zeta[lev]->const_array(mfi), vec_h[lev]->const_array(mfi),
+                                  vec_msku[lev]->const_array(mfi), set_mask, know, knew, 1, 0});
+        }
     }
 
     // Diagnostic: the fine level is not written to NetCDF, so dump the imposed u-face values
@@ -341,28 +389,18 @@ REMORA::set_2d_cf_bcs (int lev, Real time, int know, int knew)
 #endif
     }
 
+    if (!both_in_one) {
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for ( MFIter mfi(*vec_vbar[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
-    {
-        Array4<Real      > const& vbar  = vec_vbar[lev]->array(mfi);
-        Array4<Real const> const& Dvbar = Dvbar_cf.const_array(mfi);
-        Array4<int  const> const& cmask = FPr_Dvbar[lev-1].GetMask()->const_array(mfi);
-        Array4<Real const> const& zeta  = vec_zeta[lev]->const_array(mfi);
-        Array4<Real const> const& h     = vec_h[lev]->const_array(mfi);
-        Array4<Real const> const& mskv  = vec_mskv[lev]->const_array(mfi);
-
-        ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        for ( MFIter mfi(*vec_vbar[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
-            if (cmask(i,j,0) != set_mask) { return; }
-
-            Real D = Real(0.5) * (h(i,j-1,0,0) + zeta(i,j-1,0,know) +
-                                  h(i,j  ,0,0) + zeta(i,j  ,0,know));
-            if (D <= zero) { return; }
-
-            vbar(i,j,0,knew) = Dvbar(i,j,0) / D * mskv(i,j,0);
-        });
+            ParallelFor(mfi.tilebox(),
+                        SetCFFace{vec_vbar[lev]->array(mfi), Dvbar_cf.const_array(mfi),
+                                  FPr_Dvbar[lev-1].GetMask()->const_array(mfi),
+                                  vec_zeta[lev]->const_array(mfi), vec_h[lev]->const_array(mfi),
+                                  vec_mskv[lev]->const_array(mfi), set_mask, know, knew, 0, 1});
+        }
     }
 }
 

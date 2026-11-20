@@ -1,4 +1,7 @@
 #include <REMORA.H>
+#include <REMORA_BoxLocalLoops.H>
+
+#include <optional>
 
 using namespace amrex;
 
@@ -14,6 +17,23 @@ namespace {
  *
  * The band (REMORA::cf_ghost_band) depends on the layout alone.
  */
+struct FillGhostKcomps
+{
+    Array4<Real> a;
+    Array4<int const> b;
+    int knew;
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void operator() (int i, int j, int k) const noexcept
+    {
+        if (!b(i,j,k)) { return; }
+        const Real val = a(i,j,k,knew);
+        a(i,j,k,0) = val;
+        a(i,j,k,1) = val;
+        a(i,j,k,2) = val;
+    }
+};
+
 void fill_ghost_kcomps (MultiFab& mf, int knew, const iMultiFab& band)
 {
     BL_PROFILE("fill_ghost_kcomps()");
@@ -21,36 +41,57 @@ void fill_ghost_kcomps (MultiFab& mf, int knew, const iMultiFab& band)
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        Box gbx = mfi.growntilebox();
-        const auto& a = mf.array(mfi);
-        const auto& b = band.const_array(mfi);
-        ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            if (!b(i,j,k)) { return; }
-            const Real val = a(i,j,k,knew);
-            a(i,j,k,0) = val;
-            a(i,j,k,1) = val;
-            a(i,j,k,2) = val;
-        });
+        ParallelFor(mfi.growntilebox(), FillGhostKcomps{mf.array(mfi), band.const_array(mfi), knew});
     }
+}
+
+/** \brief fill_ghost_kcomps for ubar and vbar, which share a layout. On GPU one launch per box
+ *         covers both. */
+void fill_ghost_kcomps_uv (MultiFab& ubar, const iMultiFab& band_u,
+                           MultiFab& vbar, const iMultiFab& band_v, int knew)
+{
+#ifdef AMREX_USE_GPU
+    if (Gpu::inLaunchRegion()) {
+        // Box b of both fields runs in the same launch, on box b's stream
+        AMREX_ASSERT(amrex::convert(ubar.boxArray(), IntVect(0))
+                         == amrex::convert(vbar.boxArray(), IntVect(0))
+                     && ubar.DistributionMap() == vbar.DistributionMap()
+                     && band_u.boxArray() == ubar.boxArray()
+                     && band_u.DistributionMap() == ubar.DistributionMap()
+                     && band_v.boxArray() == vbar.boxArray()
+                     && band_v.DistributionMap() == vbar.DistributionMap());
+        for (MFIter mfi(ubar); mfi.isValid(); ++mfi) {
+            const int b = mfi.index();
+            ParallelFor(ubar.fabbox(b), vbar.fabbox(b),
+                        FillGhostKcomps{ubar.array(b), band_u.const_array(b), knew},
+                        FillGhostKcomps{vbar.array(b), band_v.const_array(b), knew});
+        }
+        return;
+    }
+#endif
+    fill_ghost_kcomps(ubar, knew, band_u);
+    fill_ghost_kcomps(vbar, knew, band_v);
 }
 
 /** \brief Exchange component knew of ubar and vbar and, when zeta is given, fill the periodic
  *         corners of every component of zeta (EnforcePeriodicity), with all their messages in
- *         flight at once. The three touch different fields, so the order does not matter.
+ *         flight at once and one wait for the GPU stream at the end. The three touch different
+ *         fields, so the order does not matter. Every GPU stream must be idle on entry.
  */
 void exchange_uvbar_and_zeta_corners (MultiFab& ubar, MultiFab& vbar, MultiFab* zeta, int knew,
                                       const Periodicity& per)
 {
     const bool corners = zeta && per.isAnyPeriodic();
-    if (corners) {
-        zeta->FBEP_nowait(0, zeta->nComp(), zeta->nGrowVect(), per, false, true);
-    }
-    ubar.FillBoundary_nowait(knew, 1, ubar.nGrowVect(), per);
-    vbar.FillBoundary_nowait(knew, 1, vbar.nGrowVect(), per);
-    if (corners) { zeta->FillBoundary_finish(); }
-    ubar.FillBoundary_finish();
-    vbar.FillBoundary_finish();
+    exchange_then_sync([&] {
+        if (corners) {
+            zeta->FBEP_nowait(0, zeta->nComp(), zeta->nGrowVect(), per, false, true);
+        }
+        ubar.FillBoundary_nowait(knew, 1, ubar.nGrowVect(), per);
+        vbar.FillBoundary_nowait(knew, 1, vbar.nGrowVect(), per);
+        if (corners) { zeta->FillBoundary_finish(); }
+        ubar.FillBoundary_finish();
+        vbar.FillBoundary_finish();
+    });
 }
 
 /** Which time averages of the barotropic fluxes a fast step accumulates */
@@ -78,6 +119,430 @@ void accumulate_flux_avg (int i, int j, Real D, Array4<Real> const& avg1,
         avg2(i,j,0)=avg2(i,j,0)+cff2_wt*D;
     }
 }
+
+/** \brief f(i,j,k,dir) on the x-faces bx (dir 0) and the y-faces by (dir 1), with dir a
+ *         std::integral_constant. On GPU one kernel over the boxes' bounding box covers both,
+ *         so f, which may hold many arrays, is a kernel argument once; on CPU each box is a
+ *         loop of its own.
+ */
+template <class F>
+void ParallelForXY (Box const& bx, Box const& by, F const& f)
+{
+    using X = std::integral_constant<int,0>;
+    using Y = std::integral_constant<int,1>;
+#ifdef AMREX_USE_GPU
+    const Box bb(amrex::min(bx.smallEnd(), by.smallEnd()), amrex::max(bx.bigEnd(), by.bigEnd()));
+    ParallelFor(bb, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        if (bx.contains(i,j,k)) { f(i, j, k, X{}); }
+        if (by.contains(i,j,k)) { f(i, j, k, Y{}); }
+    });
+#else
+    ParallelFor(bx, by,
+                [=] AMREX_GPU_DEVICE (int i, int j, int k) { f(i, j, k, X{}); },
+                [=] AMREX_GPU_DEVICE (int i, int j, int k) { f(i, j, k, Y{}); });
+#endif
+}
+
+/** Components of the barotropic scratch MultiFab (REMORA::vec_scratch_2d) */
+enum ScratchComp : int { Dnew_comp, zwrk_comp, gzeta_comp, gzeta2_comp, gzetaSA_comp,
+                         rhs_ubar_comp, rhs_vbar_comp, n_scratch_comps };
+
+/** Components of the per-tile momentum fluxes: advection, viscosity, curvilinear terms */
+enum FluxComp : int { aUFx, aUFe, aVFx, aVFe, hUFx, hUFe, hVFx, hVFe, cUFx, cVFe, n_flux_comps };
+
+/** Time-stepping scheme of a fast step */
+enum Scheme : int { first_step, leapfrog, adams_moulton };
+
+/** The fields of the barotropic scratch MultiFab, by name */
+struct ScratchFields
+{
+    Array4<Real> scr;
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real& Dnew (int i, int j, int k) const noexcept { return scr(i,j,k,Dnew_comp); }
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real& zwrk (int i, int j, int k) const noexcept { return scr(i,j,k,zwrk_comp); }
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real& gzeta (int i, int j, int k) const noexcept { return scr(i,j,k,gzeta_comp); }
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real& gzeta2 (int i, int j, int k) const noexcept { return scr(i,j,k,gzeta2_comp); }
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real& gzetaSA (int i, int j, int k) const noexcept { return scr(i,j,k,gzetaSA_comp); }
+};
+
+/**
+ * The free-surface step and the momentum fluxes of one box or tile of advance_2d, a member
+ * function per pass. A kernel that runs several passes then holds each array once.
+ */
+struct FreeSurfaceAndFluxes : ScratchFields
+{
+    Array4<Real const> ubar, vbar, h, rhoS, rhoA, pm, pn, metr, metp, visc2_r, visc2_p;
+    Array4<Real const> mskr, mskp, DUon, DVom, dndx, dmde;
+    Array4<Real> zeta, rzeta, znew, flx;
+    Dim3 dlo, dhi;
+    Real zcff1, zcff2, zcff3, zcff4, zcff5, fac, sixth;
+    int krhs, kstp, knew, ptsk;
+    bool store_rhs, is_periodic_in_x, is_periodic_in_y;
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real pmn (int i, int j, int k) const noexcept { return metr(i,j,k,MetricR::pmn); }
+
+    template <class T1, class T2>
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void zeta_step (int i, int j, T1 sch, T2 store_direct) const noexcept
+    {
+        Real rhs_zeta = zero;
+        Real zeta_new, zw;
+        if (sch.value == first_step) {
+            rhs_zeta = (DUon(i,j,0)-DUon(i+1,j,0))+
+                       (DVom(i,j,0)-DVom(i,j+1,0));
+            zeta_new = (zeta(i,j,0,kstp)+ pmn(i,j,0)*zcff1*rhs_zeta) * mskr(i,j,0);
+            zw = Real(0.5)*(zeta(i,j,0,kstp)+zeta_new);
+        } else if (sch.value == leapfrog) {
+            rhs_zeta = (DUon(i,j,0)-DUon(i+1,j,0))+
+                       (DVom(i,j,0)-DVom(i,j+1,0));
+            zeta_new = (zeta(i,j,0,kstp)+
+                        pmn(i,j,0)*zcff1*rhs_zeta) * mskr(i,j,0);
+            zw = zcff5*zeta(i,j,0,krhs)+
+                 zcff4*(zeta(i,j,0,kstp)+zeta_new);
+        } else {
+            Real cff=zcff1*((DUon(i,j,0)-DUon(i+1,j,0))+
+                            (DVom(i,j,0)-DVom(i,j+1,0)));
+            zeta_new = zeta(i,j,0,kstp)+
+                pmn(i,j,0)*(cff+
+                            zcff2*rzeta(i,j,0,kstp)-
+                            zcff3*rzeta(i,j,0,ptsk));
+            zeta_new *= mskr(i,j,0);
+            zw = zcff5*zeta_new+zcff4*zeta(i,j,0,krhs);
+        }
+        Dnew(i,j,0) = zeta_new+h(i,j,0);
+        zwrk(i,j,0) = zw;
+        Real gz = (fac+rhoS(i,j,0))*zw;
+        gzeta(i,j,0) = gz;
+        gzeta2(i,j,0) = gz*zw;
+        gzetaSA(i,j,0) = zw*(rhoS(i,j,0)-rhoA(i,j,0));
+
+        if (store_direct.value) {
+            zeta(i,j,0,knew) = zeta_new;
+            if (store_rhs) { rzeta(i,j,0,krhs) = rhs_zeta; }
+        } else {
+            znew(i,j,0,0) = zeta_new;
+            znew(i,j,0,1) = rhs_zeta;
+        }
+    }
+
+    // Rho points: the x-flux of u (read on [lo-1:hi+1] x [lo:hi]) and the y-flux of v
+    // (read on [lo:hi] x [lo-1:hi+1])
+    template <class T1>
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void adv_u_rho (int i, int j, T1 up3) const noexcept
+    {
+        if (up3.value) {
+            Real uxx_i   = ubar(i-1,j,0,krhs)-two*ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
+            Real uxx_ip1 = ubar(i  ,j,0,krhs)-two*ubar(i+1,j,0,krhs)+ubar(i+2,j,0,krhs);
+
+            Real Huxx_i   = DUon(i-1,j,0)-two*DUon(i  ,j,0)+DUon(i+1,j,0);
+            Real Huxx_ip1 = DUon(i  ,j,0)-two*DUon(i+1,j,0)+DUon(i+2,j,0);
+
+            if (i == dlo.x && !is_periodic_in_x) {
+                uxx_i = uxx_ip1;
+                Huxx_i = Huxx_ip1;
+            }
+            else if (i == dhi.x && !is_periodic_in_x) {
+                uxx_ip1 = uxx_i;
+                Huxx_ip1 = Huxx_i;
+            }
+
+            Real ubar_avg = ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
+
+            flx(i,j,0,aUFx)=Real(0.25)*(ubar_avg-sixth*(uxx_i+uxx_ip1)) * (DUon(i,j,0)+ DUon(i+1,j,0)-sixth*(Huxx_i+ Huxx_ip1));
+        } else {
+            flx(i,j,0,aUFx) = Real(0.25) * (DUon(i,j,0)+DUon(i+1,j,0)) * (ubar(i,j,0,krhs)+ubar(i+1,j,0,krhs));
+        }
+    }
+
+    template <class T1>
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void adv_v_rho (int i, int j, T1 up3) const noexcept
+    {
+        if (up3.value) {
+            Real vee_j    = vbar(i,j-1,0,krhs)-two*vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
+            Real vee_jp1  = vbar(i,j  ,0,krhs)-two*vbar(i,j+1,0,krhs)+vbar(i,j+2,0,krhs);
+
+            Real Hvee_j   = DVom(i,j-1,0)-two*DVom(i,j  ,0)+DVom(i,j+1,0);
+            Real Hvee_jp1 = DVom(i,j  ,0)-two*DVom(i,j+1,0)+DVom(i,j+2,0);
+
+            if (j == dlo.y and !is_periodic_in_y) {
+                vee_j = vee_jp1;
+                Hvee_j = Hvee_jp1;
+            }
+            else if (j == dhi.y and !is_periodic_in_y) {
+                vee_jp1 = vee_j;
+                Hvee_jp1 = Hvee_j;
+            }
+
+            Real cff1=vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
+
+            flx(i,j,0,aVFe) = Real(0.25) * (cff1-(vee_j + vee_jp1)*sixth) * (DVom(i,j  ,0)+ DVom(i,j+1,0) -
+                                               sixth  * (Hvee_j+ Hvee_jp1));
+        } else {
+            flx(i,j,0,aVFe) = Real(0.25) * (DVom(i,j,0) + DVom(i,j+1,0))*(vbar(i,j,0,krhs)+vbar(i,j+1,0,krhs));
+        }
+    }
+
+    // The two viscous fluxes at a rho point share the strain term cff, so one pass over
+    // the tile grown by one computes it once for both. The x-flux is read on at most
+    // [lo-1:hi+1] x [lo:hi] and the y-flux on [lo:hi] x [lo-1:hi+1]; the rest is computed
+    // but not read.
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void visc_rho (int i, int j) const noexcept
+    {
+        const Real cff = Real(0.5)*(zeta(i,j,0,krhs)+h(i,j,0)) * ( metr(i,j,0,MetricR::pmon_r) *
+                                    ( (pn(i  ,j,0) + pn(i+1,j,0)) * ubar(i+1,j,0,krhs)-
+                                      (pn(i-1,j,0) + pn(i  ,j,0)) * ubar(i  ,j,0,krhs) )-
+                                                metr(i,j,0,MetricR::pnom_r) *
+                                    ( (pm(i,j  ,0) + pm(i,j+1,0)) * vbar(i,j+1,0,krhs)-
+                                      (pm(i,j-1,0) + pm(i,j  ,0)) * vbar(i,j  ,0,krhs) ) );
+        const Real on_r = metr(i,j,0,MetricR::on_r);
+        const Real om_r = metr(i,j,0,MetricR::om_r);
+        flx(i,j,0,hUFx) = on_r * on_r * visc2_r(i,j,0) * cff;
+        flx(i,j,0,hVFe) = om_r * om_r * visc2_r(i,j,0) * cff;
+    }
+
+    // Psi points: the y-fluxes of u and the x-fluxes of v, both on [lo:hi+1]^2
+    template <class T1>
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void adv_u_psi (int i, int j, T1 up3) const noexcept
+    {
+        if (up3.value) {
+            Real uee_j   = ubar(i,j-1,0,krhs)-two*ubar(i,j  ,0,krhs)+ubar(i,j+1,0,krhs);
+            Real uee_jm1 = ubar(i,j-2,0,krhs)-two*ubar(i,j-1,0,krhs)+ubar(i,j  ,0,krhs);
+
+            Real Hvxx_i   = DVom(i-1,j,0)-two*DVom(i  ,j,0)+DVom(i+1,j,0);
+            Real Hvxx_im1 = DVom(i-2,j,0)-two*DVom(i-1,j,0)+DVom(i  ,j,0);
+
+            if (j == dlo.y and !is_periodic_in_y) {
+                uee_jm1 = uee_j;
+            } else if (j == dhi.y+1 and !is_periodic_in_y) {
+                uee_j = uee_jm1;
+            }
+
+            Real cff1=ubar(i,j  ,0,krhs)+ubar(i,j-1,0,krhs);
+            Real cff2=DVom(i,j,0)+DVom(i-1,j,0);
+
+            flx(i,j,0,aUFe)=Real(0.25)*(cff1-(uee_j+uee_jm1)*sixth)*
+              (cff2-sixth*(Hvxx_i+Hvxx_im1));
+        } else {
+            flx(i,j,0,aUFe) = Real(0.25) * (DVom(i,j,0)+DVom(i-1,j,0)) * (ubar(i,j,0,krhs)+ubar(i,j-1,0,krhs));
+        }
+    }
+
+    template <class T1>
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void adv_v_psi (int i, int j, T1 up3) const noexcept
+    {
+        if (up3.value) {
+            Real vxx_i   = vbar(i-1,j,0,krhs)-two*vbar(i  ,j,0,krhs)+vbar(i+1,j,0,krhs);
+            Real vxx_im1 = vbar(i-2,j,0,krhs)-two*vbar(i-1,j,0,krhs)+vbar(i  ,j,0,krhs);
+
+            Real Huee_j   = DUon(i,j-1,0)-two*DUon(i,j  ,0)+DUon(i,j+1,0);
+            Real Huee_jm1 = DUon(i,j-2,0)-two*DUon(i,j-1,0)+DUon(i,j  ,0);
+
+            if (i == dlo.x and !is_periodic_in_x) {
+                vxx_im1 = vxx_i;
+            } else if (i == dhi.x + 1 and !is_periodic_in_x) {
+                vxx_i = vxx_im1;
+            }
+
+            Real cff1=vbar(i  ,j,0,krhs)+vbar(i-1,j,0,krhs);
+            Real cff2=DUon(i,j,0)+DUon(i,j-1,0);
+
+            flx(i,j,0,aVFx)=Real(0.25)*(cff1-(vxx_i + vxx_im1)*sixth)* (cff2-sixth*(Huee_j+ Huee_jm1));
+        } else {
+            flx(i,j,0,aVFx) = Real(0.25) * (DUon(i,j,0) + DUon(i,j-1,0))*(vbar(i,j,0,krhs)+vbar(i-1,j,0,krhs));
+        }
+    }
+
+    // Both viscous fluxes at a psi point, on [lo:hi+1]^2, from one shared strain term
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void visc_psi (int i, int j) const noexcept
+    {
+        const Real cff = mskp(i,j,0) * Real(0.125) *
+                    ((zeta(i-1,j  ,0,krhs)+h(i-1,j  ,0)) + (zeta(i,j  ,0,krhs)+h(i,j  ,0))+
+                     (zeta(i-1,j-1,0,krhs)+h(i-1,j-1,0)) + (zeta(i,j-1,0,krhs)+h(i,j-1,0)))*
+                    (metp(i,j,0,MetricP::pmon_p)*
+                     ((pn(i  ,j-1,0)+pn(i  ,j,0))*vbar(i  ,j,0,krhs)-
+                      (pn(i-1,j-1,0)+pn(i-1,j,0))*vbar(i-1,j,0,krhs))+
+                     metp(i,j,0,MetricP::pnom_p)*
+                     ((pm(i-1,j  ,0)+pm(i,j  ,0))*ubar(i,j  ,0,krhs)-
+                      (pm(i-1,j-1,0)+pm(i,j-1,0))*ubar(i,j-1,0,krhs)));
+        const Real om_p = metp(i,j,0,MetricP::om_p);
+        const Real on_p = metp(i,j,0,MetricP::on_p);
+        flx(i,j,0,hUFe) = om_p*om_p*visc2_p(i,j,0)*cff;
+        flx(i,j,0,hVFx) = on_p*on_p*visc2_p(i,j,0)*cff;
+    }
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void curv_rho (int i, int j) const noexcept
+    {
+        Real cff1 = Real(0.5) * (vbar(i,j,0,krhs) + vbar(i  ,j+1,0,krhs));
+        Real cff2 = Real(0.5) * (ubar(i,j,0,krhs) + ubar(i+1,j  ,0,krhs));
+        Real cff3 = cff1 * dndx(i,j,0);
+        Real cff4 = cff2 * dmde(i,j,0);
+        Real cff = (zeta(i,j,0,krhs)+h(i,j,0)) * (cff3 - cff4);
+        flx(i,j,0,cUFx) = cff * cff1;
+        flx(i,j,0,cVFe) = cff * cff2;
+    }
+};
+
+/**
+ * The momentum right-hand side and time step of one box or tile of advance_2d, a member
+ * function per part, so that a kernel that runs several of them holds each array once.
+ */
+struct MomentumStep : ScratchFields
+{
+    Array4<Real const> h, rhoA, fcor, pm, pn, metr, metu, metv, msku, mskv, flx, zeta;
+    Array4<Real const> rufrc, rvfrc;
+    Array4<Real> ubar, vbar, rubar, rvbar;
+    Real g_half, mcff1, mcff2, mcff3;
+    int krhs, kstp, knew, ptsk;
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real omn (int i, int j, int k) const noexcept { return metr(i,j,k,MetricR::omn); }
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real on_u (int i, int j, int k) const noexcept { return metu(i,j,k,MetricU::on_u); }
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real pmn4_u (int i, int j, int k) const noexcept { return metu(i,j,k,MetricU::pmn4_u); }
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real om_v (int i, int j, int k) const noexcept { return metv(i,j,k,MetricV::om_v); }
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real pmn4_v (int i, int j, int k) const noexcept { return metv(i,j,k,MetricV::pmn4_v); }
+
+    //
+    // Right-hand side of the 2D momentum equations, the terms in the order the
+    // separate kernels added them: pressure gradient and advection, then Coriolis (with
+    // fomn = fcor/(pm*pn)), curvilinear and viscosity; and the time step it drives.
+    //
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real rhs_u_pgadv (int i, int j) const noexcept
+    {
+        Real rhs = g_half * on_u(i,j,0) *
+                      ((    h(i-1,j,0) +     h(i,j,0))*
+                       (gzeta(i-1,j,0) - gzeta(i,j,0))+
+                       (    h(i-1,j,0) -     h(i,j,0))*
+                       (      gzetaSA(i-1,j,0) + gzetaSA(i,j,0)+
+                        third*(   rhoA(i-1,j,0) -    rhoA(i,j,0))*
+                             (   zwrk(i-1,j,0) -    zwrk(i,j,0)))+
+                       (gzeta2(i-1,j,0)- gzeta2(i  ,j,0)));
+
+        rhs -= ((flx(i,j  ,0,aUFx)-flx(i-1,j,0,aUFx)) +
+                (flx(i,j+1,0,aUFe)-flx(i  ,j,0,aUFe)));
+        return rhs;
+    }
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real rhs_v_pgadv (int i, int j) const noexcept
+    {
+        Real rhs = g_half*om_v(i,j,0) *
+                      ((    h(i,j-1,0) +     h(i,j,0))*
+                       (gzeta(i,j-1,0) - gzeta(i,j,0))+
+                       (    h(i,j-1,0) -     h(i,j,0))*
+                       (gzetaSA(i,j-1,0)+ gzetaSA(i,j  ,0)+
+                        third*(rhoA(i,j-1,0)- rhoA(i,j  ,0))*
+                             (zwrk(i,j-1,0)- zwrk(i,j  ,0)))+
+                       (gzeta2(i,j-1,0)- gzeta2(i,j  ,0)));
+
+        rhs -= ((flx(i+1,j,0,aVFx)-flx(i  ,j,0,aVFx)) +
+                (flx(i  ,j,0,aVFe)-flx(i,j-1,0,aVFe)));
+        return rhs;
+    }
+
+    template <class T1, class T2>
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real rhs_u_more (int i, int j, Real rhs, T1 cor, T2 curv) const noexcept
+    {
+        if (cor.value) {
+            Real UFx_i   = Real(0.5) * (zeta(i  ,j,0,krhs)+h(i  ,j,0)) * (fcor(i  ,j,0)*omn(i  ,j,0)) * (vbar(i  ,j,0,krhs)+vbar(i  ,j+1,0,krhs));
+            Real UFx_im1 = Real(0.5) * (zeta(i-1,j,0,krhs)+h(i-1,j,0)) * (fcor(i-1,j,0)*omn(i-1,j,0)) * (vbar(i-1,j,0,krhs)+vbar(i-1,j+1,0,krhs));
+            rhs += Real(0.5)*(UFx_i + UFx_im1);
+        }
+
+        if (curv.value) {
+            rhs += Real(0.5) * (flx(i,j,0,cUFx) + flx(i-1,j,0,cUFx));
+        }
+
+        const Real cff1=Real(0.5)*(pn(i-1,j,0)+pn(i,j,0))*(flx(i,j  ,0,hUFx)-flx(i-1,j,0,hUFx));
+        const Real cff2=Real(0.5)*(pm(i-1,j,0)+pm(i,j,0))*(flx(i,j+1,0,hUFe)-flx(i  ,j,0,hUFe));
+        return rhs + (cff1+cff2);
+    }
+
+    template <class T1, class T2>
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    Real rhs_v_more (int i, int j, Real rhs, T1 cor, T2 curv) const noexcept
+    {
+        if (cor.value) {
+            Real VFe_j   = Real(0.5) * (zeta(i,j  ,0,krhs)+h(i,j  ,0)) * (fcor(i,j  ,0)*omn(i,j  ,0)) * (ubar(i,j  ,0,krhs)+ubar(i+1,j  ,0,krhs));
+            Real VFe_jm1 = Real(0.5) * (zeta(i,j-1,0,krhs)+h(i,j-1,0)) * (fcor(i,j-1,0)*omn(i,j-1,0)) * (ubar(i,j-1,0,krhs)+ubar(i+1,j-1,0,krhs));
+            rhs -= Real(0.5)*(VFe_j + VFe_jm1);
+        }
+
+        if (curv.value) {
+            rhs -= Real(0.5) * (flx(i,j,0,cVFe) + flx(i,j-1,0,cVFe));
+        }
+
+        const Real cff1=Real(0.5)*(pn(i,j-1,0)+pn(i,j,0))*(flx(i+1,j,0,hVFx)-flx(i,j  ,0,hVFx));
+        const Real cff2=Real(0.5)*(pm(i,j-1,0)+pm(i,j,0))*(flx(i  ,j,0,hVFe)-flx(i,j-1,0,hVFe));
+        return rhs + (cff1-cff2);
+    }
+
+    //
+    // Time step of the 2D momentum equations, from the right-hand side with the 3D
+    // forcing added, and Dstp = zeta(kstp) + h. If predictor step, load right-side-term
+    // into shared arrays for the subsequent corrector step.
+    //
+    template <class T1, class T2>
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void step_u (int i, int j, Real rhs, T1 am3, T2 is_pred) const noexcept
+    {
+        Real cff=pmn4_u(i,j,0);
+        Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i-1,j,0));
+        Real Dstp_sum=(zeta(i,j,0,kstp)+h(i,j,0))+(zeta(i-1,j,0,kstp)+h(i-1,j,0));
+        if (am3.value) {
+            ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*Dstp_sum+
+                             cff*(mcff1*rhs+
+                                  mcff2*rubar(i,j,0,kstp)-
+                                  mcff3*rubar(i,j,0,ptsk)))*Dnew_avg * msku(i,j,0);
+        } else {
+            ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*Dstp_sum+
+                              cff*mcff1*rhs)*Dnew_avg * msku(i,j,0);
+        }
+        if (is_pred.value) {
+            rubar(i,j,0,krhs)=rhs;
+        }
+    }
+
+    template <class T1, class T2>
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void step_v (int i, int j, Real rhs, T1 am3, T2 is_pred) const noexcept
+    {
+        Real cff=pmn4_v(i,j,0);
+        Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i,j-1,0));
+        Real Dstp_sum=(zeta(i,j,0,kstp)+h(i,j,0))+(zeta(i,j-1,0,kstp)+h(i,j-1,0));
+        if (am3.value) {
+            vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*Dstp_sum+
+                             cff*(mcff1*rhs+
+                                  mcff2*rvbar(i,j,0,kstp)-
+                                  mcff3*rvbar(i,j,0,ptsk)))*Dnew_avg * mskv(i,j,0);
+        } else {
+            vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*Dstp_sum+
+                              cff*mcff1*rhs)*Dnew_avg * mskv(i,j,0);
+        }
+        if (is_pred.value) {
+            rvbar(i,j,0,krhs)=rhs;
+        }
+    }
+};
 } // namespace
 /** Nonlinear shallow-water rpimitive equations predictor (Leap-frog) and
  * corrector (Adams-Moulton) time-stepping engine. Corresponds to Nonlinear/step2d_LF_AM3.h
@@ -190,16 +655,7 @@ REMORA::advance_2d (int lev,
     // The rest of what the step used to stage here (Drhs, Dstp, fomn, rhs_zeta, zeta_new)
     // is recomputed where it is read, with the expression and operand order of the kernels
     // it replaces, so the results are unchanged.
-    int ncomp = 0;
-    int Dnew_comp = ncomp++;
-    int zwrk_comp = ncomp++;
-    int gzeta_comp = ncomp++;
-    int gzeta2_comp = ncomp++;
-    int gzetaSA_comp = ncomp++;
-    int rhs_ubar_comp = ncomp++;
-    int rhs_vbar_comp = ncomp++;
-
-    AMREX_ALWAYS_ASSERT(ncomp == n_scratch_2d);
+    static_assert(n_scratch_comps == n_scratch_2d);
     MultiFab& mf = *vec_scratch_2d[lev];
 
     //  Time-averaging weights
@@ -231,7 +687,13 @@ REMORA::advance_2d (int lev,
 
     // Barotropic mass fluxes DUon and DVom: ubar and vbar times the depth zeta(krhs) + h
     // averaged to the face and the face length, both directions in one launch, with their
-    // time averages unless the fluxes are exchanged afterwards.
+    // time averages unless the fluxes are exchanged afterwards. The predictor's time average
+    // of the free surface, which reads only zeta(krhs), goes in the same launch.
+    //
+    // This loop and the main one below read and write only each box's own data, so on GPU
+    // they share one synchronization at either end unless the fluxes are exchanged or reset,
+    // or the climatology is read, in between.
+    std::optional<BoxLocalLoops> box_local(std::in_place);
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -251,14 +713,21 @@ REMORA::advance_2d (int lev,
         Array4<Real> const& DU_avg2 = mf_DU_avg2->array(mfi);
         Array4<Real> const& DV_avg1 = mf_DV_avg1->array(mfi);
         Array4<Real> const& DV_avg2 = mf_DV_avg2->array(mfi);
+        Array4<Real> const& Zt_avg1 = mf_Zt_avg1->array(mfi);
 
-        AnyCTO(TypeList<CompileTimeOptions<avg_none,avg_first_pred,avg_pred,avg_corr>>{},
-               {exchange_flux ? int(avg_none) : avg_mode},
-        [&] (auto const& fu, auto const& fv) {
+        // Empty unless this is a predictor step
+        const Box zbx = predictor_2d_step
+                      ? makeSlab(mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0)),2,0) : Box();
+
+        AnyCTO(TypeList<CompileTimeOptions<avg_none,avg_first_pred,avg_pred,avg_corr>,
+                        CompileTimeOptions<0,1>>{},
+               {exchange_flux ? int(avg_none) : avg_mode, first_2d_step ? 1 : 0},
+        [&] (auto const& fu, auto const& fv, auto const& fz) {
             ParallelFor(makeSlab(mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0)),2,0),
-                        makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0), fu, fv);
+                        makeSlab(mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0)),2,0),
+                        zbx, fu, fv, fz);
         },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode, auto)
         {
             Real cff1= Real(0.5) * on_u(i,j,0) *((zeta(i,j,0,krhs)+h(i,j,0))+
                                                 (zeta(i-1,j,0,krhs)+h(i-1,j,0)));
@@ -266,13 +735,21 @@ REMORA::advance_2d (int lev,
             DUon(i,j,0) = DU;
             accumulate_flux_avg<decltype(mode)::value>(i, j, DU, DU_avg1, DU_avg2, cff1_wt1, cff2_wt);
         },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode)
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto mode, auto)
         {
             Real cff1= Real(0.5) * om_v(i,j,0) * ((zeta(i,j,0,krhs)+h(i,j,0))+
                                                  (zeta(i,j-1,0,krhs)+h(i,j-1,0)));
             const Real DV = vbar(i,j,0,krhs)*cff1;
             DVom(i,j,0) = DV;
             accumulate_flux_avg<decltype(mode)::value>(i, j, DV, DV_avg1, DV_avg2, cff1_wt1, cff2_wt);
+        },
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto, auto first)
+        {
+            if (first.value) {
+                Zt_avg1(i,j,0)=zero;
+            } else {
+                Zt_avg1(i,j,0) += cff1_wt1*zeta(i,j,0,krhs);
+            }
         });
     }
 
@@ -287,6 +764,11 @@ REMORA::advance_2d (int lev,
     //    cells inside the domain come from exchanges, and their boundary conditions write
     //    only outside it; and
     //  - set_2d_cf_flux has not changed any face, since it writes only each box's own faces.
+    bool clim_update = false;
+#ifdef REMORA_USE_NETCDF
+    clim_update = solverChoice.do_m2_clim_nudg;
+#endif
+    if (cf_flux || exchange_flux || clim_update) { box_local.reset(); }
     if (cf_flux) {
         set_2d_cf_flux(lev, t_old[lev], mf_DUon, mf_DVom);
     }
@@ -301,6 +783,7 @@ REMORA::advance_2d (int lev,
         vbar_clim_data_from_file->update_interpolated_to_time(model_time(t_new[lev]), lev, vec_vbar[lev].get(), geom, ref_ratio);
     }
 #endif
+    if (!box_local) { box_local.emplace(); }
 
     // The passes below each run over one box with a branch-free body: run-time choices
     // (time-stepping scheme, advection scheme, optional terms) are compile-time options,
@@ -308,7 +791,9 @@ REMORA::advance_2d (int lev,
     // fused further where that slows the CPU: advection and viscosity fluxes, and the two
     // halves of the momentum right-hand side, ran 10-40% slower in one body than apart
     // (each loop then reads 20-35 arrays at once, and a body with per-cell region tests
-    // does not vectorize at all).
+    // does not vectorize at all). On GPU, where each launch and each pass over memory costs
+    // more than such tests, the same bodies run in fewer kernels: the free-surface step with
+    // all the momentum fluxes, and the momentum right-hand side with the time step.
 
     //
     //  Do not perform the actual time stepping during the auxiliary
@@ -321,7 +806,6 @@ REMORA::advance_2d (int lev,
     //  step is Backward-Euler. Otherwise, the predictor step is Leap-frog and the corrector
     //  step is Adams-Moulton.
     //
-    enum Scheme : int { first_step, leapfrog, adams_moulton };
     const int scheme = (my_iif == 0) ? first_step
                                      : (predictor_2d_step ? leapfrog : adams_moulton);
     Real zcff1 = zero, zcff2 = zero, zcff3 = zero, zcff4 = zero, zcff5 = zero;
@@ -379,13 +863,10 @@ REMORA::advance_2d (int lev,
 #endif
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real const> const& rhoS = mf_rhoS->const_array(mfi);
-        Array4<Real const> const& rhoA = mf_rhoA->const_array(mfi);
         Array4<Real const> const& h    = mf_h->const_array(mfi);
 
         Array4<Real      > const& rufrc   = mf_rufrc->array(mfi);
         Array4<Real      > const& rvfrc   = mf_rvfrc->array(mfi);
-        Array4<Real      > const& Zt_avg1 = mf_Zt_avg1->array(mfi);
         Array4<Real      > const& ubar    = mf_ubar->array(mfi);
         Array4<Real      > const& vbar    = mf_vbar->array(mfi);
         Array4<Real      > const& zeta = mf_zeta->array(mfi);
@@ -395,38 +876,13 @@ REMORA::advance_2d (int lev,
         Array4<Real      > const& DV_avg2 = (mf_DV_avg2)->array(mfi);
         Array4<Real      > const& ru2d = (mf_ru2d)->array(mfi);
         Array4<Real      > const& rv2d = (mf_rv2d)->array(mfi);
-        Array4<Real      > const& rubar = (mf_rubar)->array(mfi);
-        Array4<Real      > const& rvbar = (mf_rvbar)->array(mfi);
-        Array4<Real      > const& rzeta = (mf_rzeta)->array(mfi);
-        Array4<Real const> const& visc2_p = mf_visc2_p->const_array(mfi);
-        Array4<Real const> const& visc2_r = mf_visc2_r->const_array(mfi);
 
-        Array4<Real const> const& pm   = mf_pm->const_array(mfi);
-        Array4<Real const> const& pn   = mf_pn->const_array(mfi);
-        Array4<Real const> const& fcor = mf_fcor->const_array(mfi);
 
-        Array4<Real const> const& pmn    = vec_metric_r[lev]->const_array(mfi,MetricR::pmn);
-        Array4<Real const> const& omn    = vec_metric_r[lev]->const_array(mfi,MetricR::omn);
-        Array4<Real const> const& metr   = vec_metric_r[lev]->const_array(mfi);
-        Array4<Real const> const& metp   = vec_metric_p[lev]->const_array(mfi);
-        Array4<Real const> const& on_u   = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
-        Array4<Real const> const& pmn4_u = vec_metric_u[lev]->const_array(mfi,MetricU::pmn4_u);
-        Array4<Real const> const& om_v   = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
-        Array4<Real const> const& pmn4_v = vec_metric_v[lev]->const_array(mfi,MetricV::pmn4_v);
 
-        Array4<Real const> const& mskr = mf_mskr->const_array(mfi);
-        Array4<Real const> const& msku = mf_msku->const_array(mfi);
-        Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
-        Array4<Real const> const& mskp = mf_mskp->const_array(mfi);
 
         Array4<Real const> const& DUon = mf_DUon.const_array(mfi);
         Array4<Real const> const& DVom = mf_DVom.const_array(mfi);
 
-        auto Dnew     = mf.array(mfi,Dnew_comp);
-        auto zwrk     = mf.array(mfi,zwrk_comp);
-        auto gzeta    = mf.array(mfi,gzeta_comp);
-        auto gzeta2   = mf.array(mfi,gzeta2_comp);
-        auto gzetaSA  = mf.array(mfi,gzetaSA_comp);
         auto rhs_ubar = mf.array(mfi,rhs_ubar_comp);
         auto rhs_vbar = mf.array(mfi,rhs_vbar_comp);
 
@@ -435,7 +891,7 @@ REMORA::advance_2d (int lev,
         Box ybxD = makeSlab(mfi.nodaltilebox(1),2,0);
 
         //
-        // Time averages of the barotropic fluxes after their exchange, and of the free surface
+        // Time averages of the barotropic fluxes after their exchange
         //
         if (exchange_flux) {
             AnyCTO(TypeList<CompileTimeOptions<avg_first_pred,avg_pred,avg_corr>>{}, {avg_mode},
@@ -451,21 +907,6 @@ REMORA::advance_2d (int lev,
             {
                 accumulate_flux_avg<decltype(mode)::value>(i, j, DVom(i,j,0), DV_avg1, DV_avg2, cff1_wt1, cff2_wt);
             });
-        }
-
-        if (predictor_2d_step) {
-            Box gbx3D = makeSlab(mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0)),2,0);
-            if (first_2d_step) {
-                ParallelFor(gbx3D, [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    Zt_avg1(i,j,0)=zero;
-                });
-            } else {
-                ParallelFor(gbx3D, [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    Zt_avg1(i,j,0) += cff1_wt1*zeta(i,j,0,krhs);
-                });
-            }
         }
 
         if (!do_step) { continue; }
@@ -485,313 +926,220 @@ REMORA::advance_2d (int lev,
         FArrayBox fab_znew;
         if (!direct) { fab_znew.resize(tbxp1D, 2, The_Async_Arena()); }
         auto znew = fab_znew.array();
-        AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
-                        CompileTimeOptions<0,1>>{}, {scheme, direct},
-        [&] (auto const& f) { ParallelFor(tbxp1D, f); },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch, auto store_direct)
-        {
-            Real rhs_zeta = zero;
-            Real zeta_new, zw;
-            if (sch.value == first_step) {
-                rhs_zeta = (DUon(i,j,0)-DUon(i+1,j,0))+
-                           (DVom(i,j,0)-DVom(i,j+1,0));
-                zeta_new = (zeta(i,j,0,kstp)+ pmn(i,j,0)*zcff1*rhs_zeta) * mskr(i,j,0);
-                zw = Real(0.5)*(zeta(i,j,0,kstp)+zeta_new);
-            } else if (sch.value == leapfrog) {
-                rhs_zeta = (DUon(i,j,0)-DUon(i+1,j,0))+
-                           (DVom(i,j,0)-DVom(i,j+1,0));
-                zeta_new = (zeta(i,j,0,kstp)+
-                            pmn(i,j,0)*zcff1*rhs_zeta) * mskr(i,j,0);
-                zw = zcff5*zeta(i,j,0,krhs)+
-                     zcff4*(zeta(i,j,0,kstp)+zeta_new);
-            } else {
-                Real cff=zcff1*((DUon(i,j,0)-DUon(i+1,j,0))+
-                                (DVom(i,j,0)-DVom(i,j+1,0)));
-                zeta_new = zeta(i,j,0,kstp)+
-                    pmn(i,j,0)*(cff+
-                                zcff2*rzeta(i,j,0,kstp)-
-                                zcff3*rzeta(i,j,0,ptsk));
-                zeta_new *= mskr(i,j,0);
-                zw = zcff5*zeta_new+zcff4*zeta(i,j,0,krhs);
-            }
-            Dnew(i,j,0) = zeta_new+h(i,j,0);
-            zwrk(i,j,0) = zw;
-            Real gz = (fac+rhoS(i,j,0))*zw;
-            gzeta(i,j,0) = gz;
-            gzeta2(i,j,0) = gz*zw;
-            gzetaSA(i,j,0) = zw*(rhoS(i,j,0)-rhoA(i,j,0));
-
-            if (store_direct.value) {
-                zeta(i,j,0,knew) = zeta_new;
-                if (store_rhs) { rzeta(i,j,0,krhs) = rhs_zeta; }
-            } else {
-                znew(i,j,0,0) = zeta_new;
-                znew(i,j,0,1) = rhs_zeta;
-            }
-        });
-
-        //  Load the new free surface into the state at both predictor and corrector steps,
-        //  and the predictor's right-hand side.
-        if (!direct) {
-            ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                zeta(i,j,0,knew) = znew(i,j,0,0);
-                if (store_rhs) { rzeta(i,j,0,krhs) = znew(i,j,0,1); }
-            });
-        }
+        auto rzeta = mf_rzeta->array(mfi);
 
         //
         // Momentum fluxes at the rho and psi points around the tile: horizontal advection
         // and harmonic viscosity (uv3dmix with Hz = Drhs and no time step), and the
         // curvilinear terms. Per-tile, thread-private.
         //
-        int nflx = 0;
-        const int aUFx = nflx++, aUFe = nflx++, aVFx = nflx++, aVFe = nflx++; // advection
-        const int hUFx = nflx++, hUFe = nflx++, hVFx = nflx++, hVFe = nflx++; // viscosity
-        const int cUFx = nflx++, cVFe = nflx++;                               // curvilinear
-        FArrayBox fab_flx(grow(bxD,IntVect(1,1,0)), nflx, The_Async_Arena());
+        FArrayBox fab_flx(grow(bxD,IntVect(1,1,0)), n_flux_comps, The_Async_Arena());
         auto flx = fab_flx.array();
 
-        // Cells: the x-fluxes of u on [lo-1:hi+1] x [lo:hi], the y-fluxes of v on
-        // [lo:hi] x [lo-1:hi+1]
-        AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
-        [&] (auto const& fu, auto const& fv) {
-            ParallelFor(growLo(xbxD,0,1), growLo(ybxD,1,1), fu, fv);
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3)
-        {
-            if (up3.value) {
-                Real uxx_i   = ubar(i-1,j,0,krhs)-two*ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
-                Real uxx_ip1 = ubar(i  ,j,0,krhs)-two*ubar(i+1,j,0,krhs)+ubar(i+2,j,0,krhs);
-
-                Real Huxx_i   = DUon(i-1,j,0)-two*DUon(i  ,j,0)+DUon(i+1,j,0);
-                Real Huxx_ip1 = DUon(i  ,j,0)-two*DUon(i+1,j,0)+DUon(i+2,j,0);
-
-                if (i == dlo.x && !is_periodic_in_x) {
-                    uxx_i = uxx_ip1;
-                    Huxx_i = Huxx_ip1;
-                }
-                else if (i == dhi.x && !is_periodic_in_x) {
-                    uxx_ip1 = uxx_i;
-                    Huxx_ip1 = Huxx_i;
-                }
-
-                Real ubar_avg = ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
-
-                flx(i,j,0,aUFx)=Real(0.25)*(ubar_avg-sixth*(uxx_i+uxx_ip1)) * (DUon(i,j,0)+ DUon(i+1,j,0)-sixth*(Huxx_i+ Huxx_ip1));
-            } else {
-                flx(i,j,0,aUFx) = Real(0.25) * (DUon(i,j,0)+DUon(i+1,j,0)) * (ubar(i,j,0,krhs)+ubar(i+1,j,0,krhs));
-            }
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3)
-        {
-            if (up3.value) {
-                Real vee_j    = vbar(i,j-1,0,krhs)-two*vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
-                Real vee_jp1  = vbar(i,j  ,0,krhs)-two*vbar(i,j+1,0,krhs)+vbar(i,j+2,0,krhs);
-
-                Real Hvee_j   = DVom(i,j-1,0)-two*DVom(i,j  ,0)+DVom(i,j+1,0);
-                Real Hvee_jp1 = DVom(i,j  ,0)-two*DVom(i,j+1,0)+DVom(i,j+2,0);
-
-                if (j == dlo.y and !is_periodic_in_y) {
-                    vee_j = vee_jp1;
-                    Hvee_j = Hvee_jp1;
-                }
-                else if (j == dhi.y and !is_periodic_in_y) {
-                    vee_jp1 = vee_j;
-                    Hvee_jp1 = Hvee_j;
-                }
-
-                Real cff1=vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
-
-                flx(i,j,0,aVFe) = Real(0.25) * (cff1-(vee_j + vee_jp1)*sixth) * (DVom(i,j  ,0)+ DVom(i,j+1,0) -
-                                                   sixth  * (Hvee_j+ Hvee_jp1));
-            } else {
-                flx(i,j,0,aVFe) = Real(0.25) * (DVom(i,j,0) + DVom(i,j+1,0))*(vbar(i,j,0,krhs)+vbar(i,j+1,0,krhs));
-            }
-        });
-
-        // The two viscous fluxes at a rho point share the strain term cff, so one pass over
-        // the tile grown by one computes it once for both. The x-flux is read on at most
-        // [lo-1:hi+1] x [lo:hi] and the y-flux on [lo:hi] x [lo-1:hi+1]; the rest is computed
-        // but not read.
-        ParallelFor(grow(bxD,IntVect(1,1,0)),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-            const Real cff = Real(0.5)*(zeta(i,j,0,krhs)+h(i,j,0)) * ( metr(i,j,0,MetricR::pmon_r) *
-                                        ( (pn(i  ,j,0) + pn(i+1,j,0)) * ubar(i+1,j,0,krhs)-
-                                          (pn(i-1,j,0) + pn(i  ,j,0)) * ubar(i  ,j,0,krhs) )-
-                                                    metr(i,j,0,MetricR::pnom_r) *
-                                        ( (pm(i,j  ,0) + pm(i,j+1,0)) * vbar(i,j+1,0,krhs)-
-                                          (pm(i,j-1,0) + pm(i,j  ,0)) * vbar(i,j  ,0,krhs) ) );
-            const Real on_r = metr(i,j,0,MetricR::on_r);
-            const Real om_r = metr(i,j,0,MetricR::om_r);
-            flx(i,j,0,hUFx) = on_r * on_r * visc2_r(i,j,0) * cff;
-            flx(i,j,0,hVFe) = om_r * om_r * visc2_r(i,j,0) * cff;
-        });
-
-        // psi points: the y-fluxes of u and the x-fluxes of v, both on [lo:hi+1]^2
-        AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
-        [&] (auto const& fu, auto const& fv) {
-            ParallelFor(growHi(xbxD,1,1), growHi(ybxD,0,1), fu, fv);
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3)
-        {
-            if (up3.value) {
-                Real uee_j   = ubar(i,j-1,0,krhs)-two*ubar(i,j  ,0,krhs)+ubar(i,j+1,0,krhs);
-                Real uee_jm1 = ubar(i,j-2,0,krhs)-two*ubar(i,j-1,0,krhs)+ubar(i,j  ,0,krhs);
-
-                Real Hvxx_i   = DVom(i-1,j,0)-two*DVom(i  ,j,0)+DVom(i+1,j,0);
-                Real Hvxx_im1 = DVom(i-2,j,0)-two*DVom(i-1,j,0)+DVom(i  ,j,0);
-
-                if (j == dlo.y and !is_periodic_in_y) {
-                    uee_jm1 = uee_j;
-                } else if (j == dhi.y+1 and !is_periodic_in_y) {
-                    uee_j = uee_jm1;
-                }
-
-                Real cff1=ubar(i,j  ,0,krhs)+ubar(i,j-1,0,krhs);
-                Real cff2=DVom(i,j,0)+DVom(i-1,j,0);
-
-                flx(i,j,0,aUFe)=Real(0.25)*(cff1-(uee_j+uee_jm1)*sixth)*
-                  (cff2-sixth*(Hvxx_i+Hvxx_im1));
-            } else {
-                flx(i,j,0,aUFe) = Real(0.25) * (DVom(i,j,0)+DVom(i-1,j,0)) * (ubar(i,j,0,krhs)+ubar(i,j-1,0,krhs));
-            }
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto up3)
-        {
-            if (up3.value) {
-                Real vxx_i   = vbar(i-1,j,0,krhs)-two*vbar(i  ,j,0,krhs)+vbar(i+1,j,0,krhs);
-                Real vxx_im1 = vbar(i-2,j,0,krhs)-two*vbar(i-1,j,0,krhs)+vbar(i  ,j,0,krhs);
-
-                Real Huee_j   = DUon(i,j-1,0)-two*DUon(i,j  ,0)+DUon(i,j+1,0);
-                Real Huee_jm1 = DUon(i,j-2,0)-two*DUon(i,j-1,0)+DUon(i,j  ,0);
-
-                if (i == dlo.x and !is_periodic_in_x) {
-                    vxx_im1 = vxx_i;
-                } else if (i == dhi.x + 1 and !is_periodic_in_x) {
-                    vxx_i = vxx_im1;
-                }
-
-                Real cff1=vbar(i  ,j,0,krhs)+vbar(i-1,j,0,krhs);
-                Real cff2=DUon(i,j,0)+DUon(i,j-1,0);
-
-                flx(i,j,0,aVFx)=Real(0.25)*(cff1-(vxx_i + vxx_im1)*sixth)* (cff2-sixth*(Huee_j+ Huee_jm1));
-            } else {
-                flx(i,j,0,aVFx) = Real(0.25) * (DUon(i,j,0) + DUon(i,j-1,0))*(vbar(i,j,0,krhs)+vbar(i-1,j,0,krhs));
-            }
-        });
-
-        // Both viscous fluxes at a psi point, on [lo:hi+1]^2, from one shared strain term.
-        // The box is grown from the cell tile box, because a nodal tile box includes the high
-        // face only on a box's last tile, and every tile's right-hand side reads the psi
-        // points on its high edge.
-        ParallelFor(growHi(growHi(bxD,0,1),1,1),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-            const Real cff = mskp(i,j,0) * Real(0.125) *
-                        ((zeta(i-1,j  ,0,krhs)+h(i-1,j  ,0)) + (zeta(i,j  ,0,krhs)+h(i,j  ,0))+
-                         (zeta(i-1,j-1,0,krhs)+h(i-1,j-1,0)) + (zeta(i,j-1,0,krhs)+h(i,j-1,0)))*
-                        (metp(i,j,0,MetricP::pmon_p)*
-                         ((pn(i  ,j-1,0)+pn(i  ,j,0))*vbar(i  ,j,0,krhs)-
-                          (pn(i-1,j-1,0)+pn(i-1,j,0))*vbar(i-1,j,0,krhs))+
-                         metp(i,j,0,MetricP::pnom_p)*
-                         ((pm(i-1,j  ,0)+pm(i,j  ,0))*ubar(i,j  ,0,krhs)-
-                          (pm(i-1,j-1,0)+pm(i,j-1,0))*ubar(i,j-1,0,krhs)));
-            const Real om_p = metp(i,j,0,MetricP::om_p);
-            const Real on_p = metp(i,j,0,MetricP::on_p);
-            flx(i,j,0,hUFe) = om_p*om_p*visc2_p(i,j,0)*cff;
-            flx(i,j,0,hVFx) = on_p*on_p*visc2_p(i,j,0)*cff;
-        });
-
+        FreeSurfaceAndFluxes fs;
+        fs.scr = mf.array(mfi);
+        fs.ubar = ubar;
+        fs.vbar = vbar;
+        fs.h = h;
+        fs.rhoS = mf_rhoS->const_array(mfi);
+        fs.rhoA = mf_rhoA->const_array(mfi);
+        fs.pm = mf_pm->const_array(mfi);
+        fs.pn = mf_pn->const_array(mfi);
+        fs.metr = vec_metric_r[lev]->const_array(mfi);
+        fs.metp = vec_metric_p[lev]->const_array(mfi);
+        fs.visc2_r = mf_visc2_r->const_array(mfi);
+        fs.visc2_p = mf_visc2_p->const_array(mfi);
+        fs.mskr = mf_mskr->const_array(mfi);
+        fs.mskp = mf_mskp->const_array(mfi);
+        fs.DUon = DUon;
+        fs.DVom = DVom;
         if (use_curv) {
-            Array4<Real const> const& dndx = vec_dndx[lev]->const_array(mfi);
-            Array4<Real const> const& dmde = vec_dmde[lev]->const_array(mfi);
-            ParallelFor(grow(bxD,IntVect(1,1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            fs.dndx = vec_dndx[lev]->const_array(mfi);
+            fs.dmde = vec_dmde[lev]->const_array(mfi);
+        }
+        fs.zeta = zeta;
+        fs.rzeta = mf_rzeta->array(mfi);
+        fs.znew = fab_znew.array();
+        fs.flx = flx;
+        fs.dlo = dlo;
+        fs.dhi = dhi;
+        fs.zcff1 = zcff1;
+        fs.zcff2 = zcff2;
+        fs.zcff3 = zcff3;
+        fs.zcff4 = zcff4;
+        fs.zcff5 = zcff5;
+        fs.fac = fac;
+        fs.sixth = sixth;
+        fs.krhs = krhs;
+        fs.kstp = kstp;
+        fs.knew = knew;
+        fs.ptsk = ptsk;
+        fs.store_rhs = predictor_2d_step;
+        fs.is_periodic_in_x = is_periodic_in_x;
+        fs.is_periodic_in_y = is_periodic_in_y;
+
+        // Rho points around the tile, and the psi points on [lo:hi+1]^2. The psi box is grown
+        // from the cell tile box, because a nodal tile box includes the high face only on a
+        // box's last tile, and every tile's right-hand side reads the psi points on its high
+        // edge.
+        const Box rbx = grow(bxD,IntVect(1,1,0));
+        const Box pbx = growHi(growHi(bxD,0,1),1,1);
+
+#ifdef AMREX_USE_GPU
+        if (Gpu::inLaunchRegion()) {
+            // On GPU the tile is the whole box, so the free-surface step stores directly and
+            // every flux box above lies in rbx: one kernel does all of this, each part on the
+            // points its own pass covers. None reads what another writes.
+            static_assert(NGROW == 2, "the free-surface box tbxp1D must be the tile grown by one");
+            const auto same_cells = [] (Box const& a, Box const& b) {
+                return a.smallEnd() == b.smallEnd() && a.bigEnd() == b.bigEnd();
+            };
+            AMREX_ALWAYS_ASSERT(direct && tbxp1D == rbx && same_cells(growHi(xbxD,1,1), pbx)
+                                && same_cells(growHi(ybxD,0,1), pbx));
+            const auto blo = amrex::lbound(bxD);
+            const auto bhi = amrex::ubound(bxD);
+            AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
+                            CompileTimeOptions<0,1>,CompileTimeOptions<0,1>>{},
+                   {scheme, upstream3, use_curv},
+            [&] (auto const& f) { ParallelFor(rbx, f); },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch, auto up3, auto curv)
             {
-                Real cff1 = Real(0.5) * (vbar(i,j,0,krhs) + vbar(i  ,j+1,0,krhs));
-                Real cff2 = Real(0.5) * (ubar(i,j,0,krhs) + ubar(i+1,j  ,0,krhs));
-                Real cff3 = cff1 * dndx(i,j,0);
-                Real cff4 = cff2 * dmde(i,j,0);
-                Real cff = (zeta(i,j,0,krhs)+h(i,j,0)) * (cff3 - cff4);
-                flx(i,j,0,cUFx) = cff * cff1;
-                flx(i,j,0,cVFe) = cff * cff2;
+                fs.zeta_step(i, j, sch, std::integral_constant<int,1>{});
+                if (j >= blo.y && j <= bhi.y) { fs.adv_u_rho(i, j, up3); }
+                if (i >= blo.x && i <= bhi.x) { fs.adv_v_rho(i, j, up3); }
+                fs.visc_rho(i, j);
+                if (curv.value) { fs.curv_rho(i, j); }
+                if (i >= blo.x && j >= blo.y) {
+                    fs.adv_u_psi(i, j, up3);
+                    fs.adv_v_psi(i, j, up3);
+                    fs.visc_psi(i, j);
+                }
             });
+        } else
+#endif
+        {
+            AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
+                            CompileTimeOptions<0,1>>{}, {scheme, direct},
+            [&] (auto const& f) { ParallelFor(tbxp1D, f); },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto sch, auto store_direct)
+            {
+                fs.zeta_step(i, j, sch, store_direct);
+            });
+
+            //  Load the new free surface into the state at both predictor and corrector
+            //  steps, and the predictor's right-hand side.
+            if (!direct) {
+                ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    zeta(i,j,0,knew) = znew(i,j,0,0);
+                    if (store_rhs) { rzeta(i,j,0,krhs) = znew(i,j,0,1); }
+                });
+            }
+
+            AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
+            [&] (auto const& f) { ParallelForXY(growLo(xbxD,0,1), growLo(ybxD,1,1), f); },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto dir, auto up3)
+            {
+                if (dir.value == 0) { fs.adv_u_rho(i, j, up3); } else { fs.adv_v_rho(i, j, up3); }
+            });
+
+            ParallelFor(rbx, [=] AMREX_GPU_DEVICE (int i, int j, int) { fs.visc_rho(i, j); });
+
+            AnyCTO(TypeList<CompileTimeOptions<0,1>>{}, {upstream3},
+            [&] (auto const& f) { ParallelForXY(growHi(xbxD,1,1), growHi(ybxD,0,1), f); },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto dir, auto up3)
+            {
+                if (dir.value == 0) { fs.adv_u_psi(i, j, up3); } else { fs.adv_v_psi(i, j, up3); }
+            });
+
+            ParallelFor(pbx, [=] AMREX_GPU_DEVICE (int i, int j, int) { fs.visc_psi(i, j); });
+
+            if (use_curv) {
+                ParallelFor(rbx, [=] AMREX_GPU_DEVICE (int i, int j, int) { fs.curv_rho(i, j); });
+            }
         }
 
-        //
-        // Right-hand side of the 2D momentum equations, the terms in the order the
-        // separate kernels added them: pressure gradient, advection, Coriolis (with
-        // fomn = fcor/(pm*pn)), curvilinear, viscosity.
-        //
-        ParallelFor(xbxD, ybxD,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-            Real rhs = g_half * on_u(i,j,0) *
-                          ((    h(i-1,j,0) +     h(i,j,0))*
-                           (gzeta(i-1,j,0) - gzeta(i,j,0))+
-                           (    h(i-1,j,0) -     h(i,j,0))*
-                           (      gzetaSA(i-1,j,0) + gzetaSA(i,j,0)+
-                            third*(   rhoA(i-1,j,0) -    rhoA(i,j,0))*
-                                 (   zwrk(i-1,j,0) -    zwrk(i,j,0)))+
-                           (gzeta2(i-1,j,0)- gzeta2(i  ,j,0)));
+        MomentumStep ms;
+        ms.scr = mf.array(mfi);
+        ms.h = h;
+        ms.rhoA = mf_rhoA->const_array(mfi);
+        ms.fcor = mf_fcor->const_array(mfi);
+        ms.pm = mf_pm->const_array(mfi);
+        ms.pn = mf_pn->const_array(mfi);
+        ms.metr = vec_metric_r[lev]->const_array(mfi);
+        ms.metu = vec_metric_u[lev]->const_array(mfi);
+        ms.metv = vec_metric_v[lev]->const_array(mfi);
+        ms.msku = mf_msku->const_array(mfi);
+        ms.mskv = mf_mskv->const_array(mfi);
+        ms.flx = flx;
+        ms.zeta = zeta;
+        ms.rufrc = rufrc;
+        ms.rvfrc = rvfrc;
+        ms.ubar = ubar;
+        ms.vbar = vbar;
+        ms.rubar = mf_rubar->array(mfi);
+        ms.rvbar = mf_rvbar->array(mfi);
+        ms.g_half = g_half;
+        ms.mcff1 = mcff1;
+        ms.mcff2 = mcff2;
+        ms.mcff3 = mcff3;
+        ms.krhs = krhs;
+        ms.kstp = kstp;
+        ms.knew = knew;
+        ms.ptsk = ptsk;
 
-            rhs -= ((flx(i,j  ,0,aUFx)-flx(i-1,j,0,aUFx)) +
-                    (flx(i,j+1,0,aUFe)-flx(i  ,j,0,aUFe)));
-            rhs_ubar(i,j,0) = rhs;
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-            Real rhs = g_half*om_v(i,j,0) *
-                          ((    h(i,j-1,0) +     h(i,j,0))*
-                           (gzeta(i,j-1,0) - gzeta(i,j,0))+
-                           (    h(i,j-1,0) -     h(i,j,0))*
-                           (gzetaSA(i,j-1,0)+ gzetaSA(i,j  ,0)+
-                            third*(rhoA(i,j-1,0)- rhoA(i,j  ,0))*
-                                 (zwrk(i,j-1,0)- zwrk(i,j  ,0)))+
-                           (gzeta2(i,j-1,0)- gzeta2(i,j  ,0)));
+        const int am3_opt = (scheme == adams_moulton) ? 1 : 0;
 
-            rhs -= ((flx(i+1,j,0,aVFx)-flx(i  ,j,0,aVFx)) +
-                    (flx(i  ,j,0,aVFe)-flx(i,j-1,0,aVFe)));
-            rhs_vbar(i,j,0) = rhs;
+#ifdef AMREX_USE_GPU
+        bool nudge = false;
+#ifdef REMORA_USE_NETCDF
+        nudge = solverChoice.do_m2_clim_nudg;
+#endif
+        if (Gpu::inLaunchRegion() && couple == couple_none && !nudge) {
+            // Without the coupling step or nudging, which change the right-hand side between
+            // its terms and the time step, each face runs through all of it in one kernel, the
+            // 3D forcing added before the step.
+            AnyCTO(TypeList<CompileTimeOptions<0,1>,CompileTimeOptions<0,1>,
+                            CompileTimeOptions<0,1>,CompileTimeOptions<0,1>>{},
+                   {use_cor, use_curv, am3_opt, pred},
+            [&] (auto const& f) { ParallelForXY(xbxD, ybxD, f); },
+            [=] AMREX_GPU_DEVICE (int i, int j, int, auto dir, auto cor, auto curv, auto am3,
+                                  auto is_pred)
+            {
+                if (dir.value == 0) {
+                    Real rhs = ms.rhs_u_more(i, j, ms.rhs_u_pgadv(i, j), cor, curv);
+                    rhs += ms.rufrc(i,j,0);
+                    ms.step_u(i, j, rhs, am3, is_pred);
+                } else {
+                    Real rhs = ms.rhs_v_more(i, j, ms.rhs_v_pgadv(i, j), cor, curv);
+                    rhs += ms.rvfrc(i,j,0);
+                    ms.step_v(i, j, rhs, am3, is_pred);
+                }
+            });
+            continue;
+        }
+#endif
+
+        // Otherwise the right-hand side is staged in rhs_ubar and rhs_vbar, and the forcing is
+        // added on every fast step but the coupling one.
+        ParallelForXY(xbxD, ybxD, [=] AMREX_GPU_DEVICE (int i, int j, int, auto dir)
+        {
+            if (dir.value == 0) {
+                rhs_ubar(i,j,0) = ms.rhs_u_pgadv(i, j);
+            } else {
+                rhs_vbar(i,j,0) = ms.rhs_v_pgadv(i, j);
+            }
         });
 
         AnyCTO(TypeList<CompileTimeOptions<0,1>,CompileTimeOptions<0,1>>{}, {use_cor, use_curv},
-        [&] (auto const& fu, auto const& fv) { ParallelFor(xbxD, ybxD, fu, fv); },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto cor, auto curv)
+        [&] (auto const& f) { ParallelForXY(xbxD, ybxD, f); },
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto dir, auto cor, auto curv)
         {
-            Real rhs = rhs_ubar(i,j,0);
-            if (cor.value) {
-                Real UFx_i   = Real(0.5) * (zeta(i  ,j,0,krhs)+h(i  ,j,0)) * (fcor(i  ,j,0)*omn(i  ,j,0)) * (vbar(i  ,j,0,krhs)+vbar(i  ,j+1,0,krhs));
-                Real UFx_im1 = Real(0.5) * (zeta(i-1,j,0,krhs)+h(i-1,j,0)) * (fcor(i-1,j,0)*omn(i-1,j,0)) * (vbar(i-1,j,0,krhs)+vbar(i-1,j+1,0,krhs));
-                rhs += Real(0.5)*(UFx_i + UFx_im1);
+            if (dir.value == 0) {
+                rhs_ubar(i,j,0) = ms.rhs_u_more(i, j, rhs_ubar(i,j,0), cor, curv);
+            } else {
+                rhs_vbar(i,j,0) = ms.rhs_v_more(i, j, rhs_vbar(i,j,0), cor, curv);
             }
-
-            if (curv.value) {
-                rhs += Real(0.5) * (flx(i,j,0,cUFx) + flx(i-1,j,0,cUFx));
-            }
-
-            const Real cff1=Real(0.5)*(pn(i-1,j,0)+pn(i,j,0))*(flx(i,j  ,0,hUFx)-flx(i-1,j,0,hUFx));
-            const Real cff2=Real(0.5)*(pm(i-1,j,0)+pm(i,j,0))*(flx(i,j+1,0,hUFe)-flx(i  ,j,0,hUFe));
-            rhs_ubar(i,j,0) = rhs + (cff1+cff2);
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto cor, auto curv)
-        {
-            Real rhs = rhs_vbar(i,j,0);
-
-            if (cor.value) {
-                Real VFe_j   = Real(0.5) * (zeta(i,j  ,0,krhs)+h(i,j  ,0)) * (fcor(i,j  ,0)*omn(i,j  ,0)) * (ubar(i,j  ,0,krhs)+ubar(i+1,j  ,0,krhs));
-                Real VFe_jm1 = Real(0.5) * (zeta(i,j-1,0,krhs)+h(i,j-1,0)) * (fcor(i,j-1,0)*omn(i,j-1,0)) * (ubar(i,j-1,0,krhs)+ubar(i+1,j-1,0,krhs));
-                rhs -= Real(0.5)*(VFe_j + VFe_jm1);
-            }
-
-            if (curv.value) {
-                rhs -= Real(0.5) * (flx(i,j,0,cVFe) + flx(i,j-1,0,cVFe));
-            }
-
-            const Real cff1=Real(0.5)*(pn(i,j-1,0)+pn(i,j,0))*(flx(i+1,j,0,hVFx)-flx(i,j  ,0,hVFx));
-            const Real cff2=Real(0.5)*(pm(i,j-1,0)+pm(i,j,0))*(flx(i  ,j,0,hVFe)-flx(i,j-1,0,hVFe));
-            rhs_vbar(i,j,0) = rhs + (cff1-cff2);
         });
 
 #ifdef REMORA_USE_NETCDF
@@ -818,9 +1166,11 @@ REMORA::advance_2d (int lev,
                                                   Geom(lev).Domain(), Geom(lev).isPeriodic(1));
             ybxD_adj.makeSlab(2,0);
             apply_clim_nudg(xbxD_adj, 1, 0, rhs_ubar, ubar_krhs, ubar_clim, ubar_nudg_coeff, Drhs,
-                            vec_metric_u[lev]->const_array(mfi,MetricU::om_u), on_u);
+                            vec_metric_u[lev]->const_array(mfi,MetricU::om_u),
+                            vec_metric_u[lev]->const_array(mfi,MetricU::on_u));
             apply_clim_nudg(ybxD_adj, 0, 1, rhs_vbar, vbar_krhs, vbar_clim, vbar_nudg_coeff, Drhs,
-                            om_v, vec_metric_v[lev]->const_array(mfi,MetricV::on_v));
+                            vec_metric_v[lev]->const_array(mfi,MetricV::om_v),
+                            vec_metric_v[lev]->const_array(mfi,MetricV::on_v));
         }
 #endif
 
@@ -885,55 +1235,23 @@ REMORA::advance_2d (int lev,
             });
         }
 
-        //
-        // Time step of the 2D momentum equations, with the 3D forcing added first on every
-        // fast step but the coupling one, and Dstp = zeta(kstp) + h. If predictor step,
-        // load right-side-term into shared arrays for the subsequent corrector step.
-        //
         AnyCTO(TypeList<CompileTimeOptions<0,1>,CompileTimeOptions<0,1>,CompileTimeOptions<0,1>>{},
-               {scheme == adams_moulton ? 1 : 0, pred, add_frc},
-        [&] (auto const& fu, auto const& fv) { ParallelFor(xbxD, ybxD, fu, fv); },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto am3, auto is_pred, auto frc)
+               {am3_opt, pred, add_frc},
+        [&] (auto const& f) { ParallelForXY(xbxD, ybxD, f); },
+        [=] AMREX_GPU_DEVICE (int i, int j, int, auto dir, auto am3, auto is_pred, auto frc)
         {
-            Real rhs = rhs_ubar(i,j,0);
-            if (frc.value) { rhs += rufrc(i,j,0); }
-            Real cff=pmn4_u(i,j,0);
-            Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i-1,j,0));
-            Real Dstp_sum=(zeta(i,j,0,kstp)+h(i,j,0))+(zeta(i-1,j,0,kstp)+h(i-1,j,0));
-            if (am3.value) {
-                ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*Dstp_sum+
-                                 cff*(mcff1*rhs+
-                                      mcff2*rubar(i,j,0,kstp)-
-                                      mcff3*rubar(i,j,0,ptsk)))*Dnew_avg * msku(i,j,0);
+            if (dir.value == 0) {
+                Real rhs = rhs_ubar(i,j,0);
+                if (frc.value) { rhs += ms.rufrc(i,j,0); }
+                ms.step_u(i, j, rhs, am3, is_pred);
             } else {
-                ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*Dstp_sum+
-                                  cff*mcff1*rhs)*Dnew_avg * msku(i,j,0);
-            }
-            if (is_pred.value) {
-                rubar(i,j,0,krhs)=rhs;
-            }
-        },
-        [=] AMREX_GPU_DEVICE (int i, int j, int, auto am3, auto is_pred, auto frc)
-        {
-            Real rhs = rhs_vbar(i,j,0);
-            if (frc.value) { rhs += rvfrc(i,j,0); }
-            Real cff=pmn4_v(i,j,0);
-            Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i,j-1,0));
-            Real Dstp_sum=(zeta(i,j,0,kstp)+h(i,j,0))+(zeta(i,j-1,0,kstp)+h(i,j-1,0));
-            if (am3.value) {
-                vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*Dstp_sum+
-                                 cff*(mcff1*rhs+
-                                      mcff2*rvbar(i,j,0,kstp)-
-                                      mcff3*rvbar(i,j,0,ptsk)))*Dnew_avg * mskv(i,j,0);
-            } else {
-                vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*Dstp_sum+
-                                  cff*mcff1*rhs)*Dnew_avg * mskv(i,j,0);
-            }
-            if (is_pred.value) {
-                rvbar(i,j,0,krhs)=rhs;
+                Real rhs = rhs_vbar(i,j,0);
+                if (frc.value) { rhs += ms.rvfrc(i,j,0); }
+                ms.step_v(i, j, rhs, am3, is_pred);
             }
         });
     }
+    box_local.reset();
 
     // Don't do the FillPatch or rivers at the last truncated predictor step.
     // We may need to move the zeta FillPatch further up
@@ -986,6 +1304,15 @@ REMORA::advance_2d (int lev,
 #endif
         const bool set_before_exchange = lev > 0 && set_2d_now && !rivers && cf_2d_interior(lev);
         const auto set_interface = [&] () {
+            // With the fill cache on, the parent's interface flux and the ghost band are kept
+            // and rebuilt, with exchanges, only when their inputs change. Building them first
+            // leaves loops that read and write only each box's own data.
+            std::optional<BoxLocalLoops> iface_local;
+            if (cf_2d_fill_cache == 1) {
+                cf_interface_flux(lev, t_old[lev]);
+                if (cf_fill_all_kcomp) { cf_ghost_band(lev, 2, *vec_zeta[lev]); }
+                iface_local.emplace();
+            }
             if (cf_fill_all_kcomp) {
                 fill_ghost_kcomps(*vec_zeta[lev], knew, cf_ghost_band(lev, 2, *vec_zeta[lev]));
             }
@@ -1001,13 +1328,19 @@ REMORA::advance_2d (int lev,
             // flight at once -- this runs every fast step -- then apply the conditions in
             // the same order as before.
             const Periodicity& per = geom[lev].periodicity();
-            amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get(),
-                                                  vec_zeta[lev].get()},
-                                Vector<int>{knew, knew, knew}, Vector<int>{1, 1, 1},
-                                Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
-                                                vec_vbar[lev]->nGrowVect(),
-                                                vec_zeta[lev]->nGrowVect()},
-                                Vector<Periodicity>{per, per, per});
+            exchange_then_sync([&] {
+                amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get(),
+                                                      vec_zeta[lev].get()},
+                                    Vector<int>{knew, knew, knew}, Vector<int>{1, 1, 1},
+                                    Vector<IntVect>{vec_ubar[lev]->nGrowVect(),
+                                                    vec_vbar[lev]->nGrowVect(),
+                                                    vec_zeta[lev]->nGrowVect()},
+                                    Vector<Periodicity>{per, per, per});
+            });
+            // Without boundary data from files, the conditions read and write only each
+            // box's own data
+            std::optional<BoxLocalLoops> bc_local;
+            if (!solverChoice.boundary_from_netcdf) { bc_local.emplace(); }
             FillPatchBCs(lev, t_old[lev], *vec_ubar[lev], ubar_bc(), bdy_ubar(),
                          knew, 1, 0, know, dt2d, ubar_know);
             FillPatchBCs(lev, t_old[lev], *vec_vbar[lev], vbar_bc(), bdy_vbar(),
@@ -1030,11 +1363,16 @@ REMORA::advance_2d (int lev,
         // See fill_ghost_kcomps: without this the components the solver reads in the ghost
         // band lag the one FillPatch just wrote by a whole parent step.
         if (lev > 0 && cf_fill_all_kcomp) {
+            // A band is built, with an exchange, when the layout changes: before the box-local
+            // loops
+            const iMultiFab& band_z = cf_ghost_band(lev, 2, *vec_zeta[lev]);
+            const iMultiFab& band_u = cf_ghost_band(lev, 0, *vec_ubar[lev]);
+            const iMultiFab& band_v = cf_ghost_band(lev, 1, *vec_vbar[lev]);
+            BoxLocalLoops band_local;
             if (!interface_set) {
-                fill_ghost_kcomps(*vec_zeta[lev], knew, cf_ghost_band(lev, 2, *vec_zeta[lev]));
+                fill_ghost_kcomps(*vec_zeta[lev], knew, band_z);
             }
-            fill_ghost_kcomps(*vec_ubar[lev], knew, cf_ghost_band(lev, 0, *vec_ubar[lev]));
-            fill_ghost_kcomps(*vec_vbar[lev], knew, cf_ghost_band(lev, 1, *vec_vbar[lev]));
+            fill_ghost_kcomps_uv(*vec_ubar[lev], band_u, *vec_vbar[lev], band_v, knew);
         }
 
         // Replace the interface faces the FillPatchers just set from the parent's ubar with
@@ -1142,6 +1480,12 @@ REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
         return *band;
     }
 
+    // Building the band exchanges data between boxes, so it must not run inside a
+    // BoxLocalLoops scope; callers there build it first
+#ifdef AMREX_USE_GPU
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!Gpu::inNoSyncRegion(),
+        "cf_ghost_band: the band must be built outside a BoxLocalLoops scope");
+#endif
     const Geometry& gm = geom[lev];
     iMultiFab covered(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
     covered.setVal(0);

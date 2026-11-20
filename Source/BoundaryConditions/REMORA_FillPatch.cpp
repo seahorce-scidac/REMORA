@@ -3,12 +3,29 @@
 #include <REMORA_IndexDefines.H>
 #include <REMORA_TimeInterpolatedData.H>
 #include <REMORA_BitwiseDiff.H>
+#include <REMORA_BoxLocalLoops.H>
+
+#include <optional>
 
 using namespace amrex;
 
 PhysBCFunctNoOp null_bc;
 
 namespace {
+/** \brief d = a wherever m is set */
+struct CopyOnMask
+{
+    Array4<Real> d;
+    Array4<Real const> a;
+    Array4<int const> m;
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void operator() (int i, int j, int k) const noexcept
+    {
+        if (m(i,j,k)) { d(i,j,k) = a(i,j,k); }
+    }
+};
+
 /** \brief dst(comp) = src(comp) wherever mask is set, ghost cells included */
 void copy_on_mask (MultiFab& dst, const MultiFab& src, const iMultiFab& mask, int comp)
 {
@@ -17,13 +34,45 @@ void copy_on_mask (MultiFab& dst, const MultiFab& src, const iMultiFab& mask, in
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        auto d = dst.array(mfi, comp);
-        auto a = src.const_array(mfi, comp);
-        auto m = mask.const_array(mfi);
-        ParallelFor(mfi.growntilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            if (m(i,j,k)) { d(i,j,k) = a(i,j,k); }
-        });
+        ParallelFor(mfi.growntilebox(), CopyOnMask{dst.array(mfi, comp), src.const_array(mfi, comp),
+                                                   mask.const_array(mfi)});
+    }
+}
+
+/** \brief copy_on_mask for three fields on one layout (any index types). On GPU one launch
+ *         per box covers all three. */
+void copy_on_mask3 (MultiFab* const dst[3], const MultiFab* const src[3],
+                    const iMultiFab* const mask[3], int comp)
+{
+#ifdef AMREX_USE_GPU
+    if (Gpu::inLaunchRegion()) {
+        // Box b of every field runs in the same launch, on box b's stream
+        for (int n = 1; n < 3; ++n) {
+            AMREX_ASSERT(amrex::convert(dst[n]->boxArray(), IntVect(0))
+                             == amrex::convert(dst[0]->boxArray(), IntVect(0))
+                         && dst[n]->DistributionMap() == dst[0]->DistributionMap());
+        }
+        for (int n = 0; n < 3; ++n) {
+            AMREX_ASSERT(src[n]->boxArray() == dst[n]->boxArray()
+                         && src[n]->DistributionMap() == dst[n]->DistributionMap()
+                         && mask[n]->boxArray() == dst[n]->boxArray()
+                         && mask[n]->DistributionMap() == dst[n]->DistributionMap());
+        }
+        for (MFIter mfi(*dst[0]); mfi.isValid(); ++mfi) {
+            const int b = mfi.index();
+            ParallelFor(dst[0]->fabbox(b), dst[1]->fabbox(b), dst[2]->fabbox(b),
+                        CopyOnMask{dst[0]->array(b, comp), src[0]->const_array(b, comp),
+                                   mask[0]->const_array(b)},
+                        CopyOnMask{dst[1]->array(b, comp), src[1]->const_array(b, comp),
+                                   mask[1]->const_array(b)},
+                        CopyOnMask{dst[2]->array(b, comp), src[2]->const_array(b, comp),
+                                   mask[2]->const_array(b)});
+        }
+        return;
+    }
+#endif
+    for (int n = 0; n < 3; ++n) {
+        copy_on_mask(*dst[n], *src[n], *mask[n], comp);
     }
 }
 
@@ -612,19 +661,33 @@ REMORA::replay_cf_2d_fills (int lev, Real time, int knew, int know, Real dt2d,
         FPr_ubar[lev-1].FillSetKept(*mfs[0], time, domain_bcs_type, check);
         FPr_vbar[lev-1].FillSetKept(*mfs[1], time, domain_bcs_type, check);
     }
-    for (int n = 0; n < 3; ++n) {
-        copy_on_mask(*mfs[n], *cache[n]->vals, *cache[n]->mask, knew);
+    {
+        BoxLocalLoops copy_local;
+        const MultiFab* vals[3]   = {cache[0]->vals.get(), cache[1]->vals.get(), cache[2]->vals.get()};
+        const iMultiFab* masks[3] = {cache[0]->mask.get(), cache[1]->mask.get(), cache[2]->mask.get()};
+        copy_on_mask3(mfs, vals, masks, knew);
     }
     if (before_exchange) { before_exchange(); }
     const Periodicity& per = geom[lev].periodicity();
-    amrex::FillBoundary(Vector<MultiFab*>{mfs[0], mfs[1], mfs[2]},
-                        Vector<int>{knew, knew, knew}, Vector<int>{1, 1, 1},
-                        Vector<IntVect>{mfs[0]->nGrowVect(), mfs[1]->nGrowVect(),
-                                        mfs[2]->nGrowVect()},
-                        Vector<Periodicity>{per, per, per});
-    for (int n = 0; n < 3; ++n) {
-        FillPatchBCs(lev, time, *mfs[n], bccomp[n], bdy[n], knew, 1, 0, know, dt2d, *mf_calc[n]);
+    exchange_then_sync([&] {
+        amrex::FillBoundary(Vector<MultiFab*>{mfs[0], mfs[1], mfs[2]},
+                            Vector<int>{knew, knew, knew}, Vector<int>{1, 1, 1},
+                            Vector<IntVect>{mfs[0]->nGrowVect(), mfs[1]->nGrowVect(),
+                                            mfs[2]->nGrowVect()},
+                            Vector<Periodicity>{per, per, per});
+    });
+    {
+        // Without boundary data from files, the conditions read and write only each box's own
+        // data. zeta's periodic corners, which FillPatchBCs would fill last, are an exchange, so
+        // they are filled after these loops.
+        std::optional<BoxLocalLoops> bc_local;
+        if (!solverChoice.boundary_from_netcdf) { bc_local.emplace(); }
+        for (int n = 0; n < 3; ++n) {
+            FillPatchBCs(lev, time, *mfs[n], bccomp[n], bdy[n], knew, 1, 0, know, dt2d,
+                         *mf_calc[n], false);
+        }
     }
+    mfs[2]->EnforcePeriodicity(per);
 
     if (check) {
         for (int n = 0; n < 3; ++n) {
