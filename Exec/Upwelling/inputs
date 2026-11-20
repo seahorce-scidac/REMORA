@@ -5,8 +5,6 @@ remora.max_step = 10
 
 remora.omp_tile_size = 1024 1024 1024
 
-amrex.fpe_trap_invalid=1
-
 # PROBLEM SIZE & GEOMETRY
 remora.prob_lo     =      0.     0.    -150.
 remora.prob_hi     =  41000. 80000.       0.
@@ -33,7 +31,7 @@ remora.check_int       = -57600      # number of timesteps between checkpoints
 
 # PLOTFILES
 remora.plot_file     = plt        # prefix of plotfile name
-remora.plot_int      = 1        # number of timesteps between plotfiles
+remora.plot_int      = 100        # number of timesteps between plotfiles
 remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
 
@@ -55,12 +53,3 @@ remora.use_coriolis = true
 remora.coriolis_type = beta_plane
 remora.coriolis_f0 = -8.26e-5
 remora.coriolis_beta = 0.0
-
-# REFINEMENT / REGRIDDING
-amr.max_level       = 1       # maximum level number allowed
-amr.ref_ratio_vect = 3 3  1
-remora.refinement_indicators = velup
-remora.coupling_type = "TwoWay"
-remora.velup.max_level=1
-remora.velup.field_name = h
-remora.velup.value_greater = 100
