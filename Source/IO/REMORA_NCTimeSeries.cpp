@@ -426,8 +426,8 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
         l_time = t_lo + std::fmod(time - t_lo, cycle_length);
         if (l_time < t_lo) l_time += cycle_length;
     }
-    // A saved buffer already at this time for this level is current. Only this class writes
-    // it, so nothing else needs doing.
+    // Interpolation is redone only for a time that differs from the last one. A saved buffer
+    // already at this time for this level is current: only this class writes it.
     if (save_interpolated && lev < static_cast<int>(mf_interpolated_lev.size()) &&
         have_interpolated_lev[lev] && interpolated_time_lev[lev] == l_time &&
         mf_interpolated_lev[lev]->boxArray() == mf_lev->boxArray() &&
@@ -466,10 +466,12 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
 }
 
 /**
- * @param time    time to interpolate to, as given, for messages
- * @param l_time  that time within the series, wrapped into one cycle for a cycling series
+ * @param[in   ] time    time to interpolate to, as given, for messages
+ * @param[in   ] l_time  that time within the series, wrapped into one cycle for a cycling series
  */
-void NCTimeSeries::interpolate_lev0_to_time (double time, double l_time) {
+void
+NCTimeSeries::interpolate_lev0_to_time (double time, double l_time)
+{
     // Figure out time index:
     int i_time_before_old = i_time_before;
     int i_time_new = -1;
@@ -540,12 +542,16 @@ void NCTimeSeries::interpolate_lev0_to_time (double time, double l_time) {
 }
 
 /**
- * @param lev               level to fill
- * @param mf_to_fill_lev    data on level lev to fill from mf_interp_lev0
+ * @param[in   ] lev             level to fill
+ * @param[inout] mf_to_fill_lev  data on level lev, filled from mf_interp_lev0
+ * @param[in   ] geom            geometry of every level
+ * @param[in   ] ref_ratio       refinement ratio between each level and the next
  */
-void NCTimeSeries::fill_level_from_lev0 (int lev, amrex::MultiFab* mf_to_fill_lev,
-                                         const amrex::Vector<amrex::Geometry>& geom,
-                                         const amrex::Vector<amrex::IntVect>& ref_ratio) {
+void
+NCTimeSeries::fill_level_from_lev0 (int lev, amrex::MultiFab* mf_to_fill_lev,
+                                    const amrex::Vector<amrex::Geometry>& geom,
+                                    const amrex::Vector<amrex::IntVect>& ref_ratio)
+{
     if (lev == 0) {
         amrex::MultiFab::Copy(*mf_to_fill_lev, *mf_interp_lev0, 0, 0, 1, mf_to_fill_lev->nGrowVect());
         return;
@@ -597,6 +603,9 @@ void NCTimeSeries::fill_level_from_lev0 (int lev, amrex::MultiFab* mf_to_fill_le
             });
         }
         mf_interp_lev0->EnforcePeriodicity(geom[0].periodicity());
+        // Across a periodic edge that replaced the ring the file holds with its periodic
+        // image, so level 0 needs the time interpolation redone before it copies again
+        have_interp_lev0 = false;
     }
 
     // Take the coarse data from those ghost cells, without periodic wrap: each coarse cell
@@ -644,7 +653,8 @@ void NCTimeSeries::fill_level_from_lev0 (int lev, amrex::MultiFab* mf_to_fill_le
 }
 
 amrex::Box
-NCTimeSeries::lev0_data_box () const {
+NCTimeSeries::lev0_data_box () const
+{
     const auto nodality = mf_interp_lev0->ixType();
     return amrex::grow(amrex::convert(domain, nodality),
                        amrex::IntVect(1-nodality[0],1-nodality[1],0));

@@ -58,10 +58,8 @@ class NCTimeSeries
         /** \brief Calculate interpolated values at time, in seconds on the model clock,
          *         and fill data for level lev
          *
-         * Interpolation is redone only for a time that differs from the last one: level 0's
-         * temporal interpolation is reused for a repeated time, and so is a saved buffer for
-         * a level asked for the same time again. Without save_interpolated the data go into
-         * mf_lev, which the caller owns and may change in between, so it is filled every call. */
+         * Without save_interpolated the data go into mf_lev on every call, also for a
+         * repeated time, so the caller may change mf_lev in between. */
         void update_interpolated_to_time (double time, int lev,
                                           amrex::MultiFab* mf_lev,
                                           const amrex::Vector<amrex::Geometry>& geom,
