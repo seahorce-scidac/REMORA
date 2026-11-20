@@ -16,6 +16,7 @@ namespace {
  */
 void fill_ghost_kcomps (MultiFab& mf, int knew, const iMultiFab& band)
 {
+    BL_PROFILE("fill_ghost_kcomps()");
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
