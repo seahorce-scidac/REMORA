@@ -1,5 +1,6 @@
 #include <REMORA.H>
 #include <REMORA_BoxLocalLoops.H>
+#include <REMORA_MaskPoints.H>
 
 #include <optional>
 
@@ -15,40 +16,56 @@ namespace {
  * cells. ROMS's put_refine2d sets the contact points it is about to read, so make every
  * component agree with the parent state just filled.
  *
- * The band (REMORA::cf_ghost_band) depends on the layout alone.
+ * The band (REMORA::cf_ghost_band) depends on the layout alone, and is given as the list of its
+ * cells in each box, so that the loop covers only those.
  */
 struct FillGhostKcomps
 {
     Array4<Real> a;
-    Array4<int const> b;
+    const Dim3* pts;
     int knew;
 
     AMREX_GPU_DEVICE AMREX_FORCE_INLINE
-    void operator() (int i, int j, int k) const noexcept
+    void operator() (int p) const noexcept
     {
-        if (!b(i,j,k)) { return; }
-        const Real val = a(i,j,k,knew);
-        a(i,j,k,0) = val;
-        a(i,j,k,1) = val;
-        a(i,j,k,2) = val;
+        const Dim3 c = pts[p];
+        const Real val = a(c.x,c.y,c.z,knew);
+        a(c.x,c.y,c.z,0) = val;
+        a(c.x,c.y,c.z,1) = val;
+        a(c.x,c.y,c.z,2) = val;
     }
 };
 
-void fill_ghost_kcomps (MultiFab& mf, int knew, const iMultiFab& band)
+/** \brief FillGhostKcomps for two fields in one loop: points [0, nu) of fu, then those of fv */
+struct FillGhostKcomps2
+{
+    FillGhostKcomps fu;
+    FillGhostKcomps fv;
+    int nu;
+
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE
+    void operator() (int p) const noexcept
+    {
+        if (p < nu) { fu(p); } else { fv(p - nu); }
+    }
+};
+
+void fill_ghost_kcomps (MultiFab& mf, int knew, const MaskPoints& band)
 {
     BL_PROFILE("fill_ghost_kcomps()");
+    AMREX_ASSERT(band.matches(mf));
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        ParallelFor(mfi.growntilebox(), FillGhostKcomps{mf.array(mfi), band.const_array(mfi), knew});
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
+        ParallelFor(band.size(mfi), FillGhostKcomps{mf.array(mfi), band.data(mfi), knew});
     }
 }
 
 /** \brief fill_ghost_kcomps for ubar and vbar, which share a layout. On GPU one launch per box
  *         covers both. */
-void fill_ghost_kcomps_uv (MultiFab& ubar, const iMultiFab& band_u,
-                           MultiFab& vbar, const iMultiFab& band_v, int knew)
+void fill_ghost_kcomps_uv (MultiFab& ubar, const MaskPoints& band_u,
+                           MultiFab& vbar, const MaskPoints& band_v, int knew)
 {
 #ifdef AMREX_USE_GPU
     if (Gpu::inLaunchRegion()) {
@@ -57,15 +74,14 @@ void fill_ghost_kcomps_uv (MultiFab& ubar, const iMultiFab& band_u,
         AMREX_ASSERT(amrex::convert(ubar.boxArray(), IntVect(0))
                          == amrex::convert(vbar.boxArray(), IntVect(0))
                      && ubar.DistributionMap() == vbar.DistributionMap()
-                     && band_u.boxArray() == ubar.boxArray()
-                     && band_u.DistributionMap() == ubar.DistributionMap()
-                     && band_v.boxArray() == vbar.boxArray()
-                     && band_v.DistributionMap() == vbar.DistributionMap());
+                     && band_u.matches(ubar) && band_v.matches(vbar));
         for (MFIter mfi(ubar); mfi.isValid(); ++mfi) {
             const int b = mfi.index();
-            ParallelFor(ubar.fabbox(b), vbar.fabbox(b),
-                        FillGhostKcomps{ubar.array(b), band_u.const_array(b), knew},
-                        FillGhostKcomps{vbar.array(b), band_v.const_array(b), knew});
+            const int nu = band_u.size(mfi);
+            ParallelFor(nu + band_v.size(mfi),
+                        FillGhostKcomps2{FillGhostKcomps{ubar.array(b), band_u.data(mfi), knew},
+                                         FillGhostKcomps{vbar.array(b), band_v.data(mfi), knew},
+                                         nu});
         }
         return;
     }
@@ -1366,9 +1382,9 @@ REMORA::advance_2d (int lev,
         if (lev > 0 && cf_fill_all_kcomp) {
             // A band is built, with an exchange, when the layout changes: before the box-local
             // loops
-            const iMultiFab& band_z = cf_ghost_band(lev, 2, *vec_zeta[lev]);
-            const iMultiFab& band_u = cf_ghost_band(lev, 0, *vec_ubar[lev]);
-            const iMultiFab& band_v = cf_ghost_band(lev, 1, *vec_vbar[lev]);
+            const MaskPoints& band_z = cf_ghost_band(lev, 2, *vec_zeta[lev]);
+            const MaskPoints& band_u = cf_ghost_band(lev, 0, *vec_ubar[lev]);
+            const MaskPoints& band_v = cf_ghost_band(lev, 1, *vec_vbar[lev]);
             BoxLocalLoops band_local;
             if (!interface_set) {
                 fill_ghost_kcomps(*vec_zeta[lev], knew, band_z);
@@ -1467,22 +1483,22 @@ REMORA::advance_2d (int lev,
  * covered: if the level wraps onto itself the exchange marks it, and if it does not -- a patch
  * covering part of the periodic width -- it is an ordinary coarse-fine ghost.
  *
+ * The band is kept as the list of its cells in each box (MaskPoints), the work list of
+ * fill_ghost_kcomps.
+ *
  * @param[in] lev   fine level
  * @param[in] slot  field: 0 ubar, 1 vbar, 2 zeta
  * @param[in] mf    the field, for its layout
  */
-const iMultiFab&
+const MaskPoints&
 REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
 {
     if (int(cf_band.size()) <= lev) { cf_band.resize(lev+1); }
-    std::unique_ptr<iMultiFab>& band = cf_band[lev][slot];
-    if (band && band->boxArray() == mf.boxArray() && band->DistributionMap() == mf.DistributionMap()
-             && band->nGrowVect() == mf.nGrowVect()) {
-        return *band;
-    }
+    MaskPoints& pts = cf_band[lev][slot];
+    if (pts.matches(mf)) { return pts; }
 
-    // Building the band exchanges data between boxes, so it must not run inside a
-    // BoxLocalLoops scope; callers there build it first
+    // Building the band exchanges data between boxes and reads it on the host, so it must not
+    // run inside a BoxLocalLoops scope; callers there build it first
 #ifdef AMREX_USE_GPU
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!Gpu::inNoSyncRegion(),
         "cf_ghost_band: the band must be built outside a BoxLocalLoops scope");
@@ -1493,7 +1509,7 @@ REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
     covered.setVal(1, 0, 1, 0);
     covered.FillBoundary(gm.periodicity());
 
-    band = std::make_unique<iMultiFab>(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
+    iMultiFab band(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
 
     const Box dom = amrex::convert(gm.Domain(), mf.boxArray().ixType());
     const auto dlo = amrex::lbound(dom);
@@ -1504,8 +1520,8 @@ REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(*band, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        const auto& b  = band->array(mfi);
+    for (MFIter mfi(band, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const auto& b  = band.array(mfi);
         const auto& cv = covered.const_array(mfi);
         ParallelFor(mfi.growntilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
@@ -1514,7 +1530,8 @@ REMORA::cf_ghost_band (int lev, int slot, const MultiFab& mf)
             b(i,j,k) = (cv(i,j,k) == 0 && !outside) ? 1 : 0;
         });
     }
-    return *band;
+    pts.define(band, 1);
+    return pts;
 }
 
 /**

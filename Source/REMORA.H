@@ -30,6 +30,7 @@
 
 #include <REMORA_PhysBCFunct.H>
 #include <REMORA_FillPatcher.H>
+#include <REMORA_MaskPoints.H>
 
 #include <REMORA_IndexDefines.H>
 #include <REMORA_TimeInterpolatedData.H>
@@ -1568,9 +1569,9 @@ public:
      *  snapshot pair (interpolated in time) rather than from the parent's zeta */
     bool zeta_fill_from_snapshots (int lev) const;
 
-    /** \brief The coarse-fine ghost band of a fine level's ubar (slot 0), vbar (1) or zeta (2),
-     *  where fill_ghost_kcomps writes; built once per layout */
-    const amrex::iMultiFab& cf_ghost_band (int lev, int slot, const amrex::MultiFab& mf);
+    /** \brief The cells of the coarse-fine ghost band of a fine level's ubar (slot 0), vbar (1)
+     *  or zeta (2), where fill_ghost_kcomps writes; built once per layout */
+    const MaskPoints& cf_ghost_band (int lev, int slot, const amrex::MultiFab& mf);
 
     /** \brief Coarse data ready for a coarse-to-fine interpolation: ghost cells exchanged,
      *         and those beyond a wall made to agree with their periodic images */
@@ -2269,8 +2270,8 @@ private:
     };
     /** \brief per level: the caches for ubar, vbar and zeta (slots 0, 1, 2) */
     amrex::Vector<amrex::Array<CF2DCache,3>> cf_2d_cache;
-    /** \brief per level: the ghost bands of ubar, vbar and zeta (see cf_ghost_band) */
-    amrex::Vector<amrex::Array<std::unique_ptr<amrex::iMultiFab>,3>> cf_band;
+    /** \brief per level: the cells of the ghost bands of ubar, vbar and zeta (see cf_ghost_band) */
+    amrex::Vector<amrex::Array<MaskPoints,3>> cf_band;
     /** \brief per level: bumped whenever register_coarse_data hands the level's new state to
      *         the next finer level, which invalidates that level's cf_2d_cache */
     amrex::Vector<long> cf_crse_gen;

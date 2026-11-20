@@ -1002,7 +1002,7 @@ REMORA::ClearLevel (int lev)
         for (auto& c : cf_2d_cache[lev]) { c = CF2DCache{}; }
     }
     if (lev < int(cf_band.size())) {
-        for (auto& b : cf_band[lev]) { b.reset(); }
+        for (auto& b : cf_band[lev]) { b = MaskPoints{}; }
     }
     if (lev < int(cf_iface_flux.size())) { cf_iface_flux[lev] = CFInterfaceFlux{}; }
     if (lev < int(crse_interp_entries.size())) { crse_interp_entries[lev].clear(); }
