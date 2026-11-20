@@ -23,12 +23,21 @@ The short version:
   answers independent of tiling, thread count and vectorization.
 * Turn off the diagnostics you do not need: ``remora.sum_interval = -1``, ``remora.v = 0``,
   and plot and checkpoint intervals sized to what you will look at.
+* Set ``remora.fixed_dt`` when you know a stable time step. Without it, every step computes
+  the vertical velocity and a global CFL estimate (see `Time step and vertical velocity`_).
+* On refined runs, give every level a box count that divides evenly among the ranks (see
+  `Refined runs`_).
 
 Build configuration
 -------------------
 
 **Build type.** ``CMAKE_BUILD_TYPE=Release`` (the CMake default) or ``DEBUG=FALSE`` with
 GNU make. Debug builds are several times slower and change no answers.
+
+**Array initialization.** GNU make's ``TEST=TRUE`` (off by default; CMake has no
+equivalent) fills every newly allocated array with signalling NaNs so that reads of unset
+data trap. It costs about 8 % of a CPU step and changes no answers; use it to debug, not for
+production runs. Debug builds turn on the same fill.
 
 **Profiler.** ``-DAMReX_TINY_PROFILE=ON`` (CMake) or ``TINY_PROFILE=TRUE`` (GNU make) adds
 a small overhead and prints a table of timed regions at the end of the run. Two
@@ -156,6 +165,40 @@ Grid layout and regridding
 * The number of barotropic (fast) steps per baroclinic step, ``remora.ndtfast``, sets
   the cost of the 2D loop, which is the largest part of a single-level step. Use the
   smallest value that keeps the fast step stable.
+
+Time step and vertical velocity
+-------------------------------
+
+The time step does not need the true vertical velocity w, so a single-level run computes it
+only when something reads it: a plotfile or checkpoint, a regrid, or the CFL estimate. With
+``remora.fixed_dt`` set and ``remora.v = 0``, w is formed only for output. Without
+``remora.fixed_dt`` (or with ``remora.v`` above 0, which prints the estimate) w is formed
+every step, which cost about 9 % of the CPU step in our tests, plus a global reduction for
+the time step. Neither choice changes the answers of a run that uses the same time steps.
+
+Refined runs
+------------
+
+Each level's boxes are distributed over all the ranks separately, and with subcycling
+(``remora.do_substep = 1``, the default) a fine level takes several steps per coarse step,
+so the ranks wait at every fine-level exchange for the rank with the most fine boxes.
+
+* Choose ``amr.max_grid_size`` (and the extent of the refined region) so that every level's
+  box count is a multiple of the number of ranks, or on CPUs at least several boxes per
+  rank. A box size that divides both the coarse domain and the refined patch evenly makes
+  this easy to check; the refined performance test uses 64 x 64 boxes on CPUs for this
+  reason. On GPUs the advice to use few, large boxes still holds, so aim for a box count per
+  level that is a multiple of the number of GPUs.
+* A fine level whose boxes, grown by their ghost cells and one more cell, stay clear of the
+  domain boundary skips one halo exchange per barotropic step. When the refined region can
+  be placed a few cells away from the boundary at no cost to the science, do so.
+* Leave ``remora.cf_2d_fill_cache`` at its default of 1 (see :ref:`sec:cf2dcache`). The value
+  2 recomputes every cached fill to check it and is for testing only.
+* Static nests: set ``amr.regrid_int = -1`` (see above).
+
+For scale: on Perlmutter, the refined Upwelling problem (512 x 1024 x 40 coarse cells with
+a refined patch over the middle half at ratio 2) took within 5 % of the time per coarse step
+of the single-level 1024 x 2048 x 40 problem, on a CPU node and on four A100s.
 
 Land
 ----

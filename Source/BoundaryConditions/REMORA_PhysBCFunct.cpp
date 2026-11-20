@@ -23,7 +23,7 @@ void REMORAPhysBCFunct::operator() (MultiFab& mf, const MultiFab& msk, int icomp
 {
     if (m_geom.isAllPeriodic()) return;
 
-    BL_PROFILE("REMORAPhysBCFunct::()");
+    BL_PROFILE("REMORAPhysBCFunct::operator()");
 
     const auto& domain = m_geom.Domain();
     const auto dxInv   = m_geom.InvCellSizeArray();

@@ -47,7 +47,7 @@ your fork.
 
 First, let us setup your local git repo. To make your own fork of the main
 (`upstream`) repository, press the fork button on the
-[REMORA Github page](https://github.com/seahorce-scidac/REMORA).
+[REMORA Github page](https://github.com/remora-ocean/REMORA).
 
 Then, clone your fork on your local computer. If you plan on doing a lot of REMORA development,
 we recommend configuring your clone to use ssh access so you won't have to enter your Github
@@ -58,7 +58,7 @@ git clone --branch development git@github.com:<myGithubUsername>/REMORA.git
 
 # Then, navigate into your repo, add a new remote for the main REMORA repo, and fetch it:
 cd REMORA
-git remote add upstream https://github.com/seahorce-scidac/REMORA
+git remote add upstream https://github.com/remora-ocean/REMORA
 git remote set-url --push upstream git@github.com:<myGithubUsername>/REMORA.git
 git fetch upstream
 

@@ -15,7 +15,7 @@ The code is available on Github and can be accessed with ``git``.
 
    .. code:: shell
 
-      git clone --recursive https://github.com/seahorce-scidac/REMORA.git
+      git clone --recursive https://github.com/remora-ocean/REMORA.git
 
 Now enter the Exec directory
 
@@ -59,14 +59,14 @@ Then download the REMORA repository by typing:
 
    .. code:: shell
 
-             git clone https://github.com/seahorce-scidac/REMORA.git
+             git clone https://github.com/remora-ocean/REMORA.git
 
 Or, to automatically include the AMReX submodule when downloading REMORA,
 type:
 
    .. code:: shell
 
-             git clone --recursive https://github.com/seahorce-scidac/REMORA.git
+             git clone --recursive https://github.com/remora-ocean/REMORA.git
 
 .. include:: submodule.rst
 

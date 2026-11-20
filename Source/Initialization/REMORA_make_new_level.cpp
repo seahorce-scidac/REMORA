@@ -90,6 +90,7 @@ void
 REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
                                const DistributionMapping& dm)
 {
+    BL_PROFILE("REMORA::MakeNewLevelFromCoarse()");
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
         b.setRange(2,0);
@@ -265,6 +266,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 void
 REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMapping& dm)
 {
+    BL_PROFILE("REMORA::RemakeLevel()");
 
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
@@ -466,6 +468,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba_in,
                                      const DistributionMapping& dm_in)
 {
+    BL_PROFILE("REMORA::MakeNewLevelFromScratch()");
     BoxArray ba = ba_in;
     DistributionMapping dm = dm_in;
     // Decided once, when the run starts: a restart keeps the checkpoint's BoxArray, which
@@ -1211,8 +1214,8 @@ REMORA::set_derived_metrics (int lev)
  *
  * The coarse data is copied without periodicity. Across a periodic edge, FillBoundary has
  * already put the wrapped values in the coarse ghost cells, but a ghost cell that also lies
- * beyond a wall (a corner where the seam meets a non-periodic face) keeps the value continued
- * from the file's ring, while its periodic image keeps the other side's. A periodic copy
+ * beyond a wall (a corner where the seam meets a non-periodic face) need not match its
+ * periodic image: angle's corners keep the ring copied outward. A periodic copy
  * would give that cell both as sources, and which one wins is not defined: on a GPU it varies
  * from run to run (#775). Copied without periodicity, each cell comes from the coarse level's
  * own ghost cell. The fine level's ghost cells across a periodic edge are then refilled from

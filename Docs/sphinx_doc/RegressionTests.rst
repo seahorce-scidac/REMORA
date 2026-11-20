@@ -4,12 +4,12 @@
 Regression Tests
 ================
 
-There are currently 70 regression tests which are run as part of every PR on a range of architectures:
+There are currently 71 regression tests which are run as part of every PR on a range of architectures:
 
 * 22 that compare a plotfile against a stored reference;
 * 6 that compare two runs of the model against each other, or a run against its own initial state, and
   need no reference;
-* 5 that assert values against an external reference;
+* 6 that assert values against an external reference;
 * 10 that assert the structure of the refined grid;
 * 8 that assert how far an integrated quantity drifts over a run;
 * 8 that assert a run reaches a behavior it reports in its log;
@@ -659,6 +659,32 @@ subtracted, or if the stress keeps the absolute wind's direction. The values are
 both runs see the same relative wind to the last bit. The comparison holds for one step only: after
 it, the two currents differ by the stress the wind put into them.
 
+Shortwave penetration tests
+---------------------------
+
+These cover **remora.shortwave_penetration** and **remora.jerlov_type** on the ``Advection`` case
+with bulk fluxes. Each comparison runs one step twice, with and without penetration, and needs no
+reference file.
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Advection_sw_penetration        | 81 81 16 | with 400 W/m^2 of shortwave and Jerlov type IB,         |
+|                                 |          |                                                         |
+|                                 |          | penetration changes the answer                          |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_sw_penetration_no_sw  | 81 81 16 | with no shortwave, penetration changes nothing          |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_jerlov_type_abort     | 81 81 16 | an unknown Jerlov water type is rejected                |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_sw_penetration\_      | 81 81 16 | penetration without bulk fluxes or flux coupling is     |
+| no_bulk_abort                   |          |                                                         |
+|                                 |          | rejected                                                |
++---------------------------------+----------+---------------------------------------------------------+
+
+The first fails if the option is ignored; the second fails if penetration moves heat that the
+surface flux did not bring in.
+
 A uniform current is the same on every face, so these tests cannot tell which faces are averaged to
 the rho points, and the domain is periodic, so the boundary faces are not covered either.
 
@@ -686,6 +712,25 @@ misleading values are rejected or reported.
 |                                 |          |                                                         |
 |                                 |          | 4000 m) runs and is reported                            |
 +---------------------------------+----------+---------------------------------------------------------+
+
+Plotfile variable tests
+-----------------------
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Channel_Test_mixing_plot_vars   | 20 60 50 | at initialization, ``Akv``, ``Akt``, ``tke`` and        |
+|                                 |          |                                                         |
+|                                 |          | ``gls`` in the plotfile match the background values the |
+|                                 |          |                                                         |
+|                                 |          | inputs set: ``tke`` and ``gls`` equal to ``gls_Kmin``   |
+|                                 |          |                                                         |
+|                                 |          | and ``gls_Pmin``, ``Akv`` and ``Akt`` from half to all  |
+|                                 |          |                                                         |
+|                                 |          | of ``Akv_bak`` and ``Akt_bak``                          |
++---------------------------------+----------+---------------------------------------------------------+
+
+The half values are in the top and bottom cells, whose surface and bottom w-levels start at zero.
 
 Nightly Regression Tests on CPU
 -------------------------------

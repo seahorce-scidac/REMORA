@@ -166,6 +166,36 @@ REMORA::prestep (int lev,
                               nrhs, N, lambda, dt_lev);
         }
 
+        // Shortwave penetration (ROMS SOLAR_SOURCE): the temperature surface flux above
+        // carries all of the shortwave into the top cell.  FC holds the shortwave reaching
+        // each interior w-level, so differencing it moves that part down through the
+        // column; what reaches the bottom stays in the bottom cell.  S_new holds Hz*T
+        // here, so the flux differences add directly.
+        if (solverChoice.shortwave_penetration) {
+            const Real r1  = solverChoice.jerlov_r1;
+            const Real mu1 = solverChoice.jerlov_mu1;
+            const Real mu2 = solverChoice.jerlov_mu2;
+            const Real Hscale2 = one / (solverChoice.rho0 * Cp);
+            Array4<Real const> const& srflx = vec_srflx[lev]->const_array(mfi);
+            Array4<Real const> const& mskr  = vec_mskr[lev]->const_array(mfi);
+            Array4<Real> const& temp = S_new.array(mfi, Temp_comp);
+
+            ParallelFor(surroundingNodes(bx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                if (k == 0 || k == N+1) {
+                    FC(i,j,k) = Real(0.0);
+                } else {
+                    Real depth = z_w(i,j,N+1) - z_w(i,j,k);
+                    FC(i,j,k) = dt_lev * srflx(i,j,0) * Hscale2 * mskr(i,j,0) *
+                                (r1 * std::exp(-depth / mu1) + (one - r1) * std::exp(-depth / mu2));
+                }
+            });
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                temp(i,j,k,nnew) += FC(i,j,k+1) - FC(i,j,k);
+            });
+        }
+
         //
         //-----------------------------------------------------------------------
         // prestep_uv_3d

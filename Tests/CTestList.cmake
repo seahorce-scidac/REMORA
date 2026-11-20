@@ -234,6 +234,31 @@ function(add_test_r_selfcompare TEST_NAME TEST_EXE PLTFILE OPTIONS_A OPTIONS_B)
     )
 endfunction(add_test_r_selfcompare)
 
+# Run the same input twice under different runtime options and require the two plotfiles to
+# DIFFER. For an option whose point is to change the answer, without a gold file: an option
+# that silently does nothing makes the runs agree. Both plotfiles must exist, so a failed run
+# cannot pass by leaving fcompare nothing to compare.
+function(add_test_r_selfdiffer TEST_NAME TEST_EXE PLTFILE OPTIONS_A OPTIONS_B)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(FCOMPARE_TOLERANCE "-r 1e-11 --abs_tol 1.0e-11")
+    set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${OPTIONS_A} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${OPTIONS_B} >> ../${TEST_NAME}.log 2>&1 && cd .. && test -d runA/${PLTFILE} && test -d runB/${PLTFILE} && ! ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} runA/${PLTFILE} runB/${PLTFILE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_r_selfdiffer)
+
 # Run an input to the end with a checkpoint partway, restart a second run from CHKFILE, and
 # require the two final plotfiles to agree: a restart must continue the run it was saved from.
 # Needs no gold data.
@@ -552,6 +577,20 @@ add_test_abort(Advection_current_factor_abort "remora_exec"
 compose_test_input(Advection_current_factor_unused_abort Advection)
 add_test_abort(Advection_current_factor_unused_abort "remora_exec"
     "remora.bulk_flux_current_factor applies only with remora.bulk_flux_relative_wind=true")
+# Shortwave penetration moves part of the surface shortwave below the top cell: with shortwave
+# it must change the answer, and with none it must change nothing.
+compose_test_input(Advection_sw_penetration Advection)
+add_test_r_selfdiffer(Advection_sw_penetration "remora_exec" "plt00001"
+    "remora.shortwave_penetration=true" "remora.shortwave_penetration=false")
+compose_test_input(Advection_sw_penetration_no_sw Advection)
+add_test_r_selfcompare(Advection_sw_penetration_no_sw "remora_exec" "plt00001"
+    "remora.shortwave_penetration=true" "remora.shortwave_penetration=false")
+compose_test_input(Advection_jerlov_type_abort Advection)
+add_test_abort(Advection_jerlov_type_abort "remora_exec"
+    "remora.jerlov_type must be I, IA, IB, II, III, 1C, 3C, 5C or 7C")
+compose_test_input(Advection_sw_penetration_no_bulk_abort Advection)
+add_test_abort(Advection_sw_penetration_no_bulk_abort "remora_exec"
+    "remora.shortwave_penetration needs the surface shortwave radiation")
 add_test_r(Advection_ML                 "remora_exec" "plt00010")
 add_test_r(Upwelling                    "remora_exec" "plt00010")
 add_test_r(Upwelling_GLS                "remora_exec" "plt00010")
@@ -571,6 +610,10 @@ compose_test_input(Seamount_ECB_tiled Seamount)
 add_test_layout(Seamount_ECB_tiled Seamount_ECB_tiled "remora_exec" "plt00003" "none"
     "remora.omp_tile_size=1024000 1024000 1024000" "remora.omp_tile_size=2 3 1024000")
 add_test_r(Channel_Test                 "remora_exec" "plt00010")
+# Akv, Akt, tke and gls in a plotfile at initialization, against the values the inputs set
+compose_test_input(Channel_Test_mixing_plot_vars Channel_Test)
+add_test_extrema(Channel_Test_mixing_plot_vars "remora_exec" "plt00000" 1e-12
+    Akv 1.0e-4 2.0e-4  Akt 5.0e-5 1.0e-4  tke 1.0e-5 1.0e-5  gls 2.0e-6 2.0e-6)
 add_test_r(DoubleGyre                   "remora_exec" "plt00010")
 # Walls on all sides, one box against six, with the 2D velocities not exchanged after their
 # boundary conditions on the fast steps (remora.cf_set_2d_bcs = 0): the barotropic fluxes

@@ -23,7 +23,7 @@ fill_nodal_z_displacement (MultiFab& mf_nd, const MultiFab& z_phys_nd, const Geo
 {
     const Real dz  = g.CellSizeArray()[2];
     const Real zlo = g.ProbLoArray()[2];
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     for (MFIter mfi(mf_nd, TilingIfNotGPU()); mfi.isValid(); ++mfi)
@@ -53,7 +53,7 @@ fill_nodal_xy_displacement (MultiFab& mf_nd, const MultiFab& mf_xy, const Geomet
 {
     const auto dx  = g.CellSizeArray();
     const auto plo = g.ProbLoArray();
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     for (MFIter mfi(mf_nd, TilingIfNotGPU()); mfi.isValid(); ++mfi)
@@ -76,7 +76,7 @@ static void
 refine_in_z (const MultiFab& src, MultiFab& dst, int rz)
 {
     const bool nodal_z = src.boxArray().ixType().nodeCentered(2);
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi)
@@ -103,6 +103,7 @@ refine_in_z (const MultiFab& src, MultiFab& dst, int rz)
 void
 REMORA::WritePlotFile (int istep_for_plot)
 {
+    BL_PROFILE("REMORA::WritePlotFile()");
 #ifndef REMORA_USE_NETCDF
     amrex::ignore_unused(istep_for_plot);
 #endif
@@ -535,7 +536,7 @@ REMORA::WritePlotFile (int istep_for_plot)
             containerHasElement(plot_var_names_3d, "z_cc"))
         {
             MultiFab dmf(plotMF[lev], make_alias, mf_comp, AMREX_SPACEDIM);
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
             for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
@@ -563,7 +564,7 @@ REMORA::WritePlotFile (int istep_for_plot)
         {
             if (containerHasElement(plot_var_names_3d, der_name)) {
                 MultiFab dmf(plotMF[lev], make_alias, mf_comp, 1);
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
                 for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
@@ -594,7 +595,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                 MultiFab mf_omega(convert(grids[lev],IntVect(0,0,1)), dmap[lev], 1, IntVect(0));
                 compute_diagnostic_omega(lev, mf_omega);
                 MultiFab dmf(plotMF[lev], make_alias, mf_comp, 1);
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
                 for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
@@ -605,6 +606,41 @@ REMORA::WritePlotFile (int istep_for_plot)
                         dst(i,j,k) = myhalf * (om(i,j,k) + om(i,j,k+1));
                     });
                 }
+            }
+            mf_comp++;
+        }
+
+        // Vertical mixing fields live on w-levels; write the average of the two faces of
+        // each cell. Akt is temperature's diffusivity. tke and gls hold time levels, of
+        // which the newest after a step is istep % 2.
+        for (const auto& nm : mixing_names_3d) {
+            if (!containerHasElement(plot_var_names_3d, nm)) { continue; }
+            const MultiFab* src;
+            int scomp;
+            if (nm == "Akv") {
+                src = vec_Akv[lev].get();
+                scomp = 0;
+            } else if (nm == "Akt") {
+                src = vec_Akt[lev].get();
+                scomp = Temp_comp;
+            } else if (nm == "tke") {
+                src = vec_tke[lev].get();
+                scomp = istep[lev] % 2;
+            } else {
+                src = vec_gls[lev].get();
+                scomp = istep[lev] % 2;
+            }
+            MultiFab dmf(plotMF[lev], make_alias, mf_comp, 1);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                const Box& bx = mfi.tilebox();
+                const Array4<Real      > dst = dmf.array(mfi);
+                const Array4<Real const> a   = src->const_array(mfi);
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    dst(i,j,k) = myhalf * (a(i,j,k,scomp) + a(i,j,k+1,scomp));
+                });
             }
             mf_comp++;
         }
@@ -1373,6 +1409,7 @@ REMORA::check_plot_nodal_z (const Vector<const MultiFab*>& nd, const Vector<Geom
 void
 REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 {
+    BL_PROFILE("REMORA::mask_arrays_for_write()");
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
         Box gbx1 = mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0));
         Box gbx_coeff = mfi.growntilebox(IntVect(NGROW,NGROW,0));
@@ -1530,7 +1567,7 @@ REMORA::compute_omega_and_w (int lev, MultiFab* mf_omega, MultiFab* mf_wvel)
         mf->setBndry(fill_value);
         mf->FillBoundary(geom[lev].periodicity());
 
-#ifdef _OPENMP
+#ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
         for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)

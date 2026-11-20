@@ -1,5 +1,5 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-remora.prob_name = Upwelling 
+remora.prob_name = Upwelling
 
 remora.max_step = 10
 
@@ -53,4 +53,3 @@ remora.use_coriolis = true
 remora.coriolis_type = beta_plane
 remora.coriolis_f0 = -8.26e-5
 remora.coriolis_beta = 0.0
-

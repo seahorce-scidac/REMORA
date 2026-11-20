@@ -168,6 +168,7 @@ void NCTimeSeriesBoundary::Initialize()
  */
 void NCTimeSeriesBoundary::update_interpolated_to_time (double time)
 {
+    BL_PROFILE("NCTimeSeriesBoundary::update_interpolated_to_time()");
     // Nothing in the file for this variable, so there is nothing to read or
     // interpolate. Returning here also keeps the reader from announcing that it is
     // reading a variable the file does not contain: the caller updates every tracer
@@ -313,6 +314,7 @@ void
 NCTimeSeriesBoundary::read_in_at_time (std::array<amrex::FArrayBox, AMREX_SPACEDIM*2>& fabs,
                                        int itime)
 {
+    BL_PROFILE("NCTimeSeriesBoundary::read_in_at_time()");
     // The host writes below land in pinned fabs that queued kernels may still be
     // reading in place, so drain the stream first
     amrex::Gpu::streamSynchronize();

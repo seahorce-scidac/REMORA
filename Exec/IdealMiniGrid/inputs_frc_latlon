@@ -71,7 +71,7 @@ remora.bulk_fluxes = true
 remora.wind_type = "netcdf"
 remora.tair_type = "netcdf"
 
-# The init and boundary files are at https://github.com/seahorce-scidac/REMORA-data; the grid
+# The init and boundary files are at https://github.com/remora-ocean/REMORA-data; the grid
 # and forcing files are made from them as described at the top
 remora.ic_bc_type       = "netcdf"
 remora.nc_init_file_0   = "idmini_ini_v1_classic64.nc"

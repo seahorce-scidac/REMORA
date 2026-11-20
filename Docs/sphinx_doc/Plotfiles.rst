@@ -224,11 +224,27 @@ Notes
 |                                | terrain-following levels        |
 |                                | (ROMS ``omega``), m/s           |
 +--------------------------------+---------------------------------+
+| **Akv**                        | vertical viscosity, m^2/s       |
++--------------------------------+---------------------------------+
+| **Akt**                        | vertical diffusivity of         |
+|                                | temperature, m^2/s              |
++--------------------------------+---------------------------------+
+| **tke**                        | turbulent kinetic energy of the |
+|                                | GLS scheme, m^2/s^2             |
++--------------------------------+---------------------------------+
+| **gls**                        | generic length-scale variable   |
+|                                | of the GLS scheme               |
++--------------------------------+---------------------------------+
 
 In NetCDF files, ``x_velocity``, ``y_velocity``, and ``z_velocity`` are called ``u``, ``v``,
 and ``w``, respectively, and are output on cell faces. ``z_velocity``/``w`` and ``omega`` are
 computed as in ROMS: from mass fluxes of the current velocities, not the time-averaged fluxes
 the tracers are advected with. All velocities are averaged to cell centers in AMReX plotfiles.
+
+``Akv``, ``Akt``, ``tke`` and ``gls`` live on the w-levels between cells; AMReX plotfiles hold the
+average of each cell's top and bottom values, and NetCDF output does not include them. ``tke`` and
+``gls`` exist only with ``remora.vertical_mixing_type = gls``; otherwise REMORA warns that they are
+not available and writes the plotfile without them.
 
 2D Plotfile Field Options
 --------------------------
