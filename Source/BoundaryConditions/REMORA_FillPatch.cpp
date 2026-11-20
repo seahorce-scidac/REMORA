@@ -12,6 +12,7 @@ namespace {
 /** \brief dst(comp) = src(comp) wherever mask is set, ghost cells included */
 void copy_on_mask (MultiFab& dst, const MultiFab& src, const iMultiFab& mask, int comp)
 {
+    BL_PROFILE("copy_on_mask()");
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
