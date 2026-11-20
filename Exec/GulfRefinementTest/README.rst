@@ -10,7 +10,7 @@ NetCDF-only (analytic aborts by design).
 Requires a NetCDF build (``-DREMORA_ENABLE_PNETCDF=ON``, or ``USE_PNETCDF=TRUE`` for GNUmake).
 
 The NetCDF files are not tracked in git (``.gitignore`` covers ``Exec/*/*.nc``). They come from
-https://github.com/seahorce-scidac/REMORA-data.
+https://github.com/remora-ocean/REMORA-data.
 
 Lanes
 -----

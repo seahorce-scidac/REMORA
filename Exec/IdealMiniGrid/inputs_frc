@@ -57,7 +57,7 @@ remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inf
 remora.bulk_fluxes = true
 remora.wind_type = "netcdf"
 
-# These files can be found at https://github.com/seahorce-scidac/REMORA-data
+# These files can be found at https://github.com/remora-ocean/REMORA-data
 remora.ic_bc_type       = "netcdf"
 remora.nc_init_file_0   = "idmini_ini_v1_classic64.nc"
 remora.nc_grid_file_0   = "idmini_grd_v1_classic64.nc"
