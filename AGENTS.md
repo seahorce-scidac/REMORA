@@ -47,6 +47,10 @@ like its neighbours:
   `Array4`s, inside an `MFIter` loop with `TilingIfNotGPU()` under
   `#pragma omp parallel if (Gpu::notInLaunchRegion())` (guarded by `#ifdef AMREX_USE_OMP`).
   Write `Real(0.25)` for literals.
+- Give each new routine that launches kernels, communicates or does I/O a TinyProfiler region
+  as its first line, named after the function: `BL_PROFILE("REMORA::advance_3d()");`. Skip
+  short helpers whose caller already has one, and don't add regions to functions called once
+  per box.
 - Initializers fill ghost cells too (`setVal` with `nGrowVect()`, not 0 ghosts).
 - Look up state components by name (`component_index`), not by assumed position or a private
   enum.
