@@ -52,6 +52,7 @@ void fill_ghost_kcomps_uv (MultiFab& ubar, const iMultiFab& band_u,
 {
 #ifdef AMREX_USE_GPU
     if (Gpu::inLaunchRegion()) {
+        BL_PROFILE("fill_ghost_kcomps_uv()");
         // Box b of both fields runs in the same launch, on box b's stream
         AMREX_ASSERT(amrex::convert(ubar.boxArray(), IntVect(0))
                          == amrex::convert(vbar.boxArray(), IntVect(0))

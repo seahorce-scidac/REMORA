@@ -46,6 +46,7 @@ void copy_on_mask3 (MultiFab* const dst[3], const MultiFab* const src[3],
 {
 #ifdef AMREX_USE_GPU
     if (Gpu::inLaunchRegion()) {
+        BL_PROFILE("copy_on_mask3()");
         // Box b of every field runs in the same launch, on box b's stream
         for (int n = 1; n < 3; ++n) {
             AMREX_ASSERT(amrex::convert(dst[n]->boxArray(), IntVect(0))
