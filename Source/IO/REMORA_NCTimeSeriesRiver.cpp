@@ -142,6 +142,10 @@ void NCTimeSeriesRiver::Initialize() {
 
 void NCTimeSeriesRiver::update_interpolated_to_time (double time) {
     BL_PROFILE("NCTimeSeriesRiver::update_interpolated_to_time()");
+    // fab_interp is already at this time; callers only read it
+    if (have_interp && interp_time == time) {
+        return;
+    }
     // Figure out time index:
     int i_time_before_old = i_time_before;
     int i_time_new = -1;
@@ -189,6 +193,8 @@ void NCTimeSeriesRiver::update_interpolated_to_time (double time) {
     amrex::ParallelFor(fab_domain, [=] AMREX_GPU_DEVICE (int r, int , int k) {
         interp_array(r,0,k) = before_array(r,0,k) + time_since_before *(after_array(r,0,k) - before_array(r,0,k)) / dt;
     });
+    have_interp = true;
+    interp_time = time;
 }
 
 void NCTimeSeriesRiver::read_in_at_time (amrex::FArrayBox* fab_dat, int itime) {

@@ -56,7 +56,10 @@ class NCTimeSeries
         void Initialize ();
 
         /** \brief Calculate interpolated values at time, in seconds on the model clock,
-         *         and fill data for level lev */
+         *         and fill data for level lev
+         *
+         * Without save_interpolated the data go into mf_lev on every call, also for a
+         * repeated time, so the caller may change mf_lev in between. */
         void update_interpolated_to_time (double time, int lev,
                                           amrex::MultiFab* mf_lev,
                                           const amrex::Vector<amrex::Geometry>& geom,
@@ -67,6 +70,19 @@ class NCTimeSeries
     private:
         /** \brief Read in data from file at time index itime and fill into mf */
         void read_in_at_time (amrex::MultiFab* mf, int itime);
+
+        /** \brief Interpolate the records around l_time, the time within the series, into
+         *         mf_interp_lev0, reading records as needed */
+        void interpolate_lev0_to_time (double time, double l_time);
+
+        /** \brief Fill mf_to_fill_lev on level lev from mf_interp_lev0 */
+        void fill_level_from_lev0 (int lev, amrex::MultiFab* mf_to_fill_lev,
+                                   const amrex::Vector<amrex::Geometry>& geom,
+                                   const amrex::Vector<amrex::IntVect>& ref_ratio);
+
+        /** \brief Everywhere the file holds data on level 0: the domain plus the ROMS ring
+         *         outside a non-nodal edge */
+        amrex::Box lev0_data_box () const;
 
         /** \brief Build cumulative refinement ratio from level 0 to lev */
         amrex::IntVect cumulative_ref_ratio (int lev,
@@ -128,8 +144,16 @@ class NCTimeSeries
         amrex::MultiFab* mf_after;
         /// Multifab storing temporally interpolated data on level 0
         amrex::MultiFab* mf_interp_lev0;
+        /// Whether mf_interp_lev0 holds data interpolated to interp_lev0_time
+        bool have_interp_lev0 = false;
+        /// Time, within the series, mf_interp_lev0 was last interpolated to
+        double interp_lev0_time = 0.0;
         /// Interpolated data on each requested AMR level if save_interpolated=true
         amrex::Vector<std::unique_ptr<amrex::MultiFab>> mf_interpolated_lev;
+        /// Whether mf_interpolated_lev[lev] holds data at interpolated_time_lev[lev]
+        amrex::Vector<int> have_interpolated_lev;
+        /// Time, within the series, mf_interpolated_lev[lev] was last filled for
+        amrex::Vector<double> interpolated_time_lev;
 
         /** Level of the most recent update. One series serves every level, and under
          * subcycling the levels ask for different times, so a saved buffer is only current

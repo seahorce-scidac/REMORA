@@ -176,6 +176,10 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (double time)
     if (m_sides.empty()) {
         return;
     }
+    // The strips are already at this time; callers only read them
+    if (have_interp && interp_time == time) {
+        return;
+    }
 
     // Initialize Fabs
     amrex::Arena* Arena_Used = amrex::The_Arena();
@@ -265,6 +269,8 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (double time)
                               + time_since_before * (after_arr(i,j,k) - before_arr(i,j,k)) / dt;
         });
     }
+    have_interp = true;
+    interp_time = time;
 }
 
 /**

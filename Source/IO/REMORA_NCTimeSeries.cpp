@@ -426,6 +426,52 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
         l_time = t_lo + std::fmod(time - t_lo, cycle_length);
         if (l_time < t_lo) l_time += cycle_length;
     }
+    // Interpolation is redone only for a time that differs from the last one. A saved buffer
+    // already at this time for this level is current: only this class writes it.
+    if (save_interpolated && lev < static_cast<int>(mf_interpolated_lev.size()) &&
+        have_interpolated_lev[lev] && interpolated_time_lev[lev] == l_time &&
+        mf_interpolated_lev[lev]->boxArray() == mf_lev->boxArray() &&
+        mf_interpolated_lev[lev]->DistributionMap() == mf_lev->DistributionMap() &&
+        mf_interpolated_lev[lev]->nGrowVect() == mf_lev->nGrowVect()) {
+        last_updated_lev = lev;
+        return;
+    }
+
+    if (!have_interp_lev0 || interp_lev0_time != l_time) {
+        interpolate_lev0_to_time(time, l_time);
+    }
+
+    amrex::MultiFab* mf_to_fill_lev = mf_lev;
+    if (save_interpolated) {
+        if (mf_interpolated_lev.size() <= static_cast<amrex::Long>(lev)) {
+            mf_interpolated_lev.resize(lev+1);
+            have_interpolated_lev.resize(lev+1, 0);
+            interpolated_time_lev.resize(lev+1, 0.0);
+        }
+        if (!mf_interpolated_lev[lev] ||
+            mf_interpolated_lev[lev]->boxArray() != mf_lev->boxArray() ||
+            mf_interpolated_lev[lev]->DistributionMap() != mf_lev->DistributionMap() ||
+            mf_interpolated_lev[lev]->nGrowVect() != mf_lev->nGrowVect()) {
+            mf_interpolated_lev[lev] = std::make_unique<amrex::MultiFab>(
+                mf_lev->boxArray(), mf_lev->DistributionMap(), 1, mf_lev->nGrowVect());
+        }
+        mf_to_fill_lev = mf_interpolated_lev[lev].get();
+        have_interpolated_lev[lev] = 1;
+        interpolated_time_lev[lev] = l_time;
+    }
+
+    last_updated_lev = lev;
+
+    fill_level_from_lev0(lev, mf_to_fill_lev, geom, ref_ratio);
+}
+
+/**
+ * @param[in   ] time    time to interpolate to, as given, for messages
+ * @param[in   ] l_time  that time within the series, wrapped into one cycle for a cycling series
+ */
+void
+NCTimeSeries::interpolate_lev0_to_time (double time, double l_time)
+{
     // Figure out time index:
     int i_time_before_old = i_time_before;
     int i_time_new = -1;
@@ -467,14 +513,11 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
     const amrex::Real dt = static_cast<amrex::Real>(time_after - time_before);
     const amrex::Real time_since_before = static_cast<amrex::Real>(l_time - time_before);
 
-    auto nodality = mf_interp_lev0->ixType();
-
-    // Everywhere the file holds data: the domain plus the ROMS ring outside a non-nodal edge.
-    // That includes every ghost cell inside the domain, which the FillPatch after this would
+    // Fill everywhere the file holds data: the domain plus the ROMS ring outside a non-nodal
+    // edge. That includes every ghost cell inside the domain, which the FillPatch after this would
     // refill with the same values from the neighbouring box, except where no box is there
     // (remora.drop_dry_boxes): those cells would otherwise keep whatever mf_interp_lev0 held.
-    const amrex::Box data_box = amrex::grow(amrex::convert(domain, nodality),
-                                            amrex::IntVect(1-nodality[0],1-nodality[1],0));
+    const amrex::Box data_box = lev0_data_box();
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -494,22 +537,21 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
         });
     }
 
-    amrex::MultiFab* mf_to_fill_lev = mf_lev;
-    if (save_interpolated) {
-        if (mf_interpolated_lev.size() <= static_cast<amrex::Long>(lev)) {
-            mf_interpolated_lev.resize(lev+1);
-        }
-        if (!mf_interpolated_lev[lev] ||
-            mf_interpolated_lev[lev]->boxArray() != mf_lev->boxArray() ||
-            mf_interpolated_lev[lev]->nGrowVect() != mf_lev->nGrowVect()) {
-            mf_interpolated_lev[lev] = std::make_unique<amrex::MultiFab>(
-                mf_lev->boxArray(), mf_lev->DistributionMap(), 1, mf_lev->nGrowVect());
-        }
-        mf_to_fill_lev = mf_interpolated_lev[lev].get();
-    }
+    have_interp_lev0 = true;
+    interp_lev0_time = l_time;
+}
 
-    last_updated_lev = lev;
-
+/**
+ * @param[in   ] lev             level to fill
+ * @param[inout] mf_to_fill_lev  data on level lev, filled from mf_interp_lev0
+ * @param[in   ] geom            geometry of every level
+ * @param[in   ] ref_ratio       refinement ratio between each level and the next
+ */
+void
+NCTimeSeries::fill_level_from_lev0 (int lev, amrex::MultiFab* mf_to_fill_lev,
+                                    const amrex::Vector<amrex::Geometry>& geom,
+                                    const amrex::Vector<amrex::IntVect>& ref_ratio)
+{
     if (lev == 0) {
         amrex::MultiFab::Copy(*mf_to_fill_lev, *mf_interp_lev0, 0, 0, 1, mf_to_fill_lev->nGrowVect());
         return;
@@ -540,7 +582,7 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
     // ghost cell then agrees with its periodic image. Only the copy used here is changed;
     // level 0 itself returned above.
     {
-        const amrex::Box& dbx = data_box;
+        const amrex::Box dbx = lev0_data_box();
         const bool per_x = geom[0].isPeriodic(0);
         const bool per_y = geom[0].isPeriodic(1);
 #ifdef AMREX_USE_OMP
@@ -561,6 +603,9 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
             });
         }
         mf_interp_lev0->EnforcePeriodicity(geom[0].periodicity());
+        // Across a periodic edge that replaced the ring the file holds with its periodic
+        // image, so level 0 needs the time interpolation redone before it copies again
+        have_interp_lev0 = false;
     }
 
     // Take the coarse data from those ghost cells, without periodic wrap: each coarse cell
@@ -605,6 +650,14 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
     }
 
     mf_to_fill_lev->FillBoundary(geom[lev].periodicity());
+}
+
+amrex::Box
+NCTimeSeries::lev0_data_box () const
+{
+    const auto nodality = mf_interp_lev0->ixType();
+    return amrex::grow(amrex::convert(domain, nodality),
+                       amrex::IntVect(1-nodality[0],1-nodality[1],0));
 }
 
 amrex::IntVect

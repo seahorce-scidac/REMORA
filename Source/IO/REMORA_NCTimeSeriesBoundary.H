@@ -33,7 +33,8 @@ class NCTimeSeriesBoundary
         void Initialize ();
 
         /** \brief Calculate interpolated values at time, in seconds on the model clock,
-         *         reading in data as necessary */
+         *         reading in data as necessary. A time equal to the last one leaves the
+         *         interpolated data as they are. */
         void update_interpolated_to_time (double time);
 
         /** \brief Data interpolated to the last time given to update_interpolated_to_time, on
@@ -99,6 +100,10 @@ class NCTimeSeriesBoundary
         double time_before;
         /// Time in ocean_times immediately after the last time interpolated to
         double time_after;
+        /// Whether m_dat_interp holds data interpolated to interp_time
+        bool have_interp = false;
+        /// Time m_dat_interp was last interpolated to
+        double interp_time = 0.0;
 
         /// Data at time_before, at time_after, and interpolated to the current time, on each
         /// horizontal side's strip, indexed by Orientation; the z entries stay empty
