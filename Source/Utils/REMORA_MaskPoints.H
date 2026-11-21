@@ -1,7 +1,9 @@
 #ifndef REMORA_MASKPOINTS_H_
 #define REMORA_MASKPOINTS_H_
 
+#include <AMReX_BLassert.H>
 #include <AMReX_Dim3.H>
+#include <AMReX_GpuControl.H>
 #include <AMReX_GpuContainers.H>
 #include <AMReX_MFIter.H>
 #include <AMReX_iMultiFab.H>
@@ -23,6 +25,11 @@ public:
     /** \brief List the cells of every local box of mask where it equals val */
     void define (const amrex::iMultiFab& mask, int val)
     {
+#ifdef AMREX_USE_GPU
+        // Resizing frees the old list at once, not in the order of the streams still reading it
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!amrex::Gpu::inNoSyncRegion(),
+            "MaskPoints::define must not run inside a BoxLocalLoops scope");
+#endif
         m_ba = mask.boxArray();
         m_dm = mask.DistributionMap();
         m_ng = mask.nGrowVect();

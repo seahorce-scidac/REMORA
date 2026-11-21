@@ -321,6 +321,9 @@ void REMORAFillPatcher::FillSetKept (MultiFab& mf, Real time, Vector<BCRec> cons
                              && m_kept->DistributionMap() == mf.DistributionMap();
     const int set_mask = m_set_mask;
     const MaskPoints& pts = m_set_pts;
+    // The list is indexed by local box, so mf must share the mask's boxes and their owners
+    AMREX_ASSERT(!m_set_pure || (mf.boxArray() == m_cf_mask->boxArray()
+                                 && mf.DistributionMap() == m_cf_mask->DistributionMap()));
 
     PhysBCFunctNoOp no_bc;
     if (m_set_pure && same_layout && m_kept_reg == m_reg_count && m_kept_time == time) {

@@ -466,12 +466,6 @@ REMORA therefore computes them once and replays them:
   end-of-step snapshot pair (``remora.cf_time_interp_zeta``) once the parent has stored it.
   Removing a level frees its entries.
 
-The masked copies of the saved ghost values and of the kept ``FillSet`` values, and the copy
-of the filled time level into the others in the coarse-fine ghost cells
-(``remora.cf_fill_all_kcomp``), each visit only the cells they write: a list of those cells
-in each fine box, made when the grid layout changes. Their cost therefore grows with the
-length of the coarse-fine interface, not with the area of the fine boxes.
-
 The replay is used with the subcycled driver only (``remora.do_substep = 1``), one
 component at a time, and for ``ubar`` and ``vbar`` only when the coarse-fine fill patchers
 set the interface faces first (``remora.cf_width`` and ``remora.cf_set_width`` at least 0).
@@ -501,6 +495,15 @@ fill. Other domains need no copy and keep only the record of which fields were e
   parent data of a frozen parent.
 
 The ``*_cf_fill_cache_check`` regression tests run with 2.
+
+Three passes on a fine level write only cells along the coarse-fine interface: the masked
+copy of the saved ghost values, the copy of the kept ``FillSet`` values, and, whatever
+``remora.cf_2d_fill_cache`` is, the copy of the filled time level into the other time levels
+in the coarse-fine ghost cells (``remora.cf_fill_all_kcomp``). Each loops over a list of the
+cells it writes in each fine box instead of over the whole box, so its cost grows with the
+length of the interface rather than with the area of the fine boxes. The lists are built
+from the corresponding masks after each change of grid layout (the one for ``FillSet`` on
+its first use afterwards), at a one-time cost that grows with the area of the fine boxes.
 
 Example
 -------
