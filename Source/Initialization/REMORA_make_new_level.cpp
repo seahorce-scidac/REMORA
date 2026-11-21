@@ -1047,17 +1047,25 @@ REMORA::set_grid_scale (int lev)
 
             // Spherical coordinates and grid angle follow when the coarser level has them.
             // Rebuilt on every (re)make of the level, because the layout may have changed;
-            // laid out like vec_xr.
-            for (auto* vec_ptr : { &vec_lonr, &vec_latr, &vec_angler })
+            // laid out like vec_xr. They are interpolated like x_rho and y_rho, not with
+            // FillCoarsePatch, whose boundary condition would put the ghost cells outside the
+            // domain on top of the edge; longitude (degrees) and angle (radians) wrap. The
+            // ghost cells across a periodic edge are then refilled from the valid cells,
+            // wrapped as on level 0.
+            struct Coord { Vector<std::unique_ptr<MultiFab>>* vec; Real period; };
+            for (const Coord& c : { Coord{&vec_lonr,   Real(360.0)},
+                                    Coord{&vec_latr,   Real(0.0)},
+                                    Coord{&vec_angler, Real(2.0) * PI} })
             {
-                auto& vec = *vec_ptr;
+                auto& vec = *c.vec;
                 if (vec[lev-1] == nullptr) {
                     vec[lev].reset();
                     continue;
                 }
                 vec[lev].reset(new MultiFab(vec_xr[lev]->boxArray(), vec_xr[lev]->DistributionMap(),
                                             1, vec_xr[lev]->nGrowVect()));
-                interp_grid_coords_from_coarse(lev, *vec[lev], *vec[lev-1]);
+                interp_staggered_coords_from_coarse(lev, *vec[lev], *vec[lev-1], c.period);
+                vec[lev]->FillBoundary(geom[lev].periodicity());
             }
 
             int rrx = ref_ratio[lev-1][0];
@@ -1197,48 +1205,6 @@ REMORA::set_derived_metrics (int lev)
             mp(i,j,0,MetricP::pnom_p) = sum_pn/sum_pm;
         });
     }
-}
-
-/**
- * Fill a refined level's coordinate array from the coarser level, ghost cells included.
- *
- * FillCoarsePatch would finish with the physical boundary condition pm and pn want, which
- * copies the edge value into every ghost cell outside the domain and averages the
- * corners; for a coordinate that puts those cells on top of the edge rather than where
- * they are. Here the ghost cells outside the domain are interpolated like the rest, from
- * the coarse level's own ghost cells, which hold the coordinates continued past the edge
- * (extrapolate_metric_to_physical_boundaries with linear on level 0, and this function on
- * the levels between). The coarse level has NGROW+1 ghost cells, enough for the stencil
- * at any refinement ratio from 2 up. The interpolation is conservative-linear, which
- * reproduces a linear field exactly.
- *
- * The coarse data is copied without periodicity. Across a periodic edge, FillBoundary has
- * already put the wrapped values in the coarse ghost cells, but a ghost cell that also lies
- * beyond a wall (a corner where the seam meets a non-periodic face) need not match its
- * periodic image: angle's corners keep the ring copied outward. A periodic copy
- * would give that cell both as sources, and which one wins is not defined: on a GPU it varies
- * from run to run (#775). Copied without periodicity, each cell comes from the coarse level's
- * own ghost cell. The fine level's ghost cells across a periodic edge are then refilled from
- * its valid cells, wrapped as on level 0.
- *
- * @param[in   ] lev    the refined level
- * @param[inout] fine   its coordinate array
- * @param[in   ] crse   the coarser level's
- */
-void
-REMORA::interp_grid_coords_from_coarse (int lev, MultiFab& fine, const MultiFab& crse)
-{
-    AMREX_ASSERT(lev > 0);
-    Vector<BCRec> interior_bcs(1);
-    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-        interior_bcs[0].setLo(dir, BCType::int_dir);
-        interior_bcs[0].setHi(dir, BCType::int_dir);
-    }
-    const IntVect ng = fine.nGrowVect();
-    const Geometry crse_geom_nonperiodic = nonperiodic_geometry(geom[lev-1]);
-    amrex::InterpFromCoarseLevel(fine, ng, ng, crse, 0, 0, 1, crse_geom_nonperiodic, geom[lev],
-                                 ref_ratio[lev-1], &cell_cons_interp, interior_bcs, 0);
-    fine.FillBoundary(geom[lev].periodicity());
 }
 
 /**
@@ -1393,23 +1359,27 @@ REMORA::set_grid_coords_by_summing_widths ()
  * Fill a refined level's coordinate array, ghost cells included, by bilinear interpolation of
  * the parent's array at the same staggering (StaggeredBilinear). The parent is read only on the
  * domain plus the one-cell ring a grid file supplies, and points beyond extrapolate linearly, so
- * a uniform grid keeps (i+1/2)/pm. The parent is copied without periodic wrap: coordinates are
- * not periodic, and a ghost cell beyond a wall would otherwise also take its periodic image.
+ * a uniform grid keeps (i+1/2)/pm. With a period (a longitude or an angle), it interpolates
+ * across a branch cut rather than through the jump. The parent is copied without periodic wrap:
+ * coordinates are not periodic, and a ghost cell beyond a wall would otherwise also take its
+ * periodic image, so which of the two wins would not be defined.
  *
- * @param[in   ] lev    the refined level
- * @param[inout] fine   its coordinate array
- * @param[in   ] crse   the parent's array at the same staggering
+ * @param[in   ] lev     the refined level
+ * @param[inout] fine    its coordinate array
+ * @param[in   ] crse    the parent's array at the same staggering
+ * @param[in   ] period  360 for a longitude in degrees, 2 pi for an angle in radians, 0 otherwise
  */
 void
-REMORA::interp_staggered_coords_from_coarse (int lev, MultiFab& fine, const MultiFab& crse)
+REMORA::interp_staggered_coords_from_coarse (int lev, MultiFab& fine, const MultiFab& crse,
+                                             Real period)
 {
     AMREX_ASSERT(lev > 0);
+    StaggeredBilinear interp(period);
     const Geometry crse_geom_nonperiodic = nonperiodic_geometry(geom[lev-1]);
     const IntVect ng = fine.nGrowVect();
     const IntVect rr(ref_ratio[lev-1][0], ref_ratio[lev-1][1], 1);
     amrex::InterpFromCoarseLevel(fine, ng, ng, crse, 0, 0, 1, crse_geom_nonperiodic, geom[lev],
-                                 rr, &staggered_bilinear_interp,
-                                 staggered_bilinear_bcrec(geom[lev-1]), 0);
+                                 rr, &interp, staggered_bilinear_bcrec(geom[lev-1]), 0);
 }
 
 /**

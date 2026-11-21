@@ -6,6 +6,7 @@
 #include <REMORA_Constants.H>
 #include <REMORA_prob_common.H>
 #include <REMORA_DataStruct.H>
+#include <REMORA_PeriodicImage.H>
 
 using namespace amrex;
 
@@ -130,7 +131,7 @@ unwrap_to_first_cell (NCLocalFab& local, Real period)
     auto arr = fab.array();
     ParallelFor(fab.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        arr(i,j,k) -= period * std::round((arr(i,j,k) - ref) / period);
+        arr(i,j,k) = nearest_periodic_image(arr(i,j,k), ref, period);
     });
     Gpu::streamSynchronize();
 }

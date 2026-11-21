@@ -196,6 +196,11 @@ rather than assumed.
   refinement ratios 1 to 4, every fine cell center (the strip's end cells included) and every fine
   node must reproduce a linear profile exactly, using only coarse points inside the strip. It needs
   no NetCDF, so it runs in every build.
+- ``REMORA_StaggeredBilinear_test.cpp`` (ctest ``StaggeredBilinear``) tests the bilinear value used to
+  interpolate grid coordinates onto a refined level, in ``REMORA_StaggeredBilinear.H``: a bilinear field
+  is reproduced exactly, extrapolation included, and a longitude or angle crossing a branch cut (the date
+  line, the prime meridian in [0, 360), pi) gives the continuous field's value on the branch of the
+  nearest coarse value. It needs no NetCDF, so it runs in every build.
 - ``REMORA_Biology_test.cpp`` (ctest ``BiologyInterface``) tests the biology interface in
   ``Source/Biology`` without running the model: the tracers Fennel and ECB declare and their order,
   finding a tracer's state component by name, configuring each model from its ROMS defaults, constant and
