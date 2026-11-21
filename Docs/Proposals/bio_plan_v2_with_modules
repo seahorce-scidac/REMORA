@@ -1,0 +1,628 @@
+REMORA biology extension implementation plan
+Version 2: abstract ecosystem interface and optional module composition
+23 October 2026
+
+Provide one abstract Biology interface with concrete ecosystem implementations
+such as FennelBiology, ECBBiology, and NemuroBiology. Provide a separate optional
+module interface so a user can add processes to a selected ecosystem without
+copying its kernel or adding model-specific branches throughout REMORA.
+
+Retain REMORA's existing scalar storage, transport, forcing, and biology call
+site. Preserve the reference ecosystem's numerical equations exactly during
+the initial port and architecture refactor. In particular, add no clipping,
+floors, ceilings, or denominator guards, including on intermediate quantities,
+unless they are already part of the selected reference implementation.
+
+This revision specifies the capability to attach additional biology modules.
+It does not propose implementing an oyster model or another new scientific
+module. An oyster extension mentioned by the user is an illustrative use case
+for the interface, field mapping, and optional persistent-state lifecycle.
+
+This is a documentation-only implementation proposal. No REMORA or ROMS source
+code is changed by this document. The original plan is retained separately.
+
+1. Basis and review feedback
+
+Original analysis baseline:
+  REMORA commit ca37d9fb801b598eb9e3cd95efb9d5081bae93d1.
+  ROMS reference checkout commit f8a3aaa205daaec17c52f028ba62961cc481d379.
+
+The original analysis included local modifications to the ROMS biology files.
+Consequently, those observations are not assertions about a pristine upstream
+release. An implementation must pin its reference revision, any adopted local
+patches, and the selected process options. The REMORA checkout examined for
+this revision still reports the same HEAD. Existing scalar and biology code
+was inspected without changing it.
+
+Review source:
+  https://github.com/seahorce-scidac/REMORA/pull/729
+  Reviewed proposal path: Docs/bio_extension_plan.txt.
+  Proposal commit: f6f3a7ecf0a3ec9f7cff7d684c6fe756c900755a.
+  Reviewer: hklion; review submitted 21 October 2026.
+
+This revision incorporates all four inline comments and the review summary:
+
+  Exact math, including intermediates:
+    https://github.com/seahorce-scidac/REMORA/pull/729#discussion_r4339379610
+    Strengthen the initial-port rule beyond avoiding a final positivity clip.
+    Preserve reference mathematics and add no intermediate clipping either.
+
+  Device-callable class functions:
+    https://github.com/seahorce-scidac/REMORA/pull/729#discussion_r4339412327
+    Any class function called from a device kernel must be public. Avoid
+    host allocations and strings inside device work.
+
+  Proportionate reference validation:
+    https://github.com/seahorce-scidac/REMORA/pull/729#discussion_r4339534302
+    Matching ROMS and REMORA outputs to roundoff is normally sufficient when
+    tested variables actually respond. A new Fortran bridge and detailed
+    stage instrumentation are optional tools, not universal prerequisites.
+
+  Abstract base class and universal interface:
+    https://github.com/seahorce-scidac/REMORA/pull/729#discussion_r4339850236
+    https://github.com/seahorce-scidac/REMORA/pull/729#pullrequestreview-5603012720
+    Use a common abstract Biology interface to reduce repeated model-specific
+    conditionals in REMORA.
+
+The generic module capability is an additional user requirement. It is not
+attributed to hklion. Class names, interfaces, coupling order, and filenames
+below are proposed design choices rather than reviewer-approved code.
+
+2. Existing structure to retain and generalize
+
+Source/Biology/REMORA_Biology.H currently defines none/fennel selection,
+FennelParameters, optional tracer counts, and Fennel component mappings.
+Source/Biology/REMORA_Biology.cpp combines parsing/metadata helpers and the
+native Fennel update in REMORA::advance_biology.
+
+The state already has a runtime layout:
+  [temperature, salinity, passive dyes, active biology tracers]
+  Bio_comp = Tracer_comp + nscalar
+  ncons = Tracer_comp + nscalar + nbio
+  Tracer_comp = 2
+
+Keep those definitions and the distinction between dyes and biology. The
+selected ecosystem defines its tracer inventory. Modules may request extra
+advected tracers through the same inventory mechanism, but do not require
+them. Nonadvected module state must not be inserted into the tracer block.
+
+Source/REMORA.cpp currently loads Fennel parameters for any active biology
+and constructs names through a Fennel-dependent helper. Generalize these
+entry points to the abstract interface; do not add a parameter member or
+metadata switch to REMORA for every new ecosystem or module.
+
+Source/TimeIntegration/REMORA_advance_3d.cpp calls advance_biology after the
+GLS corrector. Tracer RHS advection, conversion of thickness-weighted state,
+vertical mixing, and nudging operations occur subsequently. Keep this actual
+placement and numerical contract rather than treating the hook as a generic
+end-of-step concentration update.
+
+Source/Initialization/REMORA_init.cpp, REMORA_prob_common.H, and
+Exec/REMORA_Prob.H/.cpp have analytic biology hooks taking FennelParameters.
+Replace the permanent interface with a model-neutral initialization context.
+Retain a temporary adapter for existing Fennel problem initializers if needed.
+Do not add a new problem-base virtual signature for each ecosystem.
+
+NetCDF biology initialization already consumes cons_names and an alias of
+the biology block. Boundary, river, climatology, and many scalar controls
+also use names and ncons. Reuse them, including the full-domain high-resolution
+initialization followed by average-down.
+
+Preserve akt_comp's current use of salinity vertical diffusivity for biology
+and dye fields unless different physics is explicitly required. Keep per-tracer
+horizontal diffusivity configuration. Plot-variable expansion and checkpoint
+identity require small generalizations; scalar transport algorithms do not
+need an ecosystem-specific rewrite.
+
+3. Separate ecosystem implementations and inventories
+
+Use ROMS ecosystem options as scientific references, not as interchangeable
+sets of identically named variables. Their implementations separate source/sink
+equations, parameters, parameter input, variable metadata, and output of the
+configuration. Keep those responsibilities in each concrete class using
+REMORA's C++ and ParmParse conventions.
+
+Fennel in the examined baseline has seven base tracers:
+  NO3, NH4, chlorophyll, phytoplankton, zooplankton, LdetritusN, SdetritusN.
+Optional PO4, carbon, oxygen, river organic pools, and ODU change the layout;
+the fully enabled inventory has 16 fields.
+
+The examined ROMS ECB module declares 18 fields, in order:
+  NO3, NH4, chlorophyll, phytoplankton, zooplankton, LdetritusN,
+  SdetritusN, semilabileDON, PO4, LdetritusC, SdetritusC, TIC,
+  alkalinity, semilabileDOC, oxygen, refractoryDON, refractoryDOC, calcium.
+
+ECB includes additional dissolved-organic pathways, exudation, carbon excess
+uptake, attenuation, and bottom-process parameterizations. Some registered
+fields are functional or transported without a direct local reaction in the
+examined kernel. Do not invent transformations based only on field names.
+For example, Fennel's river organic pools are not automatically equivalent
+to ECB's semilabile dissolved organic pools.
+
+The examined NEMURO module has 11 fields: small and large phytoplankton;
+small, large, and predator zooplankton; NO3; NH4; PON; DON; silicate; opal.
+Its food web, silicon cycle, and sinking fields differ from Fennel and ECB.
+Do not allocate unused Fennel fields merely to force it into a shared layout.
+
+Each concrete ecosystem owns its equations, parameters, optional features,
+reference constraints, integration order, tracer definitions, and scientific
+field meanings. The base class defines how REMORA uses an ecosystem; it does
+not prescribe one common ecosystem or a union of all possible parameters.
+
+ROMS reference description:
+  https://github.com/myroms/roms/wiki/ROMS-Kernels
+
+4. Abstract Biology interface and ownership
+
+Proposed host-side ownership:
+
+  REMORA
+    owns BiologySystem
+      owns unique_ptr<Biology> ecosystem
+      owns vector<unique_ptr<BiologyModule>> optional_modules
+
+  Biology is an abstract base class
+    FennelBiology derives from Biology
+    ECBBiology derives from Biology
+    NemuroBiology derives from Biology
+
+  BiologyModule is a separate abstract extension interface
+    User implementations derive from BiologyModule when needed
+
+These names are schematic. Do not create empty ECB/NEMURO implementations
+that appear selectable before their kernels exist. A factory should reject
+unimplemented models. The none option can use a null ecosystem with a single
+common no-biology guard.
+
+Keep selection in a small construction factory. A simple factory switch is
+acceptable; eliminate recurring switches from parameter loading, name/count
+queries, initialization, stepping, and I/O integration. Dynamic library
+loading and a runtime plugin registry are not required for this capability.
+New classes can initially be compiled and registered in the executable.
+
+Illustrative Biology responsibilities, not compile-ready declarations:
+
+  virtual ~Biology()
+  model_id() and schema_version()
+  configure(parameter_prefix)
+  tracer_definitions() and field_capabilities()
+  bind_layout(frozen_layout)
+  initialize(initialization_context)
+  prepare_reference_workspace(advance_context, workspace)
+  advance_ecosystem(advance_context, workspace)
+  configuration_metadata() and supported_backends()
+
+Required methods are public and pure virtual where an implementation is
+needed. Lifecycle calls occur on the host. Parameter structures are owned by
+the concrete ecosystem, not by the base class or a growing REMORA parameter
+union. The base class has a virtual destructor and no device-side virtual
+dispatch requirement.
+
+BiologySystem coordinates layout, module binding, scheduling, state lifecycle,
+and final coupling to REMORA. It must not contain Fennel growth or ECB chemistry
+equations. Keep the interface small; use ordinary descriptors and context
+objects instead of one virtual method for every tracer or process.
+
+The permanent REMORA::advance_biology wrapper delegates to BiologySystem.
+An initial FennelBiology adapter may call the existing native kernel unchanged
+while ownership and metadata are migrated. Remove the temporary dependency on
+REMORA-owned fennel_params after the class owns the canonical parameter state;
+avoid two independently mutable copies of the same configuration.
+
+5. Generic optional module interface
+
+A module contributes additional processes or state while the selected Biology
+class remains responsible for the reference ecosystem. Prefer composition
+for a reusable extension. A user may subclass an ecosystem for an intentional
+model-specific scientific variant, but an extension that must work across
+ecosystems should not inherit from ECBBiology or access its private indices.
+
+Illustrative BiologyModule responsibilities:
+
+  virtual ~BiologyModule()
+  module_id(), instance_id(), and schema_version()
+  configure(parameter_prefix)
+  requirements() and declared_reads_and_writes()
+  additional_tracer_definitions() and additional_state_definitions()
+  bind(resolved_field_access, state_layout)
+  initialize(initialization_context, module_state)
+  advance(module_context, exchange_access, module_state)
+  diagnostics() and configuration_metadata()
+
+The framework, not each module, allocates registered state and coordinates its
+initialization, restart, and AMR operations. Provide module hooks only where
+generic state handling is insufficient. Multiple instances need unique IDs,
+parameter namespaces, and output names; an ambiguous duplicate must fail at
+configuration time rather than silently share state.
+
+An empty module list must preserve the unextended ecosystem behavior. Adding
+or disabling a module is a startup configuration change, not a mid-run change
+to tracer layout. The initial release need not implement a scientific module.
+A small test-only exchange fixture can verify the extension contract without
+introducing an oyster model or new production biology.
+
+6. Field semantics and cross-ecosystem binding
+
+Represent each available field by stable identity, external name, storage
+location, units, elemental basis, ecological meaning, and allowed operations.
+Useful meanings include particulate organic nitrogen, ammonium, dissolved
+oxygen, temperature, and layer thickness. Meanings must be sufficiently
+specific to distinguish detritus sizes, dissolved versus particulate pools,
+and active versus diagnostic quantities.
+
+The binding sequence is:
+  1. Concrete ecosystem declares available fields and supported interactions.
+  2. Each module declares required and optional inputs and exchange outputs.
+  3. Explicit binding rules resolve requirements to ecosystem fields.
+  4. Validate units, basis, storage location, mutability, and required options.
+  5. Produce compact device-copyable index and conversion descriptors.
+  6. Freeze all bindings before state allocation and timestep integration.
+
+Simple one-to-one mappings should be straightforward. Aggregating pools,
+inferring carbon from nitrogen, or distributing an exchange back among
+several pools requires a documented scientific rule. Reading the sum of
+multiple food pools does not define how a withdrawal should be allocated.
+No binding may silently substitute zero for a missing required field.
+
+Keep these compatibility mappings outside the reusable module's biological
+equations. They may be owned by the concrete ecosystem or by explicit binding
+adapters selected at setup. Ordinary module code must not switch on model
+names or hard-code Bio_comp offsets. Convert metadata to fixed indices and
+coefficients before launching kernels; do not search string maps on the GPU.
+
+Illustrative compatibility example only:
+  A future detritus-consuming module could bind to selected Fennel or ECB
+  detritus pools, or to NEMURO PON, subject to its declared diet and elemental
+  requirements. Those pools need not be scientifically equivalent. If the
+  module requires explicit carbon or oxygen fields, a configuration lacking
+  them is unsupported unless a separate, documented formulation supplies
+  consistent semantics. A nitrogen pool alone is not an automatic carbon or
+  oxygen proxy.
+
+Reusability means the module algorithm depends on its declared contract and
+an explicit compatible adapter. It does not mean every module must run with
+every model or option set. Setup should report the resolved mapping or explain
+precisely which requirement cannot be satisfied.
+
+7. Exchange contract and optional persistent state
+
+A module must be able to modify the selected ecosystem through defined
+conservative exchanges, not by writing arbitrary REMORA components. Describe
+each exchange by affected fields, sign, units, elemental stoichiometry, and
+the state or external reservoir receiving any removed material.
+
+The access interface may launch a fused kernel that updates bound fields;
+it need not create a host-side record for every cell. The contract still
+needs enough structure to check ownership, diagnose transfers, and account
+for conservation. Do not introduce a generic tendency-only interface that
+prevents a module from implementing its required implicit coupled equations.
+
+Distinguish rates from increments explicitly. A rate needs integration over
+the supplied duration; an already integrated exchange must not receive a
+second timestep factor. Also distinguish volumetric concentrations, column
+inventories, and areal boundary exchanges. For example, a bottom exchange
+of amount E per unit horizontal area changes the bottom concentration by
+E/Hz_bottom, with the applicable wet area and unit conversions accounted for.
+
+If several fields represent one material removal, update the destination
+and all required elemental counterparts consistently. The module's selected
+equations define integration and any availability treatment; the generic
+framework must not add floors, extra clipping, or a post-hoc conservation
+repair. Incompatible field semantics must be rejected during binding.
+
+Provide state descriptors for these generic cases:
+  Advected water-column tracer: part of the biology scalar inventory.
+  Nonadvected water-column state: separate registered 3-D state.
+  Benthic or surface state: separate registered 2-D state.
+  Diagnostic: derived output, not a prognostic reservoir.
+
+For persistent state, declare units, location, initialization source, physical
+transport policy, ghost-fill needs, checkpoint identity, and AMR transfer
+policy. A framework that calls a module each step but does not preserve its
+state is insufficient for stateful extensions.
+
+The user-described oyster example motivates this distinction: a future module
+may hold its own biomass or density, read ecosystem detritus, and return
+biogeochemical exchanges. This plan supplies the lifecycle and exchange
+capability only. It specifies no oyster growth equations, diet, shell
+chemistry, rate constants, or oyster-specific implementation files.
+
+The framework should handle conservative remapping for supported state kinds.
+An areal density must be transferred in a way that preserves its area-integrated
+amount, rather than treated as a transported volume concentration. A proposed
+state kind without supported restart or AMR handling must be rejected or
+explicitly restricted to the supported grid scope.
+
+8. Numerical scheduling and exact reference mathematics
+
+Keep the existing REMORA hook and its thickness-weighted coupling. A proposed
+module-capable schedule at that hook is:
+
+  1. Prepare ecosystem reference and working concentrations from old state,
+     reproducing exactly the selected reference initialization constraints.
+  2. Advance the ecosystem over dt_lev using its original internal sequence,
+     BioIter policy, sinking, gas exchange, and reference constraints.
+  3. Advance enabled modules over dt_lev in a documented deterministic order,
+     using the resulting working ecosystem concentrations and module state.
+  4. Commit the combined water-column biological increment exactly once:
+       weighted_new[n] += mask * Hz * (working[n] - reference_initial[n]).
+     Persist separately registered module state through its own lifecycle.
+
+This is a proposed first-order operator split, not simultaneous coupling.
+Module durations cover the same physical interval as the ecosystem. The
+algorithm approximates the coupled solution with sequential operators; it
+must not advance the physical clock twice. A module already integrated for
+dt_lev must not be reapplied once per ecosystem BioIter.
+
+The working state must include all enabled tracer changes consistently, and
+each final contribution must be committed only once. Do not apply a base-model
+increment to weighted_new, then re-add that same increment when a module
+finishes. Any constraints already in the reference ecosystem belong at their
+original mathematical stage, not in a new blanket post-module clip.
+
+Prepare reference and working values for module-added tracers as well as
+ecosystem tracers. Their owning formulation defines any reference constraints;
+do not apply Fennel's constraints to new fields by default. The module API must
+provide this preparation before its first exchange and before the final
+combined increment is formed.
+
+Start by verifying the empty-module path. If moving Fennel's existing private
+scratch into the shared workspace would change operation order, first retain
+the class adapter unchanged, then refactor scratch access as a separately
+validated step before enabling coupled execution. Do not claim the full
+module capability works until that shared-state path is implemented.
+
+Use this split as an explicit initial coupling policy, not an assertion that
+it is adequate for every extension. Strong interactions may need shared
+substepping or implicit integration. Add that capability only with a specified
+scheme and convergence tests. Repeatedly calling a full-step kernel with
+reinitialized old-state scratch is not valid subcycling.
+
+Expose module order and dependencies as configuration metadata. Sequential
+modules see preceding changes; when multiple modules consume the same pool,
+the framework must make that ordering explicit and check dependency cycles.
+A simultaneous exchange solver is a separate numerical feature, not silently
+equivalent to sequential updates.
+
+BioIter<=0 requires a defined policy. Preserve the existing ecosystem-disabled
+behavior. For a first module-capable release, disable the complete coupled
+reaction update when its ecosystem is disabled, and report that policy.
+Independent module-only stepping should be a separate supported mode, not an
+accidental consequence of a Fennel-specific guard.
+
+Strict porting rule:
+  Preserve all equations, signs, process ordering, source-defined constraints,
+  and time factors. Add no positivity clips, epsilon denominators, floors,
+  ceilings, or bound repairs at any intermediate or final stage. Existing
+  reference constraints remain part of the equations and must not be removed
+  merely because they look like clipping. Any intentional scientific or
+  numerical modification is a separately selected and validated variant.
+
+For unsupported inputs or shallow-column configurations, fail clearly before
+running an invalid kernel instead of inventing a modified stencil or guard.
+Retain k=0..N for N+1 REMORA wet layers, N+2 interface-depth entries, and the
+ROMS-to-REMORA index and unit conversions used in comparisons. REMORA's native
+shortwave input is W/m2; a ROMS comparison adapter converts to its kinematic
+shortwave convention exactly once.
+
+9. Host polymorphism and GPU execution
+
+Virtual calls select an ecosystem or module on the host at setup or update
+boundaries. Each concrete implementation launches ordinary AMReX kernels
+with device-copyable parameter, component, and exchange descriptors.
+
+Do not capture a polymorphic host object, std::unique_ptr, std::vector, or
+string in a device lambda. Do not require device-side vtables. Any class
+functions called within a device kernel must be public and have the necessary
+AMReX host/device annotations. Free device-callable helpers are also suitable.
+Allocate scratch through appropriate AMReX arenas outside device work and
+preserve its lifetime across asynchronous launches.
+
+Keep whole columns available for light attenuation and sinking. A host-level
+module API must also be able to launch work on the selected state location,
+such as a 2-D boundary field, without assuming every extension is a 3-D tracer
+reaction. Ordered launches must have correct stream dependencies and must not
+race on shared ecosystem fields or outlive their binding/scratch storage.
+
+10. Configuration, initialization, I/O, and restart
+
+Proposed input shape, not existing syntax:
+  remora.biology_model = fennel
+  remora.biology_modules = <registered module instance names>
+  remora.fennel.<parameter> = <value>
+  remora.biology_modules.<instance>.<parameter> = <value>
+
+Keep existing Fennel parameter names and defaults during migration. Parse
+ecosystem-specific values in the concrete class and module-specific values
+in their instance namespace. An empty module list is the default. Neither
+ECB, NEMURO, nor a scientific module is selectable until actually implemented.
+
+Construct a single frozen layout before allocating ncons-dependent state:
+  physical fields, dyes, ecosystem tracers, additional module tracers.
+Use ecosystem-first ordering to preserve legacy Fennel layouts when modules
+are absent. Module-added tracer names must be unique and stable. One existing
+ecosystem pool is not duplicated merely because a module requests access to
+it. Store counts and component indices from the frozen descriptor list.
+
+The model-neutral analytic initialization context supplies the selected
+ecosystem identity, immutable tracer/state descriptors, grid/physical fields,
+and destination views. The application remains able to define profiles.
+Module initialization runs after its required physical/ecosystem fields are
+available. Provide the same ordering for full-domain high-resolution ICs
+before average-down. Missing required initial data is an error unless a
+scientifically defined default is explicitly part of that module or model.
+
+Reuse generic NetCDF readers and per-name boundary/river/climatology paths for
+advected tracers. Additional nonadvected state needs its own declared reader
+and initialization policy. Registration alone does not supply missing forcing
+or a physical provider such as sediment. Fail clearly for unsatisfied inputs.
+
+Add a biology plot group for all active advected biology fields. Preserve
+fennel as an alias only for Fennel. Support selecting module prognostic state
+and diagnostics by their registered output names. Attach units, location,
+long name, and configuration metadata; do not force 2-D module state through
+the existing 3-D scalar writer.
+
+Restart identity must include model and schema, ordered full cons_names,
+layout-defining options, module types and instance IDs, module schema/state
+descriptors, resolved bindings, and coupling order. A versioned sidecar can
+extend existing checkpoints with limited Header changes. Equal ncons is not
+enough to accept a restart, and the same module name with different scientific
+bindings can also be incompatible.
+
+Checkpoint all registered persistent state. Define a deliberate policy for
+adding/removing modules at restart; initially reject such changes without an
+explicit migration. Preserve documented legacy Fennel/none restart behavior
+while stating that older checkpoints cannot prove field identity. Do not
+silently convert checkpoints between ecosystem or module formulations.
+
+Record parameters and distinguish a permitted rate change from a change that
+invalidates the stored layout or state semantics. The framework may need
+small module-state AMR and I/O additions; keep those separate from scalar
+transport changes and test their conservation and round trips.
+
+11. Proposed implementation changes and staged delivery
+
+Suggested additions under Source/Biology, adjusted to repository conventions:
+  REMORA_BiologyBase.H
+    Abstract Biology contract and common context/field descriptors.
+  REMORA_BiologySystem.H/.cpp
+    Ownership, factories, frozen layout, binding, update orchestration.
+  REMORA_BiologyModule.H
+    Generic module contract, requirements, exchanges, state descriptors.
+  REMORA_Fennel.H/.cpp
+    Fennel concrete class with existing parameters and reference arithmetic.
+  REMORA_ECB.H/.cpp and REMORA_Nemuro.H/.cpp
+    Add only as those concrete scientific kernels are implemented.
+
+The interface and descriptor pieces can be combined initially if that keeps
+the change smaller. These are not requirements to create many mostly empty
+files. No oyster-specific source or input files are part of this proposal.
+
+Targeted integration edits:
+  Source/Biology/REMORA_Biology.H/.cpp
+    Retain compatible external entry points and delegate to the new owner.
+  Source/REMORA.H and Source/REMORA.cpp
+    Store BiologySystem; query common configuration, counts, and metadata.
+  Source/Initialization/REMORA_prob_common.H and REMORA_init.cpp
+  Exec/REMORA_Prob.H/.cpp
+    Introduce the generic IC context and temporary Fennel compatibility shim.
+  Source/IO/REMORA_SetPlotVars.cpp, REMORA_NCPlotFile.cpp,
+  REMORA_Checkpoint.cpp, and job-information output
+    Integrate descriptors, optional state, and checkpoint identity.
+  Existing level creation/regrid lifecycle entry points
+    Allocate and transfer additional registered state when a module needs it.
+  Source/Biology/Make.package and CMake/BuildREMORAExe.cmake
+    Register new sources in both build systems.
+  Existing test registration and documentation
+    Add interface/binding/state tests and supported reference configurations.
+
+Keep advance_3d's call site, physical indices, scalar advection/mixing, and
+existing ncons-based transport/forcing loops unchanged by default. Limit AMR
+changes to the lifecycle of additional registered state unless a demonstrated
+numerical requirement demands more. Keep Fennel's reference backend and tag
+format unchanged; expose backend capability through its concrete class so
+another model cannot accidentally select the Fennel Fortran bridge.
+
+Stage A: Introduce Biology and wrap Fennel with no modules.
+  Exit: same configuration, field ordering, and results to roundoff, with
+  no added mathematical constraints and no model switches in common callers.
+
+Stage B: Add the optional-module capability and generic state lifecycle.
+  Implement metadata, field binding, working-state exchange, deterministic
+  scheduling, initialization/restart, and supported state transfer. Use a
+  test-only mock exchange to demonstrate the contract. Empty modules preserve
+  Stage A behavior. No production oyster module is required or proposed.
+
+Stage C: Add a second concrete ecosystem, such as ECB.
+  Pin the scientific reference and port its equations exactly. Exercise the
+  same test-only module contract with a second explicit compatible adapter;
+  otherwise a Fennel-only mock would not demonstrate cross-model binding.
+
+Stage D: Validate coupled execution and extend supported configurations.
+  Test timestep convergence of the coupling policy, input/output paths,
+  parallel execution, restart, and supported AMR state kinds. Introduce a
+  real scientific extension only in separate user work or a separate PR.
+
+Stage E: Optional scientific subclasses and advanced coupling.
+  A concrete-model subclass can represent a deliberate scientific variant
+  behind the same interface. Common reusable extensions should still use
+  BiologyModule composition rather than duplicating that variant for every
+  ecosystem. Shared chemistry/sinking helpers and advanced coupled solvers
+  require separate evidence that their mathematical contracts match.
+
+12. Validation and acceptance criteria
+
+Reference ecosystem agreement:
+  Compare matched ROMS and REMORA output to roundoff under the same initial
+  conditions, forcing, parameter values, option set, and output timing.
+  Specify tolerances consistent with precision and diagnosed arithmetic
+  differences; do not relax tolerances to hide a changed equation. Ensure
+  tested variables/processes respond rather than remaining identically zero
+  or acting as no-ops. Functional/passive pools need nonuniform transport or
+  another relevant check, not an invented reaction.
+
+  Use the existing guidance in Source/Biology/Fortran/README.md and tag_map.md
+  when the Fennel bridge or detailed diagnostics are needed. Preserve that
+  established protocol. A new per-ecosystem Fortran bridge and comparisons at
+  every internal stage are optional debugging aids, not automatic acceptance
+  gates when meaningful output agreement already verifies the port.
+
+Empty-module and disabled-module behavior:
+  Fennel with no extensions reproduces the baseline. A disabled test module
+  changes no state or layout unexpectedly. Biology-none and BioIter-disabled
+  policies are explicit. Unsupported backend requests fail rather than using
+  a different ecosystem's reference implementation.
+
+Interface and binding:
+  No hard-coded ecosystem enum branches inside the test module. Verify its
+  required inputs and exchanges through two compatible concrete-model field
+  adapters. Reject missing oxygen/carbon, wrong units, duplicate names, or
+  unsupported write access. Test nonzero dye counts so Bio_comp is not assumed
+  to equal Tracer_comp. Validate frozen-layout counts and name/index agreement.
+
+Exchange and coupling:
+  Use a minimal test-only conservative transfer between represented pools or
+  a registered reservoir. Verify equal accounted removal and addition, correct
+  areal/volumetric conversion, signs, stoichiometry, and no duplicate timestep
+  or increment application. Use nonuniform Hz and a nonzero incoming weighted
+  state. A no-change update must yield exactly zero increment under the
+  reference constraint convention. The framework adds no clipping.
+
+  Test deterministic order, shared-pool interactions, conflicting dependencies,
+  and expected first-order convergence for the proposed sequential split.
+  Scientific module implementations must supply their own equation-specific
+  tests when introduced; the generic fixture is not scientific validation of
+  an oyster or other production module.
+
+Persistent state and I/O:
+  Exercise supported 2-D and 3-D state registration, initialization, ghost fills,
+  checkpoint/restart, and regridding. Compare restarted and uninterrupted runs.
+  Reject equal-count but different-layout/binding/module checkpoints. Check
+  high-resolution initialization and average-down ordering. Confirm both
+  advected and nonadvected outputs retain units and storage locations.
+
+Budgets and parallel portability:
+  For domain inventories, sum over valid wet cells excluding coarse cells
+  covered by finer levels. Use concentration times Hz times horizontal area
+  for volume pools and state times area for areal densities. Include external
+  losses, burial, and other represented reservoirs. Do not double-count
+  chlorophyll as an independent elemental inventory.
+  Check CPU/MPI and native GPU execution with justified roundoff expectations,
+  public device-callable helpers, intact columns, valid scratch lifetimes,
+  and absence of concurrent writes. The host-only Fennel bridge is not a GPU
+  implementation or a universal backend for all models/modules.
+
+13. Decisions to settle before implementation
+
+Agree on the abstract interface and context names, field semantic descriptors,
+the first supported exchange/state kinds, and the generic IC migration. Pick
+the second ecosystem reference/options and identify which optional fields it
+can actually provide to modules. Specify the initial coupling order, disabled
+reaction policy, and restart compatibility rules.
+
+The immediate deliverable is a reference-preserving Biology abstraction plus
+the capability to attach optional modules through declared dependencies,
+explicit field adapters, controlled exchanges, and a complete state lifecycle.
+It is not a rewrite of all biology kernels, an automatic interchange of
+different scientific pools, or the implementation of a new oyster module.
